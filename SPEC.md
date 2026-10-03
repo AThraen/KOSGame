@@ -1,0 +1,298 @@
+# KØS SEJL — game spec (binding contract)
+
+A sailing game for **KØS Sejlsport**, a youth sailing club on **Svaneknoppen** (Svanemøllehavnen, Copenhagen, Øresund).
+Players are 8–26 (plus some adults). They play at home in winter. The game follows the club's boat ladder:
+**Optimist → Tera → Feva → Zest → ILCA → 29er → H-boat → J70**, plus the club's **RIB** coach boats.
+
+This file is the contract between modules. Parallel builders rely on the names and shapes below. If you must change
+a contract, change it here too and keep backwards compatibility.
+
+Reference material in `docs/reference/`:
+- `chart-overview.webp`: nautical chart of the area. The club is on **Svaneknoppen** (red cross), the point between
+  **Svanemøllebugten** (shallow bay to the west, 1.6–3.5 m, yellow swim-zone marks "Y" along the beach) and
+  **Kalkbrænderiløbet**. To the north is the beach mole ("Badestrandens mole, Fl W 3s"), to the north-east
+  **Færgehavn Nord**, **Skudeløbet**, **Stubben** and the open **Øresund** (5–13 m). Cardinal/lateral marks: red = port,
+  green = starboard (IALA A, Denmark).
+- `chart-svaneknoppen-pier.webp`: close-up of the club's pier: a big bay (1.6 m) closed by rock breakwaters ("Obstn"),
+  a curved island breakwater, small jetties at the club near "Svane…".
+- `spangame-title.png`, `spangame-ingame.png`: the visual style to follow (from our sister game SPAN).
+- Mood photo (described, not on disk): a young sailor hiking out on a white keelboat at sunset, pastel orange/lilac sky,
+  grey-blue choppy water, Nordhavn's modern apartment towers on the horizon. That is the mood for backgrounds.
+- Club RIB photo (described): the KØS coach boats are **bright orange "Tornado" RIBs** with a black rubbing strake
+  along the tube, a rope grab-line, **"KØS" in a black rounded box on the bow**, an orange centre console with a steering
+  wheel and a stainless grab rail, a black **Mercury** outboard (draw it as a generic black outboard, no brand). Kids drive
+  them and tow other RIBs/dinghies on a line. Harbor backdrop: forest of sailboat masts, wooden pier, rusty steel sheet
+  piling, glassy office blocks and an old red-brick power station. Overcast grey sky. Orange = the club's signature colour.
+
+## Hard rules
+
+- **Plain HTML + CSS + JS. No build step, no framework, no runtime deps.** Classic `<script>` files, all attaching to
+  one global `KOS`. Must work from `file://` (no ES modules, no fetch of local JSON) and from http (PWA).
+- Every file is wrapped: `(function (root) { const KOS = (root.KOS = root.KOS || {}); ... })(typeof window !== 'undefined' ? window : globalThis);`
+- **`js/core/*` is pure logic**: no DOM, no `Math.random` (use `KOS.U.rng(seed)`), no wall clock. Loads in Node via
+  `tools/harness.js` for tests.
+- **Danish is the default language, English the second.** Every user-visible string goes through `KOS.t(key, vars)`.
+  Each module registers its own strings in its own file: `KOS.I18n.add('da', {...}); KOS.I18n.add('en', {...});`
+  Keys are namespaced by module (`race.start.title`). Danish should be natural, kid-friendly, and use real Danish
+  sailing words (bagbord, styrbord, krydse, slå, bom/jibbe, luv, læ, kryds, slør, læns, halvvind, skøde, rorpind, sværd,
+  hænge ud, kæntre, mærke, kapsejlads, startlinje, sejlrende...).
+- Graphics: **SVG** (hand-authored, inline or generated strings) drawn as DOM or rasterised to canvas. Painterly
+  backgrounds generated with ComfyUI live in `assets/bg/`. No external images or fonts from the network.
+- Sound: synthesised with Web Audio in `js/ui/audio.js` (no audio files needed).
+- Responsive: phone portrait + landscape, tablet, desktop. Touch, mouse and keyboard. Minimum touch target 44 px.
+  Respect safe-area insets. No page scroll during play.
+- PWA: `manifest.webmanifest`, `sw.js` precaching every game file (generated list via `node tools/gen-precache.js`),
+  installable, fully offline after first visit.
+- **Never open visible windows** (browsers etc.). All browser checks are headless Playwright (`node tools/shot.js`).
+- Every agent: don't touch files owned by another module except where this spec says so. Don't `git commit` unless
+  your task says to.
+
+## Look & feel (SPAN style)
+
+- Full-window scene with **glassy dark panels** (`rgba(13,19,33,.7)` + backdrop blur, 1px white-12% border, 16 px
+  radius), **orange gradient primary buttons** (`#ffc65c → #ff7a3d`, dark text), rounded bold display font
+  (system `ui-rounded`/"Segoe UI Variable Display"), big friendly title with a warm gradient and a hard drop shadow.
+- Painterly backgrounds (ComfyUI) behind menus: Øresund at sunset, Nordhavn skyline, the club pier, winter harbor.
+- In-game water is top-down, stylised: layered blues by depth (like the chart: shallow = lighter cyan, deep =
+  deep blue), animated wave crests, darker **gust patches** moving downwind, white **wakes**, splash particles.
+- Boats are top-down SVG with **sails that swing with the boom**, luff (flutter) when eased too far, fill when
+  trimmed, sailors that **hike out** in gusts, a spinnaker/gennaker that pops open. Juicy animations: bobbing,
+  spray, camera ease, confetti on wins, stars that bounce in.
+- Tokens in `css/style.css` `:root` (see SPAN): `--primary #ffb547`, `--primary-2 #ff7a3d`, `--blue #49c6f2`,
+  `--good #3ee08f`, `--bad #ff4d5e`, `--star #ffd25e`, plus nautical: `--port #e8323c` (red), `--stbd #18a957` (green),
+  `--sea-deep #2b6cb0`, `--sea-shallow #7fc4f0`, `--land #fff4b8` (chart yellow).
+
+## Coordinates & units
+
+- World units are **meters**. `x` grows east, `y` grows **south** (screen down). North is up.
+- Headings are **radians**, `0` = north, increasing **clockwise**. `KOS.U.vec(h) = {x: Math.sin(h), y: -Math.cos(h)}`.
+- Wind direction is where the wind comes **FROM** (meteorological), radians, same convention. Data/authoring may use
+  degrees (`windDeg: 225`); convert with `KOS.U.rad()`.
+- Speeds inside physics are m/s; display knots (`KOS.U.kn(ms)`, 1 kn = 0.5144 m/s).
+- `twa` (true wind angle) on a boat is signed in radians, range (−π, π]: **positive = wind over the starboard side =
+  starboard tack**, negative = port tack.
+- Fixed simulation step `KOS.DT = 1/60` s.
+
+## Load order (index.html)
+
+```
+js/core/kos.js        KOS.U (math, angles, rng, lerp, clamp, poly helpers), KOS.DT, KOS.Events (tiny bus)
+js/core/i18n.js       KOS.I18n, KOS.t
+js/core/boats.js      KOS.Boats
+js/core/wind.js       KOS.Wind
+js/core/physics.js    KOS.Physics
+js/core/rules.js      KOS.Rules
+js/core/ai.js         KOS.AI
+js/core/world.js      KOS.World
+js/core/activities.js KOS.Activities, KOS.Modes
+js/render/sprites.js  KOS.Sprites
+js/render/effects.js  KOS.Effects
+js/render/water.js    KOS.Water
+js/render/scene.js    KOS.SailScene
+js/ui/storage.js      KOS.Storage
+js/ui/audio.js        KOS.Audio
+js/ui/input.js        KOS.Input
+js/ui/ui.js           KOS.UI (toasts, dialogs, HUD, coach bubbles, results)
+js/ui/hub.js          KOS.Hub (the harbor map screen)
+js/ui/app.js          KOS.App (screens, router, loop, settings, profile)
+js/modes/sail.js      free sail (reference mode)
+js/modes/school.js    sailing school lessons
+js/modes/race.js      races
+js/modes/rowschool.js right-of-way school
+js/modes/nav.js       navigation & buoyage
+js/modes/dock.js      docking / undocking (sail and RIB)
+js/modes/rib.js       RIB coach-boat missions
+js/modes/rigging.js   rig / unrig mini-game
+js/modes/knots.js     knot tying mini-game
+js/modes/capsize.js   capsize recovery mini-game
+js/modes/quiz.js      sailing quiz
+js/main.js            boot
+```
+CSS: `css/style.css` (tokens, shell, buttons, screens), `css/game.css` (HUD, touch controls, results),
+`css/hub.css`, and one `css/modes/<mode>.css` per mode (only if needed). `index.html` already links them all.
+
+## Module contracts
+
+### KOS.U (core/kos.js)
+`clamp, lerp, wrapPi(a) → (−π,π], angDiff(a,b), rad(deg), deg(rad), vec(h), len(x,y), dist(a,b), rng(seed) → fn()→[0,1)`
+(mulberry32), `kn(ms)`, `ms(kn)`, `pointInPoly(x,y,poly)`, `segDistance`, `polyNearest(x,y,poly) → {x,y,d}`,
+`smoothstep`, `noise1(seed,t)` (smooth value noise). `KOS.Events.on/off/emit`.
+
+### KOS.I18n (core/i18n.js)
+`KOS.I18n.add(lang, dict)`, `KOS.I18n.setLang('da'|'en')`, `KOS.I18n.lang`, `KOS.t(key, vars)` with `{name}`
+interpolation, falls back to `en` then the key. `KOS.tt(obj)` picks `obj[lang] || obj.en || obj.da` for inline
+`{da, en}` objects (used by activity data). `data-i18n="key"` attributes are filled by `KOS.I18n.apply(rootEl)`.
+
+### KOS.Boats (core/boats.js)
+`KOS.Boats.list` (ordered ladder) and `KOS.Boats.get(id)`. Ids: `opti tera feva zest ilca 29er hboat j70 rib`.
+Each: `{id, name, crew, length, beam, mass, sailArea, maxKn, polar(twaAbsRad, twsKn) → target knots,
+ noGo (rad, half-angle), tackTime (s), turnRate, hasSpinnaker ('none'|'asym'|'sym'), spinnakerBoost, canCapsize,
+ capsizeHeel, keel (bool), plane (kn at which it planes, or 0), colors: {hull, deck, sail}, desc: {da,en},
+ ageHint: {da,en}, motor (rib only): {maxKn, accel}}`.
+Make the characters distinct: Opti slow & forgiving, Tera tiny & tippy, Feva 2-person with gennaker, Zest
+stable trainer, ILCA physical single-hander (hiking matters a lot), 29er fast skiff that planes and capsizes easily
+(sym-asym gennaker, trapeze), H-boat keelboat (can't capsize, heavy, steady), J70 sporty keelboat with gennaker
+that planes downwind, RIB motor boat.
+
+### KOS.Wind (core/wind.js)
+`KOS.Wind.create({dir, speed /*kn*/, gust /*0..1*/, shift /*0..1*/, seed, bounds})` → wind object:
+`wind.update(dt)`, `wind.t`, `wind.at(x, y) → {dir, speed /*kn*/}` (deterministic for a seed), `wind.base → {dir, speed}`,
+`wind.gusts → [{x, y, r, k /*speed multiplier*/, vx, vy}]` (moving patches; renderer draws them),
+`wind.dir`, `wind.speed`. Shifts oscillate the direction ±(shift·15°) slowly; gusts add up to +60 % locally.
+
+### KOS.Physics (core/physics.js)
+- `KOS.Physics.createBoat(classId, {x, y, heading, sailNo, name, colors, isPlayer, crewNames})` → boat:
+  `{id, cls (boat def), x, y, heading, vx, vy, speed /*m/s along heading*/, yawRate, heel /*rad, + = leaning to starboard*/,
+  twa, tws, awa, tack ('port'|'starboard'), pos ('irons'|'closehauled'|'closereach'|'beamreach'|'broadreach'|'run'),
+  boom /*rad rel. to centerline, signed; + = boom out to starboard*/, sheet, trim /*0..1 quality*/, luffing, stalled,
+  inIrons, hike, spinnaker, capsized, capsizeT, planing, wake: [], distanceSailed, tacks, gybes, t}`.
+- `KOS.Physics.controls()` → default controls `{rudder: 0 /*-1 left..1 right*/, sheet: 0.5 /*0 = sheeted hard in, 1 = fully eased*/,
+  hike: 0 /*0..1*/, spinnaker: false, throttle: 0 /*-1..1 RIB*/, autoTrim: true, autoHike: false}`.
+- `KOS.Physics.step(boat, controls, env, dt)` where `env = {wind, venue, assist: 'easy'|'normal'|'pro', t}`.
+  Applies apparent wind, polar target speed × trim efficiency × heel penalty × gust, momentum (heavy boats keep way),
+  no-go zone (speed bleeds, `inIrons`), rudder turning that needs speed (and works in reverse when going backwards),
+  tacks/gybes (counted, emit events `boat:tack`, `boat:gybe`), luffing when over-eased, stall when over-sheeted,
+  heel from wind × sheet minus hiking; capsize when heel exceeds `capsizeHeel` (not in `easy` assist, never keelboats);
+  `autoTrim` sets the ideal sheet for the current awa. RIB: throttle/rudder motor model with wake, no sails.
+  Shallow water / land collisions via `KOS.World` (bounce + stop + `boat:ground` event).
+- `KOS.Physics.collide(boats, venue)` → `[{type:'boat'|'shore'|'mark'|'pier', a, b, speed}]` with simple circle/capsule
+  separation (boats as capsules of their length/beam).
+- `KOS.Physics.idealSheet(boat)`, `KOS.Physics.vmg(boat, targetDir)`, `KOS.Physics.laylines(...)` helpers.
+- Events are emitted via `KOS.Events.emit(name, payload)`.
+
+### KOS.Rules (core/rules.js)
+Racing Rules of Sailing Part 2 (simplified) and the basic collision rules (COLREGs) for navigation.
+- `KOS.Rules.rightOfWay(a, b, ctx)` → `{standOn, giveWay, rule, reasonKey}` where rule is one of `'R10'` (port/starboard),
+  `'R11'` (windward/leeward, overlapped same tack), `'R12'` (clear astern), `'R13'` (while tacking), `'R18'` (mark-room,
+  needs `ctx.marks` and the zone = 3 lengths), `'C-power-sail'` (power gives way to sail), `'C-overtaking'`,
+  `'C-headon'` (power vs power: both turn to starboard), `'C-crossing'` (power: give way to the one on your starboard side).
+  `reasonKey` is an i18n key with a kid-friendly explanation (rules.js registers these strings).
+- `KOS.Rules.overlapped(a, b)`, `KOS.Rules.isWindward(a, b, wind)`, `KOS.Rules.clearAstern(a, b)`, `KOS.Rules.tackOf(boat)`.
+- `KOS.Rules.monitor()` → object with `update(boats, wind, marks, dt) → [{type:'foul', offender, victim, rule}]` that
+  flags contact or "had to take avoiding action" situations (distance < 1 boat length while the give-way boat closes in).
+
+### KOS.AI (core/ai.js)
+`KOS.AI.createHelm(boat, {skill /*0..1*/, aggression, seed})` → `helm.think(env, plan, others) → controls`.
+`plan` is `{target: {x, y}}` or `{course: [{x, y, round: 'port'|'starboard'}], leg}`; sails to waypoints, tacks
+on laylines when upwind, gybes downwind, keeps clear when it is the give-way boat (uses `KOS.Rules`), does start
+sequences when `plan.start = {line: [p1, p2], t0}` (holds back, accelerates at the gun). Deterministic per seed.
+
+### KOS.World (core/world.js)
+Venues traced (approximately, stylised) from the chart. `KOS.World.venues` keyed by id:
+- `bay` — Svanemøllebugten + Svaneknoppen pier and club jetties (training area, ~700 × 900 m).
+- `pier` — close-up of the club pier: jetties with berths, breakwaters, curved island breakwater, slipway, RIB pontoon.
+- `harbor` — Svanemøllehavnen entrance + Kalkbrænderiløbet channel with lateral marks (navigation).
+- `sound` — open Øresund north-east of Nordhavn (Stubben, Skudeløbet), deep water: race area, big course space.
+Each venue: `{id, name: {da,en}, bounds: {x0, y0, x1, y1}, land: [poly], piers: [poly], breakwaters: [poly],
+ depth: [{poly, d}] (deepest last wins, default depth), buoys: [{id, kind, x, y, light}], labels: [{x, y, text, size}],
+ berths: [{id, x, y, heading, len, beam, side}], slip: {x, y, heading}, spawn: {x, y, heading}, landmarks: [{kind, x, y, ...}]}`.
+`kind` for buoys: `port stbd cardN cardE cardS cardW special swim isolated safe mark-orange mark-yellow`.
+Helpers: `KOS.World.isLand(v, x, y)`, `KOS.World.depthAt(v, x, y)`, `KOS.World.hit(v, x, y, r) → {type, nx, ny, depth}`,
+`KOS.World.get(id)`. Polygons are arrays of `[x, y]`.
+
+### KOS.Activities & KOS.Modes (core/activities.js)
+- `KOS.Modes.register(id, {kind: 'sea'|'dom', create(host, activity) → instance})`.
+- Instance: `{start(), update(dt), render(alpha), destroy(), onResize?(), pause?(), resume?()}`.
+  `update` is called at fixed `KOS.DT` steps, `render` once per animation frame.
+- `host` = `{canvas, ctx2d, layer /*DOM div over the canvas for HUD/overlays*/, finish(result), quit(),
+  setPaused(bool), assist, settings}`. `kind: 'dom'` modes get a `layer` only (canvas hidden).
+- `result` = `{stars /*0..3*/, score, timeMs, success: bool, stats: {...}, titleKey?, msgKey?, msgVars?}`.
+  The app shows the results screen (retry / next / back to the map), saves progress and awards XP.
+- `KOS.Activities.add(defOrArray)`: `{id, mode, area, boat, order, title: {da,en}, desc: {da,en}, icon, params,
+  unlock: {stars: n} | {after: id} | null, minutes, difficulty: 1..5}`. `area` ∈ hub areas below.
+- `KOS.Activities.list(filter)`, `.get(id)`, `.isUnlocked(id)`, `.next(id)`, `.byArea(area)`.
+- Hub areas (`area`): `club` (clubhouse: rigging, knots, quiz, capsize), `school` (sailing school in the bay),
+  `bay` (free sail), `race` (race course out in the Sound), `rules` (right-of-way school), `nav` (harbor channel /
+  navigation), `pier` (docking), `rib` (RIB pontoon / coach missions).
+
+### KOS.Storage (ui/storage.js)
+localStorage behind try/catch, key prefix `kos.`. `get(k, def)`, `set(k, v)`, `settings()` / `saveSettings(s)`
+(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion}`),
+`profile()` / `saveProfile(p)` (`{name, avatar: {skin, hair, jacket}, sailNo, boatColor, createdAt}`),
+`progress(id)` → `{stars, best, plays, done}`, `record(id, result)` → `{newBest, starsGained}`, `totalStars()`, `xp()`,
+`badges()` / `award(badgeId)`.
+
+### KOS.Audio (ui/audio.js)
+`KOS.Audio.unlock()` (on first gesture), `play(name, {vol, pitch, pan})`. Names: `click tap whoosh tack gybe flap
+luff splash spray crash bump horn hornShort hornLong whistle bell gull countdown go win lose star coin pop
+rigClick rope zip knot cheer`. Continuous: `ambient({wind /*kn*/, waves /*0..1*/, harbor /*0..1*/})`,
+`engine(throttle /*-1..1*/ | null)`, `music('menu'|'race'|'calm'|null)` (gentle generative loop, off by default
+if `settings.music` false). `setVolume(v)`, `mute(bool)`.
+
+### KOS.Input (ui/input.js)
+`KOS.Input.attach(layer, {layout: 'sail'|'rib'|'none', spinnaker, hike, autoTrim, extraButtons: [{id, icon, labelKey}]})`
+→ `ctrl` with `ctrl.state` = `{steer /*-1..1*/, sheet /*0..1*/, sheetDelta, hike, spinnaker, throttle, action}`,
+`ctrl.on(evt, fn)` for `action`, `pause`, button ids; `ctrl.detach()`.
+Keyboard: ←/→ or A/D steer, ↑/↓ or W/S sheet in/out (throttle for RIB), Space hike (hold), E spinnaker toggle,
+Enter/F action, P/Esc pause. Touch: big left/right tiller pads (bottom-left / bottom-right in portrait, sides in
+landscape), a vertical sheet slider, a HIKE hold button, SPI button; optional virtual joystick. Mouse works on all.
+`KOS.Input.toControls(state, boat, prevControls)` → physics controls (steer → rudder smoothing).
+
+### KOS.UI (ui/ui.js)
+`toast(text, {kind, ms})`, `dialog({titleKey|title, body (html), buttons: [{labelKey, kind, onClick}]})`,
+`coach(text, {avatar, ms, pos})` (speech bubble from a friendly coach character "Coach Søs" / the club's trainer),
+`hud(layer, items)` → `{update(data), el}` with items `wind speed pos timer place lap score heel tack penalty`,
+`countdown(layer, seconds, onDone)`, `stars(n)` (svg html), `confetti()`, `iconSvg(name)`, `results(result, activity)`.
+
+### KOS.SailScene (render/scene.js)
+`new KOS.SailScene(canvas, {venue, wind, boats, marks, follow, zoom, showWindArrow, showLaylines, showNoGo})`:
+`render(alpha)`, `camera {x, y, zoom, rot}`, `follow(boat)`, `worldToScreen`, `screenToWorld`, `shake(k)`,
+`addOverlay(fn(ctx, scene))` / `removeOverlay(fn)` for mode-specific drawing (course lines, ghost paths, arrows,
+highlight rings), `marks` = `[{x, y, kind: 'orange'|'yellow'|'pin'|'committee'|'gate'|'finish', label, round}]`,
+`lines` = `[{a, b, kind: 'start'|'finish'|'layline'|'path'}]`, `resize()`, `effects` (KOS.Effects instance).
+Draws: water (KOS.Water) with depth shading, gusts, waves; land (chart yellow with stylised buildings/trees/beach);
+piers and breakwaters (rocks); buoys (proper IALA shapes, top marks, light flashes); boats (KOS.Sprites) with wakes,
+spray, heel, sails and crew; wind arrow; no-go wedge and laylines when enabled.
+
+### KOS.Sprites (render/sprites.js)
+SVG generators returning SVG strings and cached canvases: `boat(clsId, {colors, sailNo})` (hull top view),
+`sail(clsId, kind 'main'|'jib'|'spi')` drawn procedurally with `drawBoat(ctx, boat, opts)` (hull, crew posture by
+hike, boom & sail angle, luff flutter, spinnaker), `buoy(kind)`, `mark(kind)`, `icon(name)`, `avatar(profile)`,
+`boatCard(clsId)` (side-view SVG used in menus, garage and rigging), `rib()`.
+
+### KOS.App (ui/app.js)
+Screens (DOM sections in index.html): `title`, `hub`, `area` (activity list for an area), `play`, `results`,
+`settings`, `profile`, `garage` (boat ladder / "Sejlerpas"), `credits`.
+`KOS.App.show(screen, params)`, `KOS.App.play(activityId)`, `KOS.App.back()`. Main loop with fixed step and
+pause on `visibilitychange`. Handles the PWA install prompt and update toast.
+
+## Progression
+
+- Stars 0–3 per activity. XP = stars × 100 + bonuses. Badges ("mærker") for milestones (first race win, 10 tacks,
+  first capsize recovery, all knots, perfect docking, rules master, navigator...).
+- **Sejlerpas** (sailing passport): boats unlock by total stars: opti 0, tera 6, feva 15, zest 25, ilca 40,
+  29er 55, hboat 70, j70 90, rib 20. `settings.unlockAll` (coach/parent switch) unlocks everything.
+- Within an area, activities unlock by `unlock` rules; the first activity of each area is always open.
+- Assist levels: **Let** (easy: auto-trim, no capsize, ghost hints, generous scoring), **Normal**, **Pro** (manual
+  trim, capsize, penalty turns, stricter stars). Default `easy` for new profiles; the profile asks age range.
+
+## Content plan (each mode registers its own activities)
+
+- `school` — Sejlerskole: steering & stopping, points of sail (halvvind, kryds, slør, læns), tacking, gybing,
+  getting out of irons, hiking in gusts, man-overboard pick-up, "sail the figure-8", per boat lessons.
+- `bay` — Free sail in Svanemøllebugten with collectibles (rings, gulls, floating bottles of trash to clean up),
+  any unlocked boat, time trials around the bay.
+- `race` — Kapsejlads: proper start sequence (5-4-1-0 with flags & horns: P flag, class flag), windward-leeward and
+  triangle courses, AI fleets of the same class, gusts and shifts, mark rounding, penalty turns (720 / 360), protests
+  shown as replays, championship series per boat class ("Klubmesterskab", "DM", "Optimist Holland Cup"-style fun names).
+- `rules` — Vigeregler: interactive scenarios ("who must give way?" then sail it out), port/starboard, windward/leeward,
+  overtaking, tacking, mark-room, power vs sail, ferries and big ships (stay out of the channel).
+- `nav` — Navigation: IALA A lateral and cardinal marks, follow the channel out of Svanemøllehavnen, light characters
+  at night ("Fl W 3s"), swim zones (yellow marks — stay out!), chart reading, compass course legs, depth (don't ground).
+- `pier` — Docking / undocking at the club pier under sail and with the RIB, in different wind directions: approach on
+  a close reach, luff up to stop, line handling timing, points for gentle touch and position.
+- `rib` — RIB missions: tow a line of Optimists home, rescue a capsized dinghy, lay out race marks at GPS spots,
+  follow the fleet as coach, "keep the wake low near the jetties" speed limits.
+- `club` — Clubhouse mini-games: **rigging/unrigging** each class (drag parts in the right order: mast, boom, sprit,
+  sail ties, daggerboard, rudder, bailer, painter, trapeze, gennaker...), **knots** (trace the rope: pælestik/bowline,
+  ottetalsknob/figure-8, råbåndsknob/reef knot, dobbelt halvstik/clove hitch, klampe/cleat), **capsize recovery**
+  (timing mini-game on the centreboard), **quiz** (rules, parts of the boat, weather, safety, knots).
+
+## Testing
+
+- `node tools/test-core.js` — Node tests for core (physics sanity per class: speeds by point of sail, irons, tacking,
+  capsize rules, determinism; rules scenarios; world helpers; AI finishes a course).
+- `node tools/smoke.js` — headless Chrome: boot, visit every screen, start every activity for a few seconds with
+  simulated input, fail on any console error / uncaught exception; screenshots at phone/tablet/desktop sizes into
+  `docs/screenshots/` (gitignored `shot*.png` are scratch).
+- `node tools/gen-precache.js --check` must pass before finishing.

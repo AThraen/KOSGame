@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1120">
+<meta name="description" content="KØS SEJL — sejlspil for KØS Sejlsport. Kapsejlads, vigeregler, navigation, rigning og RIB-missioner.">
+<title>KØS SEJL</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icons/app/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icons/app/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/game.css">
+<link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/modes/sail.css">
+<link rel="stylesheet" href="css/modes/school.css">
+<link rel="stylesheet" href="css/modes/race.css">
+<link rel="stylesheet" href="css/modes/rowschool.css">
+<link rel="stylesheet" href="css/modes/nav.css">
+<link rel="stylesheet" href="css/modes/dock.css">
+<link rel="stylesheet" href="css/modes/rib.css">
+<link rel="stylesheet" href="css/modes/rigging.css">
+<link rel="stylesheet" href="css/modes/knots.css">
+<link rel="stylesheet" href="css/modes/capsize.css">
+<link rel="stylesheet" href="css/modes/quiz.css">
+</head>
+<body>
+<!-- Screens are owned by js/ui/app.js (see SPEC.md). Each <section class="screen"> is shown by KOS.App.show(id). -->
+<canvas id="game-canvas"></canvas>
+<div id="app">
+  <section id="screen-title" class="screen"></section>
+  <section id="screen-hub" class="screen" hidden></section>
+  <section id="screen-area" class="screen" hidden></section>
+  <section id="screen-play" class="screen" hidden><div id="play-layer"></div></section>
+  <section id="screen-results" class="screen" hidden></section>
+  <section id="screen-settings" class="screen" hidden></section>
+  <section id="screen-profile" class="screen" hidden></section>
+  <section id="screen-garage" class="screen" hidden></section>
+  <section id="screen-credits" class="screen" hidden></section>
+</div>
+<div id="toasts"></div>
+<div id="dialogs"></div>
+<script src="js/core/kos.js"></script>
+<script src="js/core/i18n.js"></script>
+<script src="js/core/boats.js"></script>
+<script src="js/core/wind.js"></script>
+<script src="js/core/physics.js"></script>
+<script src="js/core/rules.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/core/world.js"></script>
+<script src="js/core/activities.js"></script>
+<script src="js/render/sprites.js"></script>
+<script src="js/render/effects.js"></script>
+<script src="js/render/water.js"></script>
+<script src="js/render/scene.js"></script>
+<script src="js/ui/storage.js"></script>
+<script src="js/ui/audio.js"></script>
+<script src="js/ui/input.js"></script>
+<script src="js/ui/ui.js"></script>
+<script src="js/ui/hub.js"></script>
+<script src="js/ui/app.js"></script>
+<script src="js/modes/sail.js"></script>
+<script src="js/modes/school.js"></script>
+<script src="js/modes/race.js"></script>
+<script src="js/modes/rowschool.js"></script>
+<script src="js/modes/nav.js"></script>
+<script src="js/modes/dock.js"></script>
+<script src="js/modes/rib.js"></script>
+<script src="js/modes/rigging.js"></script>
+<script src="js/modes/knots.js"></script>
+<script src="js/modes/capsize.js"></script>
+<script src="js/modes/quiz.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

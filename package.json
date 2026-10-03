@@ -1,0 +1,22 @@
+{
+  "name": "kos-sejl",
+  "version": "1.0.0",
+  "description": "KØS SEJL — a sailing game for KØS Sejlsport (HTML/JS/SVG PWA)",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node tools/test-core.js",
+    "smoke": "node tools/smoke.js",
+    "precache": "node tools/gen-precache.js"
+  },
+  "keywords": [],
+  "author": "Allan Thraen",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  },
+  "private": true
+}
