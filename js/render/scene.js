@@ -336,15 +336,15 @@
     ctx.strokeStyle = 'rgba(40,44,52,0.6)'; ctx.lineWidth = Math.max(0.3, 1.2 / ppm); ctx.stroke();
     if (ppm < 1.2) return;
     ctx.save(); ctx.beginPath(); polyPath(ctx, poly); ctx.clip();
-    const b = bbox(poly), step = 1.7;
+    const b = bbox(poly), step = 1.3;
     const xa = Math.max(b.x0, r.x0 - 2), xb = Math.min(b.x1, r.x1 + 2), ya = Math.max(b.y0, r.y0 - 2), yb = Math.min(b.y1, r.y1 + 2);
     const greys = ['#9a9da3', '#b3b5b9', '#8a8d93', '#c4c4c2', '#a7a39b', '#94989f'];
     for (let x = Math.floor(xa / step) * step; x < xb; x += step) for (let y = Math.floor(ya / step) * step; y < yb; y += step) {
       const h = hash2(x, y), h2 = hash2(y, x);
       const cx = x + (h - 0.5) * step * 0.7, cy = y + (h2 - 0.5) * step * 0.7;
       if (!pointInPoly(cx, cy, poly)) continue;
-      const rx = 0.75 + h * 0.45, ry = 0.6 + h2 * 0.4, rot = h * 3;
-      ctx.fillStyle = 'rgba(30,32,38,0.45)'; ctx.beginPath(); ctx.ellipse(cx + 0.18, cy + 0.22, rx, ry, rot, 0, TAU); ctx.fill();
+      const rx = 0.58 + h * 0.34, ry = 0.46 + h2 * 0.3, rot = h * 3;
+      ctx.fillStyle = 'rgba(30,32,38,0.45)'; ctx.beginPath(); ctx.ellipse(cx + 0.14, cy + 0.17, rx, ry, rot, 0, TAU); ctx.fill();
       ctx.fillStyle = greys[Math.floor(h * 97) % greys.length]; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, rot, 0, TAU); ctx.fill();
       if (ppm > 4) { ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.ellipse(cx - rx * 0.25, cy - ry * 0.3, rx * 0.45, ry * 0.35, rot, 0, TAU); ctx.fill(); }
     }

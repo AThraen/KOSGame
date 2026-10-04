@@ -98,6 +98,13 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 .coach-tap { font-size: .72rem; color: #6a7388; margin-top: 4px; font-weight: 700; }
 body:not([data-screen="play"]) .coach-bottom { bottom: calc(var(--safe-b) + 24px); }
 body[data-screen="hub"] .coach-bottom { bottom: calc(var(--safe-b) + 112px); }
+/* landscape phones during play: the boat sits mid-screen, so the coach goes up under the HUD, compact */
+@media (orientation: landscape) and (max-height: 520px) {
+  body[data-screen="play"] .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 64px); width: min(calc(100vw - 420px), 440px); min-width: 300px; }
+  body[data-screen="play"] .coach-avatar { width: 50px; height: 50px; }
+  body[data-screen="play"] .coach-bubble { margin-bottom: 4px; padding: 7px 11px 8px; }
+  body[data-screen="play"] .coach-text { font-size: .86rem; }
+}
 
 /* ------------------------------------------------------------------ results */
 #screen-results { background: radial-gradient(90% 70% at 50% 35%, rgba(255, 190, 120, .18), transparent 70%); }

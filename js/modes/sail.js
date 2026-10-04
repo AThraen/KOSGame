@@ -198,12 +198,13 @@
       tips: {}, tipT: -99,
     };
 
-    // ---- world: wind (gusts concentrated around the play area so they are visible)
+    // ---- world: wind. The gust area is kept small (600 m) and follows the boat (wind.recenter in update), so dark
+    // gust patches keep rolling in across the water wherever the player sails.
     // free sail and the collecting games start just off the KØS jetties (club in view); the time trial uses the venue spawn
     const spawn = Object.assign({}, P.kind === 'timetrial' || P.venue ? venue.spawn : { x: -46, y: -64, heading: U.rad(300) });
     const wind = KOS.Wind.create({
       dir: U.rad(P.windDeg), speed: P.windKn, gust: P.gust, shift: P.shift, seed: P.seed,
-      bounds: { x0: spawn.x - 450, y0: spawn.y - 520, x1: spawn.x + 450, y1: spawn.y + 380 },
+      bounds: { x0: spawn.x - 300, y0: spawn.y - 300, x1: spawn.x + 300, y1: spawn.y + 300 },
     });
     for (let i = 0; i < 240; i++) wind.update(0.5); // let gust patches spread out before the start
     const env = { wind, venue, assist, t: 0 };
@@ -234,11 +235,12 @@
     scene.addOverlay(drawItems);
     scene.addOverlay(drawTargetArrow, { screen: true });
     // Gameplay zoom: the scene's auto zoom frames the boat for detail; a game wants to see further ahead.
-    // We set it so √(w·h) of screen spans about (64–72 + 7 × boat length) m (closer on phones and in free sail), × wheel zoom.
+    // We set it so √(w·h) of screen spans about (34–40 + 5 × boat length) m (a bit closer on phones), × wheel zoom:
+    // the boat reads clearly (~60 px for an Opti on desktop) and the target arrow points at anything off screen.
     let userZoom = 1;
     function applyZoom() {
       const L = cls.length, small = Math.min(scene.w, scene.h) < 600;
-      const span = ((P.kind === 'free' ? 64 : 72) + 7 * L) * (small ? 0.72 : 1);
+      const span = ((P.kind === 'free' ? 34 : 40) + 5 * L) * (small ? 0.82 : 1);
       scene.setZoom(1);
       const base = scene.baseZoom() / (1 + U.clamp(Math.abs(boat.speed) / 25, 0, 0.35)) * 1; // scene zoom at multiplier 1, boat at rest
       scene.setZoom(Math.sqrt(scene.w * scene.h) / span / base * userZoom);
@@ -258,7 +260,7 @@
 
     // ---- HUD
     const hudItems = ['wind', 'speed'];
-    if (P.kind === 'free') hudItems.push('pos');
+    if (P.kind === 'free' && !isRib) hudItems.push('pos');   // points of sail mean nothing in a motor boat
     else hudItems.push('timer');
     if (P.kind === 'rings') hudItems.push({ id: 'count', icon: 'star', labelKey: 'sail.hud.rings' });
     if (P.kind === 'cleanup') hudItems.push({ id: 'count', icon: 'trash', labelKey: 'sail.hud.trash' });
@@ -662,6 +664,7 @@
     function update(dt) {
       env.t += dt;
       wind.update(dt);
+      if ((S.windT = (S.windT || 0) + dt) > 2) { S.windT = 0; wind.recenter(boat.x, boat.y); }
       const st = ctrl.state;
       if (S.phase === 'intro') { // hold the boat on its start spot, but let sails, heel and speed come alive
         S.introT += dt;
@@ -735,6 +738,8 @@
         hud.update(d);
         if (S.pathLine) { const tg = currentTarget(); if (tg) { S.pathLine.a.x = boat.x; S.pathLine.a.y = boat.y; S.pathLine.b.x = tg.x; S.pathLine.b.y = tg.y; } }
         if (isRib) { try { KOS.Audio.engine(boat.throttle); } catch (e) { /* optional */ } }
+        // manual trim (pro, or AUTO switched off): the green zone on the sheet slider shows the ideal sheet
+        else ctrl.setIdealSheet(controls.autoTrim || boat.inIrons ? null : KOS.Physics.idealSheet(boat), 0.07);
       }
       if (S.ambT <= 0) { S.ambT = 0.5; ambient(); }
     }
@@ -773,8 +778,10 @@
       return { target: { x: tg.x, y: tg.y, r: 2 } };
     }
 
-    // exposed for tests / tools (read-only use, plus setAutopilot)
-    return { start, update, render, destroy, pause, resume, onResize, boat, scene, state: S, ctrl, setAutopilot };
+    function skipIntro() { if (introCd) { introCd.cancel(); introCd = null; } if (S.phase === 'intro') S.phase = 'go'; scene.fixedZoom = null; }
+
+    // exposed for tests / tools: tools/autoplay.js uses setAutopilot + skipIntro to play a level to the end headless
+    return { start, update, render, destroy, pause, resume, onResize, boat, scene, state: S, ctrl, setAutopilot, skipIntro, get controls() { return controls; } };
   }
 
   KOS.SailMode = { legSpeed, routeTime, starsFor }; // shared helpers other modes may reuse

@@ -142,7 +142,7 @@
       if (g.x + g.r < view.x0 || g.x - g.r > view.x1 || g.y + g.r < view.y0 || g.y - g.r > view.y1) continue;
       const k = g.k != null ? g.k : 1.3;
       const dark = k >= 1;
-      const a = dark ? clamp((k - 1) * 1.5, 0, 0.42) : clamp((1 - k) * 0.9, 0, 0.22);
+      const a = dark ? clamp((k - 1) * 1.9, 0, 0.45) : clamp((1 - k) * 0.9, 0, 0.22);
       if (a < 0.01) continue;
       // elongated downwind
       ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(wdir); ctx.scale(1, 1.35);
@@ -152,21 +152,27 @@
       ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, g.r, 0, TAU); ctx.fill();
       ctx.restore();
       if (!dark) continue;
-      // cat's-paws: scaly dark ripples inside the gust
-      let seed = this.pawSeeds && this.pawSeeds.get(g);
-      if (seed == null) { seed = (this._seed = (this._seed * 9301 + 49297) % 233280); this.pawSeeds && this.pawSeeds.set(g, seed); }
-      const n = Math.min(140, Math.round(g.r * g.r / 70));
-      const len = Math.max(0.9, 5 * mpp);
-      ctx.strokeStyle = 'rgba(8,30,75,' + clamp(a * 1.3, 0, 0.45) + ')'; ctx.lineWidth = Math.max(0.15, 1.6 * mpp); ctx.lineCap = 'round';
+      // cat's-paws: short dark ripples scattered through the gust on a grid that moves with the gust (spacing ≈ 13 px on screen,
+      // quantised to powers of two so they stay put while the camera zooms), denser and darker towards the core
+      const sp = Math.pow(2, Math.round(Math.log2(Math.max(0.5, 13 * mpp))));
+      const ex = g.r, ey = g.r * 1.35, ext = Math.max(ex, ey);
+      const xa = Math.max(view.x0, g.x - ext), xb = Math.min(view.x1, g.x + ext), ya = Math.max(view.y0, g.y - ext), yb = Math.min(view.y1, g.y + ext);
+      const cw = Math.cos(wdir), sw = Math.sin(wdir);
+      ctx.strokeStyle = 'rgba(8,30,75,' + clamp(a * 0.95, 0, 0.34) + ')'; ctx.lineWidth = Math.max(0.12, 1.9 * mpp); ctx.lineCap = 'round';
       ctx.beginPath();
-      for (let j = 0; j < n; j++) {
-        const h1 = hash2(seed, j), h2 = hash2(j, seed + 7), h3 = hash2(seed + j, 3);
-        const rr = Math.sqrt(h1) * g.r * 0.85, an = h2 * TAU;
-        const flick = Math.sin(t * 3 + h3 * 20);
-        if (flick < -0.2) continue;
-        const cx = g.x + Math.cos(an) * rr, cy = g.y + Math.sin(an) * rr * 1.2;
-        const l = len * (0.6 + h3) * (0.6 + 0.4 * flick);
-        ctx.moveTo(cx - px * l, cy - py * l); ctx.quadraticCurveTo(cx - Math.sin(wdir) * l * 0.4, cy + Math.cos(wdir) * l * 0.4, cx + px * l, cy + py * l);
+      let cnt = 0;
+      for (let i = Math.floor((xa - g.x) / sp); g.x + i * sp < xb && cnt < 1400; i++) for (let j = Math.floor((ya - g.y) / sp); g.y + j * sp < yb && cnt < 1400; j++) {
+        const h1 = hash2(i + gi * 7919, j), h2 = hash2(j - gi * 104729, i), h3 = hash2(i * 31 + j, j * 17 - i + gi);
+        const cx = g.x + (i + h1) * sp, cy = g.y + (j + h2) * sp;   // the ripples ride along with the gust
+        const dx = cx - g.x, dy = cy - g.y;
+        const lx = dx * cw + dy * sw, ly = -dx * sw + dy * cw;      // gust frame (elongated downwind)
+        const d = Math.hypot(lx / ex, ly / ey);
+        if (d >= 1 || h3 < d * d * 0.95) continue;
+        const flick = Math.sin(t * 2.6 + h3 * 40);
+        if (flick < -0.35) continue;
+        cnt++;
+        const l = Math.max(0.15, (2 + 2.6 * h1) * mpp) * (0.7 + 0.3 * flick);
+        ctx.moveTo(cx - px * l, cy - py * l); ctx.quadraticCurveTo(cx - sw * l * 0.35, cy + cw * l * 0.35, cx + px * l, cy + py * l);
       }
       ctx.stroke();
     }

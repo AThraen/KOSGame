@@ -512,3 +512,11 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+/* results: in landscape the badge / boat-unlock toasts go below the card (under the stars on phones) instead of over the score */
+body[data-screen="results"] .toast { pointer-events: none; }
+@media (orientation: landscape) { body[data-screen="results"] #toasts { top: auto; bottom: calc(var(--safe-b) + 14px); flex-direction: column-reverse; } }
+@media (orientation: landscape) and (max-height: 540px) {
+  body[data-screen="results"] #toasts { left: 26%; width: min(44vw, 380px); bottom: calc(var(--safe-b) + 10px); }
+  body[data-screen="results"] .toast { padding-top: 6px; padding-bottom: 6px; }
+}

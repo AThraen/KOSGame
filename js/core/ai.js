@@ -299,7 +299,7 @@
       const e = U.angDiff(b.heading, U.wrapPi(H + wob));
       const kp = 2.6 * (0.7 + 0.3 * skill), kd = 0.9;
       let r = U.clamp(e * kp - b.yawRate * kd, -1, 1);
-      if (b.speed < -0.05) r = -r;
+      if (b.speed < -0.05 && helm._assist !== 'easy') r = -r; // steering reverses in sternway (not in easy assist, see Physics)
       return r;
     }
 
@@ -310,6 +310,7 @@
       const now = nowOf(env);
       const dt = helm._lastT === null ? KOS.DT : U.clamp(now - helm._lastT, 0, 0.5) || KOS.DT;
       helm._lastT = now;
+      helm._assist = env.assist || 'normal';
       helm.tackCd = Math.max(0, helm.tackCd - dt);
       const c = KOS.Physics.controls();
       const wind = env.wind;
@@ -413,10 +414,12 @@
         sheetBias = 0;
       }
       // in irons: fall off on the side the bow is already pointing, then sail
-      if (b.inIrons) helm.ironsT += dt; else helm.ironsT = 0;
+      if (b.inIrons) helm.ironsT += dt; else { helm.ironsT = 0; helm.ironsSide = 0; }
       if (b.inIrons && helm.ironsT > 1.2) { // give a slow tack a moment before bailing out
         mode = 'irons';
-        const sNow = twaNow >= 0 ? 1 : -1;
+        // latch the bail-out side: dead head-to-wind the sign of twa flickers and the rudder would flip-flop forever
+        if (!helm.ironsSide) helm.ironsSide = twaNow >= 0 ? 1 : -1;
+        const sNow = helm.ironsSide;
         H = U.wrapPi(wd - sNow * (b.cls.noGo + R(30)));
         helm.wantTack = sNow > 0 ? 'starboard' : 'port';
         helm.tackCd = Math.max(helm.tackCd, 4);

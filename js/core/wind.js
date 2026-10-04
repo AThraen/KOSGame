@@ -8,6 +8,7 @@
 //   wind.gusts -> [{x, y, r, k, vx, vy, kMax, life}]  moving patches (k = current speed multiplier at the core;
 //                 k < 1 is a lull). Renderer draws darker water for k > 1.
 //   wind.setBase(dir, speed)   change the mean wind (e.g. a front coming through)
+//   wind.recenter(x, y)        move the gust area (keeps its size) to follow the player around a big venue
 //   wind.toVec(x, y) -> {x, y} m/s vector the air moves TOWARDS (for particles/flags)
 // Same seed + same update() calls => identical wind everywhere.
 (function (root) {
@@ -24,7 +25,8 @@
     const shiftK = U.clamp(o.shift === undefined ? 0.3 : o.shift, 0, 1);
     const b = o.bounds || { x0: -600, y0: -600, x1: 600, y1: 600 };
     const bounds = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 };
-    const cx = (bounds.x0 + bounds.x1) / 2, cy = (bounds.y0 + bounds.y1) / 2;
+    let cx = (bounds.x0 + bounds.x1) / 2, cy = (bounds.y0 + bounds.y1) / 2;
+    const bx = cx, by = cy; // fixed origin of the spatial bend (recenter() moves only the gust area)
     const span = Math.max(200, Math.hypot(bounds.x1 - bounds.x0, bounds.y1 - bounds.y0));
 
     // Shift oscillation: two sines with seeded periods plus slow noise.
@@ -58,10 +60,12 @@
       // Place upwind of the area (or anywhere on first spawn), sized and powered by gustiness.
       const dw = downwind();
       const across = { x: -dw.y, y: dw.x };
-      const lat = rnd.range(-0.55, 0.55) * span;
+      // span = bounds diagonal. Respawns start just upwind of / inside the area: a gust drifts only ~0.5 × wind speed
+      // for 50–110 s (≈150–300 m), so one spawned far upwind would fade out before it ever reached the course.
+      const lat = rnd.range(-0.42, 0.42) * span;
       let along;
-      if (initial) along = rnd.range(-0.55, 0.55) * span;
-      else along = -0.55 * span - rnd.range(0, 0.25) * span;
+      if (initial) along = rnd.range(-0.45, 0.45) * span;
+      else along = -rnd.range(0.12, 0.45) * span;
       g.x = cx + dw.x * along + across.x * lat;
       g.y = cy + dw.y * along + across.y * lat;
       const lull = rnd() < 0.22;
@@ -125,7 +129,7 @@
         if (kk >= 1) k = Math.max(k, kk); else kLull = Math.min(kLull, kk);
         dOff += g.dirOff * w * Math.abs(g.k - 1) * 3; wsum += w;
       }
-      const bend = bendAmp * U.noise2(seed ^ 0x1234, (x - cx) / 400, (y - cy) / 400 + wind.t / 300);
+      const bend = bendAmp * U.noise2(seed ^ 0x1234, (x - bx) / 400, (y - by) / 400 + wind.t / 300);
       return {
         dir: U.wrapPi(wind.dir + bend + U.clamp(dOff, -U.rad(8), U.rad(8))),
         speed: Math.max(0, wind.speed * k * kLull),
@@ -135,6 +139,15 @@
     wind.toVec = function (x, y) {
       const w = x === undefined ? { dir: wind.dir, speed: wind.speed } : wind.at(x, y);
       return U.vec(w.dir + Math.PI, U.ms(w.speed));
+    };
+
+    // Move the gust area (same size) to follow the action, e.g. the player's boat in a big venue. Gusts that end up far
+    // downwind respawn upwind of the new centre. Deterministic as long as the calls are driven by the simulation.
+    wind.recenter = function (x, y) {
+      const hw = (bounds.x1 - bounds.x0) / 2, hh = (bounds.y1 - bounds.y0) / 2;
+      bounds.x0 = x - hw; bounds.x1 = x + hw; bounds.y0 = y - hh; bounds.y1 = y + hh;
+      cx = x; cy = y;
+      return wind;
     };
 
     wind.setBase = function (dir, speed) {

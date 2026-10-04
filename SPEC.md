@@ -142,6 +142,8 @@ that planes downwind, RIB motor boat.
 `wind.update(dt)`, `wind.t`, `wind.at(x, y) → {dir, speed /*kn*/}` (deterministic for a seed), `wind.base → {dir, speed}`,
 `wind.gusts → [{x, y, r, k /*speed multiplier*/, vx, vy}]` (moving patches; renderer draws them),
 `wind.dir`, `wind.speed`. Shifts oscillate the direction ±(shift·15°) slowly; gusts add up to +60 % locally.
+Implemented extras: `wind.setBase(dir, speed)`, `wind.toVec(x, y)`, `wind.recenter(x, y)` (moves the gust area, same size, to
+follow the action: keep `bounds` ~600 m around the play area and recenter on the player every ~2 s, see `js/modes/sail.js`).
 
 ### KOS.Physics (core/physics.js)
 - `KOS.Physics.createBoat(classId, {x, y, heading, sailNo, name, colors, isPlayer, crewNames})` → boat:
@@ -322,3 +324,6 @@ pause on `visibilitychange`. Handles the PWA install prompt and update toast.
   simulated input, fail on any console error / uncaught exception; screenshots at phone/tablet/desktop sizes into
   `docs/screenshots/` (gitignored `shot*.png` are scratch).
 - `node tools/gen-precache.js --check` must pass before finishing.
+- Mode builders: read `docs/MODE-AUTHORING.md` (skeleton, wiring, testing). Helpers: `node tools/playshot.js <id> [WxH]
+  [ms] [keys]` (one headless screenshot), `node tools/autoplay.js <id> [boat] [assist]` (fast-forward a level to its result
+  using the mode's optional `setAutopilot`/`skipIntro` test hooks), `node tools/smoke.js --only=<mode>`.
