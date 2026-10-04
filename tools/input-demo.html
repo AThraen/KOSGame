@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>KØS SEJL — input demo</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/game.css">
+<link rel="stylesheet" href="../css/controls.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #2b6cb0; font-family: ui-rounded, "Segoe UI Variable Display", system-ui, sans-serif; }
+  #sea { position: fixed; inset: 0; background:
+    radial-gradient(ellipse at 30% 20%, rgba(127,196,240,.55), transparent 60%),
+    repeating-linear-gradient(170deg, rgba(255,255,255,.05) 0 2px, transparent 2px 38px),
+    linear-gradient(180deg, #3d86c9, #2b6cb0 60%, #22568f); }
+  #layer { position: fixed; inset: 0; overflow: hidden; }
+  #boat { position: absolute; left: 50%; top: 42%; width: 70px; height: 140px; margin: -70px 0 0 -35px; transition: none; }
+  #wind { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); color: #fff; font-weight: 800; font-size: 13px;
+    background: rgba(13,19,33,.6); padding: 6px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); }
+  #readout { position: absolute; left: calc(12px + env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top)); color: #fff;
+    background: rgba(13,19,33,.7); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 10px 12px;
+    font: 600 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre; backdrop-filter: blur(8px); min-width: 150px; }
+  #log { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); color: #ffd25e; font-weight: 800; font-size: 14px; text-shadow: 0 2px 2px rgba(0,0,0,.4); }
+</style>
+</head>
+<body>
+<div id="sea"></div>
+<div id="layer">
+  <div id="wind">Vind fra nord ↓</div>
+  <div id="log"></div>
+  <svg id="boat" viewBox="0 0 70 140">
+    <path d="M35 4 C56 30 60 80 52 134 H18 C10 80 14 30 35 4Z" fill="#fff" stroke="#1d2433" stroke-width="3"/>
+    <path d="M35 14 C50 36 52 80 46 126 H24 C18 80 20 36 35 14Z" fill="#e9dcc4"/>
+    <g id="boom"><line x1="35" y1="50" x2="35" y2="118" stroke="#1d2433" stroke-width="5" stroke-linecap="round"/>
+      <path id="sail" d="M35 50 Q44 84 35 118" fill="rgba(255,255,255,.9)" stroke="#1d2433" stroke-width="2"/></g>
+    <circle cx="35" cy="50" r="5" fill="#1d2433"/>
+    <circle id="crew" cx="35" cy="98" r="9" fill="#ff7a3d" stroke="#1d2433" stroke-width="2.5"/>
+    <path id="spi" d="M35 4 C10 -30 60 -30 35 4" fill="#ff4d5e" opacity="0"/>
+  </svg>
+  <div id="readout"></div>
+</div>
+<script src="../js/core/kos.js"></script>
+<script src="../js/core/i18n.js"></script>
+<script src="../js/ui/storage.js"></script>
+<script src="../js/ui/audio.js"></script>
+<script src="../js/ui/input.js"></script>
+<script>
+(function () {
+  const P = new URLSearchParams(location.search);
+  const layout = P.get('layout') || 'sail';
+  const extras = P.get('extras') === '0' ? [] : [{ id: 'horn', icon: 'horn' }, { id: 'action', icon: 'lifebuoy', labelKey: 'input.lifebuoy' }];
+  const ctrl = KOS.Input.attach(document.getElementById('layer'), {
+    layout, spinnaker: P.get('spi') !== '0', spinnakerKind: P.get('kind') || 'asym', hike: true,
+    autoTrim: P.get('auto') === '1', joystick: P.get('joy') === '1', extraButtons: extras,
+  });
+  window.ctrl = ctrl;
+  window.events = [];
+  ['action', 'pause', 'spinnaker', 'hike', 'autotrim', 'gear', 'button', 'horn'].forEach(ev =>
+    ctrl.on(ev, v => { events.push(ev + (v === undefined ? '' : ':' + v)); document.getElementById('log').textContent = ev + (v === undefined ? '' : ' ' + v); }));
+  let controls = KOS.Input.toControls(ctrl.state, null, null), heading = 0.6, last = performance.now(), acc = 0;
+  const boat = { cls: { id: layout === 'rib' ? 'rib' : 'opti' } };
+  function frame(now) {
+    acc += Math.min(0.1, (now - last) / 1000); last = now;
+    while (acc >= 1 / 60) {
+      acc -= 1 / 60;
+      controls = KOS.Input.toControls(ctrl.state, boat, controls, 1 / 60);
+      const spd = layout === 'rib' ? controls.throttle * 1.5 + 0.2 : 1;
+      heading += controls.rudder * 1.4 * spd / 60;
+    }
+    const twa = Math.atan2(Math.sin(heading), Math.cos(heading)); // wind from north
+    const ideal = Math.max(0, Math.min(1, (Math.abs(twa) - 0.75) / 2.2));
+    if (layout === 'sail') ctrl.setIdealSheet(ideal, 0.09);
+    if (layout === 'sail' && ctrl.state.autoTrim) ctrl.setSheet(ideal);
+    const boomA = (ctrl.state.sheet * 80) * (twa >= 0 ? -1 : 1);
+    document.getElementById('boat').style.transform = 'rotate(' + (heading * 180 / Math.PI).toFixed(1) + 'deg)';
+    document.getElementById('boom').setAttribute('transform', 'rotate(' + boomA.toFixed(1) + ' 35 50)');
+    document.getElementById('crew').setAttribute('cx', (35 + (twa >= 0 ? 1 : -1) * ctrl.state.hike * 22).toFixed(1));
+    document.getElementById('spi').setAttribute('opacity', ctrl.state.spinnaker ? 1 : 0);
+    const s = ctrl.state;
+    document.getElementById('readout').textContent =
+      'layout   ' + layout + '\nsteer    ' + s.steer.toFixed(2) + '\nrudder   ' + controls.rudder.toFixed(2) +
+      '\nsheet    ' + s.sheet.toFixed(2) + '\nideal    ' + ideal.toFixed(2) + '\nhike     ' + s.hike.toFixed(2) +
+      '\nspi      ' + s.spinnaker + '\nthrottle ' + s.throttle.toFixed(2) + '\nauto     ' + s.autoTrim + '\naction   ' + s.action;
+    window.controls = controls;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

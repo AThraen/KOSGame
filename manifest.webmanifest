@@ -1,0 +1,22 @@
+{
+  "name": "KØS SEJL",
+  "short_name": "KØS SEJL",
+  "description": "Sejlspil for KØS Sejlsport: sejlerskole, kapsejlads, vigeregler, navigation, rigning og RIB-missioner.",
+  "lang": "da",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "categories": ["games", "education", "sports", "kids"],
+  "icons": [
+    { "src": "assets/icons/app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icons/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/app/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

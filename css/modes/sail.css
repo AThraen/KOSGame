@@ -1,1 +1,35 @@
-/* css/modes/sail.css */
+/* css/modes/sail.css — free sail / bay challenges (js/modes/sail.js). Everything is scoped to .sail-* classes. */
+
+/* goals card (free sail): top-left under the pause button; under the HUD on narrow phones */
+.sail-goals {
+  position: absolute; z-index: 21; left: calc(var(--safe-l) + 10px); top: calc(var(--safe-t) + 70px);
+  width: max-content; max-width: min(250px, 46vw); padding: 8px 12px 10px; border-radius: 16px;
+  background: rgba(13, 19, 33, .66); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  pointer-events: none; color: #fff; animation: sgIn .5s var(--ease-pop, ease-out) both .3s;
+}
+.sg-head { display: flex; align-items: center; gap: 6px; font-size: .64rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--primary, #ffb547); margin-bottom: 4px; }
+.sg-head .ico { width: 16px; height: 16px; }
+.sg-row { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: .86rem; font-weight: 800; line-height: 1.15; }
+.sg-check { flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.1); color: rgba(255,255,255,.55); }
+.sg-check .ico { width: 13px; height: 13px; }
+.sg-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sg-bar { display: block; width: 100%; min-width: 120px; height: 5px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; }
+.sg-bar b { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--primary, #ffb547), var(--primary-2, #ff7a3d)); transition: width .3s; }
+.sg-row.done { color: var(--good, #3ee08f); }
+.sg-row.done .sg-check { background: var(--good, #3ee08f); color: #0d1321; animation: sgPop .5s var(--ease-pop, ease-out); }
+.sg-row.done .sg-bar b { background: var(--good, #3ee08f); }
+@keyframes sgIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes sgPop { 0% { transform: scale(.4); } 60% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+@media (max-width: 520px) {
+  .sail-goals { top: calc(var(--safe-t) + 128px); padding: 6px 10px 8px; max-width: 58vw; }
+  .sg-row { font-size: .76rem; padding: 3px 0; }
+  .sg-bar { min-width: 90px; }
+}
+/* landscape phones: the steering pads sit on the sides, keep the card small */
+@media (orientation: landscape) and (max-height: 520px) {
+  .sail-goals { top: calc(var(--safe-t) + 64px); max-width: 200px; padding: 6px 10px; }
+  .sg-row { font-size: .72rem; padding: 2px 0; }
+  .sg-head { display: none; }
+}

@@ -117,6 +117,9 @@ CSS: `css/style.css` (tokens, shell, buttons, screens), `css/game.css` (HUD, tou
 `clamp, lerp, wrapPi(a) → (−π,π], angDiff(a,b), rad(deg), deg(rad), vec(h), len(x,y), dist(a,b), rng(seed) → fn()→[0,1)`
 (mulberry32), `kn(ms)`, `ms(kn)`, `pointInPoly(x,y,poly)`, `segDistance`, `polyNearest(x,y,poly) → {x,y,d}`,
 `smoothstep`, `noise1(seed,t)` (smooth value noise). `KOS.Events.on/off/emit`.
+Implemented notes: `angDiff(a, b) = wrapPi(b − a)` = the signed turn from heading a to heading b (+ = turn right).
+`noise1`/`noise2` return [−1, 1]. Extras: `heading(dx,dy)` (inverse of vec), `bearing(a,b)`, `segNearest`, `segSeg`,
+`segCross`, `side`, `polyBounds/polyArea/polyCentroid`, `approach(dt,tau)`, `hash`, `rng(seed).range/int/pick/sign`, `Events.once`.
 
 ### KOS.I18n (core/i18n.js)
 `KOS.I18n.add(lang, dict)`, `KOS.I18n.setLang('da'|'en')`, `KOS.I18n.lang`, `KOS.t(key, vars)` with `{name}`
@@ -159,6 +162,19 @@ that planes downwind, RIB motor boat.
   separation (boats as capsules of their length/beam).
 - `KOS.Physics.idealSheet(boat)`, `KOS.Physics.vmg(boat, targetDir)`, `KOS.Physics.laylines(...)` helpers.
 - Events are emitted via `KOS.Events.emit(name, payload)`.
+- Implemented extras: control `trimBias` (added to auto-trim, + = ease); `env.autoRecover` (default true: a capsized dinghy
+  rights itself after `cls.recoverTime` s, ×1.5 in pro; set false and call `KOS.Physics.right(boat, windDir)` from the capsize
+  mini-game). Extra boat fields: `aws, windDir, slip, power, targetKn, spiCollapsed, r13` (tacking, for R13), `maneuverT,
+  grounded, depower, wakeSize` (RIB 0..1, biggest at displacement-hump speed), `skid` (RIB), `throttle, rudder`.
+  `wake` = `[{x, y, t, s, h, w}]` (stern points, last 5 s). Events: `boat:tack`/`boat:gybe {boat, from, to, power?}`,
+  `boat:capsize`, `boat:righted`, `boat:irons`, `boat:plane`, `boat:spiCollapse`, `boat:heelWarn {boat, k}`,
+  `boat:ground {boat, type, speed, depth}`, `boat:collide {type, a, b, speed, x, y}`. `collide(boats, venue, marks)` takes
+  optional race marks `[{x, y, r?, id?}]`. Helpers: `laylines(mark, windDir, cls, tws, {down, spi, length})` →
+  `{twa, headings: {starboard, port}, starboard: {a, b}, port: {a, b}}`, `optimal(cls, tws, 'up'|'down', spi)` → `{twa, speed, vmg}`
+  (same as `KOS.Boats.optimal`), `neededHike(boat)`, `pointOfSail(twaAbs, cls)`, `capsize(boat)`, `right(boat, windDir)`,
+  `tow(a, b, len, dt)` (rope from a's stern to b's bow), `bow(boat)`, `stern(boat)`. Boat defs also carry `draft, recoverTime,
+  trapeze, heelAt10, hikeRight, spiFactor(twaAbs)`. `KOS.Wind.steady(dir, kn)` = constant wind. Easy assist: no capsize, some
+  steerage even when stopped, no reversed steering in sternway (normal/pro: realistic).
 
 ### KOS.Rules (core/rules.js)
 Racing Rules of Sailing Part 2 (simplified) and the basic collision rules (COLREGs) for navigation.
@@ -167,6 +183,11 @@ Racing Rules of Sailing Part 2 (simplified) and the basic collision rules (COLRE
   needs `ctx.marks` and the zone = 3 lengths), `'C-power-sail'` (power gives way to sail), `'C-overtaking'`,
   `'C-headon'` (power vs power: both turn to starboard), `'C-crossing'` (power: give way to the one on your starboard side).
   `reasonKey` is an i18n key with a kid-friendly explanation (rules.js registers these strings).
+  Implemented: results also carry `reasonVars {give, stand}` (boat names; "Du"/"You" for `isPlayer`); `C-headon` returns
+  `{standOn: null, giveWay: a, both: true}`. `ctx = {wind (object or dir rad), marks, zone (lengths, default 3), mode: 'race'|'colreg'}`.
+  Extras: `explain(result)` → localized text, `ruleName(rule)`, `overtaking(a, b)`, `hullGap(a, b)`, `isPower(b)`. The monitor also
+  reports mark touches `{type: 'mark', rule: 'R31'}`. Scenario boats may be plain objects `{x, y, heading, length?, tack?, r13?,
+  isPower?, speed?, name?}`.
 - `KOS.Rules.overlapped(a, b)`, `KOS.Rules.isWindward(a, b, wind)`, `KOS.Rules.clearAstern(a, b)`, `KOS.Rules.tackOf(boat)`.
 - `KOS.Rules.monitor()` → object with `update(boats, wind, marks, dt) → [{type:'foul', offender, victim, rule}]` that
   flags contact or "had to take avoiding action" situations (distance < 1 boat length while the give-way boat closes in).
@@ -176,6 +197,11 @@ Racing Rules of Sailing Part 2 (simplified) and the basic collision rules (COLRE
 `plan` is `{target: {x, y}}` or `{course: [{x, y, round: 'port'|'starboard'}], leg}`; sails to waypoints, tacks
 on laylines when upwind, gybes downwind, keeps clear when it is the give-way boat (uses `KOS.Rules`), does start
 sequences when `plan.start = {line: [p1, p2], t0}` (holds back, accelerates at the gun). Deterministic per seed.
+Implemented: course items may also be `{line: [p1, p2]}` (finish/gate, must be crossed) or `{x, y, r?}` without `round`
+(pass within r). `env.t` drives the start clock. Helm state: `helm.leg, helm.finished, helm.finishT, helm.target, helm.avoiding`
+(rule id), `helm.ocs` (over early at the gun → dips back; `plan.start.recall = false` disables), `helm.state`
+('prestart'|'beat'|'reach'|'run'|'build'|'avoid'|'irons'|'ocs'|'finished'|'motor'|'capsized'). A numeric `plan.leg` jumps the
+helm to that leg. RIB helms motor to waypoints and alter course to starboard when giving way.
 
 ### KOS.World (core/world.js)
 Venues traced (approximately, stylised) from the chart. `KOS.World.venues` keyed by id:

@@ -1,0 +1,16 @@
+KØS SEJL - painted backgrounds (assets/bg/*.jpg)
+
+All images were generated locally with ComfyUI (comfy-studio, RTX 3090) using the
+Qwen-Image 2.1 text-to-image model, 25 steps, ~1.5 MP, then downscaled (max side 1600 px)
+and saved as JPEG (quality 0.86) with headless Chrome canvas. No third-party photos,
+no text, no logos. Created for KØS Sejlsport, 2026. Free to use in this project.
+
+file             size       seed              content
+title-land.jpg   1600x892   241521781469448   Øresund sunset, pastel orange/lilac sky, white dinghies, Nordhavn towers
+title-port.jpg   892x1600   222811030928833   same, portrait: calm sky top, skyline + sea + 3 dinghies at bottom
+hub-land.jpg     1600x892   236931984240793   overcast club harbor, wooden pier on rusty sheet piling, orange RIB, masts, red-brick power station
+hub-port.jpg     892x1600   197030567320047   same, portrait
+club.jpg         1600x892   211617828223171   warm boat shed interior: dinghies on trolleys, sails, ropes, life jackets
+race.jpg         1600x892   159742334641192   fleet of dinghies racing on choppy bright blue water, orange mark buoy
+winter.jpg       1600x892   213588807221333   snowy harbor at dusk, covered boats on cradles, clubhouse with warm windows
+results.jpg      1600x892   78468688583685    celebratory sunny sea, sailboat in spray with rainbow and sunbeams

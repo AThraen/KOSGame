@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>KØS SEJL — render demo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0d1321; overflow: hidden; font: 600 13px ui-rounded, 'Segoe UI', system-ui, sans-serif; color: #fff; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #bar { position: fixed; left: 12px; top: 12px; display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100% - 24px); }
+  #bar button, #bar select { background: rgba(13,19,33,.7); color: #fff; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 8px 12px; font: inherit; min-height: 40px; backdrop-filter: blur(8px); }
+  #bar button.on { background: linear-gradient(#ffc65c, #ff7a3d); color: #1b1206; }
+  #fps { position: fixed; right: 12px; top: 12px; background: rgba(13,19,33,.7); padding: 6px 10px; border-radius: 10px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="bar"></div>
+<div id="fps"></div>
+<!-- real game modules -->
+<script src="../js/core/kos.js"></script>
+<script src="../js/core/i18n.js"></script>
+<script src="../js/core/boats.js"></script>
+<script src="../js/core/wind.js"></script>
+<script src="../js/core/physics.js"></script>
+<script src="../js/core/rules.js"></script>
+<script src="../js/core/ai.js"></script>
+<script src="../js/core/world.js"></script>
+<script src="../js/render/sprites.js"></script>
+<script src="../js/render/effects.js"></script>
+<script src="../js/render/water.js"></script>
+<script src="../js/render/scene.js"></script>
+<script>
+// Render demo: uses the real core when present, fakes boats/wind/venue otherwise.
+// Query: ?venue=bay|pier|harbor|sound &boat=29er &n=7 &night=0.8 &warm=8 (sim seconds before showing)
+//        &zoom=1 &nogo=1 &lay=1 &spi=1 &x=..&y=.. (camera spawn) &paused=1
+(function () {
+  const Q = new URLSearchParams(location.search);
+  const KOS = window.KOS;
+  const U = KOS.U || { rad: (d) => d * Math.PI / 180, vec: (h) => ({ x: Math.sin(h), y: -Math.cos(h) }) };
+  const rad = (d) => d * Math.PI / 180;
+  const venueId = Q.get('venue') || 'bay';
+  let venue = KOS.World && KOS.World.get ? KOS.World.get(venueId) : null;
+  if (!venue) venue = fakeVenue();
+  const cls = Q.get('boat') || '29er';
+  const n = +(Q.get('n') || 7);
+  const windDeg = +(Q.get('wind') || 225);
+  const windKn = +(Q.get('kn') || 11);
+  const sp = venue.courseArea || venue.spawn || { x: 0, y: 0 };
+  const cx = +(Q.get('x') || sp.x || 0), cy = +(Q.get('y') || sp.y || 0);
+  let wind;
+  if (KOS.Wind && KOS.Wind.create) wind = KOS.Wind.create({ dir: rad(windDeg), speed: windKn, gust: 0.7, shift: 0.4, seed: 7, bounds: { x0: cx - 450, y0: cy - 450, x1: cx + 450, y1: cy + 450 } });
+  else wind = fakeWind(rad(windDeg), windKn);
+  const real = !!(KOS.Physics && KOS.Physics.createBoat);
+  const boats = [], helms = [], ctrls = [];
+  // course: windward mark upwind, gate downwind, start line between committee boat & pin
+  const wd = wind.dir != null ? wind.dir : rad(windDeg);
+  const up = { x: Math.sin(wd), y: -Math.cos(wd) }, perp = { x: Math.cos(wd), y: Math.sin(wd) };
+  const at = (u, p) => ({ x: cx + up.x * u + perp.x * p, y: cy + up.y * u + perp.y * p });
+  const wm = Object.assign(at(170, 0), { kind: 'orange', round: 'port', label: '1', upwind: true });
+  const g1 = Object.assign(at(-60, -12), { kind: 'yellow', round: 'starboard' }), g2 = Object.assign(at(-60, 12), { kind: 'yellow', round: 'port' });
+  const com = Object.assign(at(0, 28), { kind: 'committee', heading: wd }), pin = Object.assign(at(0, -28), { kind: 'pin' });
+  const marks = [wm, g1, g2, com, pin];
+  const lines = [{ a: com, b: pin, kind: 'start' }, { a: at(10, 0), b: wm, kind: 'path' }];
+  const ladder = ['opti', 'tera', 'feva', 'zest', 'ilca', '29er', 'hboat', 'j70'];
+  for (let i = 0; i < n; i++) {
+    const c = i === 0 ? cls : (Q.get('mix') ? ladder[i % ladder.length] : cls);
+    const p = at(-20 - (i % 3) * 14 + (i > 2 ? 40 : 0), (i - n / 2) * 9);
+    const hdg = wd + (i % 2 ? 0.8 : -0.8) + (i > 2 ? Math.PI : 0);
+    let b;
+    if (real) b = KOS.Physics.createBoat(c, { x: p.x, y: p.y, heading: hdg, sailNo: 'DEN ' + (17 + i * 13), name: i === 0 ? 'Dig' : ['Ida', 'Malte', 'Freja', 'Oscar', 'Alma', 'Viggo', 'Ella', 'Noah'][i % 8], isPlayer: i === 0 });
+    else b = fakeBoat(c, p.x, p.y, hdg, i);
+    boats.push(b);
+    if (real && KOS.AI && KOS.AI.createHelm) helms.push(KOS.AI.createHelm(b, { skill: 0.6 + (i % 4) * 0.1, seed: 11 + i }));
+    ctrls.push(real ? KOS.Physics.controls() : null);
+  }
+  if (KOS.Physics && KOS.Physics.controls && Q.get('spi')) boats.forEach((b) => (b.spinnaker = true));
+  // a capsized dinghy and a RIB coach boat for variety
+  if (real && venueId !== 'sound') {
+    const rib = KOS.Physics.createBoat('rib', Object.assign(at(-40, 45), { heading: wd + 2.2, sailNo: 'KØS 1', name: 'Coach' }));
+    boats.push(rib); helms.push(null); ctrls.push(Object.assign(KOS.Physics.controls(), { throttle: 0.55, rudder: 0.25 }));
+  }
+  const canvas = document.getElementById('c');
+  const scene = new KOS.SailScene(canvas, { venue, wind, boats, marks, lines, follow: boats[Q.get('follow') != null ? (+Q.get('follow') < 0 ? boats.length + +Q.get('follow') : +Q.get('follow')) : 0], zoom: +(Q.get('zoom') || 1),
+    showWindArrow: Q.get('arrow') !== '0', showNoGo: !!Q.get('nogo'), showLaylines: !!Q.get('lay'), night: +(Q.get('night') || 0), showLanes: !!Q.get('lanes') });
+  if (Q.get('cam')) { const [x, y, z] = Q.get('cam').split(',').map(Number); scene.follow(null); scene.camera.x = x; scene.camera.y = y; scene.fixedZoom = z || 4; }
+  const plan = { course: [{ x: wm.x, y: wm.y, round: 'port' }, { x: (g1.x + g2.x) / 2, y: (g1.y + g2.y) / 2, round: 'port' }], leg: 0 };
+  const env = { wind, venue, assist: 'normal', t: 0 };
+  function step() {
+    const dt = KOS.DT || 1 / 60;
+    env.t += dt;
+    if (wind.update) wind.update(dt);
+    for (let i = 0; i < boats.length; i++) {
+      const b = boats[i];
+      if (real) {
+        let c = ctrls[i];
+        if (helms[i]) { try { c = helms[i].think(env, b.__plan || (b.__plan = JSON.parse(JSON.stringify(plan))), boats); } catch (e) { if (!step.err) { step.err = 1; console.error(e); } } }
+        if (Q.get('spi') && c) c.spinnaker = true;
+        KOS.Physics.step(b, c, env, dt);
+      } else b.update(dt, wind);
+    }
+    if (real && KOS.Physics.collide) KOS.Physics.collide(boats, venue);
+  }
+  const warm = +(Q.get('warm') || 0);
+  for (let i = 0; i < warm * 60; i++) step();
+  // UI
+  const bar = document.getElementById('bar');
+  const btn = (label, fn, on) => { const b = document.createElement('button'); b.textContent = label; if (on) b.classList.add('on'); b.onclick = () => { const r = fn(); b.classList.toggle('on', !!r); }; bar.appendChild(b); return b; };
+  const sel = document.createElement('select');
+  boats.forEach((b, i) => { const o = document.createElement('option'); o.value = i; o.textContent = (b.name || '') + ' · ' + (b.cls.id || b.cls); sel.appendChild(o); });
+  sel.onchange = () => scene.follow(boats[+sel.value]); bar.appendChild(sel);
+  btn('Spiler', () => { boats[+sel.value].spinnaker = !boats[+sel.value].spinnaker; return boats[+sel.value].spinnaker; });
+  btn('No-go', () => (scene.showNoGo = !scene.showNoGo), scene.showNoGo);
+  btn('Laylines', () => (scene.showLaylines = !scene.showLaylines), scene.showLaylines);
+  btn('Nat', () => (scene.night = scene.night ? 0 : 0.85) > 0, scene.night > 0);
+  btn('Konfetti', () => { const b = scene.target || boats[0]; scene.effects.confetti(b.x, b.y, 120); scene.effects.text(b.x, b.y - 4, '1. plads!', { color: '#ffd25e', size: 30 }); scene.shake(0.4); });
+  btn('Plask', () => { const b = scene.target || boats[0]; scene.effects.splash(b.x + 3, b.y, 1.2); scene.shake(0.5); });
+  btn('Zoom −', () => { scene.setZoom(scene.zoomMul / 1.4); });
+  btn('Zoom +', () => { scene.setZoom(scene.zoomMul * 1.4); });
+  window.addEventListener('resize', () => scene.resize());
+  let acc = 0, last = performance.now(), frames = 0, ft = 0;
+  const fps = document.getElementById('fps');
+  const paused = !!Q.get('paused');
+  function frame(ts) {
+    const d = Math.min(0.1, (ts - last) / 1000); last = ts; acc += d;
+    if (!paused) while (acc >= 1 / 60) { step(); acc -= 1 / 60; }
+    const t0 = performance.now(); scene.render(acc * 60); ft += performance.now() - t0; frames++;
+    if (frames % 30 === 0) { fps.textContent = 'render ' + (ft / 30).toFixed(1) + ' ms · ' + (KOS.U ? KOS.U.kn ? KOS.U.kn(Math.abs(boats[+sel.value].speed)).toFixed(1) : '' : '') + ' kn · ' + (boats[+sel.value].pos || ''); ft = 0; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.demo = { scene, boats, marks, wind, venue, step };
+
+  // ---------------- fakes (only used if the core is still stubbed) ----------------
+  function fakeVenue() {
+    return { id: 'fake', name: { da: 'Testbugt', en: 'Test bay' }, bounds: { x0: -400, y0: -500, x1: 400, y1: 300 }, defaultDepth: 4,
+      land: [[[-400, 120], [-100, 160], [150, 140], [400, 180], [400, 300], [-400, 300]]],
+      piers: [Object.assign([[-20, 150], [-16, 150], [-16, 100], [-20, 100]], { kind: 'jetty' })],
+      breakwaters: [[[60, 120], [200, 90], [204, 100], [64, 132]]],
+      depth: [{ poly: [[-400, 60], [400, 60], [400, 300], [-400, 300]], d: 1.6 }, { poly: [[-400, -500], [400, -500], [400, -250], [-400, -250]], d: 8 }],
+      buoys: [{ id: 'r', kind: 'port', x: 40, y: 0, light: 'Fl R 3s' }, { id: 'g', kind: 'stbd', x: -40, y: 0, light: 'Fl G 3s' }, { id: 'n', kind: 'cardN', x: 0, y: -150, light: 'Q' }],
+      labels: [{ x: 0, y: -300, text: 'Testbugt', size: 30, kind: 'water' }], landmarks: [{ kind: 'clubhouse', x: 0, y: 200, w: 30, h: 12, rot: 0, name: 'KØS' }], spawn: { x: 0, y: -50, heading: 0 } };
+  }
+  function fakeWind(dir, kn) {
+    const gusts = []; for (let i = 0; i < 6; i++) gusts.push({ x: -300 + i * 120, y: -300 + (i % 3) * 120, r: 70, k: 1.3, vx: -Math.sin(dir) * 2, vy: Math.cos(dir) * 2 });
+    return { dir, speed: kn, base: { dir, speed: kn }, gusts, t: 0, update(dt) { this.t += dt; for (const g of gusts) { g.x += g.vx * dt; g.y += g.vy * dt; } }, at() { return { dir, speed: kn }; } };
+  }
+  function fakeBoat(c, x, y, h, i) {
+    return { id: 'f' + i, cls: { id: c, length: KOS.Sprites.geo(c).L, noGo: rad(45) }, x, y, heading: h, speed: 2.5, vx: 0, vy: 0, heel: 0.15, hike: 0.6, boom: 0, trim: 0.9, sailNo: 'DEN ' + i, name: 'Bot ' + i, t: 0,
+      update(dt, w) { this.t += dt; this.heading += Math.sin(this.t * 0.2 + i) * 0.004; const twa = ((w.dir - this.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI; this.twa = twa; this.tack = twa > 0 ? 'starboard' : 'port'; this.boom = -Math.sign(twa) * Math.max(0.1, (Math.abs(twa) - 0.6) * 0.75); this.heel = Math.sign(twa) * 0.15; this.vx = Math.sin(this.heading) * this.speed; this.vy = -Math.cos(this.heading) * this.speed; this.x += this.vx * dt; this.y += this.vy * dt; } };
+  }
+})();
+</script>
+</body>
+</html>

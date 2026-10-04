@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KØS SEJL — lyd-demo</title>
+<style>
+  body { margin: 0; padding: 16px; background: #0d1321; color: #fff; font-family: ui-rounded, "Segoe UI Variable Display", system-ui, sans-serif; }
+  h2 { margin: 18px 0 8px; font-size: 15px; opacity: .8; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { min-height: 44px; padding: 0 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.14); background: rgba(40,52,80,.8); color: #fff; font: 700 14px inherit; cursor: pointer; }
+  button:active { background: linear-gradient(#ffc65c, #ff7a3d); color: #2a1606; }
+  label { display: flex; gap: 10px; align-items: center; margin: 6px 0; } input[type=range] { width: 220px; }
+</style>
+</head>
+<body>
+<h1>Lyd-demo</h1>
+<h2>Effekter</h2><div class="grid" id="fx"></div>
+<h2>Musik</h2><div class="grid">
+  <button data-m="menu">menu</button><button data-m="race">race</button><button data-m="calm">calm</button><button data-m="">stop</button></div>
+<h2>Omgivelser</h2>
+<label>Vind (kn) <input id="wind" type="range" min="0" max="30" value="10"></label>
+<label>Bølger <input id="waves" type="range" min="0" max="100" value="50"></label>
+<label>Havn <input id="harbor" type="range" min="0" max="100" value="60"></label>
+<div class="grid"><button id="ambOn">ambient til</button><button id="ambOff">ambient fra</button></div>
+<h2>RIB-motor</h2>
+<label>Gas <input id="thr" type="range" min="-100" max="100" value="0"></label>
+<div class="grid"><button id="engOn">motor til</button><button id="engOff">motor fra</button></div>
+<h2>Master</h2>
+<label>Lydstyrke <input id="vol" type="range" min="0" max="100" value="80"></label>
+<div class="grid"><button id="mute">mute/unmute</button></div>
+<script src="../js/core/kos.js"></script>
+<script src="../js/ui/audio.js"></script>
+<script>
+  const A = KOS.Audio, $ = id => document.getElementById(id);
+  A.setMusic(true);
+  A.names.forEach(n => { const b = document.createElement('button'); b.textContent = n; b.onclick = () => { A.unlock(); A.play(n); }; $('fx').appendChild(b); });
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { A.unlock(); A.music(b.dataset.m || null); });
+  const amb = () => A.ambient({ wind: +$('wind').value, waves: $('waves').value / 100, harbor: $('harbor').value / 100 });
+  $('ambOn').onclick = () => { A.unlock(); amb(); }; $('ambOff').onclick = () => A.ambient(null);
+  ['wind', 'waves', 'harbor'].forEach(id => $(id).oninput = () => { if (A.state().ambient) amb(); });
+  $('engOn').onclick = () => { A.unlock(); A.engine($('thr').value / 100); }; $('engOff').onclick = () => A.engine(null);
+  $('thr').oninput = () => { if (A.state().engine) A.engine($('thr').value / 100); };
+  $('vol').oninput = () => A.setVolume($('vol').value / 100); $('mute').onclick = () => A.mute();
+</script>
+</body>
+</html>
