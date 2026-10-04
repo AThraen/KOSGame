@@ -559,23 +559,33 @@
     // is the straight line clear of land, piers and breakwaters with a few meters to spare?
     function clearLine(a, b, r) {
       const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 3));
-      for (let k = 1; k <= n; k++) { const x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n; const h = KOS.World.hit(venue, x, y, r); if (h && h.type !== 'shallow') return false; }
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      for (let k = 1; k <= n; k++) {
+        if (L * (1 - k / n) < 7) break; // the last few meters (a berth, the box by the pontoon) are the target itself
+        const x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n; const h = KOS.World.hit(venue, x, y, r); if (h && h.type !== 'shallow') return false;
+      }
       return true;
     }
     const WAYPTS = isBay ? [{ x: -78, y: -72 }, { x: -100, y: -135 }, { x: 22, y: -64 }, { x: 140, y: -90 }, { x: 180, y: -175 }, { x: -60, y: -40 }] : [];
+    let route = null;
     function drive(tx, ty, wantKn, o) {
       o = o || {};
       // simple routing round the island breakwater and the jetties
       const tgt = { x: tx, y: ty };
-      if (WAYPTS.length && Math.hypot(tx - boat.x, ty - boat.y) > 8 && !clearLine(boat, tgt, 3.5)) {
-        let best = null, bd = Infinity;
-        for (const w of WAYPTS) {
-          if (Math.hypot(w.x - boat.x, w.y - boat.y) < 6 || !clearLine(boat, w, 3.5)) continue;
-          const c = Math.hypot(w.x - boat.x, w.y - boat.y) + Math.hypot(tx - w.x, ty - w.y) + (clearLine(w, tgt, 3.5) ? 0 : 400);
-          if (c < bd) { bd = c; best = w; }
+      // re-plan a few times a second (World.hit sampling is not free), or when the target jumps
+      if (!route || env.t - route.t > 0.35 || Math.hypot(route.tx - tx, route.ty - ty) > 4) {
+        let best = null;
+        if (WAYPTS.length && Math.hypot(tx - boat.x, ty - boat.y) > 8 && !clearLine(boat, tgt, 3.5)) {
+          let bd = Infinity;
+          for (const w of WAYPTS) {
+            if (Math.hypot(w.x - boat.x, w.y - boat.y) < 11 || !clearLine(boat, w, 3.5)) continue;
+            const c = Math.hypot(w.x - boat.x, w.y - boat.y) + Math.hypot(tx - w.x, ty - w.y) + (clearLine(w, tgt, 3.5) ? 0 : 400);
+            if (c < bd) { bd = c; best = w; }
+          }
         }
-        if (best) { tx = best.x; ty = best.y; o = Object.assign({}, o, { min: Math.max(o.min || 0, 3) }); }
+        route = { t: env.t, tx, ty, via: best };
       }
+      if (route.via) { tx = route.via.x; ty = route.via.y; o = Object.assign({}, o, { min: Math.max(o.min || 0, 3) }); }
       const dx = tx - boat.x, dy = ty - boat.y, d = Math.hypot(dx, dy);
       const err = U.angDiff(boat.heading, U.heading(dx, dy));
       let k = Math.min(wantKn, (o.stopAt != null ? Math.max(0, d - o.stopAt) : d) * (o.brake || 0.7) + (o.min || 0));

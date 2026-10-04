@@ -619,14 +619,14 @@
   // ---------------------------------------------------------------- background scene (sky, Nordhavn skyline, slipway / pontoon)
   function bgSvg(g) {
     const W0 = -4000, W1 = 9000;
+    const hz = -70; // horizon
     let s = '<defs>' +
-      '<linearGradient id="rgSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6db0"/><stop offset=".45" stop-color="#a98dc4"/><stop offset=".78" stop-color="#f3b1a0"/><stop offset="1" stop-color="#ffd3a1"/></linearGradient>' +
+      '<linearGradient id="rgSky" gradientUnits="userSpaceOnUse" x1="0" y1="' + f(hz - g.mastH * 1.25 - 120) + '" x2="0" y2="' + hz + '"><stop offset="0" stop-color="#5b6db0"/><stop offset=".45" stop-color="#a98dc4"/><stop offset=".78" stop-color="#f3b1a0"/><stop offset="1" stop-color="#ffd3a1"/></linearGradient>' +
       '<linearGradient id="rgFar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb4d8"/><stop offset="1" stop-color="#5c84b8"/></linearGradient>' +
       '<linearGradient id="rgNear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(64,140,200,.55)"/><stop offset="1" stop-color="rgba(22,70,130,.92)"/></linearGradient>' +
       '<linearGradient id="rgGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9c3bb"/><stop offset=".06" stop-color="#a9a39b"/><stop offset="1" stop-color="#6e6a66"/></linearGradient>' +
       '<radialGradient id="rgSun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff4cf"/><stop offset=".35" stop-color="rgba(255,226,170,.6)"/><stop offset="1" stop-color="rgba(255,200,150,0)"/></radialGradient>' +
       '</defs>';
-    const hz = -70; // horizon
     return { defs: s, hz, W0, W1 };
   }
   function skySvg(g, hz) {
@@ -738,6 +738,8 @@
     ORDER.forEach(k => { inst[k] = false; });
     if (unrig) base.forEach(s => { inst[s[0]] = s[2] !== 'off'; });
     else base.forEach(s => { inst[s[0]] = s[2] === 'off'; });
+    // keelboats keep their mast stepped and the boom and standing rigging on all season
+    if (g.keelboat) ['mast', 'boom', 'shrouds', 'forestay'].forEach(k => { inst[k] = true; });
     let groundSail = null; // null | 'flat' | 'rolled'
 
     const S = {
@@ -779,7 +781,7 @@
     const zonesG = svg.querySelector('.rg-zones'), fxG = svg.querySelector('.rg-fx'), gsailG = svg.querySelector('.rg-gsail'), wakeG = svg.querySelector('.rg-wake');
     const infoEl = rootEl.querySelector('.rigging-info'), stampEl = rootEl.querySelector('.rigging-stamp');
     const cardsEl = rootEl.querySelector('.rigging-cards');
-    rootEl.querySelector('.rigging-tray-title').textContent = t(unrig ? 'rigging.trayTitleUnrig' : 'rigging.trayTitle');
+    rootEl.querySelector('.rigging-tray-title').textContent = t(unrig || g.keelboat ? 'rigging.trayTitleUnrig' : 'rigging.trayTitle');
     rootEl.querySelector('.rigging-keys').textContent = t('rigging.keys');
 
     // part groups in drawing order
@@ -1145,6 +1147,8 @@
         msgKey: unrig ? 'rigging.res.unrig' : 'rigging.res.rig', msgVars: { boat: boatName, time: tstr, oops: S.mistakes },
       };
       rootEl.classList.add('is-done');
+      // decoys nobody fell for just slip away
+      decoys.forEach(d => { const c = cardEl[d.i]; if (c) { c.classList.add('gone'); delete cardEl[d.i]; } });
       KOS.UI.coach(t(unrig ? 'rigging.coach.doneUnrig' : g.keelboat ? 'rigging.coach.doneRigKeel' : 'rigging.coach.doneRig'), { pos: 'top', mood: 'wow' });
       sfx('cheer', { vol: 0.55 });
       if (stars >= 3) { try { KOS.UI.confetti(); } catch (e) { /* ignore */ } }
@@ -1182,6 +1186,7 @@
       a.ba = τ2 > 0 ? -Math.min(6, τ2 * 3) : (a.bx > g.xW ? a.ta * U.clamp(1 - (groundAt(a.bx) - floatDy + 20) / 20, 0, 1) : 0);
       if (a.by >= floatDy - 1 && τ2 <= 0) a.ba = a.ta * 0.4;
       a.cam = Math.max(0, a.bx - 60);
+      a.camY = Math.max(0, a.by - 16) * 0.8; // follow the boat down the ramp so it never hides behind the tray
       if (τ2 > 0.6 && !a.fly && inst.gennaker) { a.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
       if (τ2 > 0 && !a.splash) { a.splash = true; sfx('splash', { vol: 0.7 }); }
     }
@@ -1216,7 +1221,8 @@
       // narrow (portrait) scenes: crop the side margins and stand the boat on the bottom edge, so it is as big as possible
       const sw = sceneEl.clientWidth || w, sh = sceneEl.clientHeight || h;
       // fit the rigged boat under the HUD (top 60 px reserved) and stand it on the bottom edge
-      const top = 60, availH = Math.max(80, sh - top), y1 = vb.y + vb.h;
+      const side = rootEl.classList.contains('tray-side');
+      const top = !side && sw >= 700 ? Math.min(150, sh * 0.22) : 60, availH = Math.max(80, sh - top), y1 = vb.y + vb.h;
       let x0 = vb.x, x1 = vb.x + vb.w;
       let s = Math.min(sw / (x1 - x0), availH / vb.h);
       if (s < availH / vb.h) { // width-limited: crop the side margins
@@ -1251,8 +1257,8 @@
     function render() {
       if (S.phase !== 'end' || unrig) return;
       const a = anim;
-      worldG.setAttribute('transform', 'translate(' + f(-a.cam) + ' 0)');
-      skylineG.setAttribute('transform', 'translate(' + f(-a.cam * 0.25) + ' 0)');
+      worldG.setAttribute('transform', 'translate(' + f(-a.cam) + ' ' + f(-(a.camY || 0)) + ')');
+      skylineG.setAttribute('transform', 'translate(' + f(-a.cam * 0.25) + ' ' + f(-(a.camY || 0)) + ')');
       trolleyG.setAttribute('transform', 'translate(' + f(a.tx) + ' ' + f(a.ty) + ') rotate(' + f(a.ta) + ')');
       boatG.setAttribute('transform', 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ')');
       const moving = g.keelboat ? S.endT > 1 : S.endT > 2.9;

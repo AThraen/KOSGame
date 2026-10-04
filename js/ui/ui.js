@@ -327,7 +327,7 @@
         d = d || {};
         if (cells.wind && d.wind) {
           const dir = (+d.wind.dir || 0) - (+d.viewRot || 0);
-          const deg = ((dir * 180 / Math.PI) + 180) % 360; // arrow points where the wind blows TO
+          const deg = (((dir * 180 / Math.PI) % 360) + 360) % 360; // arrow points where the wind blows TO (glyph points down at 0°)
           const key = Math.round(deg);
           if (last.windDeg !== key) { last.windDeg = key; cells.wind.querySelector('.hud-wind-arrow').setAttribute('transform', 'rotate(' + key + ' 20 20)'); }
           setVal('wind', Math.round(d.wind.speed || 0));

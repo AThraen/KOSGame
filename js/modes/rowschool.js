@@ -33,7 +33,7 @@
       role: {
         give: 'Du skal vige', stand: 'Du har ret – hold kurs og fart', both: 'Drej til styrbord (højre)',
         avoid: 'Du har ret … men hold øje!', keepout: 'Kom væk fra færgens vej!', keepShip: 'Hold dig langt væk fra skibet!',
-        room: 'Du har ret til plads ved mærket', free: 'Sejl hen til målet',
+        room: 'Du har ret til plads ved mærket', giveRoom: 'Giv plads ved mærket', free: 'Sejl hen til målet',
       },
       fail: {
         bump: { t: 'Bump!', d: 'I ramte hinanden. Prøv igen – og hold god afstand.' },
@@ -150,7 +150,7 @@
       role: {
         give: 'You must give way', stand: 'Right of way – hold course and speed', both: 'Turn to starboard (right)',
         avoid: 'Right of way … but watch out!', keepout: 'Get out of the ferry\'s way!', keepShip: 'Keep well clear of the ship!',
-        room: 'You are entitled to room at the mark', free: 'Sail to the goal',
+        room: 'You are entitled to room at the mark', giveRoom: 'Give room at the mark', free: 'Sail to the goal',
       },
       fail: {
         bump: { t: 'Bump!', d: 'You hit each other. Try again – and keep a good distance.' },
@@ -274,7 +274,7 @@
       auto: [], dur: 16 }),
     r10c: S_(OPEN, { rot: 210, rule: 'R10', ans: 'me', me: { hdg: 140 }, T: 10,
       npcs: [{ name: 'Alma', color: '#a35cf0', hdg: 220, meet: { dt: -0.3 }, focus: 1 }],
-      auto: [{ t: 0.8, h: 178 }, { t: 12.5, h: 150 }], dur: 15 }),
+      auto: [{ t: 0.8, h: 178 }, { t: 13.5, h: 150 }], dur: 15 }),
     r11a: S_(OPEN, { rot: 235, rule: 'R11', ans: 'me', me: { hdg: -90 }, T: 0, encEnd: 9,
       npcs: [{ name: 'Noah', color: '#ff5a8a', hdg: -90, rel: { fwd: 0.2, side: -2.0 }, script: [{ t: 2, h: -52 }], intent: -52, focus: 1 }],
       auto: [{ t: 1.4, h: -50 }, { t: 9.5, h: -75 }], dur: 13 }),
@@ -319,8 +319,8 @@
       auto: [{ t: 0.8, h: 180 }, { t: 19, h: 95 }], dur: 29 },
     ex1: S_(HARB, { rot: 240, rule: 'R10', ans: 'me', me: { hdg: 50 }, T: 11,
       npcs: [{ name: 'Lukas', color: '#1fb5c9', hdg: -50, meet: { dt: -0.4 }, focus: 1 },
-        { kind: 'motor', name: 'Speedy', color: '#1f6fd1', hdg: 270, speed: 3.2, at: { x: 75, y: -95 }, traffic: 1 },
-        { name: 'Ella', color: '#ffd23f', hdg: 135, at: { x: -70, y: -60 }, traffic: 1 }],
+        { kind: 'motor', name: 'Speedy', color: '#1f6fd1', hdg: 270, speed: 3.2, at: { x: 62, y: -48 }, traffic: 1 },
+        { name: 'Ella', color: '#ffd23f', hdg: 135, at: { x: -46, y: -50 }, traffic: 1 }],
       auto: [{ t: 5.0, h: 110 }, { t: 12.5, h: 50 }], dur: 18 }),
     ex2: { venue: 'harbor', lane: 'kalk', laneY: -800, wind: 80, rule: 'narrow', reason: 'narrowRib', ans: 'me', keepout: 1, headon: 1,
       me: { kind: 'rib', hdg: 0, thr: 0.3 }, T: 12, C: { x: -8, y: 0 }, encEnd: 16,
@@ -492,7 +492,7 @@
       engine: scn.rule !== 'narrow' && scn.rule !== 'draught',
       mode: anyPower ? 'colreg' : 'race',
       encEnd: scn.encEnd != null ? scn.encEnd : scn.T + 3,
-      late: scn.dur * 1.6 + 10,
+      late: scn.dur * 1.35 + 8,
       ring: null, path: [],
       focusIdx: Math.max(0, npcs.findIndex(n => n.focus)),
     };
@@ -618,6 +618,7 @@
       if (scn.keepout || scn.rule === 'draught') return scn.keepout ? 'keepout' : 'keepShip';
       if (scn.avoid) return sim.t < plan.scn.T + 4 ? 'avoid' : 'free';
       if (scn.room) return sim.t < plan.encEnd ? 'room' : 'free';
+      if (scn.rule === 'R18') return sim.t < plan.encEnd ? 'giveRoom' : 'free';
       const f = sim.focus();
       if (sim.t > plan.encEnd) return 'free';
       return f.role === 'none' ? 'free' : f.role;
@@ -646,7 +647,7 @@
         n.closing = closing;
         const clr = sim.clrFor(n);
         n.near = (role === 'give' || role === 'both') && closing && gap < clr * 2.5 + plan.Lp;
-        if ((role === 'give' || role === 'both') && closing && gap < clr) return { kind: n.big ? 'closeBig' : 'close', n };
+        if (enc && (role === 'give' || role === 'both') && closing && gap < clr) return { kind: n.big ? 'closeBig' : 'close', n };
         if (!n.focus) continue;
         const f = U.vec(ob.heading), along = dx * f.x + dy * f.y, lat = dx * -f.y + dy * f.x;
         if (scn.noAhead && enc) {
@@ -884,6 +885,7 @@
       const lay = sailing ? (S.plan.pCls === 'rib' ? 'rib' : 'sail') : 'none';
       if (ctrl.opts.layout !== lay) ctrl.setLayout(lay, { hike: false, spinnaker: false, autoTrim: assist !== 'pro' });
       host.layer.classList.toggle('rowschool-sailing', sailing);
+      host.layer.classList.toggle('rowschool-autotrim', assist !== 'pro');
       if (!sailing) roleEl.hidden = true;
     }
 
@@ -1163,7 +1165,7 @@
       if (!force && r === S.lastRole) return;
       S.lastRole = r;
       roleEl.className = 'rowschool-role rs-r-' + r;
-      roleEl.innerHTML = KOS.UI.iconSvg(r === 'give' || r === 'keepout' || r === 'keepShip' ? 'shield' : r === 'free' ? 'flag' : r === 'both' ? 'forward' : 'check') + '<span>' + esc(t('rowschool.role.' + r)) + '</span>';
+      roleEl.innerHTML = KOS.UI.iconSvg(r === 'give' || r === 'giveRoom' || r === 'keepout' || r === 'keepShip' ? 'shield' : r === 'free' ? 'flag' : r === 'both' ? 'forward' : 'check') + '<span>' + esc(t('rowschool.role.' + r)) + '</span>';
       roleEl.classList.remove('pop'); void roleEl.offsetWidth; roleEl.classList.add('pop');
     }
 
@@ -1177,7 +1179,7 @@
       add(pl.x, pl.y, Lp * 1.6);
       for (const n of v.npcs) {
         const d = Math.hypot(n.o.x - pl.x, n.o.y - pl.y);
-        if (n.spec.traffic && d > 90) continue;
+        if (n.spec.traffic && d > 75) continue;
         if (!n.focus && d > 140) continue;
         add(n.o.x, n.o.y, n.big ? n.L * 0.55 : n.L * 1.2);
       }
@@ -1198,11 +1200,16 @@
       let top = Math.max(64, hb.bottom + 14), bot = H - 14, left = 14, right = 14;
       if (!cardEl.hidden) { const cr = cardEl.getBoundingClientRect(); if (land && cr.left > W * 0.4) right = W - cr.left + 10; else if (land) left = cr.right + 10; else bot = Math.min(bot, cr.top - 10); }
       else if (S.phase === 'sail' || S.phase === 'count' || S.phase === 'fail') {
-        if (land) { left = 150; right = 150; bot = H - 20; } else bot = H - (W < 700 ? 200 : 140);
+        const slider = assist === 'pro' || S.plan.pCls === 'rib';
+        if (land) { left = 150; right = 150; bot = H - 20; } else { bot = H - (W < 700 ? 200 : 140); if (slider) right = W < 700 ? 96 : 120; }
       }
-      const aw = Math.max(80, W - left - right), ah = Math.max(80, bot - top);
+      // keep the situation clear of Coach Søs while a tip is up (portrait / desktop: the bubble sits at the bottom)
+      const co = document.querySelector('.coach');
+      if (co) { const r = co.getBoundingClientRect(); if (r.height && r.top > H * 0.45) bot = Math.min(bot, r.top - 10); else if (r.height && land && r.bottom < H * 0.5) top = Math.max(top, r.bottom + 6); }
+      if (!land && W < 640) top += 70; // phones: the wind badge / replay badge / role pill row under the HUD
+      const pad = 26, aw = Math.max(80, W - left - right - pad * 2), ah = Math.max(80, bot - top - pad * 2);
       let z = Math.min(aw / Math.max(4, x1 - x0), ah / Math.max(4, y1 - y0));
-      z = U.clamp(z, 2.2, Math.min(W, H) * 0.16 / Lp);
+      z = U.clamp(z, 1.1, Math.min(W, H) * 0.16 / Lp);
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, sx = (left + W - right) / 2, sy = (top + bot) / 2;
       camT.x = cx - (sx - W / 2) / z; camT.y = cy - (sy - H / 2) / z;
       scene.fixedZoom = z;
@@ -1233,7 +1240,10 @@
         const R = 3 * pl.Lp;
         ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = Math.max(0.12, 2 * mpp); ctx.setLineDash([7 * mpp, 6 * mpp]); ctx.lineDashOffset = -tm * 8 * mpp;
         ctx.fillStyle = 'rgba(255,214,94,0.10)'; ctx.beginPath(); ctx.arc(m.x, m.y, R, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore();
-        sc.pill(ctx, m.x, m.y + R, t('rowschool.zone'), { dy: 12, size: 10, bg: 'rgba(13,19,33,0.6)' });
+        // label on the far side of the zone from the boats, so tags and arrows never cover it
+        let ax = 0, ay = 0; for (const b of v.boats()) { ax += b.x - m.x; ay += b.y - m.y; }
+        const al = Math.hypot(ax, ay) || 1, lx = m.x - ax / al * R, ly = m.y - ay / al * R;
+        if (S.phase === 'ask' || S.phase === 'intro' || S.phase === 'explain') sc.pill(ctx, lx, ly, t('rowschool.zone'), { dy: ay > 0 ? -12 : 12, size: 10, bg: 'rgba(13,19,33,0.6)' });
       }
       // ferry corridor (where you must not be)
       if (pl.scn.keepout && (S.phase !== 'ask' || true)) {
@@ -1322,7 +1332,7 @@
       if (explaining) {
         const a = 0.55 + 0.45 * Math.sin(tm * 5);
         ctx.save(); ctx.font = '900 12px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        const hb = hud.el.getBoundingClientRect(), x = 18, y = Math.max(76, hb.bottom + 26);
+        const hb = hud.el.getBoundingClientRect(), x = 18, y = sc.h < 500 && sc.w > sc.h ? 116 : Math.max(76, hb.bottom + 26);
         ctx.fillStyle = 'rgba(13,19,33,0.7)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, y - 13, 92, 26, 13) : ctx.rect(x - 8, y - 13, 92, 26); ctx.fill();
         ctx.fillStyle = 'rgba(255,77,94,' + a + ')'; ctx.beginPath(); ctx.arc(x + 4, y, 5, 0, TAU); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.fillText(t('rowschool.replay'), x + 15, y + 1); ctx.restore();
@@ -1379,7 +1389,8 @@
       const W = sc.w, H = sc.h, hb = hud.el.getBoundingClientRect();
       const narrow = W < 640, land = H < 500 && W > H;
       const R = narrow ? 30 : 36;
-      const cx = W - R - 16, cy = narrow || land ? Math.max(hb.bottom + R + 12, R + 16) : R + 18;
+      // landscape phones: top-left next to the pause button (the card owns the right side); phones: under the HUD
+      const cx = land ? 74 + R : W - R - 16, cy = land ? R + 10 : narrow ? Math.max(hb.bottom + R + 12, R + 16) : R + 18;
       const dir = S.plan.F.windW;
       ctx.save(); ctx.translate(cx, cy);
       ctx.fillStyle = 'rgba(13,19,33,0.62)'; ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
@@ -1438,7 +1449,7 @@
       S.waits.length = 0;
       ctrl.detach(); hud.destroy(); scene.destroy();
       [cardEl, titleEl, roleEl, cdEl, flashEl].forEach(n => n.remove());
-      host.layer.classList.remove('rowschool-sailing');
+      host.layer.classList.remove('rowschool-sailing', 'rowschool-autotrim');
       try { KOS.Audio.ambient(null); KOS.Audio.engine(null); } catch (e) { /* optional */ }
     }
     function validate() {   // test hook: every scenario, autopilot run + hold-course run

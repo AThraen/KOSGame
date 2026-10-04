@@ -1,0 +1,1 @@
+const fs = require('fs'); let s = fs.readFileSync('shot-rs-gallery.js', 'utf8'); s = s.replace("await page.waitForTimeout(1500); await page.screenshot({ path: `shot-rs-g-${tag}-${id.split('.')[1]}${n}-ask.png` });", "await page.waitForTimeout(3500); await page.screenshot({ path: `shot-rs-g-${tag}-${id.split('.')[1]}${n}-ask.png` });"); fs.writeFileSync('shot-rs-gallery.js', s);

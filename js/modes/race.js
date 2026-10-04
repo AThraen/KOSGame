@@ -24,7 +24,7 @@
   // ======================================================================== 1. strings
   KOS.I18n.add('da', {
     race: {
-      hud: { leg: 'Ben', toStart: 'Til start', fleet: 'Feltet', you: 'Dig', finished: 'I mål' },
+      hud: { leg: 'Ben', toStart: 'Til start', fleet: 'Feltet', you: 'Dig', finished: 'I mål', lap: 'Omgang {n}/{of}', shift: 'Vindskift', lift: 'rummer', header: 'skralder' },
       leg: { start: 'Start', beat: 'Kryds', reach: 'Slør', run: 'Læns', finish: 'Mål', done: 'I mål' },
       seq: { warn: '5 min', prep: '4 min', one: '1 min', go: 'Start', short: 'Startproceduren er kortet ned: 5-4-1-0 tager et minut' },
       flag: { cls: 'Klasseflag', P: 'P-flag', X: 'X-flag', first: 'Omstart' },
@@ -57,6 +57,7 @@
         heel: 'Båden krænger meget – hæng ud!',
         finishLine: 'Mållinjen er mellem dommerbåden og pinden.',
         capsize: 'Kæntret! Op igen – kapsejladsen er ikke slut!',
+        missLine: 'Du er ikke startet endnu! Sejl tilbage og kryds startlinjen MELLEM dommerbåden og pinden.',
       },
       pen: {
         title360: 'Strafrunde 360°', title720: 'Strafrunder 720°', warn: 'Advarsel',
@@ -90,7 +91,7 @@
   });
   KOS.I18n.add('en', {
     race: {
-      hud: { leg: 'Leg', toStart: 'To start', fleet: 'Fleet', you: 'You', finished: 'Finished' },
+      hud: { leg: 'Leg', toStart: 'To start', fleet: 'Fleet', you: 'You', finished: 'Finished', lap: 'Lap {n}/{of}', shift: 'Wind shift', lift: 'lift', header: 'header' },
       leg: { start: 'Start', beat: 'Beat', reach: 'Reach', run: 'Run', finish: 'Finish', done: 'Finished' },
       seq: { warn: '5 min', prep: '4 min', one: '1 min', go: 'Start', short: 'The start sequence is shortened: 5-4-1-0 takes one minute' },
       flag: { cls: 'Class flag', P: 'P flag', X: 'X flag', first: 'Recall' },
@@ -123,6 +124,7 @@
         heel: 'The boat is heeling a lot – hike out!',
         finishLine: 'The finish line is between the committee boat and the pin.',
         capsize: 'Capsized! Back up – the race is not over!',
+        missLine: 'You have not started yet! Go back and cross the start line BETWEEN the committee boat and the pin.',
       },
       pen: {
         title360: 'Penalty turn 360°', title720: 'Penalty turns 720°', warn: 'Warning',
@@ -313,7 +315,7 @@
     const RT = (KOS.SailMode && KOS.SailMode.routeTime) || ((c, tws, w, pts) => { let s = 0; for (let i = 1; i < pts.length; i++) s += U.dist(pts[i - 1], pts[i]) / 1.5; return s; });
     const t1 = RT(cls, P.windKn, wd, coursePts(100, { x: 0, y: 0 })), t2 = RT(cls, P.windKn, wd, coursePts(200, { x: 0, y: 0 }));
     const slope = (t2 - t1) / 100, icpt = t1 - slope * 100;
-    const B = U.clamp((P.targetS * 0.92 - icpt) / Math.max(0.05, slope), Math.max(50, 16 * L), 480);
+    const B = U.clamp((P.targetS * 0.92 - icpt) / Math.max(0.05, slope), Math.max(65, 20 * L), 480);
 
     function okSpot(x, y, margin) {
       if (KOS.World.isSolid(venue, x, y)) return false;
@@ -378,7 +380,7 @@
       return it.type === 'finish' && k === 'beat' ? 'beat' : k;
     }
     const zoneR = 3 * L;
-    const roundR = Math.max(28, 10 * L);
+    const roundR = Math.min(Math.max(22, 7 * L), 0.4 * B);
     const collMarks = marks.concat([pin, com]);
 
     // ---------------------------------------------------------------- wind
@@ -567,7 +569,8 @@
       const crossed = U.segCross(px, py, b.x, b.y, pin.x, pin.y, com.x, com.y);
       const it = seq[rc.leg];
       if (S.phase === 'pre') return;
-      if (b.helm && S.phase !== 'pre' && !rc.ocs && b.helm.leg > rc.leg && b.helm.leg < seq.length && (rc.leg >= 1 || s1 > 0)) { if (rc.leg === 0) { rc.started = true; rc.startT = S.raceT; } setLeg(b, b.helm.leg); return; } // trust the AI helm's own rounding
+      const hl = b.helm || (b === me ? autopilot : null);
+      if (hl && !rc.ocs && hl.leg > rc.leg && hl.leg < seq.length && (rc.leg >= 1 || s1 > 0)) { if (rc.leg === 0) { rc.started = true; rc.startT = S.raceT; } setLeg(b, hl.leg); return; } // trust the AI helm's own rounding
       if (it.type === 'start') {
         if (rc.ocs) {
           if (s1 < -0.3) {
@@ -812,7 +815,7 @@
         if ((allIn && S.waitT > 3) || S.waitT > 45) complete();
       }
       if (S.phase === 'race' && S.fin.length === ai.length && !S.dnfT) S.dnfT = S.raceT;
-      if (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > 150) || S.raceT > P.targetS * 5)) dnf();
+      if (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > (assist === 'easy' ? 240 : 150)) || S.raceT > P.targetS * 6)) dnf();
       if (S.finishT > 0) { S.finishT -= dt; if (S.finishT <= 0 && S.result) host.finish(S.result); }
       hudTick(dt);
     }
@@ -850,6 +853,8 @@
         } else S.shiftRef = U.angLerp(S.shiftRef, w, 0.05);
       }
       if (S.pen && S.pen.T > 14 && !S.pen.auto) tip('penLeft');
+      // sailed round the end of the line instead of across it
+      if (!me.rc.started && !me.rc.ocs && sOf(me.x, me.y) > 2 * L) { S.missT = (S.missT || 0) + dt; if (S.missT > 5) { S.missT = -20; tip('missLine', true); } }
       const nx = seq[me.rc.leg];
       if (nx && nx.type === 'mark' && U.dist(me, nx.m) < zoneR * 3 && assist !== 'pro') tip('zone');
     }
@@ -926,9 +931,28 @@
           const fr = U.clamp(Math.abs(S.pen.acc) / S.pen.need, 0, 1);
           pen = '<div class="rp-pen"><span>' + esc(t('race.pen.progress')) + ' ' + Math.round(Math.abs(S.pen.acc) * 180 / Math.PI) + '°/' + Math.round(S.pen.need * 180 / Math.PI) + '°</span><i><b style="width:' + Math.round(fr * 100) + '%"></b></i></div>';
         }
+        // lap counter (multi-lap courses): a lap ends at the leeward mark (W-L) / the last triangle mark
+        let lapTxt = '';
+        if (P.laps > 1 && me.rc.finT == null) {
+          const lapMark = P.course === 'tri' ? m3 : m2;
+          let n = 1;
+          for (let i = 1; i < me.rc.leg; i++) if (seq[i].type === 'mark' && seq[i].m === lapMark) n++;
+          lapTxt = '<div class="rp-lap">' + esc(t('race.hud.lap', { n: Math.min(n, P.laps), of: P.laps })) + '</div>';
+        }
+        // wind shift against the course axis: + = veered (clockwise). On a beat it is a lift or a header for your tack.
+        let shiftTxt = '';
+        if (me.rc.finT == null) {
+          const d = U.wrapPi(wind.at(me.x, me.y).dir - wd), deg = Math.round(d * 180 / Math.PI);
+          let cls2 = '', word = '';
+          if (Math.abs(deg) >= 3 && lk === 'beat') {
+            const lift = (me.tack === 'starboard') === (d > 0);
+            cls2 = lift ? ' lift' : ' header'; word = ' · ' + t(lift ? 'race.hud.lift' : 'race.hud.header');
+          }
+          shiftTxt = '<div class="rp-shift' + cls2 + '"><span>' + esc(t('race.hud.shift')) + '</span><b>' + (deg > 0 ? '↻ ' : deg < 0 ? '↺ ' : '') + Math.abs(deg) + '°' + esc(word) + '</b></div>';
+        }
         html = (S.flags.X ? '<div class="rp-flags x"><span class="rp-flag up">' + flagSvg('X') + '<i>' + esc(t('race.flag.X')) + '</i></span></div>' : '') +
           '<div class="rp-head"><span>' + esc(t('race.hud.leg')) + ' ' + (me.rc.finT != null ? '' : legN + '/' + legT) + '</span><b class="rp-leg ' + lk + '">' + esc(t('race.leg.' + (me.rc.finT != null ? 'done' : lk))) + '</b></div>' +
-          pen + '<div class="rp-list">' + rows.join('') + '</div>';
+          lapTxt + shiftTxt + pen + '<div class="rp-list">' + rows.join('') + '</div>';
       }
       if (html !== paintPanel.last) { panel.innerHTML = html; paintPanel.last = html; }
     }
@@ -1107,7 +1131,7 @@
     function autoPlan() { return me.rc.finT != null ? parkPlan : me.plan; }
     function skipIntro() { S.introT = Math.max(S.introT, 3.21); scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = true; } }
     const debug = {
-      get seq() { return seq; }, get order() { return order; }, marks, pin, com, line,
+      get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line,
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
       foul(rule) { penalize(me, rule === 'R31' ? 1 : 2, rule || 'R10', { reasonKey: 'rules.reason.R10', reasonVars: { give: t('rules.you'), stand: ai[0] && ai[0].short } }); },
       penAll() { boats.forEach(b => addPen(b, 1)); },

@@ -511,7 +511,7 @@
       const sg = stage(), tg = sg.target;
       if (sg.kind === 'buoy') {
         const bp = bowPt(), d = Math.hypot(bp.x - sg.buoy.x, bp.y - sg.buoy.y);
-        return { pos: Math.max(0, d - (B * 0.45 + sg.buoy.r + 0.15)), ang: 0, d: Math.hypot(boat.x - tg.x, boat.y - tg.y) };
+        return { pos: Math.max(0, d - (B * 0.45 + sg.buoy.r + 0.15)), real: Math.max(0, d - sg.buoy.r), ang: 0, d: Math.hypot(boat.x - tg.x, boat.y - tg.y) };
       }
       if (sg.kind === 'slip') {
         const bp = bowPt(), d = Math.hypot(bp.x - sg.bowPt.x, bp.y - sg.bowPt.y);
@@ -642,7 +642,7 @@
         S.rope = { state: 'retract', a: sg.linePt, b: sg.cleat, t: 0 };
         if (S.rope2) S.rope2 = { state: 'retract', a: sg.linePt2, b: sg.cleat2, t: 0 };
         sfx('rope', { vol: 0.8 }); floatText(t('dock.fx.castoff'), '#ffd25e');
-        setTimeout(() => { if (S.step === 'push') tip('push'); }, 50);
+        S.pushTipT = 0.6; // sim-time, not setTimeout (pauses with the game)
       } else if (S.step === 'push') {
         S.step = needBack() ? 'back' : 'free';
         const n = sg.face.n;
@@ -684,8 +684,8 @@
 
     function stepLeave(dt) {
       const sg = stage(), tg = sg.target;
-      if (S.step === 'castoff' || (S.rope && S.rope.state === 'retract' && S.step === 'push')) holdPose(tg); // still tied up / about to push
-      else if (S.step === 'push') holdPose(tg);
+      if (S.step === 'castoff' || S.step === 'push') holdPose(tg); // still tied up / about to push
+      if (S.pushTipT > 0 && (S.pushTipT -= dt) <= 0 && S.step === 'push') tip('push');
       if (S.push) {
         S.push.t += dt;
         const k = Math.exp(-S.push.t * 1.4);

@@ -35,6 +35,7 @@
       call: { tack: 'Klar til at vende?', gybe: 'Klar til at bomme?', ready: 'Klar!', tacking: 'Ror i læ!', gybing: 'Bom over!' },
       tip: {
         irons: 'Du ligger i vindøjet! Hold roret til den ene side, så falder båden af.',
+        straighten: 'Båden sejler fremad nu – ret roret op, ellers drejer du tilbage i vindøjet!',
         ironsTack: 'Du gik i stå i vindøjet. Drej lidt hurtigere igennem – og hav god fart på inden vendingen.',
         ground: 'Av, grundt vand! Styr ud mod det mørkere vand.',
         luff: 'Sejlet blafrer – hal skødet lidt ind.',
@@ -176,6 +177,7 @@
       call: { tack: 'Ready about?', gybe: 'Ready to gybe?', ready: 'Ready!', tacking: 'Lee-ho!', gybing: 'Gybe-ho!' },
       tip: {
         irons: 'You are in irons! Hold the helm to one side and the bow will fall off.',
+        straighten: 'The boat is moving forwards now – straighten the helm, or you will turn back into irons!',
         ironsTack: 'You got stuck in irons. Turn through a bit faster – and have good speed before the tack.',
         ground: 'Ouch, shallow water! Steer towards the darker water.',
         luff: 'The sail is flapping – sheet in a little.',
@@ -429,6 +431,7 @@
       const v = U.vec(h); return { x: boat.x + v.x * d * 0.5, y: boat.y + v.y * d * 0.5 };
     }
     const dist = p => Math.hypot(p.x - boat.x, p.y - boat.y);
+    const hullDist = p => { const b = KOS.Physics.bow(boat), s = KOS.Physics.stern(boat); return U.segDistance(p.x, p.y, b.x, b.y, s.x, s.y); };
     const side = () => (boat.twa >= 0 ? 1 : -1);          // +1 starboard tack, −1 port tack
     const twaD = () => Math.abs(U.deg(boat.twa));
     const moving = k => Math.abs(boat.speed) > beamMs * (k == null ? 0.3 : k);
@@ -501,7 +504,7 @@
     const LESSON = {
       // 1 ------------------------------------------------------------- steer & stop
       steer: () => {
-        const A = at(-14, -24), B = at(8, -36), Cc = at(-6, -66);
+        const A = at(-14, -24), B = at(-6, -48), Cc = at(-22, -80);
         return {
           start: { u: -30, r: 26, twa: 90, v: 0.6 },
           steps: [
@@ -512,14 +515,14 @@
               tick(dt) {
                 const d = dist(B), inside = d < this.stopR * ringK, slow = Math.abs(boat.speed) < this.vStop;
                 if (inside && slow) this.h += dt; else this.h = Math.max(0, this.h - dt);
-                if (!inside && slow && Math.abs(boat.twa) < cls.noGo) { this.outT += dt; if (this.outT > 1.6) { this.outT = -99; mistake(); floatText(t('school.fx.oops'), '#ff9a6b'); tip('outside', true); } }
+                if (!inside && slow && Math.abs(boat.twa) < cls.noGo) { this.outT += dt; if (this.outT > 1.6) { this.outT = -99; if (!this.warned) { this.warned = true; mistake(); } floatText(t('school.fx.oops'), '#ff9a6b'); tip('outside', true); } }
                 else if (!slow && this.outT < 0) this.outT = 0;
                 if (this.h > 0.5) { floatText(t('school.fx.stop'), '#3ee08f'); sfx('bell'); return 1; }
                 return inside ? 0.6 + 0.35 * U.clamp(1 - Math.abs(boat.speed) / this.v0, 0, 1) : 0.6 * U.clamp(1 - d / this.d0, 0, 1);
               },
               target() { return { x: B.x, y: B.y, r: this.stopR * ringK, color: '#3ee08f', stop: true }; },
               turn() { return dist(B) < 26 * kD && Math.abs(boat.twa) > cls.noGo ? { to: H(side() * 4), dir: side() } : null; },
-              auto() { return dist(B) > 9 + Math.abs(boat.speed) * 2.2 ? { target: B } : { heading: WD }; },
+              auto() { return dist(B) > 3.5 + Math.abs(boat.speed) * 2.4 ? { target: B } : { heading: WD }; },
             },
             reach('go', Cc, { label: '2' }),
           ],
@@ -642,7 +645,7 @@
             const s = this.need || (boat.yawRate >= 0 ? -1 : 1);   // turning right (+) ends on port tack (−)
             return { to: H(s * (ngD + 16)), dir: -s };
           },
-          auto() { const s = this.need || 1; return { rudder: -s }; },
+          auto() { const s = this.need || this.botS || (this.botS = 1); return { heading: H(s * (ngD + 22)), irons: true }; },
         });
         return {
           start: { u: 0, r: 0, twa: 0, v: 0 },
@@ -714,13 +717,13 @@
               return U.clamp(1 - off / Math.PI, 0, 0.9);
             },
             target() { return { x: S.dummy.x, y: S.dummy.y, r: 4, color: '#ff4d5e', label: t('school.mobName') }; },
-            auto() { return { target: approachPoint() }; },
+            auto() { const ap = approachPoint(); if (!this.atAp && dist(ap) > 8) return { target: ap }; this.atAp = true; return { heading: U.heading(S.dummy.x - boat.x, S.dummy.y - boat.y) }; },
           },
           {
             id: 'pick', par: 0, fastCd: 0,
-            enter() { this.ap = approachPoint(); this.par = parTo(this.ap) + 10; this.rP = cls.length * 0.5 + (easy ? 3.6 : pro ? 2.2 : 2.8); this.vP = Math.max(0.45, beamMs * (easy ? 0.42 : pro ? 0.24 : 0.32)); },
+            enter() { this.ap = approachPoint(); this.par = parTo(this.ap) + 10; this.rP = (cls.beam || 1.4) * 0.5 + (easy ? 3.6 : pro ? 2.6 : 3.0); this.vP = Math.max(0.45, beamMs * (easy ? 0.42 : pro ? 0.24 : 0.32)); },
             tick(dt) {
-              const d = dist(S.dummy), v = Math.abs(boat.speed);
+              const d = hullDist(S.dummy), v = Math.abs(boat.speed);
               this.fastCd -= dt;
               if (d < this.rP && v < this.vP) {
                 if (twaD() > 100) { mistake(); tip('mobDown', true); }
@@ -728,15 +731,20 @@
                 sfx('cheer', { vol: 0.6 }); if (scene.effects) { scene.effects.splash(S.dummy.x, S.dummy.y, 0.6); scene.effects.stars(S.dummy.x, S.dummy.y, 16); }
                 return 1;
               }
-              if (d < this.rP + 1.5 && v > this.vP * 1.5 && this.fastCd <= 0) { this.fastCd = 5; mistake(); floatText(t('school.fx.fast'), '#ff9a6b'); tip('mobFast', true); }
+              if (d < this.rP + 1.5 && v > this.vP * 1.5 && this.fastCd <= 0) { this.fastCd = 5; if (!this.fastN) mistake(); this.fastN = (this.fastN || 0) + 1; floatText(t('school.fx.fast'), '#ff9a6b'); tip('mobFast', true); }
               return U.clamp(1 - d / 40, 0, 0.9);
             },
-            target() { return { x: S.dummy.x, y: S.dummy.y, r: this.rP, color: '#3ee08f', label: t('school.mobName'), stop: true }; },
+            target() { return { x: S.dummy.x, y: S.dummy.y, r: this.rP + cls.length * 0.25, color: '#3ee08f', label: t('school.mobName'), stop: true }; },
             auto() {
-              const d = S.dummy, dd = dist(d), ap = this.ap;
-              if (!this.passed && dist(ap) > 5 && dd > 14) return { target: ap };
+              const d = S.dummy, dd = hullDist(d), ap = this.ap;
+              const br = U.heading(d.x - boat.x, d.y - boat.y), fetch = Math.abs(U.wrapPi(br - WD)) > cls.noGo + R(12);
+              if (!this.passed && dist(ap) > 5 && !(fetch && dd < 16)) return { target: ap };
               this.passed = true;
-              return dd > 4 + Math.abs(boat.speed) * 3.2 ? { heading: U.heading(d.x - boat.x, d.y - boat.y) } : { heading: WD };
+              if (!fetch && dd > 6) { this.passed = false; this.ap = approachPoint(); return { target: this.ap }; }
+              if (dd > 2.2 + Math.abs(boat.speed) * 2.6) return { heading: br };
+              if (Math.abs(boat.speed) > this.vP * 0.7) return { heading: WD };          // brake: luff head to wind
+              const off = U.wrapPi(br - WD), lim = cls.noGo * 0.95;                       // creep: as close to him as the no-go zone allows
+              return { heading: Math.abs(off) >= lim ? br : U.wrapPi(WD + (off >= 0 ? lim : -lim)) };
             },
           },
         ],
@@ -796,13 +804,13 @@
             return U.clamp(1 - dist(mid()) / 80, 0, 0.9);
           },
           target() { const p = mid(); return { x: p.x, y: p.y, r: 0, color: '#ffffff', label: t(finish ? 'sail.hud.finish' : 'sail.hud.start') }; },
-          auto() { return finish ? { courseAll: course() } : { heading: H(side() * (ngD + 8)) }; },
+          auto() { if (!finish) return { heading: H(side() * (ngD + 8)) }; const p = mid(), q = { x: p.x - UP.x * 5 * kD, y: p.y - UP.y * 5 * kD }; return { heading: U.heading(q.x - boat.x, q.y - boat.y) }; },
         });
         const mid = () => ({ x: (pin.x + com.x) / 2, y: (pin.y + com.y) / 2 });
         let crs = null;
         const course = () => crs || (crs = [{ line: [pin, com] }, { x: m1.x, y: m1.y, round: 'port' }, { x: m2.x, y: m2.y, round: 'port' }, { line: [pin, com] }]);
         return {
-          start: { u: -12, r: -4, twa: ngD + 8, v: 0.5 }, span: 50,
+          start: { u: -12, r: 8, twa: ngD + 8, v: 0.5 }, span: 50,
           init() {
             m1 = mark(at(64, 0), 'orange', '1', { scale: 1.6 });
             m2 = mark(at(30, -46), 'orange', '2', { scale: 1.6 });
@@ -940,7 +948,7 @@
       'boat:gybe': e => { if (e.boat !== boat || S.phase !== 'go') return; sfx('gybe'); floatText(t('school.fx.gybe'), '#ffd25e'); scene.shake(0.2 + 0.2 * Math.min(1, e.power || 0)); if (S.step && S.step.onGybe) S.step.onGybe(e); },
       'boat:irons': e => {
         if (e.boat !== boat || S.phase !== 'go' || L.id === 'irons') return;
-        if (S.step && S.step.ironsErr) { mistake(); tip('ironsTack', true); } else tip('irons');
+        S.ironsT = 0; S.ironsCounted = false;      // judged by how long the boat stays stuck (a clean tack dips in briefly)
       },
       'boat:heelWarn': e => { if (e.boat !== boat || S.phase !== 'go' || controls.autoHike) return; tip('heel'); flashCtrl('hike'); },
       'boat:plane': e => { if (e.boat !== boat || S.phase !== 'go') return; sfx('whoosh', { vol: 0.7 }); floatText(t('school.fx.plane'), '#3ee08f'); },
@@ -1337,6 +1345,11 @@
         if (S.dummy.picked >= 0) S.dummy.picked += dt;
       }
       S.groundCd -= dt;
+      if (boat.inIrons && S.phase === 'go' && L.id !== 'irons' && !S.ironsCounted) {
+        S.ironsT = (S.ironsT || 0) + dt;
+        if (S.ironsT > (easy ? 3.5 : 2.5)) { S.ironsCounted = true; if (S.step && S.step.ironsErr) { mistake(); tip('ironsTack', true); } else tip('irons'); }
+      }
+      if (L.id === 'irons' && S.phase === 'go' && S.step && S.step.id !== 'go' && boat.speed > 0.12 && twaD() > 12 && controls.rudder * boat.twa > 0.12 && !autopilot) tip('straighten');
       if (S.reply != null) { S.reply -= dt; if (S.reply <= 0) { S.reply = null; floatText(t('school.call.ready'), '#3ee08f', boat.x + 1.5, boat.y); sfx('pop', { pitch: 1.3 }); } }
 
       if (S.phase === 'go') {
@@ -1414,11 +1427,12 @@
         const c = autopilot.helm.think(env, plan, [boat]);
         controls.rudder = c.rudder;
       } else if (a.heading != null) {
-        controls.rudder = U.clamp(U.angDiff(boat.heading, a.heading) * 2.2 - boat.yawRate * 0.4, -1, 1);
+        const rev = a.irons && !easy && boat.speed < -0.03 ? -1 : 1;     // sternway: the rudder works the other way round
+        controls.rudder = U.clamp((U.angDiff(boat.heading, a.heading) * 2.2 - boat.yawRate * 0.4) * rev, -1, 1);
       } else if (a.rudder != null) controls.rudder = a.rudder;
       if (a.hike != null) { controls.hike = a.hike; controls.autoHike = false; }
       if (a.spi != null) { controls.spinnaker = a.spi; ctrl.setSpinnaker(a.spi); }
-      if (a.sheet) { controls.sheet = KOS.Physics.idealSheet(boat); ctrl.setSheet(controls.sheet); }
+      if (a.sheet || !controls.autoTrim) { controls.sheet = KOS.Physics.idealSheet(boat); ctrl.setSheet(controls.sheet); }
     }
     function skipIntro() { beginLesson(); }
 

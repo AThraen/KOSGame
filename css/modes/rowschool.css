@@ -104,8 +104,8 @@
 .rowschool-role[hidden] { display: none; }
 .rowschool-role .ico { width: 20px; height: 20px; }
 .rowschool-role.pop { animation: rsRolePop .45s var(--ease-pop, ease-out); }
-.rs-r-give, .rs-r-keepout, .rs-r-keepShip { border-color: rgba(255,77,94,.85); background: rgba(120,20,35,.72); }
-.rs-r-give .ico, .rs-r-keepout .ico, .rs-r-keepShip .ico { color: #ff8f9b; }
+.rs-r-give, .rs-r-giveRoom, .rs-r-keepout, .rs-r-keepShip { border-color: rgba(255,77,94,.85); background: rgba(120,20,35,.72); }
+.rs-r-give .ico, .rs-r-giveRoom .ico, .rs-r-keepout .ico, .rs-r-keepShip .ico { color: #ff8f9b; }
 .rs-r-stand, .rs-r-room { border-color: rgba(62,224,143,.85); background: rgba(10,80,48,.72); }
 .rs-r-stand .ico, .rs-r-room .ico { color: #7dffb5; }
 .rs-r-both { border-color: rgba(73,198,242,.9); background: rgba(10,60,95,.72); }
@@ -130,7 +130,7 @@
 }
 /* landscape phones: the card sits on the right half, the situation on the left */
 @media (orientation: landscape) and (max-height: 520px) {
-  .rowschool-card { left: auto; right: calc(var(--safe-r) + 10px); bottom: calc(var(--safe-b) + 10px); top: calc(var(--safe-t) + 62px); transform: none; width: min(400px, 48vw); max-height: none; padding: 10px 12px 12px; }
+  .rowschool-card { left: auto; right: calc(var(--safe-r) + 10px); bottom: calc(var(--safe-b) + 10px); transform: none; width: min(400px, 48vw); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 72px); padding: 10px 12px 12px; }
   .rowschool-card.in { animation: rsCardInSide .4s var(--ease-pop, ease-out) both; }
   .rs-q { font-size: 1.35rem; }
   .rs-sub { font-size: .85rem; margin-bottom: 8px; }
@@ -147,3 +147,6 @@
   .rowschool-card.in, .rowschool-title.in, .rowschool-role.pop, .rs-choice.right, .rs-choice.wrong, .rowschool-flash.on { animation: none; opacity: 1; }
   .rowschool-flash.on { opacity: 0; }
 }
+
+/* auto-trim (Let/Normal): trimming is not what this school is about, so the sheet slider is hidden; Pro keeps it */
+.rowschool-autotrim .kc-sheet { display: none; }
