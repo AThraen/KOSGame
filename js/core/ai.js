@@ -265,6 +265,7 @@
       const sNow = boat.tack === 'starboard' ? 1 : -1;
       const Hcur = U.wrapPi(wd - sNow * ang.up), Hoth = U.wrapPi(wd + sNow * ang.up);
       const fc = crossFrac(Hcur), fo = crossFrac(Hoth);
+      const hold = { x: spot.x - n.x * Math.max(D, 6 * L), y: spot.y - n.y * Math.max(D, 6 * L) }; // waiting spot below the line
       if (along < -2 * L || along > lineLen + 2 * L || behind > D + 12 * L) {
         H = navTo(T > 1 ? hold : spot, wd, tws).H; // get into position first
       } else {

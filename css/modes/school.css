@@ -1,1 +1,94 @@
-/* css/modes/school.css */
+/* css/modes/school.css — Sejlerskolen (js/modes/school.js). Everything is scoped to .school-* / .sc-* / .sp-* classes. */
+
+/* ---------------------------------------------------------------- lesson panel (top-left, under the pause button) */
+.school-panel {
+  position: absolute; z-index: 21; left: calc(var(--safe-l) + 10px); top: calc(var(--safe-t) + 70px);
+  width: min(270px, 46vw); padding: 9px 12px 10px; border-radius: 16px; color: #fff;
+  background: rgba(13, 19, 33, .7); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.28);
+  pointer-events: none; opacity: 0; transform: translateX(-18px); transition: opacity .35s, transform .45s var(--ease-pop, ease-out);
+}
+.school-panel.show { opacity: 1; transform: none; }
+.school-panel.pop { animation: spPop .5s var(--ease-pop, ease-out); }
+.sp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.sp-badge { font-size: .62rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: #0d1321;
+  background: linear-gradient(180deg, var(--primary, #ffb547), var(--primary-2, #ff7a3d)); padding: 2px 8px; border-radius: 99px; }
+.sp-step { font-size: .66rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim, rgba(255,255,255,.65)); }
+.sp-task { font-size: 1rem; font-weight: 900; line-height: 1.2; min-height: 1.2em; }
+.sp-task.ok { color: var(--good, #3ee08f); }
+.sp-bar { margin-top: 7px; height: 7px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; }
+.sp-bar b { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, #ffd25e, var(--primary-2, #ff7a3d)); transition: width .18s linear;
+  box-shadow: 0 0 10px rgba(255,180,70,.6); }
+.sp-task.ok + .sp-bar b { background: var(--good, #3ee08f); box-shadow: 0 0 12px rgba(62,224,143,.7); }
+.sp-dots { display: flex; gap: 5px; margin-top: 7px; }
+.sp-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .3s, transform .3s; }
+.sp-dots i.cur { background: #ffd25e; transform: scale(1.25); box-shadow: 0 0 8px rgba(255,210,94,.8); }
+.sp-dots i.ok { background: var(--good, #3ee08f); }
+@keyframes spPop { 0% { transform: scale(1); } 35% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* ---------------------------------------------------------------- lesson intro card */
+.school-card {
+  position: absolute; inset: 0; z-index: 38; display: grid; place-items: center; padding: calc(var(--safe-t) + 16px) 16px calc(var(--safe-b) + 16px);
+  background: radial-gradient(ellipse at center, rgba(5, 9, 20, .25), rgba(5, 9, 20, .62)); pointer-events: auto; touch-action: manipulation;
+  animation: scFade .35s ease-out both;
+}
+.school-card.out { animation: scOut .35s ease-in both; pointer-events: none; }
+.sc-in {
+  width: min(560px, 100%); max-height: 100%; overflow: auto; padding: 18px 20px 20px; border-radius: 22px; color: #fff;
+  background: rgba(13, 19, 33, .82); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  animation: scIn .55s var(--ease-pop, cubic-bezier(.34,1.56,.64,1)) both .05s;
+}
+.sc-kicker { display: flex; align-items: center; gap: 7px; font-size: .72rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--primary, #ffb547); }
+.sc-kicker .ico { width: 18px; height: 18px; }
+.sc-title {
+  margin: 4px 0 10px; font-size: clamp(1.6rem, 6vw, 2.3rem); font-weight: 900; line-height: 1.05; letter-spacing: -.01em;
+  background: linear-gradient(180deg, #fffaf0, #ffe2a6 50%, #ffab45); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 0 rgba(120, 45, 10, .55));
+}
+.sc-body { display: flex; gap: 16px; align-items: center; }
+.sc-dia { flex: none; width: 168px; height: 168px; animation: scSpin 1s var(--ease-pop, ease-out) both .2s; }
+.sc-dia svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.sc-txt { min-width: 0; }
+.sc-intro { margin: 0 0 8px; font-size: 1rem; line-height: 1.35; font-weight: 700; color: rgba(255,255,255,.92); }
+.sc-steps { margin: 0; padding: 0; list-style: none; counter-reset: sc; display: grid; gap: 5px; }
+.sc-steps li { counter-increment: sc; display: flex; align-items: center; gap: 8px; font-size: .88rem; font-weight: 800; color: rgba(255,255,255,.8);
+  animation: scStep .4s ease-out both; }
+.sc-steps li::before { content: counter(sc); flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: .72rem; font-weight: 900; color: #0d1321; background: #ffd25e; }
+.sc-steps li:nth-child(1) { animation-delay: .25s; } .sc-steps li:nth-child(2) { animation-delay: .35s; } .sc-steps li:nth-child(3) { animation-delay: .45s; }
+.sc-steps li:nth-child(4) { animation-delay: .55s; } .sc-steps li:nth-child(5) { animation-delay: .65s; }
+.sc-keys { margin-top: 12px; font-size: .74rem; font-weight: 700; color: var(--text-dim, rgba(255,255,255,.6)); text-align: center; }
+.sc-go { width: 100%; margin-top: 14px; gap: 8px; animation: scPulse 1.6s ease-in-out infinite 1s; }
+.sc-go .ico { width: 22px; height: 22px; }
+@keyframes scFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scOut { to { opacity: 0; transform: scale(1.04); } }
+@keyframes scIn { from { opacity: 0; transform: translateY(26px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes scSpin { from { opacity: 0; transform: rotate(-30deg) scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes scStep { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes scPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+/* ---------------------------------------------------------------- phones */
+@media (max-width: 560px) {
+  .school-panel { top: calc(var(--safe-t) + 128px); width: min(240px, 62vw); padding: 7px 10px 8px; }
+  .sp-task { font-size: .88rem; }
+  .sc-in { padding: 14px 16px 16px; }
+  .sc-body { flex-direction: column; gap: 6px; }
+  .sc-dia { width: 138px; height: 138px; }
+  .sc-intro { font-size: .93rem; }
+}
+/* landscape phones: compact panel, card in two columns without the step list */
+@media (orientation: landscape) and (max-height: 520px) {
+  .school-panel { top: calc(var(--safe-t) + 64px); width: 210px; padding: 6px 10px 7px; }
+  .sp-task { font-size: .8rem; }
+  .sp-dots { display: none; }
+  .sc-in { width: min(640px, 100%); padding: 12px 16px 14px; }
+  .sc-title { font-size: 1.5rem; margin-bottom: 6px; }
+  .sc-dia { width: 116px; height: 116px; }
+  .sc-steps, .sc-keys { display: none; }
+  .sc-intro { font-size: .88rem; }
+  .sc-go { margin-top: 8px; min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .school-card, .sc-in, .sc-dia, .sc-steps li, .sc-go, .school-panel.pop { animation: none !important; }
+}

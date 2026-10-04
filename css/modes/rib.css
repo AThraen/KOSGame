@@ -1,1 +1,65 @@
-/* css/modes/rib.css */
+/* css/modes/rib.css — RIB coach-boat missions (js/modes/rib.js). Everything is scoped to .rib-* / .rc-* / .rz-* classes. */
+
+/* mission card: top-left under the pause button; under the HUD on narrow phones */
+.rib-card {
+  position: absolute; z-index: 21; left: calc(var(--safe-l, 0px) + 10px); top: calc(var(--safe-t, 0px) + 70px);
+  width: max-content; min-width: 170px; max-width: min(270px, 48vw); padding: 8px 12px 10px; border-radius: 16px;
+  background: rgba(13, 19, 33, .7); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  pointer-events: none; color: #fff; animation: rcIn .5s var(--ease-pop, ease-out) both .3s;
+  transition: border-color .25s, box-shadow .25s;
+}
+.rib-card.rib-hidden { display: none; }
+.rib-card.warn { border-color: rgba(255,77,94,.75); box-shadow: 0 0 0 2px rgba(255,77,94,.25), 0 8px 24px rgba(0,0,0,.25); animation: rcWarn 1s ease-in-out infinite; }
+.rc-head { display: flex; align-items: center; gap: 6px; font-size: .64rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--primary, #ffb547); margin-bottom: 4px; }
+.rc-head .ico, .rc-head svg { width: 16px; height: 16px; flex: none; }
+.rc-text { font-size: .9rem; font-weight: 800; line-height: 1.2; }
+.rc-dots { display: flex; gap: 4px; margin-top: 7px; }
+.rc-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.16); transition: background .3s, transform .3s; }
+.rc-dots i.on { background: var(--good, #3ee08f); }
+.rc-dots i.cur { background: var(--primary, #ffb547); transform: scale(1.3); box-shadow: 0 0 0 3px rgba(255,181,71,.25); }
+.rc-bar { position: relative; display: block; width: 100%; min-width: 130px; height: 6px; margin-top: 7px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; }
+.rc-bar b { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--primary, #ffb547), var(--primary-2, #ff7a3d)); transition: width .15s linear; }
+.rc-bar.good b { background: var(--good, #3ee08f); }
+.rc-bar u { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255,255,255,.85); }
+.rib-card.warn .rc-bar b { background: var(--bad, #ff4d5e); }
+@keyframes rcIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes rcWarn { 50% { box-shadow: 0 0 0 5px rgba(255,77,94,.18), 0 8px 24px rgba(0,0,0,.25); } }
+
+/* slow-zone badge: a round speed-limit sign, top-right, pops in when the RIB enters the zone */
+.rib-zone {
+  position: absolute; z-index: 21; right: calc(var(--safe-r, 0px) + 10px); top: calc(var(--safe-t, 0px) + 70px);
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px;
+  background: rgba(13, 19, 33, .7); border: 1px solid rgba(255,214,60,.45);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; pointer-events: none;
+  opacity: 0; transform: translateY(-8px) scale(.85); transition: opacity .25s, transform .3s var(--ease-pop, ease-out), border-color .2s;
+}
+.rib-zone.on { opacity: 1; transform: none; }
+.rz-sign { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 5px solid #e8323c; color: #1d2433; flex: none; }
+.rz-sign b { font-size: 1rem; font-weight: 900; line-height: 1; }
+.rz-txt { display: flex; flex-direction: column; line-height: 1.1; }
+.rz-txt b { font-size: .66rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: #ffd63c; }
+.rz-txt small { font-size: .8rem; font-weight: 800; }
+.rib-zone.bad { border-color: rgba(255,77,94,.9); animation: rzShake .35s ease-in-out infinite; }
+.rib-zone.bad .rz-txt small { color: #ff8a95; }
+.rib-zone.bad .rz-sign { animation: rzPulse .5s ease-in-out infinite; }
+@keyframes rzShake { 25% { transform: translateX(-3px) rotate(-1deg); } 75% { transform: translateX(3px) rotate(1deg); } }
+@keyframes rzPulse { 50% { transform: scale(1.12); } }
+
+@media (max-width: 520px) {
+  .rib-card { top: calc(var(--safe-t, 0px) + 128px); padding: 6px 10px 8px; max-width: 58vw; min-width: 140px; }
+  .rc-text { font-size: .8rem; }
+  .rc-bar { min-width: 100px; }
+  .rib-zone { top: calc(var(--safe-t, 0px) + 128px); padding: 4px 9px 4px 4px; gap: 6px; }
+  .rz-sign { width: 30px; height: 30px; border-width: 4px; }
+  .rz-sign b { font-size: .85rem; }
+  .rz-txt small { font-size: .7rem; }
+}
+/* landscape phones: the controls sit on the sides, keep the panels small */
+@media (orientation: landscape) and (max-height: 520px) {
+  .rib-card { top: calc(var(--safe-t, 0px) + 64px); max-width: 210px; min-width: 0; padding: 6px 10px; }
+  .rc-text { font-size: .74rem; }
+  .rc-head { display: none; }
+  .rc-dots { margin-top: 4px; }
+  .rib-zone { top: calc(var(--safe-t, 0px) + 64px); right: calc(var(--safe-r, 0px) + 150px); }
+}

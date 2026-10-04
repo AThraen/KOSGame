@@ -1,1 +1,104 @@
-/* css/modes/dock.css */
+/* css/modes/dock.css — docking / undocking (js/modes/dock.js). Everything is scoped to .dock-* classes. */
+
+/* ---- speed meter card: top-left under the app's pause button */
+.dock-meter {
+  position: absolute; z-index: 21; left: calc(var(--safe-l, 0px) + 10px); top: calc(var(--safe-t, 0px) + 70px);
+  width: 188px; padding: 8px 12px 9px; border-radius: 16px; color: #fff; pointer-events: none;
+  background: rgba(13, 19, 33, .68); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  animation: dmIn .5s var(--ease-pop, ease-out) both .2s; transition: box-shadow .25s, border-color .25s;
+}
+.dm-head { display: flex; align-items: baseline; gap: 6px; font-weight: 900; }
+.dm-head .ico { width: 16px; height: 16px; align-self: center; color: var(--primary, #ffb547); }
+.dm-head span { font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--primary, #ffb547); flex: 1; }
+.dm-kn { font-size: 1.35rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.dm-head small { font-size: .7rem; opacity: .7; }
+.dm-bar { position: relative; display: block; height: 12px; margin: 7px 0 5px; border-radius: 9px; overflow: visible; background: rgba(255,255,255,.12); }
+.dm-zone {
+  position: absolute; inset: 0; border-radius: 9px; --g: 33%; --y: 57%;
+  background: linear-gradient(90deg, var(--good, #3ee08f) 0 var(--g), #ffd25e var(--g) var(--y), var(--bad, #ff4d5e) var(--y) 100%);
+  opacity: .85;
+}
+.dm-needle {
+  position: absolute; top: -5px; width: 6px; height: 22px; margin-left: -3px; border-radius: 4px; left: 0;
+  background: #fff; box-shadow: 0 0 0 2px rgba(13,19,33,.85), 0 2px 6px rgba(0,0,0,.4); transition: left .12s linear;
+}
+.dm-row { display: flex; justify-content: space-between; gap: 8px; font-size: .74rem; font-weight: 800; opacity: .92; white-space: nowrap; }
+.dm-dist { font-variant-numeric: tabular-nums; }
+.dm-dist::before { content: "\2194\00a0"; opacity: .7; }
+.dm-state { color: var(--good, #3ee08f); }
+.dock-meter.is-fast .dm-state { color: #ffd25e; }
+.dock-meter.is-tooFast .dm-state { color: var(--bad, #ff4d5e); }
+.dock-meter.is-close.is-tooFast { border-color: rgba(255,77,94,.8); box-shadow: 0 0 0 3px rgba(255,77,94,.35), 0 8px 24px rgba(0,0,0,.25); animation: dmShake .35s ease-in-out infinite; }
+.dock-meter.is-close.is-slow { border-color: rgba(62,224,143,.55); }
+.dock-meter.is-far .dm-bar { opacity: .45; }
+.dock-meter.is-far .dm-state { color: rgba(255,255,255,.85); }
+
+/* ---- "FOR STÆRKT!" warning pill */
+.dock-warn {
+  position: absolute; z-index: 22; left: 50%; top: calc(var(--safe-t, 0px) + 128px); transform: translate(-50%, -10px) scale(.6);
+  padding: 8px 18px; border-radius: 999px; font-weight: 900; font-size: 1.15rem; letter-spacing: .04em; color: #fff;
+  background: linear-gradient(180deg, #ff6a76, #e8323c); box-shadow: 0 4px 0 #9c1f28, 0 10px 24px rgba(232,50,60,.45);
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .25s var(--ease-pop, ease-out); white-space: nowrap;
+}
+.dock-warn.on { opacity: 1; transform: translate(-50%, 0) scale(1); animation: dwPulse .5s ease-in-out infinite alternate; }
+
+/* ---- big round action button (line / boat hook / cast off / push / back) */
+.dock-act {
+  position: absolute; z-index: 23; left: 50%; bottom: calc(var(--safe-b, 0px) + 22px); transform: translateX(-50%);
+  width: 104px; height: 104px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; touch-action: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: #1d2433; font: inherit; font-weight: 900;
+  background: radial-gradient(circle at 35% 30%, #ffe0a0, #ffc65c 40%, #ff7a3d 100%);
+  box-shadow: 0 6px 0 #b4501f, 0 12px 26px rgba(0,0,0,.35); transition: transform .12s, opacity .25s, filter .25s, box-shadow .12s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.dock-act .da-ring { position: absolute; inset: -9px; width: calc(100% + 18px); height: calc(100% + 18px); transform: rotate(-90deg); pointer-events: none; }
+.da-track { fill: none; stroke: rgba(13,19,33,.45); stroke-width: 6; }
+.da-prog { fill: none; stroke: var(--good, #3ee08f); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset .15s, stroke .2s; }
+.da-ico { width: 38px; height: 38px; display: grid; place-items: center; }
+.da-ico svg { width: 38px; height: 38px; }
+.da-lbl { font-size: .78rem; line-height: 1.05; max-width: 92px; text-align: center; text-transform: uppercase; letter-spacing: .02em; }
+.da-key { position: absolute; top: -22px; font-size: .62rem; font-weight: 800; color: rgba(255,255,255,.8); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.dock-act.is-down { transform: translateX(-50%) translateY(4px) scale(.96); box-shadow: 0 2px 0 #b4501f, 0 6px 14px rgba(0,0,0,.35); }
+.dock-act.is-far { filter: saturate(.25) brightness(.85); opacity: .78; }
+.dock-act.is-near { filter: saturate(.7); }
+.dock-act.is-ready .da-prog { stroke: #ffd25e; }
+.dock-act.is-ready { animation: daBob 1s ease-in-out infinite; }
+.dock-act.is-perfect { background: radial-gradient(circle at 35% 30%, #d8ffe9, #7dffb5 45%, #18a957 100%); box-shadow: 0 6px 0 #0d6b37, 0 0 0 6px rgba(62,224,143,.35), 0 12px 26px rgba(0,0,0,.35); animation: daPulse .45s ease-in-out infinite alternate; }
+.dock-act.is-perfect .da-lbl { font-size: 1.25rem; }
+.dock-act.is-wait { filter: saturate(.2) brightness(.8); opacity: .6; pointer-events: none; }
+.dock-act.is-hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(.5); }
+.kc-touch ~ .dock-act .da-key, .dock-act.is-hidden .da-key { display: none; }
+
+@keyframes dmIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes dmShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+@keyframes dwPulse { from { transform: translate(-50%, 0) scale(1); } to { transform: translate(-50%, 0) scale(1.08); } }
+@keyframes daBob { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-5px); } }
+@keyframes daPulse { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.1); } }
+
+/* phones (portrait): the HUD wraps, so the meter sits a bit lower and smaller; the button sits between the pads */
+@media (max-width: 520px) {
+  .dock-meter { top: calc(var(--safe-t, 0px) + 128px); width: 160px; padding: 6px 10px 7px; }
+  .dm-kn { font-size: 1.1rem; }
+  .dock-warn { top: calc(var(--safe-t, 0px) + 200px); font-size: 1rem; }
+  .dock-act { width: 92px; height: 92px; bottom: calc(var(--safe-b, 0px) + 30px); }
+  .da-ico, .da-ico svg { width: 32px; height: 32px; }
+  .da-lbl { font-size: .7rem; max-width: 82px; }
+}
+/* landscape phones: steering on the sides, keep everything compact */
+@media (orientation: landscape) and (max-height: 520px) {
+  .dock-meter { top: calc(var(--safe-t, 0px) + 62px); width: 150px; padding: 5px 9px 6px; }
+  .dm-row { display: none; }
+  .dock-warn { top: calc(var(--safe-t, 0px) + 70px); }
+  .dock-act { width: 84px; height: 84px; bottom: calc(var(--safe-b, 0px) + 14px); }
+  .da-lbl { font-size: .64rem; }
+  .da-key { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-act.is-ready, .dock-act.is-perfect, .dock-warn.on, .dock-meter.is-close.is-tooFast { animation: none; }
+}
+/* RIB on phones (portrait): the wheel and the throttle fill the bottom corners, so the button floats above them */
+@media (max-width: 520px) and (orientation: portrait) {
+  .dock-act.dock-act-rib { bottom: calc(var(--safe-b, 0px) + 206px); width: 84px; height: 84px; }
+}
