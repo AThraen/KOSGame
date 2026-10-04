@@ -66,7 +66,7 @@ async function run(dev, id, assist) {
     } else {
       // touch: tap the card, then tap the Sæt på button
       const card = page.locator('.rigging-card[data-i="' + target + '"]');
-      await card.scrollIntoViewIfNeeded();
+      await card.evaluate(e => e.scrollIntoView({ block: 'nearest', inline: 'center' }));
       await page.waitForTimeout(250);
       const bb = await card.boundingBox();
       if (!bb) { log.push('no card box ' + target); break; }

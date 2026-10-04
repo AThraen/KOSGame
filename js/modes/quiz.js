@@ -201,16 +201,16 @@
   q('nav', 'buoy:port', ['Du sejler IND i havnen. Hvilken side skal den røde bøje være på?', 'You sail INTO the harbour. Which side should the red buoy be on?'],
     [['Bagbord (venstre)', 'Port (left)'], ['Styrbord (højre)', 'Starboard (right)'], ['Lige foran', 'Straight ahead'], ['Det er lige meget', 'It does not matter']],
     ['I Danmark (IALA A) er rød bagbord og grøn styrbord, når du sejler ind mod havnen.', 'In Denmark (IALA A) red is port and green is starboard when sailing into harbour.']);
-  q('nav', 'buoy:stbd', ['Hvilken topbetegnelse har en grøn styrbords-sømærke?', 'What top mark does a green starboard mark have?'],
+  q('nav', 'buoy:stbd', ['Hvilken topbetegnelse har et grønt styrbordsmærke?', 'What top mark does a green starboard mark have?'],
     [['En kegle med spidsen opad', 'A cone pointing up'], ['En cylinder', 'A cylinder'], ['Et kryds', 'A cross'], ['To kugler', 'Two balls']],
     ['Grøn = kegle (spids). Rød = cylinder (”dåse”). Så kan du kende dem, selv i modlys.', 'Green = cone (pointy). Red = cylinder (“can”). So you can tell them apart even against the light.']);
   q('nav', 'buoy:swim', ['Hvad betyder gule bøjer langs stranden?', 'What do yellow buoys along the beach mean?'],
     [['Badezone – her må du ikke sejle', 'Swim zone – no sailing here'], ['Kapsejladsbane', 'A race course'], ['Godt fiskested', 'A good fishing spot'], ['Dybt vand', 'Deep water']],
     ['Inden for de gule bøjer bader folk. Hold dig ude med båden!', 'People swim inside the yellow buoys. Keep your boat out!']);
-  q('nav', 'buoy:cardN', ['Du ser et nord-kompasafmærkning (sort over gul, to kegler med spidsen op). Hvor skal du sejle?', 'You see a north cardinal mark (black over yellow, two cones pointing up). Where should you sail?'],
+  q('nav', 'buoy:cardN', ['Du ser en nord-kompasafmærkning (sort over gul, to kegler med spidsen op). Hvor skal du sejle?', 'You see a north cardinal mark (black over yellow, two cones pointing up). Where should you sail?'],
     [['Nord om mærket', 'North of the mark'], ['Syd om mærket', 'South of the mark'], ['Lige hen over det', 'Straight over it'], ['Lige meget hvor', 'Anywhere']],
     ['Et nordmærke betyder: det sikre vand er mod nord. Faren ligger syd for mærket.', 'A north mark means: safe water is to the north. The danger lies south of the mark.']);
-  q('nav', 'buoy:cardS', ['Hvordan ser topbetegnelsen ud på et syd-kompasafmærkning?', 'What does the top mark of a south cardinal mark look like?'],
+  q('nav', 'buoy:cardS', ['Hvordan ser topbetegnelsen ud på en syd-kompasafmærkning?', 'What does the top mark of a south cardinal mark look like?'],
     [['To kegler med spidserne nedad', 'Two cones pointing down'], ['To kegler med spidserne opad', 'Two cones pointing up'], ['En rød kugle', 'A red ball'], ['Et gult kryds', 'A yellow cross']],
     ['Keglerne peger mod den sikre side: op = nord, ned = syd.', 'The cones point to the safe side: up = north, down = south.']);
   q('nav', 'buoy:isolated', ['Hvad betyder et sort mærke med rødt bånd og to sorte kugler?', 'What does a black mark with a red band and two black balls mean?'],
@@ -260,7 +260,7 @@
   q('club', 'boat:29er', ['Hvad er særligt ved en 29er?', 'What is special about a 29er?'],
     [['Den er hurtig, planer og har trapez', 'It is fast, planes and has a trapeze'], ['Den har en tung køl', 'It has a heavy keel'], ['Den har motor', 'It has an engine'], ['Den sejles af fem personer', 'It is sailed by five people']],
     ['29’eren er en let skiff for to. Den planer let – og kæntrer også let!', 'The 29er is a light two-person skiff. It planes easily – and capsizes easily too!']);
-  q('club', 'ladder', ['Hvilken båd er en kølbåd, man kan sejle flere sammen i?', 'Which boat is a keelboat you can sail several people together?'],
+  q('club', 'ladder', ['Hvilken båd er en kølbåd, man kan sejle flere sammen i?', 'Which boat is a keelboat that several people can sail together?'],
     [['J70', 'J70'], ['Optimist', 'Optimist'], ['ILCA', 'ILCA'], ['Tera', 'Tera']],
     ['J70 er en sporty kølbåd med gennaker til 3-5 personer. Den kan endda plane på læns.', 'The J70 is a sporty keelboat with a gennaker for 3-5 people. It can even plane downwind.']);
   q('club', 'pier', ['Hvad gør du med jollen, når du er færdig med at sejle for i dag?', 'What do you do with your dinghy when you are done sailing for the day?'],

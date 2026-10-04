@@ -46,6 +46,7 @@
         lane: { t: 'Du er i vejen!', d: 'Færgen kan ikke dreje udenom dig i sejlrenden. Kom hurtigt til side!' },
         mark: { t: 'Du ramte mærket!', d: 'Rund tæt om mærket – men rør det ikke.' },
         late: { t: 'Tiden løb ud', d: 'Sejl hen til den gyldne ring, når situationen er klaret.' },
+        miss: { t: 'Du sejlede forbi målet', d: 'Når situationen er klaret, skal du sejle hen til den gyldne MÅL-ring.' },
       },
       ok: 'Klaret!', clean: 'Rent sejlet!', allClean: 'Perfekt!', watchOut: 'Pas på!', almost: 'Uha, tæt på!',
       coach: {
@@ -108,14 +109,14 @@
           me: 'Krydsende kurser: {name} kommer fra din styrbord side (højre). Så skal du vige – drej til styrbord eller sæt farten ned, og gå agten om.',
           other: 'Krydsende kurser: Du kommer fra højre side af {name}. Så skal {name} vige, og du holder kurs og fart.',
         },
-        narrow: { me: 'Normalt viger den, der overhaler. Men færgen kan kun sejle i den dybe sejlrende og kan ikke dreje udenom. Små både må aldrig ligge i vejen for store skibe i en smal sejlrende – så det er dig, der skal væk!' },
+        narrow: { me: 'Normalt viger den, der overhaler. Men færgen kan kun sejle i den dybe sejlrende og kan ikke dreje udenom. Små både må aldrig ligge i vejen for store skibe i en smal sejlrende – så det er dig, der skal væk – ud til styrbord side (højre) af renden!' },
         narrowRib: { me: 'I en smal sejlrende holder alle til styrbord side (højre). Og færgen kan kun sejle i renden – så du skal holde dig af vejen og give den masser af plads.' },
         draught: { me: 'Fragtskibet stikker dybt og skal bruge mere end en kilometer for at stoppe. Det kan ikke vige for dig! Små både holder sig langt væk fra store skibe – også selvom de sejler.' },
       },
       sc: {
         r10a: { title: 'Mødes på kryds', ask: 'Du krydser op mod vinden. Freja kommer fra højre – I er på vej mod samme punkt.', tip: 'Fald af (drej væk fra vinden), og gå agten om Freja. Luf op igen bagefter.', why: 'Husk: Styrbord er højre. Kommer vinden ind over din højre side, er du på styrbord halse.' },
         r10b: { title: 'Hvem kommer der?', ask: 'Du krydser op mod vinden. Oskar kommer fra venstre på kollisionskurs.', tip: 'Du har ret. Hold din kurs – Oskar skal gå agten om dig.' },
-        r10c: { title: 'Med vinden agterind', ask: 'Vinden kommer agterfra. Alma kommer fra højre, og jeres kurser mødes.', tip: 'Du er på bagbord halse. Drej lidt væk, og lad Alma komme forbi foran dig.', why: 'Bagbord-styrbord-reglen gælder på alle kurser – også på læns.' },
+        r10c: { title: 'Med vinden agterind', ask: 'Vinden kommer agterfra. Alma kommer fra venstre, og jeres kurser mødes.', tip: 'Du er på bagbord halse. Fald lidt mere af, og lad Alma komme forbi foran dig.', why: 'Bagbord-styrbord-reglen gælder på alle kurser – også på læns. Pas på: Med vinden agterind kommer styrbord-båden fra venstre!' },
         r11a: { title: 'Side om side', ask: 'Du og Noah sejler side om side på samme halse. Noah ligger i læ af dig og begynder at luffe op.', tip: 'Luf op sammen med Noah, og hold god afstand.', why: 'Luv er siden, vinden kommer fra. Læ er siden i skyggen af vinden.' },
         r11b: { title: 'En båd i luv', ask: 'Du og Viggo sejler side om side på samme halse. Viggo ligger i luv og kommer tættere på.', tip: 'Hold din kurs. Viggo skal holde sig fri af dig.' },
         r12a: { title: 'Hurtigere bagfra', ask: 'Du sejler hurtigere end Ida, som sejler lige foran dig. Snart indhenter du hende.', tip: 'Styr udenom Ida i god afstand – den bagerste skal vige.' },
@@ -128,7 +129,7 @@
         ps2: { title: 'I RIB’en', ask: 'Du kører klubbens RIB. En sejlbåd krydser din kurs forude.', tip: 'Drej til styrbord (højre) eller sæt farten ned, og gå agten om sejlbåden.' },
         pp1: { title: 'Snude mod snude', ask: 'Du kører RIB. En motorbåd kommer lige imod dig.', tip: 'Drej til styrbord (højre) i god tid. Så passerer I bagbord mod bagbord.' },
         pp2: { title: 'Fra højre', ask: 'Du kører RIB. En motorbåd kommer fra din styrbord side (højre).', tip: 'Drej til styrbord, og gå agten om motorbåden. Aldrig foran!' },
-        sh1: { title: 'Færgen kommer', ask: 'Du sejler midt i sejlrenden. Færgen kommer bagfra – og den er stor!', tip: 'Sejl til side mod venstre – hurtigt! – helt ud mod kanten af renden.' },
+        sh1: { title: 'Færgen kommer', ask: 'Du sejler midt i sejlrenden. Færgen kommer bagfra – og den er stor!', tip: 'Sejl til side mod højre – hurtigt! – ud mod styrbord side af renden.' },
         sh2: { title: 'Kæmpe skib', ask: 'Et kæmpe fragtskib kommer fra højre. Jeres kurser krydser hinanden.', tip: 'Drej til styrbord mod skibets hæk, og hold god afstand. Kryds bag om det.' },
         ex1: { title: 'Travlt i farvandet', ask: 'Der er travlt ved Kalkbrænderiløbet! Du krydser op mod vinden, og Lukas kommer fra højre.', tip: 'Du er på bagbord halse – fald af, og gå agten om Lukas.' },
         ex2: { title: 'Ud gennem renden', ask: 'Du kører RIB ud gennem sejlrenden. Færgen kommer imod dig.', tip: 'Hold til styrbord side af renden (højre), og giv færgen masser af plads.' },
@@ -163,6 +164,7 @@
         lane: { t: 'You\'re in the way!', d: 'The ferry can\'t steer around you in the channel. Get out of its way, fast!' },
         mark: { t: 'You hit the mark!', d: 'Round close to the mark – but don\'t touch it.' },
         late: { t: 'Time\'s up', d: 'Sail to the golden ring once the situation is over.' },
+        miss: { t: 'You sailed past the goal', d: 'Once the situation is over, sail into the golden GOAL ring.' },
       },
       ok: 'Done!', clean: 'Clean sailing!', allClean: 'Perfect!', watchOut: 'Watch out!', almost: 'Phew, close!',
       coach: {
@@ -225,14 +227,14 @@
           me: 'Crossing: {name} is on your starboard (right) side. So you give way – turn to starboard or slow down, and pass astern.',
           other: 'Crossing: You are on {name}\'s right-hand side. So {name} gives way, and you hold course and speed.',
         },
-        narrow: { me: 'Normally the overtaking boat keeps clear. But the ferry can only sail in the deep channel and can\'t steer around you. Small boats must never be in the way of big ships in a narrow channel – so you must move!' },
+        narrow: { me: 'Normally the overtaking boat keeps clear. But the ferry can only sail in the deep channel and can\'t steer around you. Small boats must never be in the way of big ships in a narrow channel – so you must move – out to the starboard (right) side of the channel!' },
         narrowRib: { me: 'In a narrow channel everyone keeps to the starboard (right) side. And the ferry can only use the channel – so keep out of its way and give it lots of room.' },
         draught: { me: 'The cargo ship has a deep keel and needs more than a kilometre to stop. It can\'t give way to you! Small boats keep well clear of big ships – even when sailing.' },
       },
       sc: {
         r10a: { title: 'Meeting upwind', ask: 'You are beating upwind. Freja comes from the right – you are heading for the same spot.', tip: 'Bear away (turn away from the wind) and pass behind Freja. Head up again afterwards.', why: 'Remember: starboard is right. If the wind comes over your right side, you are on starboard tack.' },
         r10b: { title: 'Who\'s that?', ask: 'You are beating upwind. Oskar comes from the left on a collision course.', tip: 'You have right of way. Hold your course – Oskar must pass behind you.' },
-        r10c: { title: 'Wind from behind', ask: 'The wind is from behind. Alma comes from the right and your courses meet.', tip: 'You are on port tack. Turn away a little and let Alma pass in front of you.', why: 'The port-starboard rule works on every point of sail – downwind too.' },
+        r10c: { title: 'Wind from behind', ask: 'The wind is from behind. Alma comes from the left and your courses meet.', tip: 'You are on port tack. Bear away a little more and let Alma pass in front of you.', why: 'The port-starboard rule works on every point of sail – downwind too. Careful: downwind, the starboard-tack boat comes from the left!' },
         r11a: { title: 'Side by side', ask: 'You and Noah sail side by side on the same tack. Noah is to leeward of you and starts to head up.', tip: 'Head up with Noah and keep a good distance.', why: 'Windward is the side the wind comes from. Leeward is the sheltered side.' },
         r11b: { title: 'A boat to windward', ask: 'You and Viggo sail side by side on the same tack. Viggo is to windward and getting closer.', tip: 'Hold your course. Viggo must keep clear of you.' },
         r12a: { title: 'Faster from behind', ask: 'You are faster than Ida, who is sailing right in front of you. Soon you will catch up.', tip: 'Steer around Ida with plenty of room – the boat behind keeps clear.' },
@@ -245,7 +247,7 @@
         ps2: { title: 'In the RIB', ask: 'You are driving the club RIB. A sailing boat is crossing ahead of you.', tip: 'Turn to starboard (right) or slow down, and pass behind the sailing boat.' },
         pp1: { title: 'Bow to bow', ask: 'You are driving the RIB. A motorboat is coming straight at you.', tip: 'Turn to starboard (right) in good time. Then you pass port side to port side.' },
         pp2: { title: 'From the right', ask: 'You are driving the RIB. A motorboat comes from your starboard (right) side.', tip: 'Turn to starboard and pass behind the motorboat. Never in front!' },
-        sh1: { title: 'Here comes the ferry', ask: 'You are sailing in the middle of the channel. The ferry is coming from behind – and it\'s big!', tip: 'Sail aside to the left – fast! – out towards the edge of the channel.' },
+        sh1: { title: 'Here comes the ferry', ask: 'You are sailing in the middle of the channel. The ferry is coming from behind – and it\'s big!', tip: 'Sail aside to the right – fast! – out to the starboard side of the channel.' },
         sh2: { title: 'Giant ship', ask: 'A giant cargo ship comes from the right. Your courses cross.', tip: 'Turn to starboard towards the ship\'s stern and keep well clear. Cross behind it.' },
         ex1: { title: 'Busy waters', ask: 'It\'s busy by Kalkbrænderiløbet! You are beating upwind and Lukas comes from the right.', tip: 'You are on port tack – bear away and pass behind Lukas.' },
         ex2: { title: 'Out through the channel', ask: 'You are driving the RIB out through the channel. The ferry is coming towards you.', tip: 'Keep to the starboard (right) side of the channel and give the ferry lots of room.' },
@@ -311,9 +313,9 @@
     pp2: S_(OPEN, { rot: 250, rule: 'C-crossing', ans: 'me', noAhead: 1, me: { kind: 'rib', hdg: 0, thr: 0.3 }, T: 8,
       npcs: [{ kind: 'motor', name: 'Brumbassen', color: '#d6452f', hdg: 270, speed: 3.6, meet: { dt: -0.2 }, focus: 1 }],
       auto: [{ t: 2.6, h: 90 }, { t: 8.6, h: 0 }], dur: 14 }),
-    sh1: { venue: 'harbor', lane: 'kalk', laneY: -1000, wind: 90, rule: 'narrow', ans: 'me', keepout: 1, me: { hdg: 0 }, T: 22, C: { x: 4, y: 0 }, encEnd: 26,
-      npcs: [{ kind: 'ferry', name: 'Færgen', hdg: 0, speedRel: 6, relM: { fwd: -110, side: 8 }, focus: 1 }],
-      auto: [{ t: 0.4, h: -78 }, { t: 8.5, h: -10 }], dur: 26 },
+    sh1: { venue: 'harbor', lane: 'kalk', laneY: -1000, wind: 270, rule: 'narrow', ans: 'me', keepout: 1, me: { hdg: 0 }, T: 22, C: { x: 4, y: 0 }, encEnd: 26,
+      npcs: [{ kind: 'ferry', name: 'Færgen', hdg: 0, speedRel: 6, relM: { fwd: -110, side: -8 }, focus: 1 }],
+      auto: [{ t: 0.4, h: 70 }, { t: 8.5, h: 10 }], dur: 26 },
     sh2: { venue: 'sound', at: { x: 2600, y: -2270 }, laneRot: 'ferry', wind: -34, rule: 'draught', ans: 'me', noAhead: 1, me: { hdg: 90 }, T: 16, encEnd: 23,
       npcs: [{ kind: 'ship', name: 'Nordstjernen', hdg: 0, speed: 7, meet: { dt: 0 }, focus: 1, horn: 1 }],
       auto: [{ t: 0.8, h: 180 }, { t: 19, h: 95 }], dur: 29 },
@@ -678,6 +680,12 @@
         if (U.segDistance(m.x, m.y, ax, ay, bx, by) - r - m.r <= 0) return { kind: 'mark' };
       }
       if (plan.ring && Math.hypot(pl.x - plan.ring.x, pl.y - plan.ring.y) < plan.ring.r) sim.reached = true;
+      if (plan.ring && !sim.reached && sim.t > plan.encEnd + 2) { // clearly sailing away from the goal → say so now
+        const d = Math.hypot(pl.x - plan.ring.x, pl.y - plan.ring.y);
+        sim.awayT = d > plan.ring.r * 4 + 25 && d > (sim.lastD || 1e9) ? (sim.awayT || 0) + KOS.DT : 0;
+        sim.lastD = d;
+        if (sim.awayT > 3) return { kind: 'miss' };
+      }
       if (plan.ring && sim.t > plan.late) return { kind: 'late' };
       return null;
     };
@@ -848,7 +856,9 @@
     const esc = s => KOS.UI.esc ? KOS.UI.esc(s) : String(s);
 
     function sfx(name, o) { try { KOS.Audio && KOS.Audio.play(name, o); } catch (e) { /* audio is optional */ } }
-    function coach(text, ms, mood) { try { return KOS.UI.coach(text, { ms: ms || 5200, mood }); } catch (e) { return null; } }
+    function coach(text, ms, mood) { try { return (S.coachH = KOS.UI.coach(text, { ms: ms || 5200, mood })); } catch (e) { return null; } }
+    // a tip from the last sail must never sit on top of the question / fail card
+    function closeCoach() { try { if (S.coachH) S.coachH.close(); } catch (e) { /* optional */ } S.coachH = null; S.welcome = null; }
     function after(sec, fn) { S.waits.push({ t: sec, fn }); }
     function haptic(p) { try { KOS.Input.haptic && KOS.Input.haptic(p); } catch (e) { /* optional */ } }
 
@@ -859,6 +869,8 @@
       S.plan = planFor(id);
       S.wrong = 0; S.attempts = 0; S.failedOnce = false; S.answer = null; S.fail = null; S.showPath = assist === 'easy';
       S.results[i] = S.results[i] || { q: false, s: false, tries: 0 };
+      // a new venue or a far-away spot: cut the camera there (behind the title) instead of gliding over kilometres
+      S.snapCam = i > 0 && (scene.venue !== S.plan.venue || Math.hypot(scene.camera.x - S.plan.F.C0.x, scene.camera.y - S.plan.F.C0.y) > 300);
       if (scene.venue !== S.plan.venue) scene.setVenue(S.plan.venue);
       scene.wind = KOS.Wind.steady(S.plan.F.windW, S.plan.kn);
       scene.showLanes = !!(S.plan.scn.keepout || S.plan.scn.lane);
@@ -877,7 +889,7 @@
     function showSim(sim) {
       S.view = sim;
       scene.boats.length = 0;
-      for (const b of sim.boats()) scene.boats.push(b);
+      for (const b of sim.boats()) { b.noTag = true; scene.boats.push(b); } // the mode draws its own, overlap-free name tags
     }
     function setPhase(p) {
       S.phase = p; S.pt = 0;
@@ -894,7 +906,7 @@
       setPhase('ask');
       titleEl.hidden = true;
       S.introLen = 0;
-      if (S.welcome) { S.welcome.close(); S.welcome = null; }
+      closeCoach();
       const pl = S.plan, f = pl.npcs[pl.focusIdx], id = pl.id;
       const chip = (c, label, color, k) => '<button type="button" class="rs-choice" data-c="' + c + '">' +
         (color ? '<i class="rs-dot" style="--c:' + color + '"></i>' : '<i class="rs-dot rs-dot2"><b style="--c:#ff9a3d"></b><b style="--c:' + (f.spec.color || '#2f7de1') + '"></b></i>') +
@@ -940,7 +952,7 @@
       const giver = pl.ans === 'me' ? sim.player : pl.ans === 'other' ? sim.focus().o : null;
       if (fx) {
         for (const b of giver ? [giver] : [sim.player, sim.focus().o]) { fx.stars(b.x, b.y, 12); fx.ripple(b.x, b.y, 3, 1); }
-        fx.text(sim.player.x, sim.player.y - 3, S.wrong ? t('rowschool.right2') : t('rowschool.right'), { color: '#3ee08f', size: 26 });
+        fx.text(sim.player.x, sim.player.y - 3, t('rowschool.right'), { color: '#3ee08f', size: 26 });
       }
       S.answer = c;
       after(0.55, showExplain);
@@ -963,6 +975,7 @@
     }
     function showExplain() {
       setPhase('explain');
+      closeCoach();
       const pl = S.plan, id = pl.id, why = 'rowschool.sc.' + id + '.why';
       cardEl.className = 'rowschool-card glass rs-explain';
       cardEl.innerHTML = '<div class="rs-verdict">' + KOS.UI.iconSvg('check') + esc(S.wrong ? t('rowschool.right2') : t('rowschool.right')) + dots() + '</div>' +
@@ -1036,7 +1049,7 @@
       const f = S.sim.focus();
       if (f && f.spec.horn) { after(0.4, () => horn5()); }
     }
-    function horn5() { for (let i = 0; i < 5; i++) after(i * 0.32, () => sfx('hornShort', { vol: 0.8, pitch: 0.7 })); if (!S.tips.horn5) { S.tips.horn5 = true; after(1.8, () => coach(t('rowschool.coach.horn5'), 5000)); } }
+    function horn5() { for (let i = 0; i < 5; i++) after(i * 0.32, () => sfx('hornShort', { vol: 0.8, pitch: 0.7 })); if (!S.tips.horn5) { S.tips.horn5 = true; after(1.8, () => { if (S.phase === 'sail') coach(t('rowschool.coach.horn5'), 5000); }); } }
 
     function failSail(f) {
       if (S.phase !== 'sail') return;
@@ -1057,7 +1070,7 @@
           (!S.showPath ? '<p class="rs-hint">' + esc(t('rowschool.coach.firstFail')) + '</p>' : '') +
           '<div class="rs-btns"><button type="button" class="btn btn-glass rs-watch">' + KOS.UI.iconSvg('eye') + '<span>' + esc(t('rowschool.btn.watch')) + '</span></button>' +
           '<button type="button" class="btn btn-primary rs-retry">' + KOS.UI.iconSvg('retry') + '<span>' + esc(t('rowschool.btn.retry')) + '</span>' + (touch ? '' : '<kbd>Enter</kbd>') + '</button></div>';
-        openCard();
+        closeCoach(); openCard();
         cardEl.querySelector('.rs-retry').addEventListener('click', () => { sfx('click'); retry(); });
         cardEl.querySelector('.rs-watch').addEventListener('click', () => { sfx('click'); showExplain(); });
         S.showPath = true;
@@ -1188,6 +1201,12 @@
         if (S.plan.scn.T > 0 && !S.plan.scn.keepout) add(C.x, C.y, Lp);
         const f = U.vec(pl.heading); add(pl.x + f.x * Math.max(Lp * 3, pl.speed * 3), pl.y + f.y * Math.max(Lp * 3, pl.speed * 3), Lp);
       }
+      if (asking || S.phase === 'explain') { // keep the other boat's course arrow on screen too
+        for (const n of v.npcs) if (n.focus && !n.big) {
+          const f = U.vec(n.o.heading), a = n.L * 0.55 + Math.max(n.L * 1.6, Math.abs(n.o.speed || 0) * 3.2);
+          add(n.o.x + f.x * a, n.o.y + f.y * a, Lp * 0.8);
+        }
+      }
       for (const m of S.plan.marksW) add(m.x, m.y, Lp * 3.2);
       if ((S.phase === 'sail' || S.phase === 'count' || S.phase === 'fail') && S.plan.ring) {
         const rg = S.plan.ring, d = Math.hypot(rg.x - pl.x, rg.y - pl.y);
@@ -1213,6 +1232,7 @@
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, sx = (left + W - right) / 2, sy = (top + bot) / 2;
       camT.x = cx - (sx - W / 2) / z; camT.y = cy - (sy - H / 2) / z;
       scene.fixedZoom = z;
+      if (S.snapCam) { S.snapCam = false; scene.follow(camT); }
     }
 
     function hudTick(dt) {
@@ -1274,7 +1294,6 @@
       // power vessels: wakes then hulls, then tags
       for (const n of v.npcs) if (!n.phys) drawWake(ctx, n, v.t);
       for (const n of v.npcs) if (!n.phys) { const fn = POWER_DRAW[n.kind]; if (fn) fn(ctx, n, tm); }
-      for (const n of v.npcs) if (!n.phys) sc.pill(ctx, n.o.x, n.o.y, n.spec.name, { dy: -(n.L * 0.5 / mpp + 22), size: 11, bg: n.o.tagColor || 'rgba(13,19,33,0.6)' });
       // player highlight ring (always readable, even when tiny next to a ferry)
       const R = Math.max(pl.Lp * 0.85, 16 * mpp), pulse = 0.5 + 0.5 * Math.sin(tm * 4);
       ctx.save(); ctx.strokeStyle = 'rgba(255,154,61,' + (0.55 + 0.35 * pulse) + ')'; ctx.lineWidth = Math.max(0.12, 2.5 * mpp);
@@ -1318,15 +1337,6 @@
           const col = explaining && it.role ? (it.role === 'give' ? '#ff4d5e' : '#3ee08f') : it.col;
           drawArrow(ctx, sc, it.b, it.L, col, tm, it.n && asking ? it.n.spec.intent : null);
         }
-        if (explaining) {
-          for (const it of items) if (it.role) {
-            const p = sc.worldToScreen(it.b.x, it.b.y), Lpx = it.L / sc.mpp;
-            const txt = pl.ans === 'both' ? t('rowschool.tag.both') : t('rowschool.tag.' + it.role);
-            pillPx(ctx, p.x, p.y + Lpx * 0.5 + 24, txt, it.role === 'give' ? '#ff4d5e' : '#18a957', '#fff');
-          }
-          const p = sc.worldToScreen(v.player.x, v.player.y);
-          void p;
-        }
       }
       // REPLAY badge
       if (explaining) {
@@ -1337,11 +1347,46 @@
         ctx.fillStyle = 'rgba(255,77,94,' + a + ')'; ctx.beginPath(); ctx.arc(x + 4, y, 5, 0, TAU); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.fillText(t('rowschool.replay'), x + 15, y + 1); ctx.restore();
       }
+      drawTags(ctx, sc);
       drawWindBadge(ctx, sc, tm);
     }
-    function pillPx(ctx, x, y, text, bg, fg) {
+    // name tags (+ VIGER / HOLDER KURS while explaining) behind each boat's stern, so they never sit on the course arrow,
+    // and pushed apart when two boats sail side by side
+    function drawTags(ctx, sc) {
+      const v = S.view, pl = S.plan, explaining = S.phase === 'explain';
+      const roleTxt = r => pl.ans === 'both' ? t('rowschool.tag.both') : t('rowschool.tag.' + r);
+      const items = [{ b: v.player, L: pl.Lp, text: v.player.tag, bg: 'rgba(255,122,61,0.92)', role: pl.ans === 'me' || pl.ans === 'both' ? 'give' : 'stand' }];
+      for (const n of v.npcs) items.push({ b: n.o, L: n.L, text: n.spec.name, bg: 'rgba(13,19,33,0.66)', role: n.focus ? (pl.ans === 'other' || pl.ans === 'both' ? 'give' : 'stand') : null });
+      ctx.save(); ctx.font = '800 11px ui-rounded,"Segoe UI",system-ui,sans-serif';
+      const boxes = [];
+      for (const it of items) {
+        if (!it.text) continue;
+        const p = sc.worldToScreen(it.b.x, it.b.y);
+        if (p.x < -80 || p.x > sc.w + 80 || p.y < -80 || p.y > sc.h + 80) continue;
+        const f = U.vec(it.b.heading), q = sc.worldToScreen(it.b.x + f.x, it.b.y + f.y);
+        let dx = q.x - p.x, dy = q.y - p.y; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+        const role = explaining && it.role ? roleTxt(it.role) : null;
+        const w = Math.max(ctx.measureText(it.text).width + 16, role ? ctx.measureText(role).width + 18 : 0), h = role ? 44 : 20;
+        const off = Math.min(it.L / sc.mpp * 0.5, 120) + 10 + Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2;
+        boxes.push({ x: p.x - dx * off, y: p.y - dy * off, w, h, it, role });
+      }
+      for (let k = 0; k < 8; k++) {
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], b = boxes[j], ox = (a.w + b.w) / 2 + 4 - Math.abs(a.x - b.x), oy = (a.h + b.h) / 2 + 3 - Math.abs(a.y - b.y);
+          if (ox <= 0 || oy <= 0) continue;
+          if (oy < ox) { const s = a.y <= b.y ? -1 : 1; a.y += s * oy / 2; b.y -= s * oy / 2; } else { const s = a.x <= b.x ? -1 : 1; a.x += s * ox / 2; b.x -= s * ox / 2; }
+        }
+      }
+      for (const bx of boxes) {
+        const top = bx.y - bx.h / 2;
+        pillPx(ctx, bx.x, top + 10, bx.it.text, bx.it.bg, '#fff', bx.w);
+        if (bx.role) pillPx(ctx, bx.x, top + 33, bx.role, bx.it.role === 'give' ? '#ff4d5e' : '#18a957', '#fff');
+      }
+      ctx.restore();
+    }
+    function pillPx(ctx, x, y, text, bg, fg, minW) {
       ctx.save(); ctx.font = '900 11px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const w = ctx.measureText(text).width + 16, h = 21;
+      const w = minW ? Math.max(minW * 0, ctx.measureText(text).width + 16) : ctx.measureText(text).width + 16, h = 21;
       ctx.fillStyle = bg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else ctx.rect(x - w / 2, y - h / 2, w, h); ctx.fill();
       ctx.fillStyle = fg; ctx.fillText(text, x, y + 1); ctx.restore();
     }
