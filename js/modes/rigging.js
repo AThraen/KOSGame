@@ -173,10 +173,13 @@
       ['mainsheet', 6], ['daggerboard', 7], ['rudder', 7]],
     '29er': [['vest', 0], ['wings', 1], ['mast', 2], ['shrouds', 3], ['forestay', 3], ['trapeze', 4], ['jib', 5], ['sail', 6], ['boom', 7],
       ['kicker', 8], ['cunningham', 8], ['jibsheets', 8], ['pole', 9], ['gennaker', 10], ['daggerboard', 11], ['rudder', 11]],
-    hboat: [['vest', 0], ['cover', 1, 'off'], ['tiller', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['lines', 7, 'off'], ['fenders', 8, 'off']],
+    // KØS H-boats keep rudder, tiller and halyards on in the harbour (see KEEP_ON): the jobs start with the cover
+    hboat: [['vest', 0], ['cover', 1, 'off'], ['sail', 2], ['jib', 3], ['jibsheets', 4], ['lines', 5, 'off'], ['fenders', 6, 'off']],
     j70: [['vest', 0], ['cover', 1, 'off'], ['rudder', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['pole', 7], ['gennaker', 8],
       ['lines', 9, 'off'], ['fenders', 10, 'off']],
   };
+  // parts that stay rigged on the club's boats all season (drawn in place, never a job)
+  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'] };
   const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)
@@ -322,8 +325,10 @@
     }
     // club sticker + sail number on the bow
     const sx = xb - L * (g.keelboat ? 0.2 : 0.22), sy = (g.dAt(sx) + Math.min(bot, g.dAt(sx) + g.fb)) / 2 + (g.keelboat ? 4 : 0);
+    // the club's H-boats have 'KØS Sejlsport' in white along their red topsides
+    if (col.id === 'hboat') { const mx2 = (xs + xb) / 2, my2 = (g.dAt(mx2) + Math.min(bot, g.dAt(mx2) + g.fb)) / 2 + 5; s += '<text x="' + f(mx2) + '" y="' + f(my2) + '" font-size="' + f(Math.max(12, g.fb * 0.5)) + '" font-weight="900" text-anchor="middle" fill="#fff" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">KØS Sejlsport</text>'; }
     s += '<rect x="' + f(sx - 17) + '" y="' + f(sy - 7) + '" width="34" height="14" rx="6" fill="#0f1729"/><text x="' + f(sx) + '" y="' + f(sy + 4.2) + '" font-size="10.5" font-weight="900" text-anchor="middle" fill="#fff" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">KØS</text>';
-    if (sailNo) s += '<text x="' + f(sx - L * 0.2) + '" y="' + f(sy + 4) + '" font-size="11" font-weight="900" text-anchor="middle" fill="' + shade(col.hull, -0.55) + '" opacity=".75" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + esc(sailNo) + '</text>';
+    if (sailNo && col.id !== 'hboat') s += '<text x="' + f(sx - L * 0.2) + '" y="' + f(sy + 4) + '" font-size="11" font-weight="900" text-anchor="middle" fill="' + shade(col.hull, -0.55) + '" opacity=".75" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + esc(sailNo) + '</text>';
     return s;
   }
 
@@ -747,7 +752,7 @@
     if (unrig) base.forEach(s => { inst[s[0]] = s[2] !== 'off'; });
     else base.forEach(s => { inst[s[0]] = s[2] === 'off'; });
     // keelboats keep their mast stepped and the boom and standing rigging on all season
-    if (g.keelboat) ['mast', 'boom', 'shrouds', 'forestay'].forEach(k => { inst[k] = true; });
+    if (g.keelboat) ['mast', 'boom', 'shrouds', 'forestay'].concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
     let groundSail = null; // null | 'flat' | 'rolled'
 
     const S = {

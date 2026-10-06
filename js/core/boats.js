@@ -99,7 +99,7 @@
       tackTime: 4.5, turnRate: 0.42, uRef: 1.8, accelT: 7.0, decelT: 12.0,
       hasSpinnaker: 'sym', spinnakerBoost: 1.12, canCapsize: false, capsizeHeel: R(90), keel: true, plane: 0,
       heelAt10: 18, hikeRight: 6, optHeel: 18, maxHeel: 38, leeway: 0.05, draft: 1.3, boomMax: 80, recoverTime: 0, trapeze: false,
-      colors: { hull: '#f7f3ea', deck: '#c8a46a', sail: '#ffffff', spi: '#2b6cb0', trim: '#1b2a41' },
+      colors: { hull: '#c8262e', deck: '#c8a46a', sail: '#ffffff', spi: '#2b6cb0', trim: '#f4f1ea' }, // KØS H-boats: red topsides
       desc: {
         da: 'Klassisk nordisk kølbåd. Tung, rolig og sikker – den kan ikke kæntre. Hele besætningen hjælper.',
         en: 'Classic Nordic keelboat. Heavy, calm and safe – it cannot capsize. The whole crew helps.',

@@ -825,7 +825,7 @@
     const s = g.motor ? 200 / L : Math.min((120 + 14 * L) / L, 190 / g.mastH);
     const len = L * s, x0 = W / 2 - len / 2 + (g.motor ? 0 : 6), x1 = x0 + len;
     const fb = (g.keel ? 0.55 : g.motor ? 0.55 : 0.32) * s * (g.motor ? 1 : Math.min(1, 2.5 / L) + 0.25); // freeboard px
-    const fbh = clamp(fb, 10, 36);
+    const fbh = clsId === 'hboat' ? clamp(fb, 19, 36) : clamp(fb, 10, 36); // H-boat: room for 'KØS Sejlsport' on the side
     const deckY = wl - fbh;
     const parts = [], defs = [];
     defs.push('<linearGradient id="' + P + 'sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ec8f2"/><stop offset="1" stop-color="#1f6fb2"/></linearGradient>');
@@ -887,6 +887,8 @@
     // hull + details
     const hd = [];
     hd.push('<path d="' + hullP + '" fill="url(#' + P + 'hull)" stroke="' + shade(c.hull, -0.45) + '" stroke-width="1.2" stroke-linejoin="round"/>');
+    // the club's H-boats: red topsides with 'KØS Sejlsport' along the side
+    if (clsId === 'hboat') hd.push('<text x="' + f3(x0 + len * 0.5) + '" y="' + f3(deckY + fbh * 0.55) + '" font-size="' + f3(Math.max(8, fbh * 0.42)) + '" font-weight="900" text-anchor="middle" fill="#fff" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">KØS Sejlsport</text>');
     if (g.motor) {
       // orange tube with black strake, KØS box, console, rail
       const ty = deckY - 2, tr = 11;
