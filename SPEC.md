@@ -370,3 +370,11 @@ the effects thin out cosmetic particles at lower levels.
   sea, run a short inline version of the clubhouse capsize mini-game (free the sheet → climb on the daggerboard with a
   timing meter → bail) instead of the timer: good timing = back sailing sooner; 29er can turtle in very strong wind.
   Add Tera and Zest to the capsize mini-game, and a sailing-school lesson "stay upright in gusts / get back up".
+- **Heavy weather + reefing (user 2026-10-06):** today the windiest activities are ~13 kn (most 7–10) and no boat can
+  reduce sail. Plan: a late-unlocked "Hårdt vejr" chapter at 16–25 kn with strong gusts, bigger waves/spray, a
+  "Kuling-varsel" card, capsizing on even at Let. Teach depowering (hike, ease in gusts, feather), safe gybes / the
+  "chicken gybe" (tack round instead), and when to reef or head home. Sail area: **Reb** button for H-boat (slab reef in
+  the main, optional smaller jib; must luff up and slow down, takes seconds with crew animation) and Zest (confirm with
+  the club how theirs reef); ILCA chooses rig on land (ILCA 4/6/7 = smaller sail for lighter sailors / strong wind);
+  J70: gennaker stays down; Optimist: no reef → go home early or call the coach RIB. Physics: less sail = less power
+  and heel, slower in light wind, so reefing too early or too late both cost.
