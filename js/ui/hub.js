@@ -32,6 +32,7 @@
         play: 'Sejl!',
         hint: 'Træk i kortet for at kigge rundt · tryk på et sted',
         zoomIn: 'Zoom ind', zoomOut: 'Zoom ud', recenter: 'Tilbage til klubben',
+        places: 'Alle steder', placesTitle: 'Hvor vil du hen?', startHere: 'Start her', close: 'Luk',
         wind: 'Vind {kn} kn fra {dir}',
         level: 'Niveau {n}', toNext: '{n} XP til næste niveau',
         rank: ['Ælling', 'Letmatros', 'Matros', 'Bådsmand', 'Styrmand', 'Skipper', 'Kaptajn', 'Admiral'],
@@ -59,6 +60,7 @@
         play: 'Sail!',
         hint: 'Drag the map to look around · tap a place',
         zoomIn: 'Zoom in', zoomOut: 'Zoom out', recenter: 'Back to the club',
+        places: 'All places', placesTitle: 'Where to?', startHere: 'Start here', close: 'Close',
         wind: 'Wind {kn} kn from {dir}',
         level: 'Level {n}', toNext: '{n} XP to the next level',
         rank: ['Duckling', 'Deckhand', 'Sailor', 'Bosun', 'First Mate', 'Skipper', 'Captain', 'Admiral'],
@@ -101,6 +103,7 @@
     gear: '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z"/>',
     passport: '<rect x="4.5" y="2.8" width="15" height="18.4" rx="2.2"/><circle cx="12" cy="10" r="3.4"/><path d="M8.5 16.8h7"/>',
     lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/>',
+    list: '<path d="M8 6.5h12M8 12h12M8 17.5h12"/><path d="M4 6.5h.01M4 12h.01M4 17.5h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>',
     home: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3"/>',
     play: '<path d="M8 5.5v13l10.5-6.5z"/>',
@@ -136,6 +139,9 @@
     try {
       return KOS.Activities.byArea(id).some(a => KOS.Activities.isUnlocked(a.id) && !KOS.Storage.progress(a.id).plays);
     } catch (e) { return false; }
+  }
+  function firstLessonDone() {
+    try { return !!(KOS.Storage && KOS.Storage.progress('school.steer').done); } catch (e) { return true; }
   }
   function nextActivity() {
     if (!KOS.Activities || !KOS.Storage) return null;
@@ -489,6 +495,7 @@
       <span class="hub-pin-ring"></span>
       <span class="hub-pin-badge">${icon(a.icon)}<span class="hub-pin-lock">${icon('lock')}</span></span>
       <span class="hub-pin-new"></span>
+      <span class="hub-pin-start" hidden></span>
       <span class="hub-pin-label"><b class="hub-pin-name"></b><span class="hub-pin-stars">${icon('star', 'hub-star')}<span class="hub-pin-count"></span></span></span>
     </button>`;
   }
@@ -528,9 +535,9 @@
     if (!mapCache) mapCache = buildMap();
     const rootEl = document.createElement('div');
     rootEl.className = 'hub';
-    rootEl.innerHTML = `<div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${mapCache}<div class="hub-labels">${labelsHtml()}</div><div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
+    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${mapCache}<div class="hub-labels">${labelsHtml()}</div><div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
       ${topHtml()}
-      <div class="hub-zoom"><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
+      <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
       <div class="hub-bottom"><div class="hub-next hub-glass" hidden><div class="hub-next-txt"><small data-k="hub.next"></small><b class="hub-next-title"></b></div><button type="button" class="hub-next-go" data-act="next">${icon('play')}<span data-k="hub.play"></span></button></div><div class="hub-hint" data-k="hub.hint"></div></div>`;
     sectionEl.classList.add('hub-host');
@@ -603,6 +610,8 @@
     R.querySelector('[data-act="zin"]').setAttribute('aria-label', t('hub.zoomIn'));
     R.querySelector('[data-act="zout"]').setAttribute('aria-label', t('hub.zoomOut'));
     R.querySelector('[data-act="home"]').setAttribute('aria-label', t('hub.recenter'));
+    R.querySelector('[data-act="places"]').setAttribute('aria-label', t('hub.places'));
+    R.querySelector('[data-act="places"]').setAttribute('title', t('hub.places'));
     // profile
     let prof = null;
     try { prof = KOS.Storage && KOS.Storage.profile(); } catch (e) { /* ignore */ }
@@ -651,6 +660,13 @@
       const nb = el.querySelector('.hub-pin-new');
       nb.textContent = isNew ? t('hub.new') : '';
       nb.hidden = !isNew;
+      // first-timers: the sailing school is where to begin until the first lesson is done
+      const sp = el.querySelector('.hub-pin-start');
+      const startHere = a.id === 'school' && !locked && !firstLessonDone();
+      sp.textContent = startHere ? t('hub.startHere') : '';
+      sp.hidden = !startHere;
+      el.classList.toggle('is-start', startHere);
+      if (startHere) { nb.hidden = true; nb.textContent = ''; }
       el.setAttribute('aria-label', t('hub.loc.' + a.id) + (locked ? ' — ' + t('hub.locked') : st.count ? ' — ' + st.have + '/' + st.max + ' ★' : ''));
     }
     // next card
@@ -708,23 +724,38 @@
         const sc = Math.max(cover, Math.min(vw / (x1 - x0), (vh - 70) / (y1 - y0)));
         centerOn((x0 + x1) / 2, (y0 + y1) / 2 - 35 / sc, sc, true);
       }
-      // keep the place pins clear of the top bar and the bottom card: centre all pins in the free area when they fit,
-      // otherwise make sure at least the suggested place ("Næste udfordring") is not hidden
+      // keep the place pins clear of the top bar and the bottom card. The free area comes from the real element rects,
+      // then the shift that shows the most pins (and surely the suggested one, "Næste udfordring") wins.
       {
         const vr = s.vp.getBoundingClientRect();
-        const top = vr.top + 76, bot = vr.bottom - 96, left = vr.left + 8, right = vr.right - 70;
-        const pins = Array.from(s.root.querySelectorAll('.hub-pin'));
-        const u = pins.reduce((o, el) => { const r = el.getBoundingClientRect(); return { t: Math.min(o.t, r.top), b: Math.max(o.b, r.bottom), l: Math.min(o.l, r.left), r: Math.max(o.r, r.right) }; }, { t: Infinity, b: -Infinity, l: Infinity, r: -Infinity });
-        const next = s.root.querySelector('.hub-pin.is-next');
-        const nr = next ? next.getBoundingClientRect() : null;
-        const fit1 = (lo, hi, a, b, na, nb) => {
-          if (b - a <= hi - lo) return (lo + hi) / 2 - (a + b) / 2;
-          if (!nr) return 0;
-          return na < lo ? lo - na : nb > hi ? hi - nb : 0;
-        };
-        const dy = pins.length ? fit1(top, bot, u.t, u.b, nr && nr.top, nr && nr.bottom) : 0;
-        const dx = pins.length ? fit1(left, right, u.l, u.r, nr && nr.left, nr && nr.right) : 0;
-        if (dx || dy) { s.tx += dx; s.ty += dy; clamp(); apply(); }
+        const top = vr.top + 8, bot = vr.bottom - 8, left = vr.left + 8, right = vr.right - 8;
+        const R_ = s.root;
+        // everything the pins must stay clear of: top bar cards, the next-challenge card, zoom buttons, compass
+        const obst = [];
+        R_.querySelectorAll('.hub-top .hub-glass, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
+          if (el.hidden) return;
+          const r = el.getBoundingClientRect();
+          if (r.width && r.height) obst.push({ l: r.left - 4, r: r.right + 4, t: r.top - 4, b: r.bottom + 4 });
+        });
+        const pins = Array.from(R_.querySelectorAll('.hub-pin'));
+        const rects = pins.map(el => el.getBoundingClientRect());
+        const nextEl = R_.querySelector('.hub-pin.is-next');
+        const nextI = nextEl ? pins.indexOf(nextEl) : -1;
+        const vw_ = s.vp.clientWidth, vh_ = s.vp.clientHeight, w_ = PROJ.W * s.s, h_ = PROJ.H * s.s;
+        const loX = w_ <= vw_ ? s.tx : vw_ - w_, hiX = w_ <= vw_ ? s.tx : 0, loY = h_ <= vh_ ? s.ty : vh_ - h_, hiY = h_ <= vh_ ? s.ty : 0;
+        let best = null;
+        for (let dy = -320; dy <= 320; dy += 8) for (let dx = -320; dx <= 320; dx += 8) {
+          const ax = Math.max(loX, Math.min(hiX, s.tx + dx)) - s.tx, ay = Math.max(loY, Math.min(hiY, s.ty + dy)) - s.ty;
+          let n = 0, nextIn = false;
+          rects.forEach((r, i) => {
+            const L_ = r.left + ax, R2 = r.right + ax, T_ = r.top + ay, B_ = r.bottom + ay;
+            const inside = L_ >= left && R2 <= right && T_ >= top && B_ <= bot && !obst.some(o => L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t);
+            if (inside) { n++; if (i === nextI) nextIn = true; }
+          });
+          const score = n * 100 + (nextIn ? 150 : 0) - (Math.abs(ax) + Math.abs(ay)) * 0.05;
+          if (!best || score > best.score) best = { score, ax, ay };
+        }
+        if (best && (best.ax || best.ay)) { s.tx += best.ax; s.ty += best.ay; clamp(); apply(); }
       }
     } else {
       s.s = s.s * (cover / (old || cover));
@@ -823,6 +854,41 @@
     if (KOS.App && KOS.App.show) KOS.App.show(screen, params);
     else if (KOS.Events && KOS.Events.emit) KOS.Events.emit('hub:navigate', { screen, params });
   }
+  // the list of all places: always reachable, even when a pin is panned off screen
+  function togglePlaces(open) {
+    if (!state) return;
+    let box = state.root.querySelector('.hub-places');
+    if (!open) { if (box) box.remove(); return; }
+    if (box) return;
+    const next = nextActivity();
+    box = document.createElement('div');
+    box.className = 'hub-places';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', t('hub.placesTitle'));
+    box.innerHTML = `<div class="hub-places-in hub-glass"><h2>${esc(t('hub.placesTitle'))}</h2><div class="hub-places-grid">` +
+      AREAS.map(a => {
+        const need = areaLockStars(a.id), st = areaStars(a.id);
+        const sub = need > 0 ? t('hub.needStars', { n: a.minStars }) : st.count ? t('hub.stars', st) + ' ★' : t('hub.sub.' + a.id);
+        return `<button type="button" class="hub-place${need > 0 ? ' is-locked' : ''}${next && next.area === a.id ? ' is-next' : ''}" data-area="${a.id}" style="--c:${a.color}"><span class="hub-place-badge">${icon(need > 0 ? 'lock' : a.icon)}</span><span class="hub-place-txt"><b>${esc(t('hub.loc.' + a.id))}</b><small>${esc(sub)}</small></span></button>`;
+      }).join('') +
+      `</div><button type="button" class="hub-places-close" data-act="places-close">${esc(t('hub.close'))}</button></div>`;
+    state.root.appendChild(box);
+    const first = box.querySelector('.hub-place.is-next') || box.querySelector('.hub-place');
+    if (first && first.focus) first.focus();
+  }
+  function openArea(id, pin) {
+    const need = areaLockStars(id);
+    if (need > 0) {
+      sfx('bump');
+      if (pin) { pin.classList.remove('shake'); void pin.offsetWidth; pin.classList.add('shake'); }
+      const msg = t('hub.lockedToast', { n: need, name: t('hub.loc.' + id) });
+      if (KOS.UI && KOS.UI.toast) KOS.UI.toast(msg, { kind: 'info' });
+      return;
+    }
+    sfx('tap');
+    if (pin) pin.classList.add('is-pressed');
+    setTimeout(() => { if (pin) pin.classList.remove('is-pressed'); go('area', { area: id }); }, 140);
+  }
   function onClick(e) {
     if (!state) return;
     // swallow the click that ends a map drag
@@ -836,25 +902,16 @@
       else if (act === 'zout') zoomAt(1 / 1.35, vp.clientWidth / 2, vp.clientHeight / 2);
       else if (act === 'home') { state.stage.classList.add('is-easing'); centerOn(KOS.World.poi.club.x, KOS.World.poi.club.y - 200, Math.min(state.max, state.min * 1.8)); setTimeout(() => state && state.stage.classList.remove('is-easing'), 450); }
       else if (act === 'next') { const id = actEl.closest('.hub-next').dataset.id; if (id && KOS.App && KOS.App.play) KOS.App.play(id); else if (id) go('area', { area: KOS.Activities.get(id).area }); }
+      else if (act === 'places') togglePlaces(true);
+      else if (act === 'places-close') togglePlaces(false);
       else go(act);
       return;
     }
+    const row = e.target.closest('.hub-place');
+    if (row) { togglePlaces(false); openArea(row.getAttribute('data-area'), state.root.querySelector(`.hub-pin[data-area="${row.getAttribute('data-area')}"]`)); return; }
+    if (e.target.classList && e.target.classList.contains('hub-places')) { togglePlaces(false); return; }
     const pin = e.target.closest('.hub-pin');
-    if (pin) {
-      const id = pin.getAttribute('data-area');
-      const need = areaLockStars(id);
-      if (need > 0) {
-        sfx('bump');
-        pin.classList.remove('shake'); void pin.offsetWidth; pin.classList.add('shake');
-        const msg = t('hub.lockedToast', { n: need, name: t('hub.loc.' + id) });
-        if (KOS.UI && KOS.UI.toast) KOS.UI.toast(msg, { kind: 'info' });
-        return;
-      }
-      sfx('tap');
-      pin.classList.add('is-pressed');
-      setTimeout(() => { if (pin) pin.classList.remove('is-pressed'); go('area', { area: id }); }, 140);
-      return;
-    }
+    if (pin) { openArea(pin.getAttribute('data-area'), pin); return; }
     const mover = e.target.closest('.hub-gull, .hub-mover');
     if (mover) {
       const kind = mover.getAttribute('data-kind');

@@ -277,8 +277,10 @@
     const h = 44 / bands.length;
     let body = '';
     bands.forEach((c, i) => { body += '<rect x="' + (17 + i * 0) + '" y="' + (38 + i * h) + '" width="26" height="' + (h + 0.5) + '" fill="' + c + '"/>'; });
-    const up = y => '<path d="M22 ' + y + 'H38L30 ' + (y - 13) + 'Z" fill="' + B + '"/>';
-    const dn = y => '<path d="M22 ' + (y - 13) + 'H38L30 ' + y + 'Z" fill="' + B + '"/>';
+    // topmarks are black on the real buoy; the briefing card is dark, so they get a light fill and a dark edge to stay readable
+    const TM = ' fill="#f4f4f4" stroke="#1e2128" stroke-width="1.3" stroke-linejoin="round"';
+    const up = y => '<path d="M21 ' + y + 'H39L30 ' + (y - 15) + 'Z"' + TM + '/>';
+    const dn = y => '<path d="M21 ' + (y - 15) + 'H39L30 ' + y + 'Z"' + TM + '/>';
     const tops = { N: up(18) + up(34), S: dn(18) + dn(34), E: up(18) + dn(34), W: dn(18) + up(34) }[k];
     return '<svg viewBox="0 0 60 92" class="nav-bsvg"><ellipse cx="30" cy="84" rx="22" ry="5" fill="rgba(0,40,90,.35)"/>' + body +
       '<path d="M17 38h26v44q-13 4-26 0z" fill="none" stroke="rgba(0,0,0,.25)"/><path d="M30 38V34" stroke="#3a3f48" stroke-width="2.4"/>' + tops + '</svg>';
@@ -364,7 +366,7 @@
       const k = kind === 'ferry' ? 2.4 : kind === 'night' ? 1.35 : kind === 'depth' ? 1.0 : 1.15;
       const span = (40 + 5 * L) * k * (small ? 0.85 : 1);
       scene.setZoom(1);
-      scene.setZoom(Math.sqrt(scene.w * scene.h) / span / scene.baseZoom() * userZoom);
+      scene.setZoom(Math.sqrt(scene.w * scene.h) * (small ? 1.3 : 1) / span / scene.baseZoom() * userZoom);
     }
     let userZoom = 1;
     applyZoom();
@@ -583,7 +585,8 @@
       return order.map((a, i) => {
         const others = all.filter(x => x !== a);
         const opts = [a, others[(i * 2) % others.length], others[(i * 2 + 1) % others.length]];
-        const sh = (i * 7 + 3) % 3; for (let k = 0; k < sh; k++) opts.push(opts.shift());
+        if (i >= 2) opts.push(others[(i * 2 + 2) % others.length]); // later rounds: four to choose from
+        const sh = (i * 7 + 3) % opts.length; for (let k = 0; k < sh; k++) opts.push(opts.shift());
         return { a, light: lightOf[a], opts };
       });
     }
@@ -1009,7 +1012,7 @@
       const q = S.quiz[i];
       S.quizI = i; S.quizT = 0; S.quizAnswered = false;
       const html = '<div class="nq-top"><span>' + esc(t('nav.quiz.title')) + '</span><span>' + esc(t('nav.quiz.of', { n: i + 1, m: S.quiz.length })) + '</span></div>' +
-        '<div class="nq-night"><div class="nq-stars"></div><div class="nq-light" data-col="' + (q.light.match(/\b(R|G|W|Y)\b/) || [, 'W'])[1] + '"></div><div class="nq-refl"></div><div class="nq-char">' + esc(q.light.replace('Iso W 4s', 'Iso WRG 4s')) + '</div></div>' +
+        '<div class="nq-night"><div class="nq-stars"></div><div class="nq-light" data-col="' + (q.light.match(/\b(R|G|W|Y)\b/) || [, 'W'])[1] + '"></div><div class="nq-refl"></div><div class="nq-char" style="visibility:hidden">' + esc(q.light.replace('Iso W 4s', 'Iso WRG 4s')) + '</div></div>' +
         '<p class="nq-q">' + esc(t('nav.quiz.q')) + '</p>' +
         '<div class="nq-opts">' + q.opts.map((o, k) => '<button type="button" class="nq-opt" data-o="' + o + '"><span class="nq-key">' + (k + 1) + '</span>' + svgLight(o) + '<span class="nq-txt">' + esc(t('nav.light.' + o)) + '</span></button>').join('') + '</div>' +
         '<div class="nq-fb" aria-live="polite"></div><button type="button" class="btn btn-primary nq-next" hidden><span>' + esc(t(i === S.quiz.length - 1 ? 'nav.quiz.start' : 'nav.quiz.next')) + '</span></button>';
@@ -1023,6 +1026,7 @@
       function answer(o) {
         if (S.quizAnswered) return;
         S.quizAnswered = true; S.quizN++;
+        const chr = c.el.querySelector('.nq-char'); if (chr) chr.style.visibility = ''; // the characteristic is the reward, not the clue
         const ok = o === q.a;
         if (ok) { S.quizOk++; sfx('coin', { pitch: 1.1 + S.quizOk * 0.08 }); sfx('star', { vol: 0.5 }); }
         else sfx('bump');

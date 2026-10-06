@@ -34,16 +34,16 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 /* ------------------------------------------------------------------ HUD */
 .hud {
   position: absolute; z-index: 20; top: calc(var(--safe-t) + 10px); left: 50%; transform: translateX(-50%);
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: max-content; padding: 6px; max-width: calc(100% - 140px - var(--safe-l) - var(--safe-r));
+  display: flex; flex-wrap: nowrap; justify-content: center; gap: 6px; width: max-content; padding: 6px; max-width: calc(100% - 140px - var(--safe-l) - var(--safe-r));
   background: rgba(13, 19, 33, .62); border: 1px solid var(--glass-border); border-radius: 18px;
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: var(--shadow); pointer-events: none;
   overflow: hidden;
 }
-.hud-item { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 12px; background: rgba(255,255,255,.05); }
+.hud-item { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 12px; background: rgba(255,255,255,.05); }
 .hud-ico { color: var(--primary); display: grid; } .hud-ico .ico { width: 22px; height: 22px; }
 .hud-txt { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; }
 .hud-label { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); white-space: nowrap; }
-.hud-val { font-size: 1.15rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hud-val { font-size: 1.15rem; white-space: nowrap; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
 .hud-val b { font-weight: 900; }
 .hud-val small { font-size: .7em; color: var(--text-dim); font-weight: 700; }
 .hud-wind-dial { width: 38px; height: 38px; }
@@ -65,6 +65,18 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
   .hud-val { font-size: 1rem; }
   .hud-ico .ico { width: 18px; height: 18px; }
   .hud-wind-dial { width: 32px; height: 32px; }
+}
+@media (max-width: 420px) {
+  .hud { gap: 3px; padding: 3px; }
+  .hud-item:not(.hud-wind) > .hud-ico { display: none; }
+  .hud-item { padding: 3px 6px 3px 4px; gap: 4px; }
+  .hud-label { letter-spacing: .04em; }
+  .hud-val { font-size: .95rem; }
+}
+@media (max-width: 340px) {
+  .hud-label { font-size: .58rem; letter-spacing: 0; }
+  .hud-val { font-size: .88rem; }
+  .hud-item { padding: 3px 5px 3px 3px; }
 }
 
 /* ------------------------------------------------------------------ countdown */
@@ -111,6 +123,12 @@ body.mode-sea[data-screen="play"] .coach:not(.coach-tapclose) { z-index: 25; }
   body.mode-sea[data-screen="play"] .coach-bubble { margin-bottom: 6px; padding: 8px 12px 9px; }
   body.mode-sea[data-screen="play"] .coach-text { font-size: .92rem; }
 }
+/* on phones the bubble sits over the sea where the boat is: after a few seconds it ghosts out of the way */
+@media (max-width: 600px), (max-height: 500px) {
+  body[data-screen="play"] .coach-bottom.in:not(.coach-tapclose) { animation: coachDim .6s ease 3.2s forwards; }
+}
+@keyframes coachDim { to { opacity: .38; } }
+@media (prefers-reduced-motion: reduce) { body[data-screen="play"] .coach-bottom.in { animation: none !important; } }
 /* landscape phones during play: the boat sits mid-screen, so the coach goes up under the HUD, compact */
 @media (orientation: landscape) and (max-height: 520px) {
   body[data-screen="play"] .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 64px); width: min(calc(100vw - 420px), 440px); min-width: 300px; }
@@ -185,3 +203,10 @@ body.mode-sea[data-screen="play"] .coach:not(.coach-tapclose) { z-index: 25; }
 
 /* ------------------------------------------------------------------ confetti */
 .confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 80; pointer-events: none; }
+
+/* very small phones (iPhone SE class, short landscape): tighter HUD companions, smaller coach bubble */
+@media (max-width: 340px), (max-height: 360px) {
+  .coach-text { font-size: .84rem !important; line-height: 1.22; }
+  .coach-bubble { max-height: 30vh; overflow: hidden; }
+  .coach-avatar { width: 44px !important; height: 44px !important; }
+}

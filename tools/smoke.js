@@ -89,6 +89,7 @@ async function playActivity(page, id, secs, label) {
   }, id);
   if (r !== 'ok') { problems.push('[' + label + '] ' + id + ': ' + r); log('  FAIL', id, r); return false; }
   await page.waitForTimeout(300);
+  await page.evaluate(() => { const g = document.querySelector('.sc-go'); if (g) g.click(); }); // dismiss the lesson / race intro card
   // simulated play: steer, sheet, hike, action, number keys; then pause + resume
   const kb = page.keyboard;
   const seq = [['ArrowLeft', 500], ['ArrowUp', 300], ['Space', 400], ['ArrowRight', 600], ['ArrowDown', 250], ['Enter', 80], ['KeyE', 80], ['Digit1', 80]];
@@ -186,7 +187,9 @@ async function screenshots(browser, base) {
     for (const id of ids) {
       const ok = await page.evaluate(id => !!KOS.Activities.get(id) && KOS.App.play(id, { force: true }), id);
       if (!ok) continue;
-      await page.waitForTimeout(4600);
+      await page.waitForTimeout(1100);
+      await page.evaluate(() => { const g = document.querySelector('.sc-go'); if (g) g.click(); }); // dismiss the lesson / race intro card
+      await page.waitForTimeout(3500);
       await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(700); await page.keyboard.up('ArrowLeft');
       await page.waitForTimeout(500);
       await snap('play-' + id.replace(/[^\w.-]/g, '_'));

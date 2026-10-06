@@ -68,6 +68,9 @@
 @keyframes scStep { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 @keyframes scPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
 
+/* while an intro card is up the HUD and controls behind it fade out of the way */
+.has-intro-card .hud, .has-intro-card .kc, .has-intro-card .race-panel, .has-intro-card .school-panel, .has-intro-card .sail-goals { opacity: .15; pointer-events: none; transition: opacity .25s; }
+
 /* ---------------------------------------------------------------- phones */
 @media (max-width: 560px) {
   .school-panel { top: calc(var(--safe-t) + 148px); width: min(240px, 62vw); padding: 7px 10px 8px; }
@@ -86,6 +89,7 @@
   .sc-title { font-size: 1.5rem; margin-bottom: 6px; }
   .sc-dia { width: 116px; height: 116px; }
   .sc-steps, .sc-keys { display: none; }
+  .sc-body .sc-dia { display: none; } /* the wind dial labels are unreadably small this short */
   .sc-intro { font-size: .88rem; }
   .sc-go { margin-top: 8px; min-height: 48px; }
 }

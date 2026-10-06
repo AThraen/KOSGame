@@ -15,13 +15,13 @@ Svanemøllehavnen and the race area out on Øresund.
 
 The game is in **Danish** by default, with **English** under settings.
 
-> **Status: under active development.** All areas can be played, but several modes are still being polished.
+> **Status:** all eight places are playable (about 110 activities). The game keeps being polished with feedback from the club's sailors and trainers.
 
 ## The harbour map
 
 ![Harbour map](docs/screenshots/1440x900-hub.jpg)
 
-Everything starts from an illustrated map of the area. Each place is a part of the game:
+Everything starts from an illustrated map of the area. Each place is a part of the game. On a small screen not every place fits, so the list button (**Alle steder**) next to the zoom buttons opens all places at once, and a first-time sailor is pointed to the sailing school with a pulsing **Start her** label:
 
 | Place | What you do there |
 |---|---|
@@ -59,6 +59,14 @@ On a phone:
 <img src="docs/screenshots/390x844-play-sail.free.opti.jpg" width="200" alt="Sailing on phone">
 </p>
 
+### What makes it tick
+
+- **Real sailing physics.** True and apparent wind, gusts and shifts, heel and hiking, sail trim and stall, luffing, irons, tacks and gybes, planing, capsizing. Sail power flattens in a strong breeze the way a crew would depower the rig, so more wind means more speed (and more risk), not less.
+- **Real racing rules.** Port/starboard, windward/leeward, overtaking, tacking and mark-room are judged by the same code that drives the computer opponents. A rule 44 penalty is one turn (a 360°).
+- **Coach Søs** explains things in short, kid-friendly Danish sentences, with English one tap away. Every lesson and race opens with a card that says in a line or two what to do.
+- **Made for thumbs.** Large touch targets, steering pads, a sheet slider, HUD that fits a phone in portrait and landscape, and keyboard control on desktop.
+- **Accessible.** Pinch-zoom works on menus, dialogs trap and restore keyboard focus, screens announce themselves to screen readers, and reduced-motion is respected.
+
 ## The boats
 
 You earn stars and unlock the club's boats in the same order the club's sailors move up:
@@ -85,6 +93,17 @@ Parents and coaches can unlock everything in the settings.
 | RIB throttle | ↑ ↓ | Throttle lever and wheel |
 | Pause | Esc or P | Pause button |
 
+## Install and offline play (PWA)
+
+Open the game over https (the GitHub Pages link above) or `http://localhost` and use the browser's *Install app* /
+*Add to home screen*. The service worker (`sw.js`) stores every game file on the first visit, so the game then works
+without a network. When a new version is published a *Ny version klar!* toast offers an update; it never interrupts a
+run in progress and waits until you are back on a menu. Progress, stars and settings are kept in the browser's
+`localStorage`; if the browser blocks it the game still works but tells you that progress will not be saved.
+
+After changing or adding game files, refresh the offline file list (`node tools/gen-precache.js`) so players get the
+new version.
+
 ## Running it locally
 
 There is no build step: the repository is the game.
@@ -109,6 +128,22 @@ node tools/check-i18n.js           # missing Danish/English text
 node tools/gen-precache.js         # refresh the offline file list after changing game files
 ```
 
+## Project structure
+
+```
+index.html            all screens; loads the scripts in dependency order (no bundler)
+sw.js, manifest.webmanifest   offline cache and install metadata (sw.js precache list is generated)
+css/                  style.css (menus), hub.css (map), game.css + controls.css (play screen), modes/*.css
+js/core/              boats, wind, physics, rules, AI helm, world (venues), activities  (pure, runs in Node too)
+js/render/            sprites (boats, buoys, avatars), water, scene (camera, canvas), effects
+js/ui/                app (screens, loop, results, PWA), hub (harbour map), ui (HUD, coach, dialogs), input, audio, storage
+js/modes/             one file per game mode: school, sail, race, rowschool, nav, dock, rib, rigging, knots, capsize, quiz
+assets/               icons, painted backgrounds
+docs/                 ARCHITECTURE.md, MODE-AUTHORING.md, screenshots, reference charts
+tools/                dev server, headless test and screenshot tools
+SPEC.md               the contract between the modules
+```
+
 ## How it's built
 
 Plain HTML, CSS and JavaScript with no frameworks or build tools. All scripts attach to a single global object, `KOS`.
@@ -126,5 +161,12 @@ version tag (`v*`) is pushed (see [`.github/workflows/pages.yml`](.github/workfl
 
 ## Credits
 
-Made by Allan Thraen for KØS Sejlsport, with Claude Code. The nautical charts used as references for the game's map
-are only in `docs/reference/` and are not part of the game.
+Made by Allan Thraen for KØS Sejlsport, with Claude Code.
+
+- **Painted backgrounds** (the title and menu art in `assets/bg/`) were generated locally with
+  [ComfyUI](https://github.com/comfyanonymous/ComfyUI) (Qwen-Image 2.1 text-to-image, no photos or logos), then
+  downscaled to JPEG (details in `assets/bg/credits.txt`). All boats, buoys, characters, icons and
+  the harbour map are drawn in code (SVG and canvas), and all sound is synthesised, so there are no third-party
+  images or audio files in the game.
+- The nautical charts used as references for the game's map are only in `docs/reference/` and are not part of the game.
+- Thanks to the sailors and trainers of KØS Sejlsport for ideas and play-testing.

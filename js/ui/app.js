@@ -10,6 +10,7 @@
   const ico = (n, c) => KOS.UI.iconSvg(n, c);
   const esc = s => KOS.UI.esc(s);
   const S = () => KOS.Storage;
+  function finePointer() { try { return !!(root.matchMedia && root.matchMedia('(hover:hover) and (pointer:fine)').matches); } catch (e) { return true; } }
 
   function sfx(name, opts) { try { if (KOS.Audio && KOS.Audio.play) KOS.Audio.play(name, opts); } catch (e) { /* optional */ } }
   function audio(fn) { try { if (KOS.Audio && typeof KOS.Audio[fn] === 'function') return KOS.Audio[fn].apply(KOS.Audio, [].slice.call(arguments, 1)); } catch (e) { /* optional */ } }
@@ -355,6 +356,7 @@
       const sc = sec.querySelector('.scroll');
       if (sc && !opts.keepScroll) sc.scrollTop = 0;
     }
+    if (screen !== 'play') announceScreen(sec);
     emit('screen', screen);
     return sec;
   };
@@ -366,10 +368,22 @@
   App.refresh = function () { if (App.cur && App.cur !== 'play') App.show(App.cur, App.params, { replace: true, keepScroll: true }); };
 
   // ================================================================== TITLE
+  // screen readers: say which screen opened and park focus on its heading (the live region is in index.html)
+  function announceScreen(sec) {
+    try {
+      const h = sec.querySelector('h1, h2');
+      if (!h) return;
+      const live = doc.getElementById('sr-live');
+      if (live) live.textContent = h.textContent;
+      h.setAttribute('tabindex', '-1');
+      h.focus({ preventScroll: true });
+    } catch (e) { /* optional */ }
+  }
   renderers.title = function (sec) {
     const p = S().profile();
     const bay = KOS.Activities ? KOS.Activities.byArea('bay')[0] : null;
     sec.innerHTML =
+      '<h1 class="sr-only">KØS SEJL</h1>' +
       '<div class="topbar">' +
       '<div class="topbar-left">' + starPill() + (p ? xpPill() : '') + '</div>' +
       '<div class="topbar-right">' +
@@ -386,7 +400,7 @@
       '<button type="button" class="menu-btn" data-act="garage"><span class="mb-ico c-orange">' + ico('passport') + '</span><span class="mb-txt"><b>' + esc(t('app.garage.title')) + '</b><small>' + esc(t('app.title.garageSub')) + '</small></span></button>' +
       '<button type="button" class="menu-btn" data-act="quick"' + (bay ? '' : ' disabled') + '><span class="mb-ico c-blue">' + ico('wind') + '</span><span class="mb-txt"><b>' + esc(t('app.title.quick')) + '</b><small>' + esc(t('app.title.quickSub')) + '</small></span></button>' +
       '</div></div>' +
-      '<footer class="title-foot"><span class="hint">' + esc(t('app.title.hint')) + '</span>' +
+      '<footer class="title-foot"><span class="hint">' + (finePointer() ? esc(t('app.title.hint')) : '') + '</span>' +
       '<button type="button" class="link-btn" data-act="credits">' + esc(t('app.credits.title')) + '</button></footer>';
     bind(sec, {
       play: () => { sfx('click'); if (!S().profile()) App.show('profile', { first: true }); else App.show('hub'); },
@@ -533,6 +547,7 @@
     run.paused = false;
     run.finished = false;
     run.failed = false;
+    run.capsized = false;
     run.playBadges = [];
     const host = {
       canvas: kind === 'sea' ? canvas : null,
@@ -576,7 +591,7 @@
   function govern(ms) {
     if (!(ms > 0) || ms > 250) return; // tab switches / breakpoints
     Perf.ema += (ms - Perf.ema) * 0.05;
-    if (Perf.ema > 21) { Perf.slowT += ms; Perf.fastT = 0; } else if (Perf.ema < 17.5) { Perf.fastT += ms; Perf.slowT = 0; } else { Perf.slowT = 0; Perf.fastT = 0; }
+    if (Perf.ema > 19.5) { Perf.slowT += ms; Perf.fastT = 0; } else if (Perf.ema < 17.5) { Perf.fastT += ms; Perf.slowT = 0; } else { Perf.slowT = 0; Perf.fastT = 0; }
     if (Perf.slowT > 1500 && Perf.level > 0 && performance.now() - run.startT > 2500) { Perf.level--; Perf.max = Perf.level; Perf.slowT = 0; Perf.ema = 16.7; }
     else if (Perf.fastT > 12000 && Perf.level < (Perf.max === undefined ? 2 : Perf.max)) { Perf.level++; Perf.fastT = 0; }
   }
@@ -687,10 +702,14 @@
     });
     sec.appendChild(o);
     run.pauseEl = o;
+    run.pauseRelease = UI().trapFocus ? UI().trapFocus(o.querySelector('.pause-card'), [doc.getElementById('play-layer')]) : null;
     requestAnimationFrame(() => o.classList.add('in'));
     setTimeout(() => { const r = o.querySelector('[data-p=resume]'); if (r) try { r.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 50);
   }
-  function hidePause() { if (run.pauseEl) { run.pauseEl.remove(); run.pauseEl = null; } }
+  function hidePause() {
+    if (run.pauseRelease) { run.pauseRelease(); run.pauseRelease = null; }
+    if (run.pauseEl) { run.pauseEl.remove(); run.pauseEl = null; }
+  }
 
   function quit() {
     const a = run.act;
@@ -717,7 +736,7 @@
     cancelAnimationFrame(run.raf);
     setTimeout(() => {
       stopRun();
-      run.lastResult = { result, rec, activity: a, newBadges };
+      run.lastResult = { result, rec, activity: a, newBadges, capsized: run.capsized };
       App.show('results', { id: a.id }, { replace: true });
     }, 650);
     emit('play:finish', { id: a.id, result, rec });
@@ -729,7 +748,7 @@
     if (!lr) { App.show('hub', {}, { replace: true }); return; }
     const a = lr.activity;
     const next = KOS.Activities.next(a.id);
-    const card = UI().results(lr.result, a, { record: lr.rec, next, nextUnlocked: next && KOS.Activities.isUnlocked(next.id) });
+    const card = UI().results(lr.result, a, { record: lr.rec, next, nextUnlocked: next && KOS.Activities.isUnlocked(next.id), capsized: !!lr.capsized });
     sec.innerHTML = '<div class="scroll center"></div>';
     sec.firstChild.appendChild(card);
     const win = lr.result.success !== false && (+lr.result.stars || 0) > 0;
@@ -1093,7 +1112,11 @@
       refreshing = true;
       root.location.reload();
     });
+    // never interrupt a run: the update prompt waits until the player is back on a menu screen
+    let pendingWorker = null;
+    on('screen', scr => { if (pendingWorker && scr !== 'play') { const w = pendingWorker; pendingWorker = null; setTimeout(() => offerUpdate(w), 600); } });
     const offerUpdate = worker => {
+      if (App.cur === 'play') { pendingWorker = worker; return; }
       UI().toast(t('app.update.ready'), {
         kind: 'info', icon: 'sparkle', ms: 0,
         action: { label: t('app.update.reload'), onClick: () => { App._updateAccepted = true; worker.postMessage({ type: 'skipWaiting' }); } },
@@ -1171,6 +1194,7 @@
       if (b && !b.disabled) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 160); }
     }, { passive: true });
     on('lang', () => { App.refresh(); });
+    on('boat:capsize', e => { if (run.running && run.inst && e && e.boat && e.boat === run.inst.boat) run.capsized = true; });
     on('badge', id => {
       if (App.cur === 'play') { if (run.playBadges && run.playBadges.indexOf(id) < 0) run.playBadges.push(id); return; } // shown on the results screen
       if (App.cur === 'results') return; // results screen announces its own
@@ -1178,6 +1202,8 @@
       if (b) UI().toast(t('app.badge.new', { name: tt(b.name) }), { kind: 'star', icon: b.icon });
     });
     setupPwa();
+    // blocked / full localStorage: the game works, but the player should know progress will not survive the tab
+    if (S().available === false) setTimeout(() => { try { UI().toast(t('app.storage.volatile'), { kind: 'info', icon: 'info', ms: 7000 }); } catch (e) { /* optional */ } }, 1500);
   };
 
   KOS.App = App;
@@ -1188,11 +1214,12 @@
       stars: 'Stjerner',
       install: 'Installer appen', installed: 'KØS SEJL er installeret – god vind!', fullscreen: 'Fuld skærm',
       update: { ready: 'Ny version klar!', reload: 'Opdater' },
+      storage: { volatile: 'Dit fremskridt kan ikke gemmes i denne browser – det forsvinder, når du lukker fanen.' },
       rank: { 0: 'Sejlerspire', 1: 'Letmatros', 2: 'Matros', 3: 'Styrmand', 4: 'Skipper', 5: 'Kaptajn', 6: 'Kommandør', 7: 'Admiral' },
       title: {
         tag1: 'Rig til. Sejl ud.', tag2: 'Vind!', play: 'Spil', hello: 'Hej {name}! Klar til at sejle?',
         garageSub: 'Dine både, mærker og niveau', quick: 'Fri sejlads', quickSub: 'Hop direkte ud i bugten',
-        hint: 'Styr med ← → · Skød med ↑ ↓ · Hæng ud med mellemrum',
+        hint: 'Styr med ← → · Hal og fir skødet med ↑ ↓ · Hæng ud med mellemrum',
       },
       hub: { title: 'Havnen', sub: 'Vælg hvor du vil sejle hen' },
       area: {
@@ -1256,11 +1283,12 @@
       stars: 'Stars',
       install: 'Install the app', installed: 'KØS SEJL is installed – fair winds!', fullscreen: 'Fullscreen',
       update: { ready: 'New version ready!', reload: 'Update' },
+      storage: { volatile: 'Your progress cannot be saved in this browser – it disappears when you close the tab.' },
       rank: { 0: 'Sprout Sailor', 1: 'Deckhand', 2: 'Able Sailor', 3: 'Mate', 4: 'Skipper', 5: 'Captain', 6: 'Commodore', 7: 'Admiral' },
       title: {
         tag1: 'Rig it. Sail out.', tag2: 'Win!', play: 'Play', hello: 'Hi {name}! Ready to sail?',
         garageSub: 'Your boats, badges and level', quick: 'Free sail', quickSub: 'Jump straight into the bay',
-        hint: 'Steer with ← → · Sheet with ↑ ↓ · Hike with Space',
+        hint: 'Steer with ← → · Trim the sheet with ↑ ↓ · Hike with Space',
       },
       hub: { title: 'The Harbour', sub: 'Choose where to sail' },
       area: {

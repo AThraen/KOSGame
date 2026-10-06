@@ -96,19 +96,19 @@
         gybe: {
           intro: 'At bomme er at skifte side med vinden bagfra. Bommen fejer hen over båden – så gør det roligt, og husk at dukke dig!',
           run: { say: 'Sejl læns – med vinden lige agterfra.', task: 'Sejl læns i 2 sek.' },
-          g1: { say: 'Klar til at bomme? Styr roligt lidt videre, til vinden kommer ind fra den anden side, og bommen svinger over. Dukke!', task: 'Bom roligt' },
+          g1: { say: 'Klar til at bomme? Styr roligt lidt videre, til vinden kommer ind fra den anden side, og bommen svinger over. Duk dig!', task: 'Bom roligt' },
           g2: { say: 'Flot bomning! Bom tilbage igen – lige så roligt.', task: 'Bom tilbage' },
           mark: { say: 'Du kan bomme! Sejl ned til bøjen.', task: 'Sejl til bøjen' },
         },
         irons: {
           intro: 'Peger snuden lige op i vinden, står båden helt stille – den ligger i vindøjet. Bare rolig: her lærer du at komme fri.',
-          o1: { say: 'Øv, du ligger i vindøjet! Hold roret til den ene side, og vent. Båden driver lidt og drejer – så fylder sejlet igen.', task: 'Kom ud af vindøjet' },
+          o1: { say: 'Øv, du ligger i vindøjet! Hold roret til den ene side og vent – så drejer båden, og sejlet fylder igen.', task: 'Kom ud af vindøjet' },
           o2: { say: 'Godt! Jeg skubber dig tilbage i vindøjet. Kom fri igen – men denne gang ved at dreje mod {side}.', task: 'Drej mod {side} og kom fri' },
           go: { say: 'Du er fri! Sejl halvvind hen til bøjen.', task: 'Halvvind til bøjen' },
         },
         trim: {
           intro: 'Skødet er tovet, der styrer sejlet. Hal ind, og sejlet kommer ind – fier ud, og det går ud. Sejlet trækker bedst, når det lige akkurat ikke blafrer.',
-          beam: { say: 'Nu trimmer du selv! Sejlet blafrer – hal skødet ind (↑ eller skyderen), til det lige holder op. Det grønne felt er perfekt trim.', task: 'Trim på halvvind i 3 sek.' },
+          beam: { say: 'Nu trimmer du selv! Sejlet blafrer – hal skødet ind, til det lige holder op. Grønt felt = perfekt trim.', task: 'Trim på halvvind i 3 sek.' },
           broad: { say: 'Fald af til slør. Vinden kommer mere bagfra, så skødet skal fieres ud!', task: 'Fald af og fier ud' },
           close: { say: 'Luf op til bidevind, og hal skødet helt hjem.', task: 'Luf op og hal hjem' },
         },
@@ -244,13 +244,13 @@
         },
         irons: {
           intro: 'With the bow pointing straight into the wind, the boat stops dead – it is in irons. Don\'t worry: here you learn how to get free.',
-          o1: { say: 'Oops, you are in irons! Hold the helm to one side and wait. The boat drifts and turns – then the sail fills again.', task: 'Get out of irons' },
+          o1: { say: 'Oops, you are in irons! Hold the helm to one side and wait – the boat turns and the sail fills again.', task: 'Get out of irons' },
           o2: { say: 'Good! I\'ll push you back into irons. Get free again – but this time by turning to {side}.', task: 'Turn to {side} and get free' },
           go: { say: 'You\'re free! Beam-reach to the buoy.', task: 'Beam reach to the buoy' },
         },
         trim: {
           intro: 'The sheet is the rope that controls the sail. Pull in and the sail comes in – ease out and it goes out. The sail pulls best when it is only just not flapping.',
-          beam: { say: 'Now you trim yourself! The sail is flapping – sheet in (↑ or the slider) until it just stops. The green zone is perfect trim.', task: 'Trim on a beam reach for 3 sec' },
+          beam: { say: 'Now you trim yourself! The sail is flapping – sheet in until it just stops. Green zone = perfect trim.', task: 'Trim on a beam reach for 3 sec' },
           broad: { say: 'Bear away to a broad reach. The wind comes more from behind, so ease the sheet out!', task: 'Bear away and ease out' },
           close: { say: 'Luff up to close-hauled and sheet right in.', task: 'Luff up and sheet in' },
         },
@@ -515,6 +515,9 @@
               tick(dt) {
                 const d = dist(B), inside = d < this.stopR * ringK, slow = Math.abs(boat.speed) < this.vStop;
                 if (inside && slow) this.h += dt; else this.h = Math.max(0, this.h - dt);
+                // stuck in irons outside the ring: point at the pad that bears off
+                if (boat.inIrons && !inside) { this.ironT = (this.ironT || 0) + dt; if (this.ironT > 3) { this.ironT = -5; tip('irons', true); flashCtrl(side() > 0 ? 'left' : 'right'); } }
+                else if (!boat.inIrons && this.ironT > 0) this.ironT = 0;
                 if (!inside && slow && Math.abs(boat.twa) < cls.noGo) { this.outT += dt; if (this.outT > 1.6) { this.outT = -99; if (!this.warned) { this.warned = true; mistake(); } floatText(t('school.fx.oops'), '#ff9a6b'); tip('outside', true); } }
                 else if (!slow && this.outT < 0) this.outT = 0;
                 if (this.h > 0.5) { floatText(t('school.fx.stop'), '#3ee08f'); sfx('bell'); return 1; }
@@ -917,7 +920,7 @@
       const span = (L.span || 42) * Math.sqrt(kD) + 5 * cls.length;
       scene.setZoom(1);
       const base = scene.baseZoom() / (1 + U.clamp(Math.abs(boat.speed) / 25, 0, 0.35));
-      scene.setZoom(Math.sqrt(scene.w * scene.h) / (span * (small ? 0.85 : 1)) / base * userZoom);
+      scene.setZoom(Math.sqrt(scene.w * scene.h) * (small ? 1.3 : 1) / (span * (small ? 0.85 : 1)) / base * userZoom);
     }
     applyZoom();
     scene.fixedZoom = scene.baseZoom() * 0.55;   // a wider view while the lesson card is up; eases in at the start
@@ -1068,6 +1071,7 @@
         '<button type="button" class="btn btn-primary btn-big sc-go">' + KOS.UI.iconSvg('play') + '<span>' + KOS.UI.esc(t('school.card.go')) + '</span></button>' +
         '</div>';
       host.layer.appendChild(el);
+      host.layer.classList.add('has-intro-card');
       el.querySelector('.sc-go').addEventListener('click', e => { e.stopPropagation(); beginLesson(); });
       el.addEventListener('pointerdown', e => e.stopPropagation());
       return el;
@@ -1075,6 +1079,7 @@
     function closeCard() {
       if (!card) return;
       const el = card; card = null;
+      host.layer.classList.remove('has-intro-card');
       el.classList.add('out');
       setTimeout(() => el.remove(), 380);
     }

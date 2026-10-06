@@ -208,7 +208,9 @@
     boat.spiCollapsed = collapsed;
 
     // ---- heel
-    const q = Math.pow(boat.aws / 13.5, 1.6);
+    // Sail power saturates: crews flatten the rig (cunningham, outhaul, vang, depowered main) as the breeze builds.
+    const qr = Math.pow(boat.aws / 13.5, 1.6);
+    const q = qr <= 1.3 ? qr : 1.3 + 0.45 * (qr - 1.3);
     const lift = (1 - Math.pow(luffFrac, 1.5)) * U.smoothstep(R(8), R(28), aAwa);
     let P = q * lift * Math.cos(Math.min(boomMag, R(89)));
     if (boat.spinnaker && !collapsed) P += q * 0.9 * (cls.spinnakerBoost - 1) * Math.max(0, Math.sin(aAwa));
@@ -250,25 +252,26 @@
     // ---- target speed
     let tKn = cls.polar(aTwa, tws);
     if (boat.spinnaker) tKn *= cls.spiFactor(aTwa);
+    tKn = Math.min(tKn, cls.maxKn * (cls.hasSpinnaker !== 'none' ? 1.05 : 1)); // the kite never lifts a boat beyond its class ceiling
     tKn *= boat.trim;
     const leeHeel = boat.heel * -s; // + when heeling to leeward
     const opt = R(cls.optHeel);
     const excess = leeHeel >= 0 ? Math.max(0, leeHeel - opt) : -leeHeel * 1.6;
     const span = cls.keel ? R(24) : Math.max(R(15), cls.capsizeHeel - opt);
-    const heelF = 1 - 0.55 * Math.pow(U.clamp(excess / span, 0, 1), 1.4);
+    const heelF = 1 - 0.35 * Math.pow(U.clamp(excess / span, 0, 1), 1.4);
     tKn *= heelF;
-    if (boat.maneuverT > 0) tKn *= 0.88;
+    if (boat.maneuverT > 0) tKn *= 0.92;
     if (boat.capsized) tKn = 0;
     boat.targetKn = tKn;
     let tMs = U.ms(tKn);
     const ironsZone = cls.noGo * 0.75;
     if (!boat.capsized && aTwa < ironsZone && boat.speed < 0.3) tMs = -0.2 * U.clamp(tws / 10, 0, 1.6) * (1 - aTwa / ironsZone); // sternway
     let tau = tMs > boat.speed ? cls.accelT / (0.6 + 0.4 * U.clamp(tws / 10, 0.3, 2)) : cls.decelT;
-    if (aTwa < cls.noGo && tMs <= boat.speed) tau *= 0.55; // flogging sails brake the boat
+    if (aTwa < cls.noGo && tMs <= boat.speed) tau *= cls.keel ? 1.0 : 0.8; // flogging sails brake the boat
     if (boat.planing && tMs < boat.speed) tau *= 0.8;
     if (boat.capsized) tau = 0.8;
     boat.speed += (tMs - boat.speed) * U.approach(dt, tau);
-    boat.speed -= boat.speed * Math.abs(c.rudder || 0) * 0.22 * dt * U.clamp(Math.abs(boat.speed) / cls.uRef, 0, 1); // rudder drag
+    boat.speed -= boat.speed * Math.abs(c.rudder || 0) * (cls.keel ? 0.1 : 0.15) * dt * U.clamp(Math.abs(boat.speed) / cls.uRef, 0, 1); // rudder drag
 
     // ---- planing
     if (cls.plane > 0) {

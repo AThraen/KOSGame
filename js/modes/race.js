@@ -9,7 +9,7 @@
 //   race      windward-leeward ('wl') or triangle ('tri') course, 1–2 laps, laylines toggle, 3–11 AI boats of the same
 //             class (KOS.AI with varied skill), live positions, legs, gust patches & wind shifts (rummer/skralder),
 //             mark rounding by winding number (string rule → correct side), 3-length zone, KOS.Rules.monitor fouls →
-//             360°/720° penalty turns (easy assist only warns) explained by Coach Søs.
+//             360° penalty turns (easy assist only warns) explained by Coach Søs.
 //   finish    finish horn per boat, live finish board, results table (times, points, stars by place) on the results
 //             screen, low-point series score per championship (KOS.Storage).
 //
@@ -26,14 +26,15 @@
     race: {
       hud: { leg: 'Ben', toStart: 'Til start', fleet: 'Feltet', you: 'Dig', finished: 'I mål', lap: 'Omgang {n}/{of}', shift: 'Vindskift', lift: 'rummer', header: 'skralder' },
       leg: { start: 'Start', beat: 'Kryds', reach: 'Slør', run: 'Læns', finish: 'Mål', done: 'I mål' },
-      seq: { warn: '5 min', prep: '4 min', one: '1 min', go: 'Start', short: 'Startproceduren er kortet ned: 5-4-1-0 tager et minut' },
-      flag: { cls: 'Klasseflag', P: 'P-flag', X: 'X-flag', first: 'Omstart' },
+      seq: { warn: '60 s', prep: '48 s', one: '12 s', go: 'Start', short: 'Startproceduren er kortet ned: 5-4-1-0 tager et minut' },
+      flag: { cls: 'Klasseflag', P: 'P-flag', X: 'X-flag' },
       btn: { ff: 'Spol frem', layl: 'Laylines', next: 'Videre' },
-      intro: 'Kapsejlads! Om lidt går startproceduren i gang. Sejl rundt under startlinjen mellem dommerbåden og pinden – og vær lige bag linjen, når startskuddet lyder.',
-      introBay: 'Klubmesterskab i bugten! Startlinjen går mellem dommerbåden og pinden. Vær lige bag linjen, når hornet lyder – så op til mærke 1 og rundt om bagbord.',
+      intro: 'Kapsejlads! Vær lige bag startlinjen, når startskuddet lyder.',
+      introBay: 'Vær lige bag startlinjen, når hornet lyder. Så op til mærke 1!',
+      card: { kicker: 'Kapsejlads', title: 'Klar til start?', goal: 'Sejl hen til startlinjen, og kryds den lige efter, at hornet lyder. Så går det rundt om mærkerne og i mål.', skip: 'Gider du ikke vente? Tryk på » for at spole frem.', go: 'Sejl!' },
       keys: 'Tastatur: ←/→ styr · ↑/↓ skøde · L laylines · T strafrunde',
       sig: {
-        warn: '5-minutsignal! Klasseflaget går op. Find vinden, og kig på linjen.',
+        warn: 'Varselssignal! Klasseflaget går op. Rigtig start er 5-4-1-0 minutter – her kører vi 5 gange hurtigere.',
         prep: 'Forberedelsessignal! P-flaget går op. Nu gælder kapsejladsreglerne.',
         one: 'Ét minut! P-flaget går ned. Gør dig klar til at sejle mod linjen.',
         go: 'START! Sejl, sejl, sejl!',
@@ -60,9 +61,8 @@
         missLine: 'Du er ikke startet endnu! Sejl tilbage og kryds startlinjen MELLEM dommerbåden og pinden.',
       },
       pen: {
-        title360: 'Strafrunde 360°', title720: 'Strafrunder 720°', warn: 'Advarsel',
+        title360: 'Strafrunde 360°', warn: 'Advarsel',
         do360: 'Sejl én hel runde rundt (360°) – tryk STRAFRUNDE, så hjælper jeg.',
-        do720: 'Sejl to hele runder rundt (720°) – tryk STRAFRUNDE, så hjælper jeg.',
         easy: 'På Let-niveau slipper du for strafrunden – men husk reglen næste gang!',
         done: 'Strafrunde klaret!',
         progress: 'Strafrunde',
@@ -93,14 +93,15 @@
     race: {
       hud: { leg: 'Leg', toStart: 'To start', fleet: 'Fleet', you: 'You', finished: 'Finished', lap: 'Lap {n}/{of}', shift: 'Wind shift', lift: 'lift', header: 'header' },
       leg: { start: 'Start', beat: 'Beat', reach: 'Reach', run: 'Run', finish: 'Finish', done: 'Finished' },
-      seq: { warn: '5 min', prep: '4 min', one: '1 min', go: 'Start', short: 'The start sequence is shortened: 5-4-1-0 takes one minute' },
-      flag: { cls: 'Class flag', P: 'P flag', X: 'X flag', first: 'Recall' },
+      seq: { warn: '60 s', prep: '48 s', one: '12 s', go: 'Start', short: 'The start sequence is shortened: 5-4-1-0 takes one minute' },
+      flag: { cls: 'Class flag', P: 'P flag', X: 'X flag' },
       btn: { ff: 'Fast forward', layl: 'Laylines', next: 'Continue' },
-      intro: 'Race time! The start sequence begins in a moment. Sail around below the start line between the committee boat and the pin – and be right behind the line when the gun goes.',
-      introBay: 'Club championship in the bay! The start line runs between the committee boat and the pin. Be right behind the line when the horn goes – then up to mark 1 and round it to port.',
+      intro: 'Race time! Be right behind the start line when the gun goes.',
+      introBay: 'Be right behind the start line when the horn goes. Then up to mark 1!',
+      card: { kicker: 'Race', title: 'Ready to start?', goal: 'Sail up to the start line and cross it just after the horn. Then round the marks and finish.', skip: 'Do not want to wait? Tap » to fast-forward.', go: 'Sail!' },
       keys: 'Keyboard: ←/→ steer · ↑/↓ sheet · L laylines · T penalty turn',
       sig: {
-        warn: 'Warning signal! The class flag goes up. Feel the wind and look at the line.',
+        warn: 'Warning signal! The class flag goes up. A real start is 5-4-1-0 minutes – here we run it 5 times faster.',
         prep: 'Preparatory signal! The P flag goes up. The racing rules apply now.',
         one: 'One minute! The P flag comes down. Get ready to sail for the line.',
         go: 'START! Go, go, go!',
@@ -127,9 +128,8 @@
         missLine: 'You have not started yet! Go back and cross the start line BETWEEN the committee boat and the pin.',
       },
       pen: {
-        title360: 'Penalty turn 360°', title720: 'Penalty turns 720°', warn: 'Warning',
+        title360: 'Penalty turn 360°', warn: 'Warning',
         do360: 'Sail one full circle (360°) – tap PENALTY TURN and I will help.',
-        do720: 'Sail two full circles (720°) – tap PENALTY TURN and I will help.',
         easy: 'On Easy you skip the penalty turn – but remember the rule next time!',
         done: 'Penalty turn done!',
         progress: 'Penalty turn',
@@ -293,8 +293,8 @@
     const side = (B) => -lineLen / 2 - Math.max(10, 3 * L) - 0.08 * B;
     const LAY = {
       m1: B => [B, 0],
-      m2: B => P.course === 'tri' ? [0.5 * B, -0.6 * B] : [0.12 * B, side(B)],
-      m3: B => [-0.15 * B, side(B)],
+      m2: B => P.course === 'tri' ? [0.5 * B, -0.75 * B] : [0.12 * B, side(B)],
+      m3: B => P.course === 'tri' ? [0.1 * B, side(B)] : [-0.15 * B, side(B)],
     };
     function coursePts(B, O) {
       const at = (u, r) => ({ x: O.x + up.x * u + right.x * r, y: O.y + up.y * u + right.y * r });
@@ -376,7 +376,7 @@
       if (it.type === 'start') return 'start';
       const from = ptOf(seq[i - 1]), to = ptOf(it);
       const a = Math.abs(U.wrapPi(U.bearing(from, to) - wd));
-      const k = a < U.rad(70) ? 'beat' : a > U.rad(140) ? 'run' : 'reach';
+      const k = a < U.rad(70) ? 'beat' : a > U.rad(150) ? 'run' : 'reach';
       return it.type === 'finish' && k === 'beat' ? 'beat' : k;
     }
     const zoneR = 3 * L;
@@ -450,7 +450,7 @@
       const span = (44 + 5.5 * L) * (small ? 0.85 : 1);
       scene.setZoom(1);
       const base = scene.baseZoom() / (1 + U.clamp(Math.abs(me.speed) / 25, 0, 0.35));
-      scene.setZoom(Math.sqrt(scene.w * scene.h) / span / base * userZoom);
+      scene.setZoom(Math.sqrt(scene.w * scene.h) * (small ? 1.3 : 1) / span / base * userZoom);
     }
     applyZoom();
     // course overview first, then ease in on the boat
@@ -669,7 +669,7 @@
       penalize(a, 2, f.rule, f);
     }
     function penalize(b, sev, rule, f) {
-      const turns = sev === 2 && assist === 'pro' ? 2 : 1;
+      const turns = 1; // RRS rule 44: one turn (one tack and one gybe) for Part 2 fouls and rule 31 alike
       if (b === me) {
         S.fouls++;
         sfx('whistle');
@@ -681,8 +681,8 @@
           return;
         }
         addPen(b, turns);
-        showCard('bad', title, t(turns === 2 ? 'race.pen.title720' : 'race.pen.title360'));
-        say(why + ' ' + t(turns === 2 ? 'race.pen.do720' : 'race.pen.do360'), 8500, 'oops');
+        showCard('bad', title, t('race.pen.title360'));
+        say(why + ' ' + t('race.pen.do360'), 8500, 'oops');
         ctrl.highlight('turn', true);
         return;
       }
@@ -758,9 +758,39 @@
     // ==================================================================== instance
     let destroyed = false;
     let coachIntro = null;
-    function start() {
+    let introCard = null;
+    function closeIntroCard() {
+      if (!introCard) return;
+      const el = introCard; introCard = null;
+      host.layer.classList.remove('has-intro-card');
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 380);
+    }
+    function beginRace() {
+      if (!introCard) return;
+      closeIntroCard();
+      sfx('whistle', { vol: 0.5 });
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
-      coachIntro = KOS.UI.coach(t(P.venue === 'bay' ? 'race.introBay' : 'race.intro') + (touch ? '' : '  ' + t('race.keys')), { ms: 8000 });
+      coachIntro = KOS.UI.coach(t(P.venue === 'bay' ? 'race.introBay' : 'race.intro') + (touch ? '' : '  ' + t('race.keys')), { ms: 6000 });
+    }
+    function buildIntroCard() {
+      const el = document.createElement('div');
+      el.className = 'school-card race-intro-card';
+      el.innerHTML = '<div class="sc-in">' +
+        '<div class="sc-kicker">' + KOS.UI.iconSvg('flag') + '<span>' + KOS.UI.esc(t('race.card.kicker')) + '</span></div>' +
+        '<h2 class="sc-title">' + KOS.UI.esc(t('race.card.title')) + '</h2>' +
+        '<p class="sc-intro">' + KOS.UI.esc(t('race.card.goal')) + '</p>' +
+        '<p class="sc-intro" style="opacity:.75;font-size:.85em">' + KOS.UI.esc(t('race.card.skip')) + '</p>' +
+        '<button type="button" class="btn btn-primary btn-big sc-go">' + KOS.UI.iconSvg('play') + '<span>' + KOS.UI.esc(t('race.card.go')) + '</span></button>' +
+        '</div>';
+      host.layer.appendChild(el);
+      host.layer.classList.add('has-intro-card');
+      el.querySelector('.sc-go').addEventListener('click', e => { e.stopPropagation(); beginRace(); });
+      el.addEventListener('pointerdown', e => e.stopPropagation());
+      return el;
+    }
+    function start() {
+      introCard = buildIntroCard();
       fitCourse();
       if (host.settings && host.settings.music) { try { KOS.Audio.music('race'); } catch (e) { /* optional */ } }
       ambient();
@@ -818,6 +848,7 @@
 
     function update(dt) {
       if (destroyed) return;
+      if (introCard) return; // the sim waits for the "Sejl!" button
       S.introT += dt;
       if (S.introT > 3.2 && S.introT - dt <= 3.2) { scene.fixedZoom = null; scene.follow(me); applyZoom(); }
       const n = S.ff ? 5 : S.phase === 'finish' ? 4 : 1;
@@ -1141,6 +1172,8 @@
       host.layer.removeEventListener('wheel', onWheel);
       host.layer.classList.remove('race-layer', 'race-go', 'race-pen', 'race-done');
       clearTimeout(cardTimer);
+      host.layer.classList.remove('has-intro-card');
+      if (introCard) { introCard.remove(); introCard = null; }
       if (coachIntro) coachIntro.close(true);
       ctrl.detach(); hud.destroy(); panel.remove(); card.remove(); if (board) board.remove();
       scene.destroy();
@@ -1155,7 +1188,7 @@
     
     function setAutopilot(on) { autopilot = on ? KOS.AI.createHelm(me, { skill: 0.97, aggression: 0.6, seed: 5 }) : null; }
     function autoPlan() { return me.rc.finT != null ? parkPlan : me.plan; }
-    function skipIntro() { S.introT = Math.max(S.introT, 3.21); scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = true; } }
+    function skipIntro() { closeIntroCard(); S.introT = Math.max(S.introT, 3.21); scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = true; } }
     const debug = {
       get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line,
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },

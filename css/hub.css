@@ -230,3 +230,31 @@
 .hub-lite svg.hub-map * { animation: none !important; }
 /* the painted menu background is fully covered by the harbour map: don't keep animating it underneath */
 body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
+
+/* ------------------------------------------------ "Alle steder" list + first-run "Start her" marker */
+.hub-places { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: calc(16px + var(--hub-safe-t)) 14px calc(16px + var(--hub-safe-b)); background: rgba(5, 9, 20, .55); animation: hub-rise .25s both; }
+.hub-places-in { width: min(460px, 100%); max-height: 100%; overflow: auto; padding: 14px; border-radius: 22px; }
+.hub-places-in h2 { margin: 0 0 10px; font-size: 20px; font-weight: 900; text-align: center; }
+.hub-places-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hub-place { display: flex; align-items: center; gap: 9px; min-height: 56px; padding: 6px 10px 6px 6px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; background: rgba(255, 255, 255, .07); color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.hub-place:active { transform: scale(.97); }
+.hub-place.is-next { border-color: #ffc65c; box-shadow: 0 0 0 2px rgba(255, 198, 92, .35); }
+.hub-place.is-locked { opacity: .6; }
+.hub-place-badge { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--c); color: #fff; }
+.hub-place-badge .hub-ico { width: 24px; height: 24px; }
+.hub-place-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.hub-place-txt b { font-size: 14px; font-weight: 800; }
+.hub-place-txt small { font-size: 11.5px; color: rgba(255, 255, 255, .7); font-weight: 700; }
+.hub-places-close { display: block; width: 100%; min-height: 44px; margin-top: 10px; border: 0; border-radius: 14px; background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.hub-pin-start { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; color: #2a1300; background: linear-gradient(180deg, #ffe08a, #ffb02e); box-shadow: 0 4px 12px rgba(0, 0, 0, .35); animation: hub-startbob 1.1s ease-in-out infinite; pointer-events: none; }
+.hub-pin-start[hidden] { display: none; }
+.hub-pin.is-start .hub-pin-ring { animation: hub-startpulse 1.4s ease-out infinite; }
+@keyframes hub-startbob { 50% { transform: translateX(-50%) translateY(-4px); } }
+@keyframes hub-startpulse { 0% { box-shadow: 0 0 0 0 rgba(255, 198, 92, .75); } 100% { box-shadow: 0 0 0 22px rgba(255, 198, 92, 0); } }
+@media (max-height: 500px) {
+  /* short landscape phones: the next-challenge card sits bottom-left beside the compass, out of the middle of the map */
+  .hub-bottom { top: calc(8px + var(--hub-safe-t)); bottom: auto; left: 50%; transform: translateX(-50%); width: max(236px, calc(100% - 450px)); max-width: 400px; }
+  .hub-places-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .hub-places-in h2 { display: none; }
+}
+@media (max-width: 380px) { .hub-places-grid { grid-template-columns: 1fr; } }

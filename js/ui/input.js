@@ -199,7 +199,7 @@
         h += '<div class="kc-extras">';
         opts.extraButtons.forEach((b, i) => {
           const lbl = b.labelKey ? tr(b.labelKey) : (b.label || tr('input.' + (b.icon || b.id)));
-          h += '<button class="kc-btn kc-extra" type="button" data-btn="' + b.id + '" aria-label="' + lbl + '">' + iconFor(b.icon || b.id) +
+          h += '<button class="kc-btn kc-extra" type="button" data-btn="' + b.id + '" aria-label="' + lbl + '" title="' + lbl + '">' + iconFor(b.icon || b.id) +
             '<b>' + lbl + '</b>' + keycap(b.key || (i < 9 ? String(i + 1) : '')) + '</button>';
         });
         h += '</div>';

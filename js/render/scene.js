@@ -143,19 +143,19 @@
     if (typeof x === 'object') { y = x.y; x = x.x; }
     const c = this.camera, cs = Math.cos(-c.rot), sn = Math.sin(-c.rot);
     const dx = x - c.x, dy = y - c.y;
-    return { x: this.w / 2 + (dx * cs - dy * sn) * c.zoom, y: this.h / 2 + (dx * sn + dy * cs) * c.zoom };
+    return { x: this.w / 2 + (dx * cs - dy * sn) * c.zoom, y: this.h / 2 + (this.biasY || 0) + (dx * sn + dy * cs) * c.zoom };
   };
   S.screenToWorld = function (sx, sy) {
     if (typeof sx === 'object') { sy = sx.y; sx = sx.x; }
     const c = this.camera, cs = Math.cos(c.rot), sn = Math.sin(c.rot);
-    const dx = (sx - this.w / 2) / c.zoom, dy = (sy - this.h / 2) / c.zoom;
+    const dx = (sx - this.w / 2) / c.zoom, dy = (sy - this.h / 2 - (this.biasY || 0)) / c.zoom;
     return { x: c.x + dx * cs - dy * sn, y: c.y + dx * sn + dy * cs };
   };
   S.applyWorld = function (ctx) {
     const c = this.camera, sh = this._shake;
     const sx = sh ? (Math.random() - 0.5) * sh * 14 : 0, sy = sh ? (Math.random() - 0.5) * sh * 14 : 0;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.translate(this.w / 2 + sx, this.h / 2 + sy);
+    ctx.translate(this.w / 2 + sx, this.h / 2 + (this.biasY || 0) + sy); // biasY: px the camera centre sits below the screen centre (more room ahead of the boat)
     if (c.rot) ctx.rotate(-c.rot);
     ctx.scale(c.zoom, c.zoom);
     ctx.translate(-c.x, -c.y);
@@ -706,7 +706,8 @@
     ctx.strokeStyle = 'rgba(73,198,242,0.9)'; ctx.lineWidth = 2 * mpp; ctx.lineCap = 'round';
     for (let i = 0; i < 2; i++) { const p = ((t * 0.9 + i * 0.5) % 1); const y = L / 2 - p * L * 0.9; ctx.globalAlpha = Math.sin(p * PI); ctx.beginPath(); ctx.moveTo(-hw * 1.6, y); ctx.lineTo(-hw * 1.6, y - 10 * mpp); ctx.moveTo(hw * 1.6, y + 6 * mpp); ctx.lineTo(hw * 1.6, y - 4 * mpp); ctx.stroke(); }
     ctx.restore();
-    this.pill(ctx, cx + ux * L * 0.95, cy + uy * L * 0.95, Math.round(w.speed) + ' kn', { dy: 0, size: 11, bg: 'rgba(13,19,33,0.6)' });
+    const vind = KOS.t ? String(KOS.t('ui.hud.wind')).toUpperCase() : 'WIND';
+    this.pill(ctx, cx + ux * L * 0.95, cy + uy * L * 0.95, vind + ' ' + Math.round(w.speed) + ' kn', { dy: 0, size: 11, bg: 'rgba(13,19,33,0.6)' });
   };
 
   // night: darken and re-light buoys, lighthouses and boats' navigation lights

@@ -32,12 +32,18 @@
 
   function emit(name, payload) { if (KOS.Events && KOS.Events.emit) KOS.Events.emit(name, payload); }
 
+  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+
   const Storage = {
     available: !!ls,
-    get(k, def) {
+    // validate(v) -> bool: a value that fails (hand-edited or half-written storage) falls back to def.
+    get(k, def, validate) {
       const s = rawGet(k);
       if (s === null || s === undefined) return def;
-      try { return JSON.parse(s); } catch (e) { return def; }
+      let v;
+      try { v = JSON.parse(s); } catch (e) { return def; }
+      if (typeof validate === 'function') { try { if (!validate(v)) return def; } catch (e) { return def; } }
+      return v;
     },
     set(k, v) {
       if (v === undefined) { rawDel(k); return v; }
@@ -47,7 +53,7 @@
     remove(k) { rawDel(k); },
 
     settings() {
-      const s = Object.assign({}, DEFAULT_SETTINGS, Storage.get('settings', {}) || {});
+      const s = Object.assign({}, DEFAULT_SETTINGS, Storage.get('settings', {}, isObj) || {});
       if (s.lang !== 'da' && s.lang !== 'en') s.lang = 'da';
       if (['easy', 'normal', 'pro'].indexOf(s.assist) < 0) s.assist = 'easy';
       if (['auto', 'buttons', 'joystick'].indexOf(s.controls) < 0) s.controls = 'auto';
@@ -62,7 +68,7 @@
     },
     defaultSettings() { return Object.assign({}, DEFAULT_SETTINGS); },
 
-    profile() { return Storage.get('profile', null); },
+    profile() { return Storage.get('profile', null, isObj); },
     saveProfile(p) {
       const prev = Storage.profile() || {};
       const next = Object.assign({ createdAt: Date.now() }, prev, p || {});
@@ -72,7 +78,7 @@
       return next;
     },
 
-    _allProgress() { return Storage.get('progress', {}) || {}; },
+    _allProgress() { return Storage.get('progress', {}, isObj) || {}; },
     progress(id) {
       const p = Storage._allProgress()[id];
       return Object.assign({ stars: 0, best: 0, plays: 0, done: false }, p || {});
@@ -113,7 +119,7 @@
     xp() { return +Storage.get('xp', 0) || 0; },
     addXp(n) { Storage.set('xp', Storage.xp() + (+n || 0)); return Storage.xp(); },
 
-    badges() { return Storage.get('badges', []) || []; },
+    badges() { return Storage.get('badges', [], Array.isArray) || []; },
     hasBadge(id) { return Storage.badges().indexOf(id) >= 0; },
     award(badgeId) {
       const b = Storage.badges();

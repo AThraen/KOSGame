@@ -298,10 +298,10 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 }
 .seg button .ico { width: 18px; height: 18px; }
 .seg button.on { background: linear-gradient(180deg, var(--primary-hi), var(--primary-2)); color: #1a0f05; box-shadow: 0 3px 10px rgba(255,122,61,.35); }
-.switch { position: relative; width: 60px; height: 36px; flex: none; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,.14); padding: 0; transition: background .2s; }
-.switch i { position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .25s var(--ease-pop); }
+.switch { position: relative; width: 72px; height: 44px; flex: none; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,.14); padding: 0; transition: background .2s; }
+.switch i { position: absolute; top: 4px; left: 4px; width: 36px; height: 36px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .25s var(--ease-pop); }
 .switch.on { background: var(--good); }
-.switch.on i { transform: translateX(24px); }
+.switch.on i { transform: translateX(28px); }
 .switch.static { display: inline-block; }
 .range { -webkit-appearance: none; appearance: none; width: min(46%, 220px); height: 44px; background: transparent; --v: 80%; }
 .range::-webkit-slider-runnable-track { height: 10px; border-radius: 9px; background: linear-gradient(90deg, var(--primary) var(--v), rgba(255,255,255,.16) var(--v)); }
@@ -532,3 +532,7 @@ body[data-screen="results"] .toast { pointer-events: none; }
   body[data-screen="results"] #toasts { left: 26%; width: min(44vw, 380px); bottom: calc(var(--safe-b) + 10px); }
   body[data-screen="results"] .toast { padding-top: 6px; padding-bottom: 6px; }
 }
+
+/* screen-reader only text, and no focus ring on programmatically focused headings */
+.sr-only { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus { outline: none; }

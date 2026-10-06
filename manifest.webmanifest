@@ -8,7 +8,11 @@
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone"],
+  "display_override": ["standalone", "fullscreen"],
+  "shortcuts": [
+    { "name": "Fri sejlads", "short_name": "Fri sejlads", "url": "./#play=sail.free.opti" },
+    { "name": "Sejlerskolen", "short_name": "Skole", "url": "./#play=school.steer" }
+  ],
   "orientation": "any",
   "background_color": "#0b1120",
   "theme_color": "#0b1120",

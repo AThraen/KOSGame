@@ -314,7 +314,7 @@ test('Physics: heel sign — starboard tack heels to port (negative)', () => {
 
 // ====================================================================== capsize
 function blast(id, assist, secs, extra) {
-  const wind = KOS.Wind.steady(0, 22);
+  const wind = KOS.Wind.steady(0, 30);
   const b = P.createBoat(id, { heading: R(-60), speed: U.ms(3) });
   const c = Object.assign(P.controls(), { autoTrim: false, sheet: 0, hike: 0 }, extra || {});
   const env = { wind, assist };

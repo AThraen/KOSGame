@@ -17,6 +17,7 @@
   // ======================================================================== 1. parts (names + what they are)
   // name.da / name.en are the part's Danish and English names (shown together in both languages); desc is per language.
   const PARTS = {
+    vest: ['Redningsvest', 'Life jacket', 'Altid på, før du går på vandet – og lynet skal være helt lukket. Sikkerhed først!', 'Always on before you go afloat – zip it right up. Safety first!'],
     mast: ['Mast', 'Mast', 'Den lange stang, sejlet sidder på. Masten står i mastefoden – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'The tall pole the sail is set on. It stands in the mast step – remember the mast clip so it can\'t fall out if you capsize.'],
     mastBottom: ['Undermast', 'Bottom mast section', 'ILCA-masten er i to dele. Den nederste, tykke del står i mastefoden og kommer først.', 'The ILCA mast comes in two parts. The thick bottom section sits in the mast step and goes in first.'],
     mastTop: ['Topmast', 'Top mast section', 'Den tynde øverste del stikkes ned i undermasten. Den skal sidde helt i bund!', 'The thin top section slots into the bottom section. Push it all the way home!'],
@@ -73,7 +74,7 @@
       keys: 'Træk en del op på båden · Tastatur: ←/→ vælg, Enter gør det',
       trayTitle: 'Delene på jorden', trayTitleUnrig: 'Opgaver',
       intro: {
-        rig: 'Nu rigger vi {boat} til! Træk delene op på båden – i den rigtige rækkefølge. Tryk på en del for at lære, hvad den hedder.',
+        rig: 'Nu rigger vi {boat} til! Redningsvesten først – og rig altid med stavnen mod vinden. Træk delene op på båden i den rigtige rækkefølge.',
         rigKeel: 'Vi skal ud med {boat}! Gør båden klar ved broen – i den rigtige rækkefølge. Tryk på en del for at lære, hvad den hedder.',
         unrig: 'Godt sejlet! Nu rigger vi {boat} af i den rigtige rækkefølge – og pakker alt pænt sammen.',
         unrigKeel: 'Vi er tilbage ved broen med {boat}. Fortøj, tag sejlene ned i den rigtige rækkefølge og pak båden sammen.',
@@ -118,7 +119,7 @@
       keys: 'Drag a part onto the boat · Keyboard: ←/→ choose, Enter do it',
       trayTitle: 'Parts on the ground', trayTitleUnrig: 'Jobs',
       intro: {
-        rig: 'Let\'s rig the {boat}! Drag the parts onto the boat – in the right order. Tap a part to learn what it is called.',
+        rig: 'Let\'s rig the {boat}! Life jacket first – and always rig with the bow into the wind. Drag the parts onto the boat in the right order.',
         rigKeel: 'We\'re taking the {boat} out! Get her ready at the pontoon – in the right order. Tap a part to learn what it\'s called.',
         unrig: 'Well sailed! Now unrig the {boat} in the right order – and pack everything away neatly.',
         unrigKeel: 'We\'re back at the pontoon with the {boat}. Tie up, drop the sails in the right order and pack the boat away.',
@@ -160,20 +161,20 @@
   // [part, group, type?]  group: all steps of a lower group must be done first; same group = any order.
   // type 'off' = a removal job while rigging (sail cover off, cast off, fenders in).
   const RIG = {
-    opti: [['mast', 1], ['boom', 2], ['sail', 3], ['ties', 4], ['sprit', 5], ['mainsheet', 6],
+    opti: [['vest', 0], ['mast', 1], ['boom', 2], ['sail', 3], ['ties', 4], ['sprit', 5], ['mainsheet', 6],
       ['daggerboard', 7], ['rudder', 7], ['bailer', 7], ['paddle', 7], ['painter', 7]],
-    tera: [['mast', 1], ['sail', 2], ['boom', 3], ['outhaul', 4], ['kicker', 4], ['mainsheet', 5],
+    tera: [['vest', 0], ['mast', 1], ['sail', 2], ['boom', 3], ['outhaul', 4], ['kicker', 4], ['mainsheet', 5],
       ['daggerboard', 6], ['rudder', 6], ['painter', 6]],
-    feva: [['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
-      ['jibsheets', 6], ['chute', 7], ['gennaker', 8], ['daggerboard', 9], ['rudder', 9]],
-    zest: [['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
+    feva: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
+      ['jibsheets', 6], ['chute', 7], ['pole', 8], ['gennaker', 9], ['daggerboard', 10], ['rudder', 10]],
+    zest: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
       ['jibsheets', 6], ['daggerboard', 7], ['rudder', 7], ['painter', 7]],
-    ilca: [['mastBottom', 1], ['mastTop', 2], ['sail', 3], ['boom', 4], ['outhaul', 5], ['kicker', 5], ['cunningham', 5],
+    ilca: [['vest', 0], ['mastBottom', 1], ['mastTop', 2], ['sail', 3], ['boom', 4], ['outhaul', 5], ['kicker', 5], ['cunningham', 5],
       ['mainsheet', 6], ['daggerboard', 7], ['rudder', 7]],
-    '29er': [['wings', 1], ['mast', 2], ['shrouds', 3], ['forestay', 3], ['trapeze', 4], ['jib', 5], ['sail', 6], ['boom', 7],
+    '29er': [['vest', 0], ['wings', 1], ['mast', 2], ['shrouds', 3], ['forestay', 3], ['trapeze', 4], ['jib', 5], ['sail', 6], ['boom', 7],
       ['kicker', 8], ['cunningham', 8], ['jibsheets', 8], ['pole', 9], ['gennaker', 10], ['daggerboard', 11], ['rudder', 11]],
-    hboat: [['cover', 1, 'off'], ['tiller', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['lines', 7, 'off'], ['fenders', 8, 'off']],
-    j70: [['cover', 1, 'off'], ['rudder', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['pole', 7], ['gennaker', 8],
+    hboat: [['vest', 0], ['cover', 1, 'off'], ['tiller', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['lines', 7, 'off'], ['fenders', 8, 'off']],
+    j70: [['vest', 0], ['cover', 1, 'off'], ['rudder', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['pole', 7], ['gennaker', 8],
       ['lines', 9, 'off'], ['fenders', 10, 'off']],
   };
   const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
@@ -428,6 +429,11 @@
       return '<path d="M' + f(x - 9) + ' ' + f(y + 12) + 'l3 -13h14l3 13z" fill="#ff7a3d" stroke="#a94415" stroke-width="1.2" transform="rotate(-14 ' + f(x) + ' ' + f(y) + ')"/>' +
         '<path d="M' + f(x + 6) + ' ' + f(y - 4) + 'q8 -6 14 2" stroke="#ffd25e" stroke-width="1.6" fill="none"/>';
     },
+    vest(g) {
+      const x = g.mx + g.L * 0.2, y = g.dAt(x) - 6;
+      return '<path d="M' + f(x - 10) + ' ' + f(y + 4) + 'v-12q0 -6 5 -6h4q3 5 6 0h4q5 0 5 6v12z" fill="#ff7a1a" stroke="#a94415" stroke-width="1.2" stroke-linejoin="round"/>' +
+        '<path d="M' + f(x) + ' ' + f(y - 14) + 'v18M' + f(x - 9) + ' ' + f(y - 3) + 'h18" stroke="#ffd25e" stroke-width="1.6"/>';
+    },
     paddle(g) {
       const x = g.xs + g.L * 0.34, y = g.dAt(x);
       return ln(x, y + 14, x - 26, y - 30, '#c58b4f', 4) + '<ellipse cx="' + f(x - 30) + '" cy="' + f(y - 36) + '" rx="5.5" ry="11" fill="#2b6cb0" stroke="#163d66" transform="rotate(-30 ' + f(x - 30) + ' ' + f(y - 36) + ')"/>';
@@ -527,7 +533,7 @@
   };
   // drawing order (back to front); HULL is the fixed hull group
   const ORDER = ['gennakerFly', 'lines', 'sail', 'jib', 'ties', 'mastBottom', 'mastTop', 'mast', 'sprit', 'boom', 'outhaul', 'kicker', 'cunningham',
-    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'jibsheets', 'cover', 'daggerboard', 'bailer', 'paddle', 'HULL',
+    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'jibsheets', 'cover', 'daggerboard', 'bailer', 'paddle', 'vest', 'HULL',
     'wings', 'rudder', 'tiller', 'painter', 'pole', 'chute', 'gennaker', 'fenders'];
   // where each job's snap target sits
   function zoneOf(g, k) {
@@ -545,6 +551,7 @@
       case 'rudder': return [g.xs - 6, g.dAt(g.xs) + 16];
       case 'tiller': return [g.xs + L * 0.14, g.dAt(g.xs) - 12];
       case 'bailer': return [g.mx - L * 0.34, g.dAt(g.mx - L * 0.34) - 8];
+      case 'vest': return [g.mx + L * 0.2, g.dAt(g.mx + L * 0.2) - 8];
       case 'paddle': return [g.xs + L * 0.3, g.dAt(g.xs) - 24];
       case 'painter': return [g.xb + 2, g.dAt(g.xb) + 16];
       case 'shrouds': return [g.mx - 7, (g.hounds + g.mDeck) / 2 + 30];
@@ -570,7 +577,7 @@
   }
   const SOUND = { mast: 'rigClick', mastBottom: 'rigClick', mastTop: 'rigClick', boom: 'rigClick', sprit: 'rigClick', pole: 'rigClick', wings: 'rigClick',
     tiller: 'rigClick', rudder: 'rigClick', daggerboard: 'rigClick', sail: 'zip', jib: 'zip', gennaker: 'zip', cover: 'zip', chute: 'zip',
-    ties: 'knot', painter: 'knot', hose: 'splash', roll: 'whoosh', fenders: 'bump', bailer: 'tap', paddle: 'tap' };
+    ties: 'knot', painter: 'knot', hose: 'splash', roll: 'whoosh', fenders: 'bump', bailer: 'tap', paddle: 'tap', vest: 'zip' };
   const GROW = { mast: 1, mastBottom: 1, mastTop: 1, sail: 1, jib: 1, halyard: 1 }; // grow up from the bottom when fitted
 
   // ---------------------------------------------------------------- tray icons (64×64)
@@ -591,6 +598,7 @@
       rudder: '<path d="M34 6h8l-2 30q-2 20-14 22-6-2 0-14l4-36z" fill="#f4f6f8" stroke="#7d8794" stroke-width="2" stroke-linejoin="round"/><path d="M40 10L60 20" stroke="#c58b4f" stroke-width="5" stroke-linecap="round"/>',
       tiller: '<path d="M6 44L46 28" stroke="#c58b4f" stroke-width="6" stroke-linecap="round"/><path d="M46 28l12-16" stroke="#2a2f3a" stroke-width="3" stroke-linecap="round"/>',
       bailer: '<path d="M12 46l5-24h30l5 24z" fill="#ff7a3d" stroke="#a94415" stroke-width="2" stroke-linejoin="round"/><path d="M47 24q10-10 12 4" ' + rope('#ffd25e') + '/>',
+      vest: '<path d="M16 56V22q0-10 8-12h5q3 7 6 0h5q8 2 8 12v34z" fill="#ff7a1a" stroke="#a94415" stroke-width="2.2" stroke-linejoin="round"/><path d="M32 16v40M18 40h28" stroke="#ffd25e" stroke-width="3.4" stroke-linecap="round"/>',
       paddle: '<path d="M12 56L44 16" stroke="#c58b4f" stroke-width="5" stroke-linecap="round"/><ellipse cx="48" cy="12" rx="6" ry="12" transform="rotate(38 48 12)" fill="#2b6cb0" stroke="#163d66" stroke-width="2"/>',
       painter: '<ellipse cx="32" cy="38" rx="20" ry="12" ' + rope('#ffd25e') + '/><ellipse cx="32" cy="38" rx="12" ry="7" ' + rope('#e5b93e') + '/><path d="M52 38q6-20-8-28" ' + rope('#ffd25e') + '/>',
       shrouds: '<path d="M18 6L10 58M46 6L54 58" stroke="#6b7684" stroke-width="2.4"/><circle cx="10" cy="58" r="3" fill="#5b6470"/><circle cx="54" cy="58" r="3" fill="#5b6470"/>',

@@ -17,7 +17,7 @@
   const DEFS = [
     {
       id: 'opti', name: 'Optimist', crew: 1, length: 2.31, beam: 1.13, mass: 75, sailArea: 3.3, maxKn: 6.2,
-      noGoDeg: 45, up: 3.5, reach: 4.5, broad: 4.3, run: 3.6, kUp: 0.08, kDown: 0.22, lightExp: 0.7,
+      noGoDeg: 45, up: 3.5, reach: 4.5, broad: 4.3, run: 3.4, kUp: 0.08, kDown: 0.22, lightExp: 0.7,
       tackTime: 2.2, turnRate: 1.0, uRef: 1.0, accelT: 2.2, decelT: 3.0,
       hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(55), keel: false, plane: 0,
       heelAt10: 24, hikeRight: 22, optHeel: 6, leeway: 0.07, draft: 0.8, boomMax: 85, recoverTime: 4, trapeze: false,
@@ -32,12 +32,12 @@
       id: 'tera', name: 'Tera', crew: 1, length: 2.87, beam: 1.22, mass: 84, sailArea: 3.7, maxKn: 7.5,
       noGoDeg: 45, up: 3.6, reach: 5.0, broad: 4.8, run: 3.9, kUp: 0.1, kDown: 0.3, lightExp: 0.75,
       tackTime: 2.0, turnRate: 1.1, uRef: 1.0, accelT: 1.8, decelT: 2.6,
-      hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(44), keel: false, plane: 0,
-      heelAt10: 30, hikeRight: 22, optHeel: 5, leeway: 0.07, draft: 0.7, boomMax: 85, recoverTime: 3, trapeze: false,
+      hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(52), keel: false, plane: 0,
+      heelAt10: 26, hikeRight: 22, optHeel: 5, leeway: 0.07, draft: 0.7, boomMax: 85, recoverTime: 3, trapeze: false,
       colors: { hull: '#ffd23f', deck: '#fff2b0', sail: '#ffffff', trim: '#1f6fb2' },
       desc: {
-        da: 'Lille, livlig og lidt vippet. Kvik at vende og sjov i pust – men pas på, den kæntrer let!',
-        en: 'Tiny, lively and a bit tippy. Quick to tack and fun in gusts – but watch out, it capsizes easily!',
+        da: 'Lille, kvik og sjov i pust – en stabil båd mellem Opti og jolle.',
+        en: 'Small, quick and fun in gusts – a stable step up from the Opti.',
       },
       ageHint: { da: '8–16 år', en: 'Age 8–16' },
     },
@@ -94,8 +94,8 @@
       ageHint: { da: '13–21 år', en: 'Age 13–21' },
     },
     {
-      id: 'hboat', name: 'H-båd', crew: 3, length: 8.28, beam: 2.18, mass: 1720, sailArea: 30, maxKn: 7.4,
-      noGoDeg: 40, up: 5.3, reach: 6.2, broad: 6.0, run: 5.2, kUp: 0.06, kDown: 0.14, lightExp: 0.6,
+      id: 'hboat', name: 'H-båd', crew: 3, length: 8.28, beam: 2.18, mass: 1720, sailArea: 30, maxKn: 6.8,
+      noGoDeg: 40, up: 5.3, reach: 6.2, broad: 6.0, run: 4.6, kUp: 0.06, kDown: 0.14, lightExp: 0.6,
       tackTime: 4.5, turnRate: 0.42, uRef: 1.8, accelT: 7.0, decelT: 12.0,
       hasSpinnaker: 'sym', spinnakerBoost: 1.12, canCapsize: false, capsizeHeel: R(90), keel: true, plane: 0,
       heelAt10: 18, hikeRight: 6, optHeel: 18, maxHeel: 38, leeway: 0.05, draft: 1.3, boomMax: 80, recoverTime: 0, trapeze: false,
@@ -108,7 +108,7 @@
     },
     {
       id: 'j70', name: 'J/70', crew: 4, length: 6.93, beam: 2.25, mass: 1100, sailArea: 33, maxKn: 19,
-      noGoDeg: 40, up: 5.6, reach: 7.0, broad: 7.3, run: 5.8, kUp: 0.08, kDown: 0.6, lightExp: 0.65,
+      noGoDeg: 40, up: 5.6, reach: 7.0, broad: 7.3, run: 5.2, kUp: 0.08, kDown: 0.6, lightExp: 0.65,
       tackTime: 4.0, turnRate: 0.5, uRef: 1.6, accelT: 5.0, decelT: 9.0,
       hasSpinnaker: 'asym', spinnakerBoost: 1.3, canCapsize: false, capsizeHeel: R(90), keel: true, plane: 10,
       heelAt10: 16, hikeRight: 7, optHeel: 16, maxHeel: 34, leeway: 0.045, draft: 1.45, boomMax: 80, recoverTime: 0, trapeze: false,
@@ -156,7 +156,7 @@
       const ng = d.noGoDeg;
       // Shape table at 10 kn (degrees -> knots).
       const table = [
-        [0, 0], [ng * 0.55, 0], [ng, d.up * 0.72], [ng + 6, d.up], [ng + 14, d.up + (d.reach - d.up) * 0.3],
+        [0, 0], [ng * 0.3, 0], [ng * 0.75, d.up * (d.keel ? 1.0 : 0.6)], [ng, d.up * 0.72], [ng + 6, d.up], [ng + 14, d.up + (d.reach - d.up) * 0.3],
         [90, d.reach], [105, d.reach * 1.01], [135, d.broad], [160, (d.broad + d.run) / 2 * 0.98], [180, d.run],
       ];
       def._table = table;
@@ -181,7 +181,7 @@
         const lo = asym ? 80 : 95; // below this the kite collapses
         if (a < lo) return a < lo - 25 ? 0.82 : 0.88;
         const on = U.smoothstep(lo, lo + 22, a);
-        const off = asym ? 1 - U.smoothstep(158, 178, a) * 0.75 : 1; // asym gennakers hate dead runs
+        const off = asym ? 1 - U.smoothstep(145, 175, a) * 0.6 : 1; // asym gennakers hate dead runs
         return 1 + (def.spinnakerBoost - 1) * on * off;
       };
       def.spiCollapsedAt = function (twaAbs) {
@@ -220,7 +220,7 @@
     const up = dir !== 'down';
     let best = { twa: up ? def.noGo + R(6) : Math.PI, speed: 0, vmg: -Infinity };
     const from = up ? def.noGoDeg * 0.9 : 95;
-    const to = up ? 85 : 180;
+    const to = up ? 85 : (spi && def.hasSpinnaker === 'asym' ? 175 : 180);
     for (let a = from; a <= to; a += 0.5) {
       const r = R(a);
       let s = def.polar(r, tws);

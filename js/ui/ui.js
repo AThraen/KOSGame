@@ -159,6 +159,32 @@
   }
 
   // ------------------------------------------------------------------ dialogs
+  // Modal focus handling: Tab cycles inside `box`, the background (`behind` elements) is made inert, and focus goes back to
+  // where it was when the modal closes. Returns release().
+  function trapFocus(box, behind) {
+    const prev = doc.activeElement;
+    const els = (behind || []).filter(Boolean);
+    els.forEach(e => { e._inertN = (e._inertN || 0) + 1; e.setAttribute('inert', ''); });
+    const SEL = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const onKey = e => {
+      if (e.key !== 'Tab') return;
+      const f = Array.from(box.querySelectorAll(SEL)).filter(x => !x.disabled && x.getClientRects().length);
+      if (!f.length) { e.preventDefault(); return; }
+      const first = f[0], last = f[f.length - 1], cur = doc.activeElement;
+      if (!box.contains(cur)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && cur === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+    };
+    doc.addEventListener('keydown', onKey, true);
+    let released = false;
+    return function release() {
+      if (released) return;
+      released = true;
+      doc.removeEventListener('keydown', onKey, true);
+      els.forEach(e => { e._inertN = Math.max(0, (e._inertN || 1) - 1); if (!e._inertN) e.removeAttribute('inert'); });
+      try { if (prev && prev.isConnected && prev.focus) prev.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    };
+  }
   const dialogStack = [];
   function dialog(opts) {
     opts = opts || {};
@@ -194,6 +220,7 @@
     wrap.appendChild(box);
     host.appendChild(wrap);
     dialogStack.push(api);
+    const release = trapFocus(box, [doc.getElementById('app')]);
     requestAnimationFrame(() => wrap.classList.add('in'));
     setTimeout(() => { try { (api.defaultBtn || box).focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 30);
     sfx('whoosh', { vol: 0.35 });
@@ -203,6 +230,7 @@
       closed = true;
       const i = dialogStack.indexOf(api);
       if (i >= 0) dialogStack.splice(i, 1);
+      release();
       wrap.classList.remove('in');
       wrap.classList.add('out');
       setTimeout(() => wrap.remove(), 220);
@@ -517,7 +545,7 @@
     const mode = activity && KOS.Modes && KOS.Modes.get(activity.mode);
     const land = !!(mode && mode.kind === 'dom');
     const titleKey = result.titleKey || (win ? (st === 3 ? (land ? 'ui.results.perfectLand' : 'ui.results.perfect') : st === 2 ? 'ui.results.great' : (land ? 'ui.results.goodLand' : 'ui.results.good')) : 'ui.results.fail');
-    const msg = result.msgKey ? t(result.msgKey, result.msgVars) : (win ? t(st === 3 ? 'ui.results.msgPerfect' : 'ui.results.msgWin') : t('ui.results.msgFail'));
+    const msg = result.msgKey ? t(result.msgKey, result.msgVars) : (win ? t(st === 3 ? 'ui.results.msgPerfect' : 'ui.results.msgWin') : t(extra.capsized ? 'ui.results.msgFail' : 'ui.results.msgTry'));
     const rec = extra.record || {};
     const card = el('div', 'results-card glass ' + (win ? 'is-win' : 'is-fail'));
     let starsHtml = '<div class="results-stars">';
@@ -569,7 +597,7 @@
   }
 
   KOS.UI = {
-    toast, dialog, topDialog, coach, coachClose, coachSvg, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
+    toast, dialog, topDialog, trapFocus, coach, coachClose, coachSvg, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
     results, avatarSvg, AVATAR, shade, esc, el, fmtTime, reduced, sfx,
   };
 
@@ -579,10 +607,10 @@
         coach: { name: 'Coach Søs', tap: 'Tryk for at lukke' },
         countdown: { go: 'Sejl!' },
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
-        pos: { irons: 'I vindøjet', closehauled: 'Kryds', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
+        pos: { irons: 'I vindøjet', closehauled: 'Bidevind', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
         results: {
           perfect: 'Perfekt sejlet!', great: 'Flot klaret!', good: 'Godt sejlet!', fail: 'Næsten!', perfectLand: 'Perfekt!', goodLand: 'Godt gået!',
-          msgPerfect: 'Alle tre stjerner – du sejler som en ægte mester!', msgWin: 'Du er på vej mod Sejlerpasset. Kan du få alle tre stjerner?', msgFail: 'Det gør ikke noget – selv verdensmestre kæntrer. Prøv igen!',
+          msgPerfect: 'Alle tre stjerner – du sejler som en ægte mester!', msgWin: 'Du er på vej mod Sejlerpasset. Kan du få alle tre stjerner?', msgFail: 'Det gør ikke noget – selv verdensmestre kæntrer. Prøv igen!', msgTry: 'Næsten! Prøv igen – du kan det.',
           newBest: 'Ny rekord!', xp: 'Erfaring', map: 'Kort',
         },
         stat: { tacks: 'Vendinger', gybes: 'Bomninger', distance: 'Distance', penalties: 'Strafrunder', place: 'Placering', correct: 'Rigtige svar', touches: 'Berøringer', rescued: 'Reddet' },
@@ -596,7 +624,7 @@
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },
         results: {
           perfect: 'Perfect sailing!', great: 'Great job!', good: 'Well sailed!', fail: 'So close!', perfectLand: 'Perfect!', goodLand: 'Well done!',
-          msgPerfect: 'All three stars – you sail like a true champion!', msgWin: 'You are on your way to the Sailing Passport. Can you get all three stars?', msgFail: 'No worries – even world champions capsize. Try again!',
+          msgPerfect: 'All three stars – you sail like a true champion!', msgWin: 'You are on your way to the Sailing Passport. Can you get all three stars?', msgFail: 'No worries – even world champions capsize. Try again!', msgTry: 'Almost! Try again – you can do it.',
           newBest: 'New record!', xp: 'Experience', map: 'Map',
         },
         stat: { tacks: 'Tacks', gybes: 'Gybes', distance: 'Distance', penalties: 'Penalty turns', place: 'Place', correct: 'Correct answers', touches: 'Touches', rescued: 'Rescued' },

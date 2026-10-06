@@ -29,7 +29,7 @@
       },
       btn: { done: 'Afslut tur' },
       intro: {
-        free: 'Velkommen ud på vandet! Sejl rundt, mærk vinden og klar de tre mål. Tryk ✓ når du vil i land.',
+        free: 'Velkommen på vandet! Sejl rundt og klar de tre mål. Tryk ✓, når du vil i land.',
         freeRib: 'Gas op med håndtaget og styr med rattet. Klar de tre mål – og pas på bølgerne fra din egen RIB!',
         rings: 'Saml alle {n} ringe! Pilen viser vej til den nærmeste. Husk: du kan ikke sejle direkte op mod vinden.',
         cleanup: 'Hjælp med at holde bugten ren! Saml {n} stykker skrald op. Badezonen ved stranden (gule bøjer) er forbudt område.',
@@ -73,7 +73,7 @@
       },
       btn: { done: 'End trip' },
       intro: {
-        free: 'Welcome out on the water! Sail around, feel the wind and complete the three goals. Tap ✓ when you want to go ashore.',
+        free: 'Welcome on the water! Sail around and complete the three goals. Tap ✓ when you want to go ashore.',
         freeRib: 'Throttle up with the lever and steer with the wheel. Complete the three goals – and mind your own wake!',
         rings: 'Collect all {n} rings! The arrow points to the nearest one. Remember: you can\'t sail straight into the wind.',
         cleanup: 'Help keep the bay clean! Pick up {n} pieces of rubbish. The swim zone by the beach (yellow buoys) is off limits.',
@@ -243,7 +243,7 @@
       const span = ((P.kind === 'free' ? 34 : 40) + 5 * L) * (small ? 0.82 : 1);
       scene.setZoom(1);
       const base = scene.baseZoom() / (1 + U.clamp(Math.abs(boat.speed) / 25, 0, 0.35)) * 1; // scene zoom at multiplier 1, boat at rest
-      scene.setZoom(Math.sqrt(scene.w * scene.h) / span / base * userZoom);
+      scene.setZoom(Math.sqrt(scene.w * scene.h) * (small ? 1.3 : 1) / span / base * userZoom);
     }
     applyZoom();
     scene.fixedZoom = scene.baseZoom() * 0.3; // start zoomed out; eases in when the intro ends

@@ -339,7 +339,7 @@
     const col = o.color || '#ffffff';
     g.addColorStop(0, shade(col, -0.06)); g.addColorStop(0.45, col); g.addColorStop(1, shade(col, flut ? -0.18 : -0.1));
     ctx.fillStyle = g; ctx.globalAlpha = o.alpha != null ? o.alpha : 0.95; ctx.fill(); ctx.globalAlpha = 1;
-    ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = o.lw || 0.025; ctx.stroke();
+    ctx.strokeStyle = shade(col, -0.5); ctx.lineWidth = Math.max(o.lw || 0, 0.045); ctx.stroke(); // a clear outline so white sails read on pale water
     if (o.mylar) { ctx.globalAlpha = 0.18; ctx.fillStyle = '#7f8da3'; ctx.fill(); ctx.globalAlpha = 1; }
     // battens / draft stripe
     const nb = o.battens || 0;
@@ -662,10 +662,10 @@
   const BUOYS = {
     port: () => { const o = [{ d: cyl(0.55, -1.45, -0.1), fill: RED, shade: 0.55 }, { d: ell(0, -1.45, 0.55, 0.17), fill: shade(RED, 0.2) }, { d: 'M0 -1.45L0 -1.85', stroke: '#444', lw: 0.06 }, { d: cyl(0.2, -2.15, -1.85, RED, 0.06), fill: RED, shade: 0.2 }, { d: ell(0, -2.15, 0.2, 0.06), fill: shade(RED, 0.25) }]; return { shapes: o, top: -2.2, w: 1.2 }; },
     stbd: () => { const o = [{ d: 'M-0.6 -0.1A0.6 0.18 0 0 0 0.6 -0.1L0.1 -1.55Q0 -1.65 -0.1 -1.55Z', fill: GRN, shade: 0.6 }, { d: 'M0 -1.58L0 -1.85', stroke: '#444', lw: 0.06 }, { d: coneUp(-1.85, 0.2), fill: GRN }]; return { shapes: o, top: -2.2, w: 1.2 }; },
-    cardN: () => { const o = []; pillar([YEL, BLK], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneUp(-2.15, 0.18) + coneUp(-2.55, 0.18), fill: BLK }); return { shapes: o, top: -2.9, w: 1.3 }; },
-    cardS: () => { const o = []; pillar([BLK, YEL], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneDn(-2.15, 0.18) + coneDn(-2.6, 0.18), fill: BLK }); return { shapes: o, top: -2.9, w: 1.3 }; },
-    cardE: () => { const o = []; pillar([BLK, YEL, BLK], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneDn(-2.15, 0.18) + coneUp(-2.5, 0.18), fill: BLK }); return { shapes: o, top: -3.0, w: 1.3 }; },
-    cardW: () => { const o = []; pillar([YEL, BLK, YEL], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneUp(-2.15, 0.18) + coneDn(-2.45, 0.18) + 'M0 -2.45', fill: BLK }); return { shapes: o, top: -3.0, w: 1.3 }; },
+    cardN: () => { const o = []; pillar([YEL, BLK], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneUp(-2.15, 0.18) + coneUp(-2.55, 0.18), fill: BLK, stroke: '#ffffff', lw: 0.07 }); return { shapes: o, top: -2.9, w: 1.3 }; },
+    cardS: () => { const o = []; pillar([BLK, YEL], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneDn(-2.15, 0.18) + coneDn(-2.6, 0.18), fill: BLK, stroke: '#ffffff', lw: 0.07 }); return { shapes: o, top: -2.9, w: 1.3 }; },
+    cardE: () => { const o = []; pillar([BLK, YEL, BLK], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneDn(-2.15, 0.18) + coneUp(-2.5, 0.18), fill: BLK, stroke: '#ffffff', lw: 0.07 }); return { shapes: o, top: -3.0, w: 1.3 }; },
+    cardW: () => { const o = []; pillar([YEL, BLK, YEL], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: coneUp(-2.15, 0.18) + coneDn(-2.45, 0.18) + 'M0 -2.45', fill: BLK, stroke: '#ffffff', lw: 0.07 }); return { shapes: o, top: -3.0, w: 1.3 }; },
     special: () => { const o = [{ d: cyl(0.5, -1.3, -0.1), fill: YEL, shade: 0.5 }, { d: ell(0, -1.3, 0.5, 0.15), fill: shade(YEL, 0.3) }, { d: 'M0 -1.3L0 -1.7', stroke: '#444', lw: 0.06 }, { d: 'M-0.2 -1.7L0.2 -2.1M0.2 -1.7L-0.2 -2.1', stroke: YEL, lw: 0.11 }, { d: 'M-0.2 -1.7L0.2 -2.1M0.2 -1.7L-0.2 -2.1', stroke: 'rgba(0,0,0,0.25)', lw: 0.02 }]; return { shapes: o, top: -2.2, w: 1.1 }; },
     swim: () => { const o = [{ d: circ(0, -0.35, 0.38), fill: { rad: [-0.12, -0.5, 0.5], stops: [[0, '#fff3a0'], [0.5, YEL], [1, '#c99a00']] } }, { d: 'M-0.3 -0.32A0.38 0.12 0 0 0 0.3 -0.32', stroke: 'rgba(0,0,0,0.25)', lw: 0.03, fill: 'none' }]; return { shapes: o, top: -0.75, w: 0.8 }; },
     isolated: () => { const o = []; pillar([BLK, RED, BLK], o, -1.9); o.push({ d: 'M0 -1.9L0 -2.15', stroke: '#333', lw: 0.05 }, { d: circ(0, -2.3, 0.15) + circ(0, -2.65, 0.15), fill: BLK }); return { shapes: o, top: -2.9, w: 1.3 }; },

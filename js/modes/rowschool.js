@@ -72,7 +72,7 @@
       rnum: {
         R10: 'Kapsejladsregel 10', R11: 'Kapsejladsregel 11', R12: 'Kapsejladsregel 12', R13: 'Kapsejladsregel 13',
         R14: 'Kapsejladsregel 14', R18: 'Kapsejladsregel 18', 'C-power-sail': 'Søvejsregel 18', 'C-overtaking': 'Søvejsregel 13',
-        'C-headon': 'Søvejsregel 14', 'C-crossing': 'Søvejsregel 15', narrow: 'Søvejsregel 9', draught: 'Søvejsregel 18',
+        'C-headon': 'Søvejsregel 14', 'C-crossing': 'Søvejsregel 15', 'C-sail-tack': 'Søvejsregel 12', 'C-sail-lee': 'Søvejsregel 12', narrow: 'Søvejsregel 9', draught: 'Søvejsregel 18',
       },
       rname: { narrow: 'Hold dig ude af vejen i sejlrenden', draught: 'Store skibe kan ikke vige', R14: 'Undgå kollision' },
       reason: {
@@ -89,7 +89,7 @@
           other: 'Den bagerste viger! {name} kommer bagfra og skal holde sig fri af dig.',
         },
         R13: {
-          me: 'Den der vender, viger! Du er midt i en vending og skal holde af vejen, til du er på kryds igen.',
+          me: 'Den der vender, viger! Du er midt i en vending og skal holde af vejen, til du er på bidevind igen.',
           other: 'Den der vender, viger! {name} er midt i en vending og skal holde af vejen for dig, til vendingen er helt færdig.',
         },
         R18: {
@@ -120,7 +120,7 @@
         r11a: { title: 'Side om side', ask: 'Du og Noah sejler side om side på samme halse. Noah ligger i læ af dig og begynder at luffe op.', tip: 'Luf op sammen med Noah, og hold god afstand.', why: 'Luv er siden, vinden kommer fra. Læ er siden i skyggen af vinden.' },
         r11b: { title: 'En båd i luv', ask: 'Du og Viggo sejler side om side på samme halse. Viggo ligger i luv og kommer tættere på.', tip: 'Hold din kurs. Viggo skal holde sig fri af dig.' },
         r12a: { title: 'Hurtigere bagfra', ask: 'Du sejler hurtigere end Ida, som sejler lige foran dig. Snart indhenter du hende.', tip: 'Styr udenom Ida i god afstand – den bagerste skal vige.' },
-        r13a: { title: 'Pludselig vending', ask: 'Ida er midt i en vending lige foran dig.', tip: 'Hold din kurs. Ida skal holde af vejen, mens hun vender.', why: 'En båd vender fra den passerer vindøjet, til den ligger på kryds igen.' },
+        r13a: { title: 'Pludselig vending', ask: 'Ida er midt i en vending lige foran dig.', tip: 'Hold din kurs. Ida skal holde af vejen, mens hun vender.', why: 'En båd vender fra den passerer vindøjet, til den ligger på bidevind igen.' },
         r14a: { title: 'Kollisionskurs', ask: 'Du sejler for styrbords halse. Mads kommer fra venstre for bagbords halse.', tip: 'Du har ret … men hold godt øje med Mads!' },
         r18a: { title: 'Mærket – udenpå', ask: 'I skal rundt om mærket, som holdes om bagbord. Sofie ligger inderst – tættest på mærket.', tip: 'Giv Sofie plads ved mærket. Rund lidt bredere end hende.', why: 'Zonen er en usynlig cirkel på 3 bådlængder rundt om mærket.' },
         r18b: { title: 'Mærket – indenom', ask: 'I skal rundt om mærket. Du ligger inderst, og Emil ligger udenpå.', tip: 'Du får plads. Rund tæt om mærket – men rør det ikke!' },
@@ -190,7 +190,7 @@
       rnum: {
         R10: 'Racing rule 10', R11: 'Racing rule 11', R12: 'Racing rule 12', R13: 'Racing rule 13', R14: 'Racing rule 14',
         R18: 'Racing rule 18', 'C-power-sail': 'COLREG rule 18', 'C-overtaking': 'COLREG rule 13', 'C-headon': 'COLREG rule 14',
-        'C-crossing': 'COLREG rule 15', narrow: 'COLREG rule 9', draught: 'COLREG rule 18',
+        'C-crossing': 'COLREG rule 15', 'C-sail-tack': 'COLREG rule 12', 'C-sail-lee': 'COLREG rule 12', narrow: 'COLREG rule 9', draught: 'COLREG rule 18',
       },
       rname: { narrow: 'Keep out of the way in a channel', draught: 'Big ships can\'t give way', R14: 'Avoid contact' },
       reason: {

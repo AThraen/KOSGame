@@ -2,7 +2,7 @@
 // KOS.Rules: simplified Racing Rules of Sailing Part 2 + the basic COLREG collision rules.
 //   KOS.Rules.rightOfWay(a, b, ctx) -> {standOn, giveWay, rule, reasonKey, reasonVars, both?}
 //       ctx = {wind (wind object | dir radians), marks: [{x, y}], zone: 3 (lengths), mode: 'race'|'colreg'}
-//       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing'
+//       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
 //   KOS.Rules.overlapped(a, b), isWindward(a, b, wind), clearAstern(a, b), tackOf(boat, windDir?)
 //   KOS.Rules.explain(result) -> localized reason text;  KOS.Rules.ruleName(rule) -> short localized title
@@ -24,16 +24,20 @@
       'rules.name.R18': 'Mærkeplads',
       'rules.name.C-power-sail': 'Motor viger for sejl',
       'rules.name.C-overtaking': 'Den der overhaler, viger',
+      'rules.name.C-sail-tack': 'Vinden fra bagbord viger',
+      'rules.name.C-sail-lee': 'Luv viger for læ',
       'rules.name.C-headon': 'Lige imod hinanden',
       'rules.name.C-crossing': 'Krydsende kurser',
       'rules.reason.R10': 'Styrbord har ret! {give} sejler for bagbord halse (vinden kommer ind fra venstre side) og skal holde af vejen for {stand}.',
       'rules.reason.R11': 'Luv viger for læ! {give} ligger tættest på vinden og skal holde sig fri af {stand}, der ligger i læ.',
       'rules.reason.R12': 'Den bagerste viger! {give} kommer klar agterfra og skal holde fri af {stand} foran.',
-      'rules.reason.R13': 'Den der slår, viger! {give} er midt i en vending og skal holde af vejen, til den er på kryds igen.',
+      'rules.reason.R13': 'Den der slår, viger! {give} er midt i en vending og skal holde af vejen, til den er på bidevind igen.',
       'rules.reason.R18': 'Mærkeplads! {stand} ligger inderst ved mærket inden for zonen på 3 bådlængder – {give} skal give plads.',
       'rules.reason.R18-astern': 'Mærkeplads! {stand} kom først ind i zonen klar foran – {give} bagved skal give plads ved mærket.',
       'rules.reason.C-power-sail': 'Motor viger for sejl! {give} sejler for motor og skal holde af vejen for sejlbåden {stand}.',
       'rules.reason.C-overtaking': 'Den der overhaler, viger! {give} kommer bagfra og skal holde sig klar af {stand} hele vejen forbi.',
+      'rules.reason.C-sail-tack': 'Søvejsregel 12: Har to sejlbåde vinden fra hver sin side, viger den med vinden fra bagbord. {give} har vinden ind fra venstre og skal holde af vejen for {stand}.',
+      'rules.reason.C-sail-lee': 'Søvejsregel 12: Har to sejlbåde vinden fra samme side, viger den, der ligger mod vinden (luv). {give} skal holde fri af {stand}.',
       'rules.reason.C-headon': 'Lige imod hinanden! Begge både drejer til styrbord (højre), så I passerer bagbord mod bagbord.',
       'rules.reason.C-crossing': 'Krydsende kurser: {give} har {stand} på sin styrbord side (højre) og skal vige – gå agten om den anden båd.',
       'rules.foul': 'Regelbrud! {offender} skulle have holdt af vejen for {victim}.',
@@ -52,6 +56,8 @@
       'rules.name.R18': 'Mark-room',
       'rules.name.C-power-sail': 'Power gives way to sail',
       'rules.name.C-overtaking': 'Overtaking boat keeps clear',
+      'rules.name.C-sail-tack': 'Wind from port gives way',
+      'rules.name.C-sail-lee': 'Windward gives way',
       'rules.name.C-headon': 'Head-on',
       'rules.name.C-crossing': 'Crossing',
       'rules.reason.R10': 'Starboard has right of way! {give} is on port tack (wind coming over the left side) and must keep clear of {stand}.',
@@ -62,6 +68,8 @@
       'rules.reason.R18-astern': 'Mark-room! {stand} reached the zone clear ahead – {give} behind must give room at the mark.',
       'rules.reason.C-power-sail': 'Power gives way to sail! {give} is under motor and must keep clear of the sailing boat {stand}.',
       'rules.reason.C-overtaking': 'Overtaking boat keeps clear! {give} is coming from behind and must stay clear of {stand} all the way past.',
+      'rules.reason.C-sail-tack': 'Rule 12: When two sailing boats have the wind on different sides, the one with the wind on its port side gives way. {give} has the wind over its left side and must keep clear of {stand}.',
+      'rules.reason.C-sail-lee': 'Rule 12: When two sailing boats have the wind on the same side, the windward boat gives way. {give} must keep clear of {stand}.',
       'rules.reason.C-headon': 'Head-on! Both boats turn to starboard (right) and pass port side to port side.',
       'rules.reason.C-crossing': 'Crossing: {give} has {stand} on its starboard (right) side and must give way – pass behind the other boat.',
       'rules.foul': 'Foul! {offender} should have kept clear of {victim}.',
@@ -210,9 +218,11 @@
     }
 
     const tA = tackOf(a, ctx.wind !== undefined ? wd : undefined), tB = tackOf(b, ctx.wind !== undefined ? wd : undefined);
-    if (tA !== tB) return tA === 'port' ? result(b, a, 'R10') : result(a, b, 'R10');
-    if (overlapped(a, b)) return isWindward(a, b, wd) ? result(b, a, 'R11') : result(a, b, 'R11');
-    return clearAstern(a, b) ? result(b, a, 'R12') : result(a, b, 'R12');
+    // two sailing boats outside racing: same answers as RRS 10/11/12 but under their COLREG names (rule 12 / rule 13)
+    const cr = ctx.mode === 'colreg';
+    if (tA !== tB) return tA === 'port' ? result(b, a, cr ? 'C-sail-tack' : 'R10') : result(a, b, cr ? 'C-sail-tack' : 'R10');
+    if (overlapped(a, b)) return isWindward(a, b, wd) ? result(b, a, cr ? 'C-sail-lee' : 'R11') : result(a, b, cr ? 'C-sail-lee' : 'R11');
+    return clearAstern(a, b) ? result(b, a, cr ? 'C-overtaking' : 'R12') : result(a, b, cr ? 'C-overtaking' : 'R12');
   }
 
   function explain(res) {

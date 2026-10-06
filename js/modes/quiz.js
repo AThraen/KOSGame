@@ -42,8 +42,8 @@
     [['Tre bådlængder', 'Three boat lengths'], ['En bådlængde', 'One boat length'], ['Ti meter', 'Ten metres'], ['Så langt du kan råbe', 'As far as you can shout']],
     ['Zonen er tre skroglængder rundt om mærket. Inde i zonen gælder reglen om mærkerum.', 'The zone is three hull lengths around the mark. Inside the zone the mark-room rule applies.']);
   q('rules', 'penalty', ['Du støder ind i en anden båd, og det er din skyld. Hvad er straffen i kapsejlads?', 'You hit another boat and it is your fault. What is the penalty in a race?'],
-    [['To strafrunder (720°)', 'Two penalty turns (720°)'], ['En strafrunde (360°)', 'One penalty turn (360°)'], ['Du skal sejle hjem', 'You must sail home'], ['Ingen straf', 'No penalty']],
-    ['Bryder du en vigeregel, tager du to hele runder – en 720’er – så hurtigt du kan, væk fra de andre.', 'If you break a right-of-way rule you do two full turns – a 720 – as soon as possible, away from the others.']);
+    [['En strafrunde (360°)', 'One penalty turn (360°)'], ['To strafrunder (720°)', 'Two penalty turns (720°)'], ['Du skal sejle hjem', 'You must sail home'], ['Ingen straf', 'No penalty']],
+    ['Bryder du en vigeregel, tager du én strafrunde – en 360’er: en vending og en bomning samme vej – så hurtigt du kan, væk fra de andre.', 'If you break a right-of-way rule you do one penalty turn – a 360: one tack and one gybe the same way – as soon as possible, away from the others.']);
   q('rules', 'markTouch', ['Du kommer til at røre et kapsejladsmærke. Hvad gør du?', 'You touch a race mark by accident. What do you do?'],
     [['Tager en strafrunde (360°)', 'Do one penalty turn (360°)'], ['Tager to strafrunder', 'Do two penalty turns'], ['Udgår af løbet', 'Retire from the race'], ['Ingenting', 'Nothing']],
     ['Rører du et mærke, er straffen én hel runde – en 360’er.', 'If you touch a mark, the penalty is one full turn – a 360.']);
@@ -87,7 +87,7 @@
     ['I en Opti kommer der vand ind. Med øsekarret (der skal være bundet fast!) øser du det ud igen.', 'Water gets into an Opti. With the bailer (which must be tied on!) you scoop it out again.']);
   q('parts', 'boat:feva', ['Hvad hedder det store, bugede forsejl, en Feva bruger på slør og læns?', 'What is the big, bulging front sail a Feva uses when sailing downwind?'],
     [['Gennaker', 'Gennaker'], ['Stormfok', 'Storm jib'], ['Mesan', 'Mizzen'], ['Topsejl', 'Topsail']],
-    ['Gennakeren er en slags spiler, der sættes fra et spryd i stævnen. Den giver masser af fart på slør og læns.', 'The gennaker is a kind of spinnaker set from a pole at the bow. It gives loads of speed downwind.']);
+    ['Gennakeren er en slags spiler, der sættes fra en bovspryd. Den giver masser af fart på slør og læns.', 'The gennaker is a kind of spinnaker set from a pole at the bow. It gives loads of speed downwind.']);
   q('parts', 'trapeze', ['Hvad er en trapez i en 29er?', 'What is a trapeze on a 29er?'],
     [['En wire, man hænger i ude over siden', 'A wire you hang from outside the boat'], ['En slags sejl', 'A kind of sail'], ['Et redskab til at øse', 'A bailing tool'], ['Et lys på masten', 'A light on the mast']],
     ['I trapezen står du ude på rælingen og hænger i en wire fra masten. Så kan du holde båden flad i meget vind.', 'On the trapeze you stand on the edge hanging from a wire from the mast. That keeps the boat flat in strong wind.']);
