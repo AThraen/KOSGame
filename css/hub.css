@@ -96,8 +96,8 @@
 @keyframes hub-ring { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
 .hub-pin-label {
   display: flex; flex-direction: column; align-items: center; padding: 5px 12px 6px; border-radius: 14px; white-space: nowrap;
-  background: rgba(13, 19, 33, .78); border: 1px solid rgba(255, 255, 255, .14);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 16px rgba(4, 10, 25, .4);
+  background: rgba(13, 19, 33, .9); border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 6px 16px rgba(4, 10, 25, .4); /* no backdrop-filter: it re-samples the moving map every frame and flashes on mobile */
 }
 .hub-pin-name { font-size: 15px; font-weight: 800; letter-spacing: .01em; line-height: 1.1; text-shadow: 0 1px 0 rgba(0, 0, 0, .4); }
 .hub-pin-stars { display: flex; align-items: center; gap: 3px; font-size: 12.5px; font-weight: 700; color: #ffe39a; line-height: 1.2; }
@@ -258,3 +258,7 @@ body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
   .hub-places-in h2 { display: none; }
 }
 @media (max-width: 380px) { .hub-places-grid { grid-template-columns: 1fr; } }
+
+/* while dragging/pinching, freeze the looping map animations so the moving layer is not repainted */
+.hub-viewport.is-dragging .hub-pin-badge, .hub-viewport.is-dragging .hub-pin-ring, .hub-viewport.is-dragging .hub-buoy,
+.hub-viewport.is-dragging .hub-smoke, .hub-viewport.is-dragging .hub-lightglow { animation-play-state: paused; }

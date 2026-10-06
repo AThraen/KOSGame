@@ -544,6 +544,7 @@
     sectionEl.innerHTML = '';
     sectionEl.appendChild(rootEl);
     const vp = rootEl.querySelector('.hub-viewport'), stage = rootEl.querySelector('.hub-stage');
+    lastInv = ''; if (applyRaf) { cancelAnimationFrame(applyRaf); applyRaf = 0; }
     state = { host: sectionEl, root: rootEl, vp, stage, tx: 0, ty: 0, s: 1, min: 1, max: 4, pointers: new Map(), listeners: [], unsub: [] };
     // place pins
     for (const a of AREAS) {
@@ -679,10 +680,19 @@
   }
 
   // ------------------------------------------------------------------ pan / zoom
+  // one style write per frame (pointermove can fire at 120+ Hz on phones); --inv only changes on zoom, and
+  // rewriting it restyles every pin, which made the map flash while dragging on mobile
+  let applyRaf = 0, lastInv = '';
+  function applySoon() {
+    if (applyRaf) return;
+    applyRaf = requestAnimationFrame(() => { applyRaf = 0; apply(); });
+  }
   function apply() {
     const s = state;
+    if (!s || !s.stage) return;
     s.stage.style.transform = `translate3d(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px, 0) scale(${s.s.toFixed(4)})`;
-    s.stage.style.setProperty('--inv', (1 / s.s).toFixed(4));
+    const inv = (1 / s.s).toFixed(3);
+    if (inv !== lastInv) { lastInv = inv; s.stage.style.setProperty('--inv', inv); }
   }
   function clamp() {
     const s = state, vw = s.vp.clientWidth, vh = s.vp.clientHeight;
@@ -798,14 +808,14 @@
         s.tx = cx - (pinch.cx - pinch.tx) * k;
         s.ty = cy - (pinch.cy - pinch.ty) * k;
         moved = 99;
-        clamp(); apply();
+        clamp(); applySoon();
       } else if (drag) {
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         moved = Math.max(moved, Math.hypot(dx, dy));
         if (moved > 6) {
           vp.classList.add('is-dragging');
           s.tx = drag.tx + dx; s.ty = drag.ty + dy;
-          clamp(); apply();
+          clamp(); applySoon();
         }
       }
     };
