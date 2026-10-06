@@ -363,3 +363,10 @@ the effects thin out cosmetic particles at lower levels.
 - **J70 tuning (agreed):** keep the current top speeds (already above ORC; see docs/reference/polars.md), make it plane
   more easily in 12–16 kn, add surfing bursts in gusts, and add strong-wind J70 races. H-boat: raise the strong-wind
   downwind cap to the ORC 8–10 kn and trim its upwind speed to about 5.0 kn in 10 kn.
+- **Capsizing on advanced levels (user 2026-10-06):** today dinghies capsize only on Normal/Pro assist and auto-right
+  after `recoverTime` (3–6 s, x1.5 Pro); new players start on Let and never capsize. Plan: activity flag
+  `params.capsize: true` on strong-wind lessons/races (ILCA, 29er, Feva, later championship races) enables capsizing
+  even on Let, shown as a "Kæntringsrisiko!" badge on the card; beginner levels stay capsize-free. When capsized at
+  sea, run a short inline version of the clubhouse capsize mini-game (free the sheet → climb on the daggerboard with a
+  timing meter → bail) instead of the timer: good timing = back sailing sooner; 29er can turtle in very strong wind.
+  Add Tera and Zest to the capsize mini-game, and a sailing-school lesson "stay upright in gusts / get back up".
