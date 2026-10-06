@@ -174,9 +174,10 @@
     '29er': [['vest', 0], ['wings', 1], ['mast', 2], ['shrouds', 3], ['forestay', 3], ['trapeze', 4], ['jib', 5], ['sail', 6], ['boom', 7],
       ['kicker', 8], ['cunningham', 8], ['jibsheets', 8], ['pole', 9], ['gennaker', 10], ['daggerboard', 11], ['rudder', 11]],
     // KØS H-boats keep rudder, tiller and halyards on in the harbour (see KEEP_ON): the jobs start with the cover
-    hboat: [['vest', 0], ['cover', 1, 'off'], ['sail', 2], ['jib', 3], ['jibsheets', 4], ['lines', 5, 'off'], ['fenders', 6, 'off']],
-    j70: [['vest', 0], ['cover', 1, 'off'], ['rudder', 2], ['halyard', 3], ['sail', 4], ['jib', 5], ['jibsheets', 6], ['pole', 7], ['gennaker', 8],
-      ['lines', 9, 'off'], ['fenders', 10, 'off']],
+    // jib sheets go on before the jib is hoisted, or it flogs out of control
+    hboat: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['lines', 4, 'off'], ['fenders', 5, 'off']],
+    j70: [['vest', 0], ['cover', 1, 'off'], ['rudder', 2], ['halyard', 3], ['jibsheets', 4], ['sail', 4], ['jib', 5], ['pole', 6], ['gennaker', 7],
+      ['lines', 8, 'off'], ['fenders', 9, 'off']],
   };
   // parts that stay rigged on the club's boats all season (drawn in place, never a job)
   const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'] };
@@ -462,10 +463,13 @@
       return '<path d="M' + f(p[0][0]) + ' ' + f(p[0][1]) + 'L' + f(p[1][0]) + ' ' + f(p[1][1]) + 'Q' + f(p[2][0] + 10) + ' ' + f((p[1][1] + p[2][1]) / 2 + 20) + ' ' + f(p[2][0]) + ' ' + f(p[2][1]) + 'Z" fill="' + shade(sc, -0.04) + '" stroke="' + shade(sc, -0.4) + '" stroke-width="1.4" stroke-linejoin="round"/>' +
         ln(p[0][0], p[0][1], p[1][0], p[1][1], 'rgba(60,70,90,.35)', 1.2);
     },
-    jibsheets(g) {
+    jibsheets(g, col, o) {
       const bx = g.mx - g.L * 0.18, by = g.dAt(bx) - 3;
-      return '<path d="M' + f(g.jcx) + ' ' + f(g.jcy) + 'Q' + f((g.jcx + bx) / 2) + ' ' + f(by + 4) + ' ' + f(bx) + ' ' + f(by) + '" stroke="#e8323c" stroke-width="1.8" fill="none"/>' +
-        '<path d="M' + f(g.jcx) + ' ' + f(g.jcy) + 'Q' + f((g.jcx + bx) / 2) + ' ' + f(by + 10) + ' ' + f(bx - 4) + ' ' + f(by + 2) + '" stroke="#18a957" stroke-width="1.8" fill="none"/>' +
+      // jib not hoisted yet: the sheets lead from its clew lying on the foredeck
+      const down = o && o.jibUp === false && g.keelboat;
+      const cx = down ? g.jx + (g.mx - g.jx) * 0.35 : g.jcx, cy = down ? g.dAt(g.jx + (g.mx - g.jx) * 0.35) - 4 : g.jcy;
+      return '<path d="M' + f(cx) + ' ' + f(cy) + 'Q' + f((cx + bx) / 2) + ' ' + f(by + 4) + ' ' + f(bx) + ' ' + f(by) + '" stroke="#e8323c" stroke-width="1.8" fill="none"/>' +
+        '<path d="M' + f(cx) + ' ' + f(cy) + 'Q' + f((cx + bx) / 2) + ' ' + f(by + 10) + ' ' + f(bx - 4) + ' ' + f(by + 2) + '" stroke="#18a957" stroke-width="1.8" fill="none"/>' +
         block(bx, by) + '<path d="M' + f(bx) + ' ' + f(by) + 'q-12 6 -20 0" stroke="#e8323c" stroke-width="1.8" fill="none"/>';
     },
     kicker(g) {
@@ -538,8 +542,8 @@
   };
   // drawing order (back to front); HULL is the fixed hull group
   const ORDER = ['gennakerFly', 'lines', 'sail', 'jib', 'ties', 'mastBottom', 'mastTop', 'mast', 'sprit', 'boom', 'outhaul', 'kicker', 'cunningham',
-    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'jibsheets', 'cover', 'daggerboard', 'bailer', 'paddle', 'vest', 'HULL',
-    'wings', 'rudder', 'tiller', 'painter', 'pole', 'chute', 'gennaker', 'fenders'];
+    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'cover', 'daggerboard', 'bailer', 'paddle', 'vest', 'HULL',
+    'jibsheets', 'wings', 'rudder', 'tiller', 'painter', 'pole', 'chute', 'gennaker', 'fenders'];
   // where each job's snap target sits
   function zoneOf(g, k) {
     const L = g.L;
@@ -809,7 +813,7 @@
     function drawPart(k, mode) {
       const e = partEl[k];
       if (!e || !DRAW[k]) return;
-      e.innerHTML = DRAW[k](g, col, { sailNo });
+      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib });
       e.setAttribute('class', 'rig-part' + (mode ? ' ' + mode : '') + (GROW[k] ? ' grow' : ''));
     }
     function clearPart(k) { const e = partEl[k]; if (e) { e.innerHTML = ''; e.setAttribute('class', 'rig-part'); } }
@@ -1067,9 +1071,10 @@
       // the part itself
       if (s.k === 'hose') rinse();
       else if (s.k === 'roll') { groundSail = 'rolled'; drawGroundSail(); popFx(s); }
-      else if (s.type === 'on') { inst[s.k] = true; drawPart(s.k, 'pop'); }
+      else if (s.type === 'on') { inst[s.k] = true; drawPart(s.k, 'pop'); if (s.k === 'jib' && inst.jibsheets) drawPart('jibsheets'); }
       else {
         inst[s.k] = false;
+        if (s.k === 'jib' && inst.jibsheets) setTimeout(() => drawPart('jibsheets'), 480);
         const e = partEl[s.k];
         if (e) { e.setAttribute('class', 'rig-part off'); setTimeout(() => { if (!inst[s.k]) clearPart(s.k); }, 480); }
         if (unrig && ((s.k === 'sail' && !g.keelboat) || (s.k === 'jib' && g.keelboat))) { groundSail = 'flat'; setTimeout(() => { drawGroundSail(); }, 300); }
