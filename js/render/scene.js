@@ -51,6 +51,7 @@
     this.target = null;
     this._look = { x: 0, y: 0 };
     this._snap = true;
+    SailScene.current = this; SailScene.view.overview = false; // a new activity starts in the normal view
     this.overlays = [];
     this.screenOverlays = [];
     this.effects = KOS.Effects ? new KOS.Effects() : null;
@@ -118,9 +119,19 @@
   };
   function boatLen(b) { if (b.cls && typeof b.cls === 'object' && b.cls.length) return b.cls.length; const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g ? g.L : 4; }
 
+  // zoom that fits the whole venue on screen (the "overview")
+  S.fitZoom = function () {
+    const b = this.venue && this.venue.bounds;
+    if (!b || !this.w || !this.h) return 0;
+    return Math.min(this.w / (b.x1 - b.x0), this.h / (b.y1 - b.y0)) * 0.98;
+  };
   S.updateCamera = function (dt) {
-    const cam = this.camera, tgt = this.target;
-    const zt = this.fixedZoom || this.baseZoom();
+    const cam = this.camera, V = SailScene.view, zFit = this.fitZoom();
+    const over = V.overview && zFit > 0;
+    let zt = this.fixedZoom || this.baseZoom();
+    if (over) zt = zFit; else { zt *= V.mul; if (zFit) zt = Math.max(zt, zFit); }
+    const tgt = over ? null : this.target;
+    if (over) { const b = this.venue.bounds, k = 1 - Math.exp(-dt * 3.2); cam.x += ((b.x0 + b.x1) / 2 - cam.x) * k; cam.y += ((b.y0 + b.y1) / 2 - cam.y) * k; }
     if (tgt) {
       const vx = tgt.vx != null ? tgt.vx : Math.sin(tgt.heading || 0) * (tgt.speed || 0);
       const vy = tgt.vy != null ? tgt.vy : -Math.cos(tgt.heading || 0) * (tgt.speed || 0);
@@ -740,5 +751,9 @@
     ctx.restore();
   };
 
+  // Viewer zoom shared by every sea mode: mul = pinch / wheel multiplier on the mode's own zoom (never further out than
+  // the whole venue), overview = show the whole venue. Driven by the play screen (app.js).
+  SailScene.view = { mul: 1, overview: false };
+  SailScene.current = null;
   KOS.SailScene = SailScene;
 })(typeof window !== 'undefined' ? window : globalThis);

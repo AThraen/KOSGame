@@ -327,6 +327,58 @@
   const renderers = {};
   const leave = {};
 
+  // Page pinch-zoom is allowed on menus (accessibility), but during play every touch steers the boat, so a stray
+  // pinch on an overlay could zoom the page with no way back out. Lock zoom while playing, and snap back to 100 %.
+  let viewportMeta = null, viewportBase = '';
+  function lockZoom(on) {
+    const de = doc.documentElement;
+    if (de.classList.contains('in-play') === on) return;
+    de.classList.toggle('in-play', on);
+    viewportMeta = viewportMeta || doc.querySelector('meta[name="viewport"]');
+    if (!viewportMeta) return;
+    viewportBase = viewportBase || viewportMeta.getAttribute('content');
+    viewportMeta.setAttribute('content', on ? viewportBase + ', maximum-scale=1, user-scalable=no' : viewportBase);
+  }
+  // Sea modes: zoom out to see more of the water. Overview button (or M) shows the whole venue; two-finger pinch on
+  // the water, the mouse wheel or +/- change the zoom (KOS.SailScene.view, applied by the scene camera).
+  function setupViewZoom(sec, chrome) {
+    const SS = KOS.SailScene;
+    if (!SS || !SS.view) return;
+    const V = SS.view;
+    V.mul = 1; V.overview = false;
+    const btn = doc.createElement('button');
+    btn.type = 'button'; btn.className = 'icon-btn view-btn';
+    btn.setAttribute('aria-label', t('app.view.overview')); btn.title = t('app.view.overview') + ' (M)';
+    btn.innerHTML = ico('map');
+    const sync = () => { sec.classList.toggle('view-overview', V.overview); btn.classList.toggle('on', V.overview); btn.setAttribute('aria-pressed', V.overview ? 'true' : 'false'); };
+    const toggle = () => { sfx('click'); V.overview = !V.overview; if (!V.overview && V.mul < 1) V.mul = 1; sync(); };
+    btn.addEventListener('click', toggle);
+    chrome.appendChild(btn); sync();
+    const zoomBy = k => { V.overview = false; V.mul = Math.max(0.05, Math.min(3, V.mul * k)); sync(); };
+    const inControls = el => !!(el && el.closest && el.closest('.kc, .pause-overlay, button, .dialog'));
+    let pinch = null;
+    const dist = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+    const offs = [];
+    const listen = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); offs.push(() => el.removeEventListener(ev, fn, o)); };
+    listen(sec, 'touchstart', e => {
+      if (e.touches.length === 2 && !inControls(e.touches[0].target) && !inControls(e.touches[1].target)) { pinch = { d: dist(e.touches), mul: V.mul }; V.overview = false; sync(); }
+    }, { passive: true });
+    listen(sec, 'touchmove', e => {
+      if (!pinch || e.touches.length !== 2) return;
+      if (e.cancelable) e.preventDefault();
+      V.mul = Math.max(0.05, Math.min(3, pinch.mul * dist(e.touches) / (pinch.d || 1)));
+    }, { passive: false });
+    listen(sec, 'touchend', e => { if (e.touches.length < 2) pinch = null; }, { passive: true });
+    // wheel: some modes zoom on the wheel themselves (free sail) and call preventDefault; leave those alone
+    listen(sec, 'wheel', e => { if (e.defaultPrevented || inControls(e.target)) return; e.preventDefault(); zoomBy(e.deltaY > 0 ? 0.88 : 1.14); }, { passive: false });
+    listen(root, 'keydown', e => {
+      if (run.paused || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'm' || e.key === 'M') toggle();
+      else if (e.key === '-' || e.key === '_') zoomBy(0.8);
+      else if (e.key === '+' || e.key === '=') zoomBy(1.25);
+    });
+    run.viewOff = () => { offs.forEach(f => f()); V.mul = 1; V.overview = false; sec.classList.remove('view-overview'); };
+  }
   App.show = function (screen, params, opts) {
     opts = opts || {};
     if (!renderers[screen]) screen = 'title';
@@ -339,6 +391,7 @@
     while (App.stack.length && App.stack[App.stack.length - 1].screen === screen) App.stack.pop();
     App.cur = screen;
     App.params = params || {};
+    lockZoom(screen === 'play');
     doc.querySelectorAll('#app > .screen').forEach(s => {
       const hide = s.id !== 'screen-' + screen;
       // empty hidden screens: duplicate SVG ids (gradients, masks) inside display:none sections break painting
@@ -537,6 +590,7 @@
     chrome.innerHTML = '<button type="button" class="icon-btn pause-btn" aria-label="' + esc(t('app.pause.title')) + '">' + ico('pause') + '</button>';
     chrome.querySelector('button').addEventListener('click', () => { sfx('click'); setPaused(!run.paused); });
     sec.appendChild(chrome);
+    if (run.mode.kind !== 'dom') setupViewZoom(sec, chrome);
 
     const kind = run.mode.kind === 'dom' ? 'dom' : 'sea';
     doc.body.classList.toggle('mode-sea', kind === 'sea');
@@ -632,6 +686,7 @@
 
   function stopRun() {
     run.running = false;
+    if (run.viewOff) { run.viewOff(); run.viewOff = null; }
     cancelAnimationFrame(run.raf);
     if (run.inst) { const inst = run.inst; run.inst = null; try { inst.destroy && inst.destroy(); } catch (e) { console.error(e); } }
     hidePause();
@@ -1235,6 +1290,7 @@
         difficulty: 'Sværhed', empty: 'Her kommer snart nye opgaver. Kig forbi igen!',
         needStars: 'Du skal bruge {n} ★ for at låse op (du har {have}).', needAfter: 'Klar først: {name}',
       },
+      view: { overview: 'Oversigt – se hele farvandet' },
       pause: {
         title: 'Pause', quit: 'Til kortet',
         tip1: 'Husk: bagbord vige for styrbord!', tip2: 'Kan du ikke sejle direkte mod vinden? Så kryds!',
@@ -1304,6 +1360,7 @@
         difficulty: 'Difficulty', empty: 'New challenges are coming soon. Check back later!',
         needStars: 'You need {n} ★ to unlock this (you have {have}).', needAfter: 'Finish first: {name}',
       },
+      view: { overview: 'Overview – see the whole area' },
       pause: {
         title: 'Paused', quit: 'To the map',
         tip1: 'Remember: port gives way to starboard!', tip2: 'Can’t sail straight into the wind? Beat upwind!',
