@@ -378,3 +378,11 @@ the effects thin out cosmetic particles at lower levels.
   the club how theirs reef); ILCA chooses rig on land (ILCA 4/6/7 = smaller sail for lighter sailors / strong wind);
   J70: gennaker stays down; Optimist: no reef → go home early or call the coach RIB. Physics: less sail = less power
   and heel, slower in light wind, so reefing too early or too late both cost.
+- **Hiking everywhere + crew commands (user 2026-10-06):** the HIKE button is hidden on Let (free sail/race/nav), for
+  keelboats always, in dock and rowschool, and in most school lessons. Plan: show it for every dinghy and keelboat in
+  all sea modes; on Let auto-hike stays but pressing adds a bonus; keelboats "Ud på kanten!" (rail weight, small heel
+  reduction), 29er "Trapez ud!". Advanced levels add crew commands, unlocked along the boat ladder with a Coach Søs
+  intro the first time: "Klar til at vende?" → "Ro fra!" (2-person boats: good timing = smoother tack), "Klar til at
+  bomme?" → "Bom!" (+ chicken gybe in strong wind), "Sæt gennaker!" / "Tag den ned!", "Træk kickeren!" / "Cunningham!"
+  (depower: ILCA, 29er, J70), "Reb!" (H-boat, Zest if confirmed), "Mand over bord!" (keelboats, RIB). Beginners only see
+  steer, sheet and hike.
