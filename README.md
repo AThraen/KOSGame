@@ -121,8 +121,8 @@ Plain HTML, CSS and JavaScript with no frameworks or build tools. All scripts at
 - **Sound**: synthesised live with the Web Audio API, so there are no audio files.
 - **App**: installable and playable offline. A service worker stores every game file on the first visit.
 
-[`SPEC.md`](SPEC.md) is the design contract between the modules. Deploys to GitHub Pages happen automatically on every
-push to `main` (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)).
+[`SPEC.md`](SPEC.md) is the design contract between the modules. The hosted version on GitHub Pages is updated when a
+version tag (`v*`) is pushed (see [`.github/workflows/pages.yml`](.github/workflows/pages.yml)).
 
 ## Credits
 

@@ -1,11 +1,12 @@
-# Deploy KØS SEJL to GitHub Pages on every push to main (and on demand).
+# Deploy KØS SEJL to GitHub Pages when a release tag (v*) is pushed, or on demand.
+# Release: git tag v0.2.0 && git push origin v0.2.0
 # Pages source must be "GitHub Actions" (Settings > Pages); set once via the API.
 # Only the shipped game is published (index.html, sw.js, manifest, css/, js/, assets/), never tools/ or docs/.
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
