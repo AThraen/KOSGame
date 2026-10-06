@@ -52,8 +52,13 @@
     },
     remove(k) { rawDel(k); },
 
+    // God mode (testing): localStorage kos.godmode = "1", or open the game with #god=1 (#god=0 turns it off).
+    // Unlocks everything and adds a "win" button to the pause menu.
+    god() { try { return root.localStorage.getItem('kos.godmode') === '1'; } catch (e) { return false; } },
+    setGod(on) { try { if (on) root.localStorage.setItem('kos.godmode', '1'); else root.localStorage.removeItem('kos.godmode'); } catch (e) { /* storage blocked */ } },
     settings() {
       const s = Object.assign({}, DEFAULT_SETTINGS, Storage.get('settings', {}, isObj) || {});
+      if (Storage.god()) s.unlockAll = true;
       if (s.lang !== 'da' && s.lang !== 'en') s.lang = 'da';
       if (['easy', 'normal', 'pro'].indexOf(s.assist) < 0) s.assist = 'easy';
       if (['auto', 'buttons', 'joystick'].indexOf(s.controls) < 0) s.controls = 'auto';

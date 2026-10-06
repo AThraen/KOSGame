@@ -20,8 +20,10 @@
       console.error('[KOS] boot: core shell modules missing');
       return;
     }
-    KOS.App.init();
     const h = parseHash();
+    // #god=1 / #god=0 switches God mode (testing) on or off for this browser
+    if (h.god === '1' || h.god === '0') KOS.Storage.setGod(h.god === '1');
+    KOS.App.init();
     if (h.play && KOS.Activities && KOS.Activities.get(h.play)) {
       KOS.App.show('title');
       KOS.App.play(h.play, { force: true });

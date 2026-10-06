@@ -117,6 +117,12 @@ node tools/serve.js        # then open http://localhost:8080
 
 ## Testing
 
+**God mode** (for testing by hand): open the game with `#god=1` at the end of the address, e.g.
+`https://athraen.github.io/KOSGame/#god=1`. Everything unlocks, a gold **GOD** badge shows on the title screen,
+and the pause menu gets **1★ / 2★ / 3★** buttons that finish the current activity instantly. `#god=0` turns it off.
+It is stored in this browser only (`localStorage` key `kos.godmode`). Stars won this way are kept;
+use *Nulstil fremskridt* in settings to start over.
+
 All browser tests run in a hidden browser (headless Chrome via Playwright: `npm install` once).
 
 ```sh

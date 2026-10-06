@@ -385,7 +385,7 @@
     sec.innerHTML =
       '<h1 class="sr-only">KØS SEJL</h1>' +
       '<div class="topbar">' +
-      '<div class="topbar-left">' + starPill() + (p ? xpPill() : '') + '</div>' +
+      '<div class="topbar-left">' + starPill() + (p ? xpPill() : '') + (S().god() ? '<span class="god-pill" title="God mode">GOD</span>' : '') + '</div>' +
       '<div class="topbar-right">' +
       (App.installPrompt ? '<button type="button" class="icon-btn" data-act="install" aria-label="' + esc(t('app.install')) + '">' + ico('download') + '</button>' : '') +
       (doc.fullscreenEnabled ? '<button type="button" class="icon-btn hide-sm" data-act="fullscreen" aria-label="' + esc(t('app.fullscreen')) + '">' + ico('fullscreen') + '</button>' : '') +
@@ -680,6 +680,8 @@
       '<p class="pause-act">' + esc(tt(run.act.title)) + '</p>' +
       '<button type="button" class="btn btn-primary btn-wide" data-p="resume">' + ico('play') + '<span>' + esc(t('common.resume')) + '</span></button>' +
       '<button type="button" class="btn btn-glass btn-wide" data-p="restart">' + ico('retry') + '<span>' + esc(t('common.restart')) + '</span></button>' +
+      (S().god() ? '<div class="pause-row god-row"><span class="god-pill">GOD</span>' +
+        [1, 2, 3].map(n => '<button type="button" class="btn btn-glass" data-p="win' + n + '">' + n + ' ★</button>').join('') + '</div>' : '') +
       '<div class="pause-row">' +
       '<button type="button" class="icon-btn" data-p="sound" aria-label="' + esc(t('app.settings.sound')) + '">' + ico(st.sound ? 'sound' : 'soundOff') + '</button>' +
       '<button type="button" class="btn btn-glass" data-p="quit">' + ico('map') + '<span>' + esc(t('app.pause.quit')) + '</span></button>' +
@@ -694,6 +696,7 @@
       if (k === 'resume') setPaused(false);
       else if (k === 'restart') App.play(run.act.id, { force: true });
       else if (k === 'quit') quit();
+      else if (k.indexOf('win') === 0) { const n = +k.slice(3); setPaused(false); finish({ stars: n, success: true, score: n * 1000, timeMs: 60000, stats: { godmode: true } }); }
       else if (k === 'sound') {
         const s = S().saveSettings({ sound: !settings().sound });
         applySettings(s);

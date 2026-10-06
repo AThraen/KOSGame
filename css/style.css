@@ -536,3 +536,7 @@ body[data-screen="results"] .toast { pointer-events: none; }
 /* screen-reader only text, and no focus ring on programmatically focused headings */
 .sr-only { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus { outline: none; }
+
+/* God mode (testing only: localStorage kos.godmode = "1" or #god=1) */
+.god-pill { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: .12em; color: #2b1300; background: linear-gradient(180deg, #ffe27a, #ffb547); box-shadow: 0 0 14px rgba(255, 200, 80, .55); align-self: center; }
+.god-row { justify-content: center; gap: 8px; }
