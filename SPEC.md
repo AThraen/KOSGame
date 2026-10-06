@@ -348,3 +348,18 @@ the effects thin out cosmetic particles at lower levels.
   shout + point + throw the lifebuoy (timing), keep eyes on the person, return manoeuvre (RIB: wide turn, approach
   upwind/into the current, engine in neutral near the person; keelboats: quick-stop / figure-8, approach on a close
   reach and stop to windward of the person), pick-up alongside. Score by time, distance kept, and safe approach.
+- **Physics tuning (club feedback 2026-10-06):**
+  - *H-boat shoots head to wind.* In reality it carries way for several boat lengths when luffing up. Free sail already
+    does this; the docking mode's extra "luff brake" on Let/Normal (dock.js ~line 681) stops it far too fast. Keep that
+    brake for dinghies, make it very light for keelboats, and adjust the docking tips. Confirm with the user which
+    activity they saw it in.
+  - *J70 is a speed monster.* It should plane easily with the gennaker and reach 15–20 kn downwind. Measured now
+    (best angle, kite up): 10.5 kn @12 kn TWS, 12.7 @16, 14.9 @20, 17.4 @25. Target roughly 11–12 (planing) @12,
+    15–16 @16, 17–18 @20, 19–20 @25 (maxKn 19–20).
+- **Sail controls (agreed with the user 2026-10-06):** the jib stays automatic, following the main sheet. Gennaker/spinnaker
+  hoist and drop stay manual (SPI button / E). On the Let level, add a coach prompt for when to hoist and drop
+  ("Sæt gennakeren!" / "Tag den ned!"), plus a warning when it is about to collapse. A separate gennaker sheet for Pro
+  only if the older racers ask for it.
+- **J70 tuning (agreed):** keep the current top speeds (already above ORC; see docs/reference/polars.md), make it plane
+  more easily in 12–16 kn, add surfing bursts in gusts, and add strong-wind J70 races. H-boat: raise the strong-wind
+  downwind cap to the ORC 8–10 kn and trim its upwind speed to about 5.0 kn in 10 kn.

@@ -8,7 +8,7 @@ no text, no logos. Created for KØS Sejlsport, 2026. Free to use in this project
 file             size       seed              content
 title-land.jpg   1600x892   241521781469448   Øresund sunset, pastel orange/lilac sky, white dinghies, Nordhavn towers
 title-port.jpg   892x1600   222811030928833   same, portrait: calm sky top, skyline + sea + 3 dinghies at bottom
-hub-land.jpg     1600x892   236931984240793   overcast club harbor, wooden pier on rusty sheet piling, orange RIB, masts, red-brick power station
+hub-land.jpg     1600x884   236931984240793   overcast club harbor, wooden pier on rusty sheet piling, orange RIB, masts, red-brick power station (2026-10-06: RIB console turned around with Qwen-Image edit, seed 152954709579894)
 hub-port.jpg     892x1600   197030567320047   same, portrait
 club.jpg         1600x892   211617828223171   warm boat shed interior: dinghies on trolleys, sails, ropes, life jackets
 race.jpg         1600x892   159742334641192   fleet of dinghies racing on choppy bright blue water, orange mark buoy
