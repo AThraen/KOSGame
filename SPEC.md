@@ -327,3 +327,14 @@ pause on `visibilitychange`. Handles the PWA install prompt and update toast.
 - Mode builders: read `docs/MODE-AUTHORING.md` (skeleton, wiring, testing). Helpers: `node tools/playshot.js <id> [WxH]
   [ms] [keys]` (one headless screenshot), `node tools/autoplay.js <id> [boat] [assist]` (fast-forward a level to its result
   using the mode's optional `setAutopilot`/`skipIntro` test hooks), `node tools/smoke.js --only=<mode>`.
+
+## Wishlist (from the club, 2026-10-06 — not built yet)
+
+- **Docking: box berths ("bås").** Box-berth docking between mooring poles, bow or stern to the pier. Takes the wind
+  into account: catch the windward pole, line on, then go forward. Plus leaving a box berth.
+- **RIB drive-on docks.** The club's RIBs park on drive-on floating docks: line up straight, keep enough throttle to
+  slide up onto the dock, cut the engine at the right moment. Too slow = slides back; too fast/crooked = bump/scrape.
+- **Man-overboard (MOB) drills** for the RIB, J70 and H-boat (the dinghy MOB lesson already exists in `school`):
+  shout + point + throw the lifebuoy (timing), keep eyes on the person, return manoeuvre (RIB: wide turn, approach
+  upwind/into the current, engine in neutral near the person; keelboats: quick-stop / figure-8, approach on a close
+  reach and stop to windward of the person), pick-up alongside. Score by time, distance kept, and safe approach.
