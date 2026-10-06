@@ -1101,7 +1101,13 @@
     root.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
       App.installPrompt = e;
-      if (App.cur === 'title' || App.cur === 'settings') App.refresh();
+      // add the install button in place: a full refresh would replay the title's logo animation
+      if (doc.querySelector('[data-act="install"]')) return;
+      const lbl = esc(t('app.install'));
+      const top = App.cur === 'title' && doc.querySelector('#screen-title .topbar-right');
+      if (top) top.insertAdjacentHTML('afterbegin', '<button type="button" class="icon-btn" data-act="install" aria-label="' + lbl + '">' + ico('download') + '</button>');
+      const links = App.cur === 'settings' && doc.querySelector('#screen-settings .panel-links');
+      if (links) links.insertAdjacentHTML('afterbegin', '<button type="button" class="btn btn-primary btn-wide" data-act="install">' + ico('download') + '<span>' + lbl + '</span></button>');
     });
     root.addEventListener('appinstalled', () => { App.installPrompt = null; UI().toast(t('app.installed'), { kind: 'good', icon: 'download' }); });
     const nav = root.navigator;
