@@ -515,7 +515,8 @@
     if (g.motor) { drawRibLive(ctx, boat, g, colors, t, rudder, st); ctx.restore(); return; }
     // rudder + tiller
     const sternY = L / 2;
-    const ra = -rudder * 0.55;
+    // rudder +1 = turning to starboard: the blade's trailing edge swings to starboard (+x), the tiller to port
+    const ra = rudder * 0.55;
     ctx.strokeStyle = '#2b2f36'; ctx.lineWidth = 0.07; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(0, sternY); ctx.lineTo(Math.sin(ra) * 0.35, sternY + Math.cos(ra) * 0.35); ctx.stroke();
     if (!g.keel || clsId === 'hboat') {
