@@ -784,6 +784,15 @@
   function bindInput() {
     const s = state, vp = s.vp;
     let drag = null, pinch = null, moved = 0;
+    // While a finger moves the map, freeze every animation inside the big map SVG (CSS + SMIL boats/gulls): each
+    // animation frame forces the phone to re-rasterise the whole map layer while it is being dragged, which shows
+    // as flashing on Android. They resume when the finger lifts.
+    const svg = s.root.querySelector('svg.hub-map');
+    const frozenByUs = () => s.root.classList.contains('hub-reduced') || s.root.classList.contains('hub-lite');
+    const freeze = on => {
+      vp.classList.toggle('is-dragging', on);
+      if (svg && !frozenByUs()) { try { if (on) svg.pauseAnimations(); else svg.unpauseAnimations(); } catch (e) { /* ignore */ } }
+    };
     const local = (e) => { const r = vp.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
     const down = (e) => {
       if (e.button !== undefined && e.button > 0) return;
@@ -792,7 +801,7 @@
       else if (s.pointers.size === 2) {
         const p = Array.from(s.pointers.values());
         pinch = { d: Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]), s: s.s, tx: s.tx, ty: s.ty, cx: (p[0][0] + p[1][0]) / 2, cy: (p[0][1] + p[1][1]) / 2 };
-        drag = null;
+        drag = null; freeze(true);
       }
     };
     const move = (e) => {
@@ -813,7 +822,7 @@
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         moved = Math.max(moved, Math.hypot(dx, dy));
         if (moved > 6) {
-          vp.classList.add('is-dragging');
+          if (!vp.classList.contains('is-dragging')) freeze(true);
           s.tx = drag.tx + dx; s.ty = drag.ty + dy;
           clamp(); applySoon();
         }
@@ -822,7 +831,7 @@
     const up = (e) => {
       s.pointers.delete(e.pointerId);
       if (s.pointers.size < 2) pinch = null;
-      if (s.pointers.size === 0) { drag = null; vp.classList.remove('is-dragging'); if (moved > 6) s.dragEndT = performance.now(); moved = 0; }
+      if (s.pointers.size === 0) { drag = null; freeze(false); if (moved > 6) s.dragEndT = performance.now(); moved = 0; }
       else if (s.pointers.size === 1) { const p = Array.from(s.pointers.values())[0]; const r = vp.getBoundingClientRect(); drag = { x: p[0] + r.left, y: p[1] + r.top, tx: s.tx, ty: s.ty }; }
     };
     const wheel = (e) => {

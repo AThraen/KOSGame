@@ -262,3 +262,6 @@ body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
 /* while dragging/pinching, freeze the looping map animations so the moving layer is not repainted */
 .hub-viewport.is-dragging .hub-pin-badge, .hub-viewport.is-dragging .hub-pin-ring, .hub-viewport.is-dragging .hub-buoy,
 .hub-viewport.is-dragging .hub-smoke, .hub-viewport.is-dragging .hub-lightglow { animation-play-state: paused; }
+/* freeze ALL map animations while dragging (see freeze() in hub.js) — re-rasterising the big map SVG every frame
+   during a drag flashes on Android */
+.hub-viewport.is-dragging, .hub-viewport.is-dragging * { animation-play-state: paused !important; }
