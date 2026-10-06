@@ -386,3 +386,10 @@ the effects thin out cosmetic particles at lower levels.
   bomme?" → "Bom!" (+ chicken gybe in strong wind), "Sæt gennaker!" / "Tag den ned!", "Træk kickeren!" / "Cunningham!"
   (depower: ILCA, 29er, J70), "Reb!" (H-boat, Zest if confirmed), "Mand over bord!" (keelboats, RIB). Beginners only see
   steer, sheet and hike.
+- **J70 crew & trimming (user 2026-10-06: "J70 has multiple trimming options and commands"):** player = helm,
+  commanding a crew of three; commands as quick buttons, crew sprites act them out, timing rewarded.
+  Main: mainsheet + traveller (power/pointing), kicker + cunningham (depower). Jib: sheet + lead in/out (pointing).
+  Gennaker/bow: "Bovspryd ud!", "Hejs!", sheet trim (ease until the luff curls), "Skift!" in gybes, "Tag ned!".
+  Crew weight: rail upwind, forward in light air, aft when planing. Let = crew auto-trims, player gives big calls;
+  Pro = player trims one sail or rotates positions. Lighter version for H-boat (main, jib, spinnaker, rail);
+  two-person version for Feva/29er. ASK the club which J70 commands/controls and Danish words they use before building.
