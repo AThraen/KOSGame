@@ -70,7 +70,7 @@
 
 /* ---------------------------------------------------------------- phones */
 @media (max-width: 560px) {
-  .school-panel { top: calc(var(--safe-t) + 128px); width: min(240px, 62vw); padding: 7px 10px 8px; }
+  .school-panel { top: calc(var(--safe-t) + 148px); width: min(240px, 62vw); padding: 7px 10px 8px; }
   .sp-task { font-size: .88rem; }
   .sc-in { padding: 14px 16px 16px; }
   .sc-body { flex-direction: column; gap: 6px; }

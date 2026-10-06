@@ -160,7 +160,7 @@
     { id: 'dock.zest.box', order: 50, boat: 'zest', icon: 'anchor', minutes: 3, difficulty: 3, unlock: { after: 'dock.zest.jetty' },
       title: { da: 'Ind i båsen · Zest', en: 'Into the box berth · Zest' },
       desc: { da: 'Sejl næsen først ind mellem to pæle og stop, før stævnen rammer broen. Kast så tovet i land.', en: 'Sail bow first in between two poles and stop before the bow hits the jetty. Then throw the line ashore.' },
-      params: { windRel: 15, windKn: 7, gust: 0.2, seed: 7,
+      params: { windRel: 55, windKn: 7, gust: 0.2, seed: 7,
         stages: [{ kind: 'box', at: { face: 'B-L', s: 50 }, neighbors: [{ cls: 'zest', ds: 2.6 }, { cls: 'zest', ds: -2.6 }] }] } },
     { id: 'dock.zest.leave', order: 55, boat: 'zest', icon: 'sail', minutes: 3, difficulty: 3, unlock: { after: 'dock.zest.box' },
       title: { da: 'Bak sejlet · Zest', en: 'Back the sail · Zest' },
@@ -295,6 +295,7 @@
     const onKey = e => {
       if (e.code !== 'Space' || (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) return;
       e.preventDefault();
+      if (host.isPaused && host.isPaused()) { S.keyHeld = false; return; }
       if (e.type === 'keydown') { if (!e.repeat) { S.keyHeld = true; onAction(true); } } else S.keyHeld = false;
     };
     window.addEventListener('keydown', onKey);
@@ -797,7 +798,7 @@
         msgVars: { bump: S.maxBump < 0.12 ? (KOS.I18n.lang === 'da' ? 'ingen' : 'none') : bumpStr, time: timeStr,
           touch: touches ? t('dock.res.touches', { n: touches }) : t('dock.res.noTouch') },
       };
-      if (stars === 3 && S.crashes === 0 && S.bumps === 0) { try { KOS.Storage && KOS.Storage.award && KOS.Storage.award('perfectDock'); } catch (e) { /* optional */ } }
+      if (stars === 3 && S.crashes === 0 && S.bumps === 0) { try { KOS.Storage && KOS.Storage.award && KOS.Storage.award('perfect-docking'); } catch (e) { /* optional */ } }
       paintAction(true);
     }
 
@@ -983,6 +984,7 @@
       const backK = sg.kind === 'buoy' || sg.kind === 'slip' ? 1.2 : 1.6;
       ctrlP = add(end, vec(tg.heading), -(L * backK + 3));
       const e = errors(); if (e.d < L * 0.6) return;
+      if (!KOS.World.clearPath(venue, { x: boat.x, y: boat.y }, ctrlP, 1.2)) return;   // no hint through a jetty
       ctx.strokeStyle = 'rgba(255,255,255,0.42)'; ctx.lineWidth = Math.max(0.06, 2 * mpp); ctx.setLineDash([0.4, 0.6]);
       ctx.lineDashOffset = -tm * 1.2;
       ctx.beginPath(); ctx.moveTo(boat.x, boat.y); ctx.quadraticCurveTo(ctrlP.x, ctrlP.y, end.x, end.y); ctx.stroke(); ctx.setLineDash([]);
@@ -1073,7 +1075,8 @@
       const sg = stage(); if (!sg) return;
       const tg = sg.kind === 'leave' ? sg.gateLine.c : sg.target;
       const W = scene.w, H = scene.h, land = W > H && H < 560, phone = Math.min(W, H) < 600;
-      const padT = land ? 64 : 84, padB = land ? 30 : phone ? 230 : 150, padX = land ? 170 : phone ? 20 : 150;
+      const bubble = S.phase === 'intro' || S.time < 5.5;   // the coach's speech bubble covers part of the screen at first
+      const padT = land ? (bubble ? 138 : 64) : phone ? 236 : 84, padB = land ? 30 : phone ? (bubble ? 300 : 230) : 150, padX = land ? 170 : phone ? 20 : 150;
       const aw = Math.max(120, W - padX * 2), ah = Math.max(120, H - padT - padB);
       const minSpan = (isRib ? 16 : 12) + 2.6 * L;
       const d = Math.hypot(tg.x - boat.x, tg.y - boat.y);

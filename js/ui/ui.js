@@ -247,7 +247,7 @@
     if (coachCur) coachCur.close(true);
     const host = opts.host || (doc.getElementById('screen-play') && !doc.getElementById('screen-play').hidden ? doc.getElementById('screen-play') : doc.body);
     const pos = opts.pos || 'bottom';
-    const node = el('div', 'coach coach-' + pos);
+    const node = el('div', 'coach coach-' + pos + (opts.ms === 0 || opts.tapToClose ? ' coach-tapclose' : ''));
     node.setAttribute('role', 'status');
     node.innerHTML = '<div class="coach-avatar">' + (opts.avatar && opts.avatar !== 'coach' ? opts.avatar : coachSvg(opts.mood)) + '</div>' +
       '<div class="coach-bubble"><div class="coach-name">' + esc(opts.name || t('ui.coach.name')) + '</div><div class="coach-text">' + esc(text) + '</div>' +
@@ -275,6 +275,8 @@
     coachCur = api;
     return api;
   }
+
+  function coachClose(instant) { if (coachCur) coachCur.close(instant !== false); }
 
   // ------------------------------------------------------------------ HUD
   const POS_KEYS = { irons: 'ui.pos.irons', closehauled: 'ui.pos.closehauled', closereach: 'ui.pos.closereach', beamreach: 'ui.pos.beamreach', broadreach: 'ui.pos.broadreach', run: 'ui.pos.run' };
@@ -511,7 +513,10 @@
     extra = extra || {};
     const st = Math.max(0, Math.min(3, Math.round(+result.stars || 0)));
     const win = result.success !== false && st > 0;
-    const titleKey = result.titleKey || (win ? (st === 3 ? 'ui.results.perfect' : st === 2 ? 'ui.results.great' : 'ui.results.good') : 'ui.results.fail');
+    // on-land mini-games (rigging, knots, quiz, capsize drill) get headings that don't talk about "sailing"
+    const mode = activity && KOS.Modes && KOS.Modes.get(activity.mode);
+    const land = !!(mode && mode.kind === 'dom');
+    const titleKey = result.titleKey || (win ? (st === 3 ? (land ? 'ui.results.perfectLand' : 'ui.results.perfect') : st === 2 ? 'ui.results.great' : (land ? 'ui.results.goodLand' : 'ui.results.good')) : 'ui.results.fail');
     const msg = result.msgKey ? t(result.msgKey, result.msgVars) : (win ? t(st === 3 ? 'ui.results.msgPerfect' : 'ui.results.msgWin') : t('ui.results.msgFail'));
     const rec = extra.record || {};
     const card = el('div', 'results-card glass ' + (win ? 'is-win' : 'is-fail'));
@@ -564,7 +569,7 @@
   }
 
   KOS.UI = {
-    toast, dialog, topDialog, coach, coachSvg, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
+    toast, dialog, topDialog, coach, coachClose, coachSvg, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
     results, avatarSvg, AVATAR, shade, esc, el, fmtTime, reduced, sfx,
   };
 
@@ -576,7 +581,7 @@
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
         pos: { irons: 'I vindøjet', closehauled: 'Kryds', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
         results: {
-          perfect: 'Perfekt sejlet!', great: 'Flot klaret!', good: 'Godt sejlet!', fail: 'Næsten!',
+          perfect: 'Perfekt sejlet!', great: 'Flot klaret!', good: 'Godt sejlet!', fail: 'Næsten!', perfectLand: 'Perfekt!', goodLand: 'Godt gået!',
           msgPerfect: 'Alle tre stjerner – du sejler som en ægte mester!', msgWin: 'Du er på vej mod Sejlerpasset. Kan du få alle tre stjerner?', msgFail: 'Det gør ikke noget – selv verdensmestre kæntrer. Prøv igen!',
           newBest: 'Ny rekord!', xp: 'Erfaring', map: 'Kort',
         },
@@ -590,7 +595,7 @@
         hud: { wind: 'Wind', speed: 'Speed', pos: 'Course', timer: 'Time', place: 'Place', lap: 'Lap', score: 'Score', heel: 'Heel', tack: 'Tack', penalty: 'Penalty' },
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },
         results: {
-          perfect: 'Perfect sailing!', great: 'Great job!', good: 'Well sailed!', fail: 'So close!',
+          perfect: 'Perfect sailing!', great: 'Great job!', good: 'Well sailed!', fail: 'So close!', perfectLand: 'Perfect!', goodLand: 'Well done!',
           msgPerfect: 'All three stars – you sail like a true champion!', msgWin: 'You are on your way to the Sailing Passport. Can you get all three stars?', msgFail: 'No worries – even world champions capsize. Try again!',
           newBest: 'New record!', xp: 'Experience', map: 'Map',
         },

@@ -13,7 +13,7 @@
 .knots-sub { font-size: .75rem; font-weight: 800; color: var(--text-dim); letter-spacing: .04em; }
 .knots-stats { display: flex; gap: 6px; }
 .knots-stat { display: flex; flex-direction: column; line-height: 1.05; padding: 6px 12px; border-radius: 14px; background: rgba(13, 19, 33, .66); border: 1px solid var(--glass-border); }
-.knots-stat span { font-size: .6rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.knots-stat span { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
 .knots-stat b { font-size: 1.1rem; font-weight: 900; font-variant-numeric: tabular-nums; }
 .knots-stat-m b { color: #ffb3bb; }
 .knots-stat.bump { animation: knBump .45s var(--ease-pop); }

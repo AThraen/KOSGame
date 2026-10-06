@@ -53,7 +53,7 @@
       },
       intro: {
         buoys: 'Du kommer ind fra havet. Hold de røde bøjer om bagbord (venstre) og de grønne om styrbord (højre). Sejl gennem alle portene og ind til målet!',
-        channel: 'Sejl ud af Svanemøllehavnen, op gennem sejlrenden, helt rundt om den rød-hvide ansteuringsbøje og hjem igen. Husk: på vej UD er rød på styrbord!',
+        channel: 'Sejl ud af Svanemøllehavnen, op gennem sejlrenden, helt rundt om den rød-hvide ansejlingsbøje og hjem igen. Husk: på vej UD er rød på styrbord!',
         swim: 'Sejl langs Svanemøllestranden op til målet. De gule bøjer viser badezonen – der må du ikke sejle ind. Saml ringene tæt på kanten!',
         cardinal: 'Fire grunde med kardinalmærker. Sejl forbi hvert mærke på den side, det hedder – så går du fri af stenene!',
         compass: 'Ingen bøjer her – kun kompasset! Drej, til det orange mærke står øverst ved pilen, og find de skjulte waypoints.',
@@ -78,7 +78,7 @@
         ferryWait: 'Der kommer en færge! Vent hellere uden for ruten, til den er forbi.',
         sectorR: 'Rødt lys fra sektorfyret: du er for langt mod øst. Styr mod styrbord, til lyset bliver hvidt.',
         sectorG: 'Grønt lys fra sektorfyret: du er for langt mod vest. Styr mod bagbord, til lyset bliver hvidt.',
-        round: 'Sejl helt rundt om ansteuringsbøjen – og så hjem igen gennem renden. Nu er rød om bagbord!',
+        round: 'Sejl helt rundt om ansejlingsbøjen – og så hjem igen gennem renden. Nu er rød om bagbord!',
         miss: 'Du ramte ikke helt waypointet. Næste kurs er sat – prøv at holde kompasset mere stille.',
         shallow: 'Pas på – lavt vand! Ekkoloddet bipper hurtigere, jo mindre vand der er under kølen.',
         light2: 'Lyst vand er ikke altid farligt – læs tallet på søkortet. Over {d} m kan du godt sejle.',
@@ -197,7 +197,7 @@
       params: { kind: 'buoys', venue: 'harbor', windDeg: 290, windKn: 8, gust: 0.2, shift: 0.1, seed: 101, lives: { easy: 0, normal: 0, pro: 3 } } },
     { id: 'nav.channel', order: 20, icon: 'flag', minutes: 5, difficulty: 2, unlock: { after: 'nav.buoys' },
       title: { da: 'Ud og hjem gennem sejlrenden', en: 'Out and back through the channel' },
-      desc: { da: 'Fra Svanemøllehavnen ud gennem Kalkbrænderiløbet, rundt om ansteuringsbøjen og hjem. Forkert side eller grundstødning koster liv!', en: 'From Svanemøllehavnen out through Kalkbrænderiløbet, round the safe-water buoy and home. Wrong side or running aground costs a life!' },
+      desc: { da: 'Fra Svanemøllehavnen ud gennem Kalkbrænderiløbet, rundt om ansejlingsbøjen og hjem. Forkert side eller grundstødning koster liv!', en: 'From Svanemøllehavnen out through Kalkbrænderiløbet, round the safe-water buoy and home. Wrong side or running aground costs a life!' },
       params: { kind: 'channel', venue: 'harbor', windDeg: 145, windKn: 10, gust: 0.25, shift: 0.1, seed: 202 } },
     { id: 'nav.swim', order: 30, icon: 'life', minutes: 4, difficulty: 2, unlock: { after: 'nav.channel' },
       title: { da: 'Badezonen ved stranden', en: 'The swim zone' },
@@ -222,7 +222,7 @@
     { id: 'nav.ferry', order: 80, icon: 'whistle', minutes: 4, difficulty: 5, unlock: { after: 'nav.depth' },
       title: { da: 'Kryds færgeruten', en: 'Cross the ferry route' },
       desc: { da: 'Store skibe kan ikke vige. Kryds færgeruten vinkelret – over og tilbage – og hold dig klar af færgerne.', en: 'Big ships cannot turn away. Cross the ferry route at right angles – over and back – and keep clear of the ferries.' },
-      params: { kind: 'ferry', venue: 'sound', windDeg: 258, windKn: 9, gust: 0.3, shift: 0.15, seed: 808 } },
+      params: { kind: 'ferry', venue: 'sound', windDeg: 258, windKn: 9, gust: 0.3, shift: 0.15, seed: 808, lives: { easy: 0, normal: 3, pro: 2 } } },
   ];
   KOS.Activities.add(ACTS.map(a => Object.assign({ mode: 'nav', area: 'nav', boat: null }, a)));
 
@@ -450,8 +450,8 @@
       spawn = Object.assign(AXIS.at(430, 0), { heading: U.wrapPi(AXIS.hOut + Math.PI) });
       let n = 1;
       pairGate(AXIS.at(370, hw), AXIS.at(370, -hw), { n: n++ });
-      singleGate(AXIS.at(300, -hw), 'stbd', AXIS.n, hw * 2, { n: n++, light: 'Fl G 3s', label: sideLabel('stbd') });
-      singleGate(AXIS.at(230, hw), 'port', P2(-AXIS.n.x, -AXIS.n.y), hw * 2, { n: n++, light: 'Fl R 3s', label: sideLabel('port') });
+      singleGate(AXIS.at(300, 10), 'stbd', AXIS.n, hw * 2, { n: n++, aimD: 12, light: 'Fl G 3s', label: sideLabel('stbd') });
+      singleGate(AXIS.at(230, -10), 'port', P2(-AXIS.n.x, -AXIS.n.y), hw * 2, { n: n++, aimD: 12, light: 'Fl R 3s', label: sideLabel('port') });
       pairGate(AXIS.at(160, hw), AXIS.at(160, -hw), { n: n++ });
       const fa = AXIS.at(100, hw), fb = AXIS.at(100, -hw);
       addMark(fa.x, fa.y, 'finish'); addMark(fb.x, fb.y, 'finish');
@@ -1335,7 +1335,11 @@
       const px = boat.x, py = boat.y;
       controls = KOS.Input.toControls(ctrl.state, boat, controls, dt);
       if (easy) controls.autoHike = true;
-      if (autopilot) controls = Object.assign(controls, autopilot.think(env, autoPlan(), [boat]));
+      if (autopilot) {   // single-target plans: restart the helm whenever the target changes (it would otherwise stay 'finished')
+        const ak = S.stepI + ':' + S.guideI;
+        if (ak !== autoKey) { autoKey = ak; autopilot.reset(); }
+        controls = Object.assign(controls, autopilot.think(env, autoPlan(), [boat]));
+      }
       KOS.Physics.step(boat, controls, env, dt);
       KOS.Physics.collide([boat], venue, S.marks);
       if (controls.autoTrim) ctrl.setSheet(boat.sheet);
@@ -1407,7 +1411,7 @@
     function onResize() { scene.resize(); applyZoom(); layoutPanels(); S.chartT = 0; }
 
     // ---- test hooks
-    let autopilot = null;
+    let autopilot = null, autoKey = '';
     function setAutopilot(on) { autopilot = on ? KOS.AI.createHelm(boat, { skill: 0.95, seed: 5 }) : null; }
     function autoPlan() {
       const st = curStep();

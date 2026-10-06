@@ -14,7 +14,7 @@
 .capsize-steps i.done { background: var(--good); color: #05341c; }
 .capsize-stats { display: flex; gap: 6px; margin-left: auto; }
 .capsize-stat { display: flex; flex-direction: column; line-height: 1.05; padding: 6px 12px; border-radius: 14px; background: rgba(13, 19, 33, .62); border: 1px solid var(--glass-border); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
-.capsize-stat span { font-size: .6rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.capsize-stat span { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
 .capsize-stat b { font-size: 1.1rem; font-weight: 900; font-variant-numeric: tabular-nums; }
 .cp-stat-m b { color: #ffb3bb; }
 .capsize-stat.bump { animation: cpBump .45s var(--ease-pop); }

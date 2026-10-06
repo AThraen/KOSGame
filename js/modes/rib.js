@@ -55,7 +55,7 @@
         storm: 'Hent optierne hjem: {n} af {total} i havn',
         fix: 'Stop, og hold ORDN LINE inde',
       },
-      mark: { pin: 'Startmærket', gate1: 'Gate, venstre', gate2: 'Gate, højre', top: 'Krydsmærket' },
+      mark: { pin: 'Startmærket', gate1: 'Gate, venstre', gate2: 'Gate, højre', top: 'Luvmærket' },
       fx: {
         ring: 'Ring!', plane: 'Planing!', hooked: 'På slæb!', snap: 'Linen sprang!', tangle: 'Filtret!', prop: 'Linen i skruen!',
         swamp: 'Fyldt med vand!', bailed: 'Øset læns!', wake: 'Hækbølge!', bump: 'Bump!', fixed: 'Linen er klar!', righted: 'Rejst!',
@@ -113,7 +113,7 @@
         stormFail: 'Bygen kom, før alle var hjemme ({n} af {total}). Prøv igen!',
       },
       stat: { wakes: 'Hækbølger i fartzonen', mishaps: 'Uheld med linen', swamps: 'Fyldte joller', bumps: 'Bump', precision: 'Snit-afstand (m)',
-        misses: 'Forbiere', coverage: 'Inden for råbeafstand', helped: 'Hjulpet', crossings: 'Krydset kurs', saved: 'Grej reddet',
+        misses: 'Ved siden af', coverage: 'Inden for råbeafstand', helped: 'Hjulpet', crossings: 'Krydset kurs', saved: 'Grej reddet',
         lost: 'Grej tabt', home: 'I havn', left: 'Tid til overs', top: 'Topfart (knob)' },
     },
   });
@@ -254,11 +254,11 @@
   // ======================================================================== tuning per assist level
   const AST = {
     easy: { zoneKn: 6, towKn: 7, snap: 1700, pick: 9, pickKn: 5, helpR: 8, helpKn: 1.8, helpT: 1.6, lee: -0.15, markR: 12, gearR: 4.6,
-      gearKn: 11, fixT: 1.0, maxTow: 5, nTow: 3, nStorm: 4, stormT: 330, mishaps: 2, th: [1.45, 2.1], drift: 0.7, near: [6, 52], pct: 0.45, ring: 9 },
+      gearKn: 11, fixT: 1.0, maxTow: 5, nTow: 3, nStorm: 4, stormT: 400, mishaps: 2, th: [1.45, 2.1], drift: 0.7, near: [6, 52], pct: 0.45, ring: 9 },
     normal: { zoneKn: 5, towKn: 6, snap: 1150, pick: 7, pickKn: 3.8, helpR: 6.5, helpKn: 1.2, helpT: 2.4, lee: 0.15, markR: 8, gearR: 3.7,
-      gearKn: 8.5, fixT: 1.8, maxTow: 3, nTow: 4, nStorm: 5, stormT: 300, mishaps: 1, th: [1.2, 1.75], drift: 1, near: [8, 42], pct: 0.55, ring: 7 },
+      gearKn: 8.5, fixT: 1.8, maxTow: 3, nTow: 4, nStorm: 5, stormT: 470, mishaps: 1, th: [1.2, 1.75], drift: 1, near: [8, 42], pct: 0.55, ring: 7 },
     pro: { zoneKn: 4, towKn: 5.5, snap: 900, pick: 6, pickKn: 3, helpR: 5.5, helpKn: 0.9, helpT: 3, lee: 0.35, markR: 6, gearR: 3.1,
-      gearKn: 7, fixT: 2.4, maxTow: 3, nTow: 6, nStorm: 6, stormT: 280, mishaps: 0, th: [1.05, 1.5], drift: 1.2, near: [9, 36], pct: 0.65, ring: 6 },
+      gearKn: 7, fixT: 2.4, maxTow: 4, nTow: 6, nStorm: 5, stormT: 600, mishaps: 0, th: [1.05, 1.5], drift: 1.2, near: [9, 36], pct: 0.65, ring: 6 },
   };
   const NAMES = ['Sofie', 'Emil', 'Ida', 'Noah', 'Freja', 'Oscar', 'Alma', 'Karl', 'Ella', 'Malte'];
   const HULLS = ['#ffffff', '#bfe3ff', '#ffe27a', '#ff9f9f', '#a8f0c6', '#ffd0a1', '#d9c8ff'];
@@ -424,7 +424,7 @@
         const Pp = KOS.Physics.stern(lead), B = KOS.Physics.bow(o);
         const L = i ? TOW.between : TOW.first;
         const dx = Pp.x - B.x, dy = Pp.y - B.y, d = Math.hypot(dx, dy) || 1e-6;
-        o.ropeD = d; o.ropeL = L;
+        o.ropeD = d; o.ropeL = L; o.grace = Math.max(0, (o.grace || 0) - dt);
         if (d <= L) { o.tension = 0; continue; }
         const nx = dx / d, ny = dy / d;
         const vrel = (lead.vx - o.vx) * nx + (lead.vy - o.vy) * ny;
@@ -442,7 +442,7 @@
         }
         o.heading = U.angLerp(o.heading, U.heading(nx, ny), U.approach(dt, 0.6) * Math.min(1, F / 120));
         if (d > L + 3) { const ex = d - L - 3; o.x += nx * ex; o.y += ny * ex; }
-        if (F > AS.snap && S.phase === 'go') { snapAt(i); return; }
+        if (F > AS.snap && S.phase === 'go' && !o.grace) { snapAt(i); return; }
       }
     }
     function snapAt(i) {
@@ -462,7 +462,7 @@
         const st = KOS.Physics.stern(boat), b0 = KOS.Physics.bow(chain[0]);
         const dx = b0.x - st.x, dy = b0.y - st.y, d = Math.hypot(dx, dy) || 1;
         const f = U.vec(boat.heading), back = -(dx * f.x + dy * f.y) / d;
-        if (back < -0.5 && Math.abs(boat.speed) > 1.8 && d > TOW.first * 0.92) foul('tangle');
+        if (back < -0.5 && !chain[0].grace && Math.abs(boat.speed) > 1.8 && d > TOW.first * 0.92) foul('tangle');
         // reversing over your own line → rope in the prop
         S.revT = controls.throttle < -0.12 && boat.speed < -0.25 ? (S.revT || 0) + dt : 0;
         if (S.revT > 0.7) foul('prop');
@@ -503,7 +503,7 @@
         if (chain.length >= AS.maxTow && P.kind === 'storm') { tip('maxTow', { n: AS.maxTow }); continue; }
         if (S.foul) continue;
         if (kn() > AS.pickKn) { tip('pickSlow'); continue; }
-        chain.push(o); o.state = 'tow';
+        chain.push(o); o.state = 'tow'; o.grace = 4;
         sfx('rope', { vol: 0.7 }); sfx('coin', { pitch: 1 + chain.length * 0.08 });
         floatText(t('rib.fx.hooked'), '#ffd25e', o.x, o.y);
         if (fx()) { fx().stars(o.x, o.y, 10); fx().ripple(o.x, o.y, 3, 0.9); }
@@ -734,11 +734,11 @@
       const maxRud = towing ? 0.42 : 1;
       if (o) {
         const d = dist(o, boat);
-        return drive(o.x, o.y, zoneSafeKn(o.x, o.y, d < 30 ? AS.pickKn - 1.2 : towing ? AS.towKn - 1.3 : 18), { maxRud, min: 1.2, brake: towing ? 0.2 : 0.35, noReverse: towing });
+        return drive(o.x, o.y, zoneSafeKn(o.x, o.y, d < 30 ? AS.pickKn - 1.2 : towing ? AS.towKn - 0.7 : 18), { maxRud, min: 1.2, brake: towing ? 0.2 : 0.35, noReverse: towing });
       }
       const d = dist(boat, HOME);
       if (d < HOME.r - 4) return { rudder: 0, throttle: boat.speed > 0.2 ? -0.25 : 0 };
-      return drive(HOME.x, HOME.y, zoneSafeKn(HOME.x, HOME.y, AS.towKn - 1.3), { maxRud, min: 1, brake: 0.18, noReverse: true });
+      return drive(HOME.x, HOME.y, zoneSafeKn(HOME.x, HOME.y, AS.towKn - 0.7), { maxRud, min: 1, brake: 0.18, noReverse: true });
     }
 
     // ---------------------------------------------------------------- 3. rescue a capsized dinghy
@@ -824,18 +824,18 @@
         hudData(d) { d.custom = { res: saved + '<small>/' + total + '</small>' }; },
         bot() {
           const o = cur(); if (!o || o.state !== 'capsized') { S.botAction = false; return { rudder: 0, throttle: 0 }; }
-          const dw = down(), A = { x: o.x + dw.x * 18, y: o.y + dw.y * 18 }, B = { x: o.x + dw.x * 4.4, y: o.y + dw.y * 4.4 };
+          const dw = down(), A = { x: o.x + dw.x * 18, y: o.y + dw.y * 18 }, B = { x: o.x + dw.x * 4.0, y: o.y + dw.y * 4.0 };
           const d = dist(boat, o), lv = lee(o);
           S.botAction = S.canHelp;
           if (lv < 0.6 && d < 40) { // go round to leeward, well clear of the dinghy
             const side = U.vec(wind.dir + PI / 2), sx = (boat.x - o.x) * side.x + (boat.y - o.y) * side.y >= 0 ? 1 : -1;
-            const C = dist(boat, A) < 12 ? A : { x: o.x + side.x * sx * 22 + dw.x * 10, y: o.y + side.y * sx * 22 + dw.y * 10 };
+            const C = { x: o.x + side.x * sx * 14 + dw.x * 20, y: o.y + side.y * sx * 14 + dw.y * 20 };
             return drive(C.x, C.y, 5, { min: 1.5 });
           }
           if (d > 40) return drive(A.x, A.y, 16, { min: 2 });
           const db = dist(boat, B);
-          if (db < 1.2) return { rudder: U.clamp(U.angDiff(boat.heading, wind.dir) * 2, -1, 1), throttle: U.clamp(0.04 - boat.speed * 0.25, -0.15, 0.15) };
-          return drive(B.x, B.y, Math.min(AS.helpKn + 1.5, 0.6 + db * 0.3), { brake: 0.3 });
+          if (db < 0.8) return { rudder: U.clamp(U.angDiff(boat.heading, wind.dir) * 2, -1, 1), throttle: U.clamp(0.04 - boat.speed * 0.25, -0.15, 0.15) };
+          return drive(B.x, B.y, Math.min(AS.helpKn + 1.5, 0.5 + db * 0.4), { brake: 0.5, min: 0.5 });
         },
         draw(ctx, sc) {
           const o = cur(); if (!o || (o.state !== 'capsized' && o.state !== 'righting')) return;
@@ -918,8 +918,8 @@
           const tg = targets[i]; S.botAction = false;
           if (!tg || falling) return { rudder: 0, throttle: U.clamp(-boat.speed * 0.2, -0.2, 0.2) };
           const st = KOS.Physics.stern(boat), d = dist(st, tg);
-          if (d < 1.6 && Math.abs(boat.speed) < 0.3) { S.botAction = true; drop(); return { rudder: 0, throttle: 0 }; }
-          if (d < 6) return drive(tg.x, tg.y, 1.2 + d * 0.3, { brake: 0.25 });
+          if (d < 1.6 && Math.abs(boat.speed) < 0.5) { S.botAction = true; drop(); return { rudder: 0, throttle: 0 }; }
+          if (d < 9) { const f = U.vec(boat.heading), hl = boat.cls.length / 2; return drive(tg.x + f.x * hl, tg.y + f.y * hl, 1.4 + d * 0.3, { brake: 0.3, min: 0.5 }); }
           return drive(tg.x, tg.y, 22, { brake: 0.22, min: 0.8 });
         },
         draw(ctx, sc) {
@@ -1106,7 +1106,7 @@
     // ---------------------------------------------------------------- 7. storm call: multi-tow before the squall
     function mStorm() {
       const n = AS.nStorm;
-      const spots = [[-200, -250], [-310, -330], [-160, -420], [-370, -230], [-260, -470], [-110, -330]];
+      const spots = [[-170, -170], [-250, -215], [-130, -250], [-290, -150], [-200, -300], [-90, -200]];
       for (let k = 0; k < n; k++) makeOpti(spots[k][0], spots[k][1], rand() * TAU, k);
       const T = AS.stormT;
       let done = false, w0 = P.windKn, warned = 0;

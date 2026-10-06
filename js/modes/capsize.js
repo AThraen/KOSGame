@@ -87,13 +87,13 @@
     '29er': { phases: ['capsizeTurtle', 'climbHull', 'unturtle', 'climb', 'crew', 'lean', 'scramble', 'drain'], hw: 40, top: -12, bottom: 8, mast: 166, board: 62, sailW: 34, wings: true, power: 128, crew: 2, light: true },
   };
   KOS.Activities.add([
-    { id: 'capsize.opti', boat: 'opti', order: 40, difficulty: 1, unlock: null,
+    { id: 'capsize.opti', boat: 'opti', order: 20.5, difficulty: 1, unlock: null,
       title: { da: 'Kæntring i Optimist', en: 'Capsize in an Optimist' }, desc: { da: 'Rejs Opti’en, og øs den tom.', en: 'Right the Opti and bail it dry.' } },
-    { id: 'capsize.feva', boat: 'feva', order: 41, difficulty: 2, unlock: { after: 'capsize.opti' },
+    { id: 'capsize.feva', boat: 'feva', order: 24.5, difficulty: 2, unlock: { after: 'capsize.opti', stars: 15 },
       title: { da: 'Kæntring i Feva', en: 'Capsize in a Feva' }, desc: { da: 'To om bord: øs gasten op med båden.', en: 'Two aboard: scoop your crew up with the boat.' } },
-    { id: 'capsize.ilca', boat: 'ilca', order: 42, difficulty: 3, unlock: { after: 'capsize.feva' },
+    { id: 'capsize.ilca', boat: 'ilca', order: 28.5, difficulty: 3, unlock: { after: 'capsize.feva', stars: 40 },
       title: { da: 'Kæntring i ILCA', en: 'Capsize in an ILCA' }, desc: { da: 'Slip skødet, og rejs den alene.', en: 'Free the sheet and right it on your own.' } },
-    { id: 'capsize.29er', boat: '29er', order: 43, difficulty: 4, unlock: { after: 'capsize.ilca' },
+    { id: 'capsize.29er', boat: '29er', order: 30.5, difficulty: 4, unlock: { after: 'capsize.ilca', stars: 55 },
       title: { da: '29er på hovedet (turtle)', en: '29er upside down (turtle)' }, desc: { da: 'Båden er vendt helt rundt. Få den op igen!', en: 'The boat has turned right over. Get it back up!' } },
   ].map(a => Object.assign({ mode: 'capsize', area: 'club', icon: 'life', minutes: 2, params: { boat: a.boat } }, a)));
 

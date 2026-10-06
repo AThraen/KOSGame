@@ -258,7 +258,7 @@
     if (tb.series) h += '<div class="race-rt-series">' + KOS.UI.iconSvg('medal') + esc(tb.series) + '</div>';
     wrap.innerHTML = h;
     const stats = card.querySelector('.results-stats');
-    if (stats && stats.nextSibling) card.insertBefore(wrap, stats.nextSibling); else card.appendChild(wrap);
+    if (stats) card.insertBefore(wrap, stats); else card.appendChild(wrap);
   }
   if (KOS.Events && KOS.Events.on) KOS.Events.on('screen', injectTable);
 
@@ -315,7 +315,7 @@
     const RT = (KOS.SailMode && KOS.SailMode.routeTime) || ((c, tws, w, pts) => { let s = 0; for (let i = 1; i < pts.length; i++) s += U.dist(pts[i - 1], pts[i]) / 1.5; return s; });
     const t1 = RT(cls, P.windKn, wd, coursePts(100, { x: 0, y: 0 })), t2 = RT(cls, P.windKn, wd, coursePts(200, { x: 0, y: 0 }));
     const slope = (t2 - t1) / 100, icpt = t1 - slope * 100;
-    const B = U.clamp((P.targetS * 0.92 - icpt) / Math.max(0.05, slope), Math.max(65, 20 * L), 480);
+    const B = U.clamp((P.targetS * 0.8 - icpt) / Math.max(0.05, slope), Math.max(65, 20 * L), 480);
 
     function okSpot(x, y, margin) {
       if (KOS.World.isSolid(venue, x, y)) return false;
@@ -391,7 +391,7 @@
 
     // ---------------------------------------------------------------- boats
     const crew2 = cls.crew >= 2;
-    const names = NAMES.slice();
+    const names = NAMES.filter(n => n.toLowerCase() !== String(profile.name || '').trim().toLowerCase());
     for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const x = names[i]; names[i] = names[j]; names[j] = x; }
     const skillR = assist === 'easy' ? [0.22, 0.62] : assist === 'pro' ? [0.6, 0.95] : [0.4, 0.82];
     const lvl = U.clamp((P.race - 1) / Math.max(1, P.races - 1), 0, 1) * 0.08;
@@ -478,7 +478,7 @@
     const card = document.createElement('div');
     card.className = 'race-card';
     host.layer.appendChild(card);
-    let cardTimer = null;
+    let cardTimer = null, coachH = null;
     let board = null;
 
     const handlers = {
@@ -501,9 +501,10 @@
       if (S.tips[key] && !force) return;
       if (env.t - S.tipT < 5 && !force) return;
       S.tips[key] = true; S.tipT = env.t;
-      KOS.UI.coach(t('race.tip.' + key, vars), { ms: 5600 });
+      coachH = KOS.UI.coach(t('race.tip.' + key, vars), { ms: 5600 });
     }
-    function say(text, ms, mood) { S.tipT = env.t; KOS.UI.coach(text, { ms: ms || 5600, mood }); }
+    function say(text, ms, mood) { S.tipT = env.t; coachH = KOS.UI.coach(text, { ms: ms || 5600, mood }); }
+    function hideCoach() { try { if (coachH && coachH.close) coachH.close(true); if (coachIntro && coachIntro.close) coachIntro.close(true); } catch (e) { /* optional */ } }
     function showCard(kind, title, sub) {
       card.className = 'race-card show ' + kind;
       card.innerHTML = '<div class="rc-ico">' + KOS.UI.iconSvg(kind === 'good' ? 'check' : kind === 'warn' ? 'info' : 'penalty') + '</div><div class="rc-txt"><b>' + KOS.UI.esc(title) + '</b>' +
@@ -627,6 +628,7 @@
     function playerFinished(place) {
       S.phase = 'finish'; S.waitT = 0;
       host.layer.classList.add('race-done');
+      hideCoach();
       sfx('hornLong');
       if (place <= 3) { sfx('cheer', { vol: 0.6 }); }
       if (place === 1) { try { KOS.UI.confetti(); } catch (e) { /* optional */ } }
@@ -643,8 +645,9 @@
         const b = f.offender;
         if (!b || b.rc.finT != null) return;
         const key = b.id + '|m|' + (f.mark && f.mark.id);
-        if (S.cool[key] > now) return;
-        S.cool[key] = now + 25; // one penalty per mark visit
+        const wasCool = S.cool[key] > now;
+        S.cool[key] = now + (wasCool ? 12 : 25); // one penalty per mark visit: staying in contact does not charge again
+        if (wasCool) return;
         if (f.mark && f.mark.id === 'committee') return;
         penalize(b, 1, 'R31', f);
         return;
@@ -791,7 +794,22 @@
         if (b.rc.pen) c = penControls(b, c);
         KOS.Physics.step(b, c, env, dt);
       }
-      KOS.Physics.collide(live, venue, collMarks);
+      const hits = KOS.Physics.collide(live, venue, collMarks) || [];
+      // an AI boat pinned against a mark / the committee boat with no speed (no steerage) pushes off by hand,
+      // like a real sailor, instead of grinding on it for half a minute
+      for (const h of hits) {
+        if (h.type !== 'mark') continue;
+        const b = h.a && h.a.helm ? h.a : h.b && h.b.helm ? h.b : null;
+        const m = b === h.a ? h.b : h.a;
+        if (!b || !m || b.hidden || b.speed > 0.35) continue;
+        b.rc.stuckT = (b.rc.stuckT || 0) + dt;
+        if (b.rc.stuckT < 0.8) continue;
+        const away = U.bearing(m, b);
+        const e = U.angDiff(b.heading, away);
+        b.heading = U.wrapPi(b.heading + Math.sign(e) * Math.min(Math.abs(e), 1.1 * dt));
+        b.x += Math.sin(away) * 0.5 * dt; b.y -= Math.cos(away) * 0.5 * dt;
+      }
+      for (const b of ai) if (b.rc.stuckT && b.speed > 0.6) b.rc.stuckT = 0;
       boats.forEach((b, i) => { track(b, pre[i].x, pre[i].y); if (b.rc.pen) penStep(b, dt); });
       const fouls = monitor.update(live, wind, collMarks.filter(m => m.id !== 'committee'), dt) || [];
       for (const f of fouls) onFoul(f);
@@ -913,9 +931,17 @@
         if (S.flags.cls) flags.push('<span class="rp-flag up">' + flagSvg('cls', clsId) + '<i>' + esc(t('race.flag.cls')) + '</i></span>');
         if (S.flags.P) flags.push('<span class="rp-flag up">' + flagSvg('P') + '<i>' + esc(t('race.flag.P')) + '</i></span>');
         if (!flags.length) flags.push('<span class="rp-flag off">' + flagSvg('cls', clsId) + '<i>' + esc(t('race.flag.cls')) + '</i></span>');
-        html = '<div class="rp-head"><span>' + esc(t('race.hud.toStart')) + '</span><b class="rp-clock' + (T <= 10 ? ' hot' : '') + '">' + mmss(T) + '</b></div>' +
-          '<div class="rp-flags">' + flags.join('') + '</div>' +
-          '<div class="rp-steps">' + steps.map(s => '<span class="' + (T <= s[1] ? 'on' : '') + (s[0] === 'go' ? ' go' : '') + '">' + esc(t('race.seq.' + s[0])) + '</span>').join('') + '</div>';
+        // built once per flag change; clock and steps update in place so the flags don't re-animate every second
+        const key = 'pre|' + S.flags.cls + '|' + S.flags.P;
+        if (panel.dataset.pk !== key) {
+          panel.dataset.pk = key; paintPanel.last = null;
+          panel.innerHTML = '<div class="rp-head"><span>' + esc(t('race.hud.toStart')) + '</span><b class="rp-clock"></b></div>' +
+            '<div class="rp-flags">' + flags.join('') + '</div><div class="rp-steps">' + steps.map(s => '<span class="' + (s[0] === 'go' ? 'go' : '') + '" data-s="' + s[1] + '">' + esc(t('race.seq.' + s[0])) + '</span>').join('') + '</div>';
+        }
+        const ck = panel.querySelector('.rp-clock');
+        if (ck) { const txt = mmss(T); if (ck.textContent !== txt) ck.textContent = txt; ck.classList.toggle('hot', T <= 10); }
+        panel.querySelectorAll('.rp-steps span').forEach(el => el.classList.toggle('on', T <= +el.dataset.s));
+        return;
       } else {
         const lk = legKind(me.rc.leg);
         const legN = Math.min(me.rc.leg, seq.length - 1), legT = seq.length - 1;
@@ -954,7 +980,7 @@
           '<div class="rp-head"><span>' + esc(t('race.hud.leg')) + ' ' + (me.rc.finT != null ? '' : legN + '/' + legT) + '</span><b class="rp-leg ' + lk + '">' + esc(t('race.leg.' + (me.rc.finT != null ? 'done' : lk))) + '</b></div>' +
           lapTxt + shiftTxt + pen + '<div class="rp-list">' + rows.join('') + '</div>';
       }
-      if (html !== paintPanel.last) { panel.innerHTML = html; paintPanel.last = html; }
+      if (html !== paintPanel.last) { panel.innerHTML = html; paintPanel.last = html; delete panel.dataset.pk; }
     }
 
     // ---------------------------------------------------------------- finish board (live, while the rest finish)
@@ -1020,12 +1046,12 @@
         seriesPts = ids.reduce((a, k) => a + sv[k], 0);
         series = t('race.res.series', { pts: seriesPts, n: ids.length, of: P.races });
       } catch (e) { /* storage optional */ }
-      const stats = { place: myPlace + '/' + n, 'race.stat.points': myPlace };
+      const stats = { place: myPlace + '/' + n };
       if (seriesPts != null) stats['race.stat.series'] = seriesPts;
       stats['race.stat.start'] = t('race.startQ.' + (S.startQ || 'late'));
       if (S.penServed || owed) stats.penalties = S.penServed + (owed ? ' (+' + owed * 20 + ' s)' : '');
       if (S.fouls) stats['race.stat.fouls'] = S.fouls;
-      stats.tacks = me.tacks; stats.gybes = me.gybes;
+      stats.tacks = me.tacks;
       stats['race.stat.top'] = +S.topKn.toFixed(1);
       S.result = {
         stars, success: true, timeMs: Math.round(timeS * 1000),
@@ -1120,7 +1146,7 @@
       scene.destroy();
       try { KOS.Audio.ambient(null); KOS.Audio.engine(null); } catch (e) { /* optional */ }
     }
-    function pause() { try { KOS.Audio.ambient(null); } catch (e) { /* optional */ } }
+    function pause() { hideCoach(); try { KOS.Audio.ambient(null); } catch (e) { /* optional */ } }
     function resume() { ambient(); }
     function onResize() { scene.resize(); if (S.introT < 3.2) fitCourse(); else applyZoom(); }
 

@@ -153,3 +153,4 @@
 @media (prefers-reduced-motion: reduce) {
   .nb-col, .nbm-boat, .nbm-arrow, .nc4.rock svg, .nav-dep.bad { animation: none; }
 }
+

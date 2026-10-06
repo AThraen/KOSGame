@@ -322,8 +322,11 @@
       const subFor = leg => { const i = helm._route.findIndex(r => r.leg >= leg); return i < 0 ? helm._route.length : i; };
       const sig = routeSig(plan);
       if (sig !== helm._sig) {
+        const retarget = helm._sig != null && !plan.course && typeof plan.leg !== 'number';
         helm._sig = sig;
         helm._route = buildRoute(plan);
+        // a new single {target}: start over (otherwise leg stays past the end and the helm stays 'finished')
+        if (retarget) { helm.leg = 0; helm.finished = false; helm.finishT = null; if (helm.state === 'finished') helm.state = 'sail'; }
         helm.sub = subFor(helm.leg);
       }
       if (typeof plan.leg === 'number' && plan.leg !== helm._planLeg) {
@@ -424,6 +427,22 @@
         H = U.wrapPi(wd - sNow * (b.cls.noGo + R(30)));
         helm.wantTack = sNow > 0 ? 'starboard' : 'port';
         helm.tackCd = Math.max(helm.tackCd, 4);
+      }
+
+      // pinned against the mark we are rounding (R31 contact): sail clear on a sailable heading for a moment,
+      // instead of steering through the mark towards the next rounding waypoint
+      helm.markT = Math.max(0, (helm.markT || 0) - dt);
+      if (!prestart && !b.cls.isMotor && helm._route) {
+        let wm = null, wd2 = Infinity;
+        for (const r of helm._route) if (r.mark && (r.leg === helm.leg || r.leg === helm.leg - 1)) { const d = U.dist(b, r.mark); if (d < wd2) { wd2 = d; wm = r.mark; } }
+        const clr = wm ? (wm.r || 1.2) + (b.cls.beam || 1.4) * 0.5 + 0.7 : 0; // ≈ touching (capsule vs mark)
+        if (wm && wd2 < clr) { helm.markT = 1.6; helm._markAway = U.bearing(wm, b); }
+        if (helm.markT > 0 && helm._markAway !== undefined) {
+          let Hx = helm._markAway;
+          const tw = U.wrapPi(wd - Hx);
+          if (Math.abs(tw) < b.cls.noGo + R(12)) Hx = U.wrapPi(wd - (tw >= 0 ? 1 : -1) * (b.cls.noGo + R(15)));
+          H = Hx; mode = 'mark';
+        }
       }
 
       helm.state = mode;

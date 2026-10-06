@@ -284,9 +284,9 @@
       intro: {
         title: 'Klar til quiz?', sub: '{n} spørgsmål · {sec} sek. pr. spørgsmål', subFree: '{n} spørgsmål · tag den tid, du har brug for',
         start: 'Start quizzen', keys: 'Tastatur: 1-4 eller A-D for at svare · Enter for næste',
-        coach: 'Svar hurtigt for bonuspoint – og jo flere rigtige i træk, jo større streak-bonus!',
+        coach: 'Svar hurtigt for bonuspoint – og jo flere rigtige i træk, jo større bonus!',
       },
-      hud: { q: 'Spørgsmål', score: 'Point', streak: 'Streak' },
+      hud: { q: 'Spørgsmål', score: 'Point', streak: 'I træk' },
       lifeline: 'Spørg Søs', lifelineLeft: '{n} tilbage',
       next: 'Næste', finish: 'Se resultat',
       right: { r0: 'Rigtigt!', r1: 'Sådan!', r2: 'Flot!', r3: 'Korrekt!', r4: 'Yes!' },
@@ -300,8 +300,8 @@
         wrong2: 'Bare rolig – læs forklaringen, så husker du den næste gang.',
         lifeline: 'Søs fjerner to forkerte svar for dig.',
       },
-      res: { msg: '{n} af {of} rigtige · bedste streak {streak}' },
-      stat: { correct: 'Rigtige svar', streak: 'Bedste streak', avg: 'Gns. svartid' },
+      res: { msg: '{n} af {of} rigtige · flest i træk: {streak}' },
+      stat: { correct: 'Rigtige svar', streak: 'Flest i træk', avg: 'Gns. svartid' },
     },
   });
   KOS.I18n.add('en', {
@@ -334,19 +334,19 @@
 
   // ======================================================================== 3. activities
   KOS.Activities.add([
-    { id: 'quiz.basics', mode: 'quiz', area: 'club', order: 60, boat: null, icon: 'quiz', minutes: 4, difficulty: 1, unlock: null,
+    { id: 'quiz.basics', mode: 'quiz', area: 'club', order: 21.5, boat: null, icon: 'quiz', minutes: 4, difficulty: 1, unlock: null,
       title: { da: 'Quiz: Begynder', en: 'Quiz: Beginner' },
       desc: { da: 'Bådens dele, knob, sikkerhed og havnen. 10 spørgsmål.', en: 'Parts of the boat, knots, safety and the harbour. 10 questions.' },
       params: { cats: ['parts', 'knots', 'safety', 'club'], n: 10, seed: 11 } },
-    { id: 'quiz.rules', mode: 'quiz', area: 'club', order: 61, boat: null, icon: 'rules', minutes: 4, difficulty: 2, unlock: { after: 'quiz.basics' },
+    { id: 'quiz.rules', mode: 'quiz', area: 'club', order: 22.5, boat: null, icon: 'rules', minutes: 4, difficulty: 2, unlock: { after: 'quiz.basics' },
       title: { da: 'Quiz: Vigeregler & afmærkning', en: 'Quiz: Rules & buoyage' },
       desc: { da: 'Hvem skal vige? Og hvilken side skal bøjen være på?', en: 'Who must give way? And which side should the buoy be on?' },
       params: { cats: ['rules', 'nav'], n: 10, seed: 23 } },
-    { id: 'quiz.weather', mode: 'quiz', area: 'club', order: 62, boat: null, icon: 'wind', minutes: 4, difficulty: 2, unlock: { after: 'quiz.basics' },
+    { id: 'quiz.weather', mode: 'quiz', area: 'club', order: 23.5, boat: null, icon: 'wind', minutes: 4, difficulty: 2, unlock: { after: 'quiz.basics' },
       title: { da: 'Quiz: Vejr, vind & sikkerhed', en: 'Quiz: Weather, wind & safety' },
       desc: { da: 'Pust, søbrise, torden – og hvad du gør, hvis du kæntrer.', en: 'Gusts, sea breeze, thunder – and what to do when you capsize.' },
       params: { cats: ['weather', 'safety'], n: 10, seed: 37 } },
-    { id: 'quiz.master', mode: 'quiz', area: 'club', order: 63, boat: null, icon: 'trophy', minutes: 6, difficulty: 4, unlock: { stars: 12 },
+    { id: 'quiz.master', mode: 'quiz', area: 'club', order: 26.5, boat: null, icon: 'trophy', minutes: 6, difficulty: 4, unlock: { stars: 12 },
       title: { da: 'Mesterquizzen', en: 'The Master Quiz' },
       desc: { da: '15 spørgsmål fra alle emner – hurtigere ur!', en: '15 questions from every topic – faster clock!' },
       params: { cats: ['rules', 'parts', 'knots', 'weather', 'safety', 'nav', 'club'], n: 15, seed: 51, fast: true } },

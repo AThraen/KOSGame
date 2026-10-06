@@ -42,7 +42,7 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 .hud-item { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 12px; background: rgba(255,255,255,.05); }
 .hud-ico { color: var(--primary); display: grid; } .hud-ico .ico { width: 22px; height: 22px; }
 .hud-txt { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; }
-.hud-label { font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); white-space: nowrap; }
+.hud-label { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); white-space: nowrap; }
 .hud-val { font-size: 1.15rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hud-val b { font-weight: 900; }
 .hud-val small { font-size: .7em; color: var(--text-dim); font-weight: 700; }
@@ -61,7 +61,7 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 @media (max-width: 520px) {
   .hud { top: calc(var(--safe-t) + 70px); max-width: calc(100% - 20px); gap: 4px; padding: 4px; }
   .hud-item { padding: 3px 7px 3px 4px; }
-  .hud-label { font-size: .56rem; }
+  .hud-label { font-size: .64rem; }
   .hud-val { font-size: 1rem; }
   .hud-ico .ico { width: 18px; height: 18px; }
   .hud-wind-dial { width: 32px; height: 32px; }
@@ -98,6 +98,19 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 .coach-tap { font-size: .72rem; color: #6a7388; margin-top: 4px; font-weight: 700; }
 body:not([data-screen="play"]) .coach-bottom { bottom: calc(var(--safe-b) + 24px); }
 body[data-screen="hub"] .coach-bottom { bottom: calc(var(--safe-b) + 112px); }
+/* during play a coach bubble never eats touches meant for the tiller pads / sheet slider / HIKE button (it closes on its
+   own); only "tap to continue" bubbles take taps. On sea modes it also sits under the touch controls (z 30). */
+body[data-screen="play"] .coach:not(.coach-tapclose) { pointer-events: none; }
+body.mode-sea[data-screen="play"] .coach:not(.coach-tapclose) { z-index: 25; }
+/* portrait phones (sea modes): left-aligned, clear of the sheet slider column on the right, above the HIKE button */
+@media (max-width: 600px) and (orientation: portrait) {
+  body.mode-sea[data-screen="play"] .coach-bottom { left: 10px; width: calc(100vw - 20px - 100px); bottom: calc(var(--safe-b) + 226px); transform: translate(0, 20px) scale(.95); }
+  body.mode-sea[data-screen="play"] .coach-bottom.in { transform: none; }
+  body.mode-sea[data-screen="play"] .coach-bottom.out { transform: translate(0, 12px) scale(.96); }
+  body.mode-sea[data-screen="play"] .coach-avatar { width: 52px; height: 52px; }
+  body.mode-sea[data-screen="play"] .coach-bubble { margin-bottom: 6px; padding: 8px 12px 9px; }
+  body.mode-sea[data-screen="play"] .coach-text { font-size: .92rem; }
+}
 /* landscape phones during play: the boat sits mid-screen, so the coach goes up under the HUD, compact */
 @media (orientation: landscape) and (max-height: 520px) {
   body[data-screen="play"] .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 64px); width: min(calc(100vw - 420px), 440px); min-width: 300px; }
@@ -152,6 +165,23 @@ body[data-screen="hub"] .coach-bottom { bottom: calc(var(--safe-b) + 112px); }
   .rs-row { padding: 6px 10px; }
   .rstar svg { width: 50px; height: 50px; } .rstar:nth-child(2) svg { width: 66px; height: 66px; } .rstar:nth-child(2) { margin-bottom: 8px; }
 }
+
+/* new badges ("mærker") earned by this result */
+.results-badges { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 210, 94, .1); border: 1px solid rgba(255, 210, 94, .28); }
+.rb-label { width: 100%; font-size: .74rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--star); }
+.rb-medal { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 2px 10px 2px 2px; border: 0; border-radius: 999px; background: rgba(255,255,255,.06); color: #fff; font: inherit; cursor: pointer; opacity: .25; transform: scale(.6); transition: transform .45s var(--ease-pop), opacity .3s; }
+.rb-medal.in { opacity: 1; transform: none; }
+.rb-medal .badge-medal { width: 40px; height: 40px; border-width: 2px; background: radial-gradient(circle at 35% 30%, #fff1c0, var(--star) 45%, #e39a1c); border: 2px solid #fff3d0; color: #6b3a00; box-shadow: 0 3px 0 #b06a10; }
+.rb-medal.in .badge-medal { animation: rbSpin .9s var(--ease-pop) both; }
+.rb-medal .badge-medal .ico { width: 20px; height: 20px; }
+.rb-medal b { font-size: .86rem; }
+@keyframes rbSpin { 0% { transform: rotateY(90deg) scale(.4); } 60% { transform: rotateY(-20deg) scale(1.15); } 100% { transform: none; } }
+@media (orientation: landscape) and (max-height: 540px) {
+  .results-badges { grid-column: 1; grid-row: 4; padding: 4px 8px; align-self: start; }
+  .results-card:has(.results-badges) .results-badge { display: none; }
+  .rb-label { display: none; }
+}
+.reduce-motion .rb-medal, .reduce-motion .rb-medal .badge-medal { transition: none; animation: none; opacity: 1; transform: none; }
 
 /* ------------------------------------------------------------------ confetti */
 .confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 80; pointer-events: none; }

@@ -77,8 +77,8 @@
       rname: { narrow: 'Hold dig ude af vejen i sejlrenden', draught: 'Store skibe kan ikke vige', R14: 'Undgå kollision' },
       reason: {
         R10: {
-          me: 'Styrbord har ret! Du sejler for bagbord halse – vinden kommer ind over din venstre side. Derfor skal du holde af vejen for {name}.',
-          other: 'Styrbord har ret! Du sejler for styrbord halse – vinden kommer ind over din højre side. {name} er på bagbord halse og skal holde af vejen for dig.',
+          me: 'Styrbord har ret! Du sejler for bagbords halse – vinden kommer ind over din venstre side. Derfor skal du holde af vejen for {name}.',
+          other: 'Styrbord har ret! Du sejler for styrbords halse – vinden kommer ind over din højre side. {name} er på bagbords halse og skal holde af vejen for dig.',
         },
         R11: {
           me: 'Luv viger for læ! I er på samme halse, og du ligger tættest på vinden (i luv). Så skal du holde dig fri af {name}, der ligger i læ.',
@@ -89,8 +89,8 @@
           other: 'Den bagerste viger! {name} kommer bagfra og skal holde sig fri af dig.',
         },
         R13: {
-          me: 'Den der slår, viger! Du er midt i en vending og skal holde af vejen, til du er på kryds igen.',
-          other: 'Den der slår, viger! {name} er midt i en vending og skal holde af vejen for dig, til vendingen er helt færdig.',
+          me: 'Den der vender, viger! Du er midt i en vending og skal holde af vejen, til du er på kryds igen.',
+          other: 'Den der vender, viger! {name} er midt i en vending og skal holde af vejen for dig, til vendingen er helt færdig.',
         },
         R18: {
           me: 'Mærkeplads! {name} ligger inderst ved mærket, inden for zonen på 3 bådlængder. Du ligger udenpå og skal give plads, så {name} kan runde.',
@@ -114,14 +114,14 @@
         draught: { me: 'Fragtskibet stikker dybt og skal bruge mere end en kilometer for at stoppe. Det kan ikke vige for dig! Små både holder sig langt væk fra store skibe – også selvom de sejler.' },
       },
       sc: {
-        r10a: { title: 'Mødes på kryds', ask: 'Du krydser op mod vinden. Freja kommer fra højre – I er på vej mod samme punkt.', tip: 'Fald af (drej væk fra vinden), og gå agten om Freja. Luf op igen bagefter.', why: 'Husk: Styrbord er højre. Kommer vinden ind over din højre side, er du på styrbord halse.' },
+        r10a: { title: 'Mødes på kryds', ask: 'Du krydser op mod vinden. Freja kommer fra højre – I er på vej mod samme punkt.', tip: 'Fald af (drej væk fra vinden), og gå agten om Freja. Luf op igen bagefter.', why: 'Husk: Styrbord er højre. Kommer vinden ind over din højre side, er du på styrbords halse.' },
         r10b: { title: 'Hvem kommer der?', ask: 'Du krydser op mod vinden. Oskar kommer fra venstre på kollisionskurs.', tip: 'Du har ret. Hold din kurs – Oskar skal gå agten om dig.' },
-        r10c: { title: 'Med vinden agterind', ask: 'Vinden kommer agterfra. Alma kommer fra venstre, og jeres kurser mødes.', tip: 'Du er på bagbord halse. Fald lidt mere af, og lad Alma komme forbi foran dig.', why: 'Bagbord-styrbord-reglen gælder på alle kurser – også på læns. Pas på: Med vinden agterind kommer styrbord-båden fra venstre!' },
+        r10c: { title: 'Med vinden agterind', ask: 'Vinden kommer agterfra. Alma kommer fra venstre, og jeres kurser mødes.', tip: 'Du er på bagbords halse. Fald lidt mere af, og lad Alma komme forbi foran dig.', why: 'Bagbord-styrbord-reglen gælder på alle kurser – også på læns. Pas på: Her kommer styrbord-båden fra venstre – tjek altid vindretningen.' },
         r11a: { title: 'Side om side', ask: 'Du og Noah sejler side om side på samme halse. Noah ligger i læ af dig og begynder at luffe op.', tip: 'Luf op sammen med Noah, og hold god afstand.', why: 'Luv er siden, vinden kommer fra. Læ er siden i skyggen af vinden.' },
         r11b: { title: 'En båd i luv', ask: 'Du og Viggo sejler side om side på samme halse. Viggo ligger i luv og kommer tættere på.', tip: 'Hold din kurs. Viggo skal holde sig fri af dig.' },
         r12a: { title: 'Hurtigere bagfra', ask: 'Du sejler hurtigere end Ida, som sejler lige foran dig. Snart indhenter du hende.', tip: 'Styr udenom Ida i god afstand – den bagerste skal vige.' },
         r13a: { title: 'Pludselig vending', ask: 'Ida er midt i en vending lige foran dig.', tip: 'Hold din kurs. Ida skal holde af vejen, mens hun vender.', why: 'En båd vender fra den passerer vindøjet, til den ligger på kryds igen.' },
-        r14a: { title: 'Kollisionskurs', ask: 'Du sejler for styrbord halse. Mads kommer fra venstre for bagbord halse.', tip: 'Du har ret … men hold godt øje med Mads!' },
+        r14a: { title: 'Kollisionskurs', ask: 'Du sejler for styrbords halse. Mads kommer fra venstre for bagbords halse.', tip: 'Du har ret … men hold godt øje med Mads!' },
         r18a: { title: 'Mærket – udenpå', ask: 'I skal rundt om mærket, som holdes om bagbord. Sofie ligger inderst – tættest på mærket.', tip: 'Giv Sofie plads ved mærket. Rund lidt bredere end hende.', why: 'Zonen er en usynlig cirkel på 3 bådlængder rundt om mærket.' },
         r18b: { title: 'Mærket – indenom', ask: 'I skal rundt om mærket. Du ligger inderst, og Emil ligger udenpå.', tip: 'Du får plads. Rund tæt om mærket – men rør det ikke!' },
         ps1: { title: 'Motorbåd på vej', ask: 'Du sejler. En motorbåd kommer fra venstre – lige mod dig.', tip: 'Hold kurs og fart. Motorbåden skal vige for dig.' },
@@ -131,7 +131,7 @@
         pp2: { title: 'Fra højre', ask: 'Du kører RIB. En motorbåd kommer fra din styrbord side (højre).', tip: 'Drej til styrbord, og gå agten om motorbåden. Aldrig foran!' },
         sh1: { title: 'Færgen kommer', ask: 'Du sejler midt i sejlrenden. Færgen kommer bagfra – og den er stor!', tip: 'Sejl til side mod højre – hurtigt! – ud mod styrbord side af renden.' },
         sh2: { title: 'Kæmpe skib', ask: 'Et kæmpe fragtskib kommer fra højre. Jeres kurser krydser hinanden.', tip: 'Drej til styrbord mod skibets hæk, og hold god afstand. Kryds bag om det.' },
-        ex1: { title: 'Travlt i farvandet', ask: 'Der er travlt ved Kalkbrænderiløbet! Du krydser op mod vinden, og Lukas kommer fra højre.', tip: 'Du er på bagbord halse – fald af, og gå agten om Lukas.' },
+        ex1: { title: 'Travlt i farvandet', ask: 'Der er travlt ved Kalkbrænderiløbet! Du krydser op mod vinden, og Lukas kommer fra højre.', tip: 'Du er på bagbords halse – fald af, og gå agten om Lukas.' },
         ex2: { title: 'Ud gennem renden', ask: 'Du kører RIB ud gennem sejlrenden. Færgen kommer imod dig.', tip: 'Hold til styrbord side af renden (højre), og giv færgen masser af plads.' },
         ex3: { title: 'Trænerbåden', ask: 'Trænerbåden kommer fra højre, mens du sejler.', tip: 'Hold kurs og fart – trænerbåden viger.' },
       },
@@ -348,13 +348,13 @@
   const ACTS = [
     { id: 'rowschool.r10', order: 10, icon: 'rules', minutes: 4, difficulty: 1, unlock: null, scen: ['r10a', 'r10b', 'r10c'],
       title: { da: 'Bagbord og styrbord', en: 'Port and starboard' },
-      desc: { da: 'Den vigtigste regel på vandet: bagbord halse viger for styrbord halse.', en: 'The most important rule on the water: port tack gives way to starboard tack.' } },
+      desc: { da: 'Den vigtigste regel på vandet: bagbords halse viger for styrbords halse.', en: 'The most important rule on the water: port tack gives way to starboard tack.' } },
     { id: 'rowschool.r11', order: 20, icon: 'rules', minutes: 4, difficulty: 2, unlock: { after: 'rowschool.r10' }, scen: ['r11a', 'r11b', 'r12a'],
       title: { da: 'Luv, læ og agter', en: 'Windward, leeward and astern' },
       desc: { da: 'Samme halse: luv viger for læ, og den bagerste viger.', en: 'Same tack: windward keeps clear, and the boat behind keeps clear.' } },
     { id: 'rowschool.r13', order: 30, icon: 'rules', minutes: 3, difficulty: 2, unlock: { after: 'rowschool.r11' }, scen: ['r13a', 'r14a'],
       title: { da: 'Vendinger og kollisioner', en: 'Tacks and collisions' },
-      desc: { da: 'Den der slår, viger – og ingen må nogensinde bare sejle ind i en anden.', en: 'A tacking boat keeps clear – and nobody may ever just sail into another boat.' } },
+      desc: { da: 'Den der vender, viger – og ingen må nogensinde bare sejle ind i en anden.', en: 'A tacking boat keeps clear – and nobody may ever just sail into another boat.' } },
     { id: 'rowschool.r18', order: 40, icon: 'buoy', minutes: 3, difficulty: 3, unlock: { after: 'rowschool.r13' }, scen: ['r18a', 'r18b'],
       title: { da: 'Mærkeplads', en: 'Mark-room' },
       desc: { da: 'Ved mærket får den inderste båd plads. Hold øje med zonen på tre bådlængder!', en: 'At the mark the inside boat gets room. Watch the three-length zone!' } },
@@ -1113,7 +1113,7 @@
       // rules master: every rowschool activity done (this one counts as done now)
       try {
         const all = ACTS.every(a => a.id === activity.id || (KOS.Storage.progress(a.id) || {}).done);
-        if (all && KOS.Storage.award && KOS.Storage.award('rules-master')) after(1.0, () => KOS.UI.toast(t('rowschool.badge'), { kind: 'star', icon: 'rules', ms: 3500 }));
+        if (all && KOS.Storage.award) KOS.Storage.award('rules-master'); // announced on the results screen
       } catch (e) { /* storage optional */ }
       const result = {
         stars, success: true, score: Math.round(1000 * ratio + q * 150 + s * 150), timeMs: Math.round(S.timeAll * 1000),
@@ -1320,7 +1320,8 @@
       ctx.strokeStyle = 'rgba(255,214,94,0.95)'; ctx.lineWidth = Math.max(0.2, 4 * mpp); ctx.setLineDash([r * 0.32, r * 0.18]); ctx.lineDashOffset = -tm * r * 0.4;
       ctx.beginPath(); ctx.arc(0, 0, r * (1 + 0.04 * Math.sin(tm * 3)), 0, TAU); ctx.stroke();
       ctx.restore();
-      sc.pill(ctx, rg.x, rg.y, t('rowschool.goal'), { dy: 0, size: 11, bg: 'rgba(255,181,71,0.92)', color: '#2a1206' });
+      // label on the ring's top edge, so it never sits on a boat passing through the ring
+      sc.pill(ctx, rg.x, rg.y - r, t('rowschool.goal'), { dy: 0, size: 11, bg: 'rgba(255,181,71,0.92)', color: '#2a1206' });
     }
 
     function drawScreen(ctx, sc) {
@@ -1378,6 +1379,9 @@
         }
       }
       for (const bx of boxes) {
+        // never let a tag hang off the screen edge (big ships / traffic near the border)
+        bx.x = U.clamp(bx.x, bx.w / 2 + 6, sc.w - bx.w / 2 - 6);
+        bx.y = U.clamp(bx.y, bx.h / 2 + 6, sc.h - bx.h / 2 - 6);
         const top = bx.y - bx.h / 2;
         pillPx(ctx, bx.x, top + 10, bx.it.text, bx.it.bg, '#fff', bx.w);
         if (bx.role) pillPx(ctx, bx.x, top + 33, bx.role, bx.it.role === 'give' ? '#ff4d5e' : '#18a957', '#fff');

@@ -134,6 +134,8 @@
 .hub-me { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; cursor: pointer; font: inherit; min-height: 52px; max-width: 46vw; }
 .hub-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex: none; border: 2px solid #ffc65c; background: #2a3b5c; box-shadow: 0 0 0 3px rgba(255, 198, 92, .2); }
 .hub-avatar svg { width: 100%; height: 100%; display: block; }
+.hub-me { position: relative; }
+.hub-lvl { position: absolute; left: 32px; bottom: 0; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(180deg, #ffc65c, #ff7a3d); color: #1b2335; font-weight: 900; font-size: 12px; line-height: 1; border: 2px solid #0d1321; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
 .hub-me-txt { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; text-align: left; }
 .hub-name { font-size: 16px; font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .hub-rank { font-size: 11.5px; font-weight: 700; color: #9fd8ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -219,3 +221,12 @@
 @media (prefers-reduced-motion: reduce) {
   .hub *, .hub *::before, .hub *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+/* wide screens: the "next challenge" card sits bottom-left (next to the compass) so it never covers the clubhouse pin */
+@media (min-width: 1100px) and (min-height: 600px) {
+  .hub-bottom { left: 84px; transform: none; width: min(460px, calc(100% - 260px)); align-items: flex-start; }
+}
+/* slow devices (see KOS.Hub mount): the map stops moving, the place pins keep their bounce */
+.hub-lite .hub-cloud, .hub-lite .hub-buoy, .hub-lite .hub-lightglow, .hub-lite .hub-gull { animation: none !important; }
+.hub-lite svg.hub-map * { animation: none !important; }
+/* the painted menu background is fully covered by the harbour map: don't keep animating it underneath */
+body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }

@@ -261,6 +261,9 @@ landscape), a vertical sheet slider, a HIKE hold button, SPI button; optional vi
 `coach(text, {avatar, ms, pos})` (speech bubble from a friendly coach character "Coach Søs" / the club's trainer),
 `hud(layer, items)` → `{update(data), el}` with items `wind speed pos timer place lap score heel tack penalty`,
 `countdown(layer, seconds, onDone)`, `stars(n)` (svg html), `confetti()`, `iconSvg(name)`, `results(result, activity)`.
+Implemented: `coachClose()` closes the current coach bubble (the app calls it on pause and finish). During play a coach bubble
+ignores touches (it closes by itself) unless it was opened with `ms: 0` / `tapToClose`; on sea modes it sits under the touch
+controls and, on portrait phones, left of the sheet slider and above HIKE. Modes don't need their own coach workarounds.
 
 ### KOS.SailScene (render/scene.js)
 `new KOS.SailScene(canvas, {venue, wind, boats, marks, follow, zoom, showWindArrow, showLaylines, showNoGo})`:
@@ -283,6 +286,13 @@ Screens (DOM sections in index.html): `title`, `hub`, `area` (activity list for 
 `settings`, `profile`, `garage` (boat ladder / "Sejlerpas"), `credits`.
 `KOS.App.show(screen, params)`, `KOS.App.play(activityId)`, `KOS.App.back()`. Main loop with fixed step and
 pause on `visibilitychange`. Handles the PWA install prompt and update toast.
+Implemented: `KOS.App.suggest()` → the activity a player should do next (curated beginner path `KOS.App.PATH`, then the easiest
+unfinished unlocked activity) — used by the hub's "Næste udfordring" card. `KOS.App.rankOf(xp)` → `{level, key, frac, toNext}`
+(shared by the hub top bar and the Sejlerpas). `KOS.App.BADGES` / `addBadges(defs)`: badge definitions; milestones are checked
+after every finished activity, and badges a mode awards with `KOS.Storage.award(id)` during play are shown on the results
+screen (medal strip + sound). First run: profile → hub → Coach Søs welcome dialog → `school.steer`.
+`KOS.Perf.level` (2 full, 1 lighter, 0 slow device) is set by the app's frame-time governor; the scene lowers its DPR cap and
+the effects thin out cosmetic particles at lower levels.
 
 ## Progression
 

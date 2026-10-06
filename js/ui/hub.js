@@ -33,7 +33,7 @@
         hint: 'Træk i kortet for at kigge rundt · tryk på et sted',
         zoomIn: 'Zoom ind', zoomOut: 'Zoom ud', recenter: 'Tilbage til klubben',
         wind: 'Vind {kn} kn fra {dir}',
-        level: 'Niveau {n}',
+        level: 'Niveau {n}', toNext: '{n} XP til næste niveau',
         rank: ['Ælling', 'Letmatros', 'Matros', 'Bådsmand', 'Styrmand', 'Skipper', 'Kaptajn', 'Admiral'],
         dirs: ['N', 'NØ', 'Ø', 'SØ', 'S', 'SV', 'V', 'NV'],
       },
@@ -60,7 +60,7 @@
         hint: 'Drag the map to look around · tap a place',
         zoomIn: 'Zoom in', zoomOut: 'Zoom out', recenter: 'Back to the club',
         wind: 'Wind {kn} kn from {dir}',
-        level: 'Level {n}',
+        level: 'Level {n}', toNext: '{n} XP to the next level',
         rank: ['Duckling', 'Deckhand', 'Sailor', 'Bosun', 'First Mate', 'Skipper', 'Captain', 'Admiral'],
         dirs: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
       },
@@ -111,7 +111,7 @@
   const AREAS = [
     { id: 'club', icon: 'club', color: '#ff8a3d', minStars: 0, anchor: 'club', off: [110, 20] },
     { id: 'pier', icon: 'pier', color: '#4aa8ff', minStars: 2, anchor: 'pier', off: [-130, -60] },
-    { id: 'rib', icon: 'rib', color: '#ff5a36', minStars: 8, anchor: 'rib', off: [70, -150] },
+    { id: 'rib', icon: 'rib', color: '#ff5a36', minStars: 20, anchor: 'rib', off: [70, -150] },
     { id: 'school', icon: 'school', color: '#2fd0c3', minStars: 0, anchor: 'school', off: [0, -90] },
     { id: 'bay', icon: 'bay', color: '#3ee08f', minStars: 0, anchor: 'bay', off: [0, 0] },
     { id: 'rules', icon: 'rules', color: '#a77bff', minStars: 2, anchor: 'rules', off: [0, 0] },
@@ -140,6 +140,7 @@
   function nextActivity() {
     if (!KOS.Activities || !KOS.Storage) return null;
     try {
+      if (KOS.App && KOS.App.suggest) return KOS.App.suggest();
       const all = KOS.Activities.list().filter(a => isAreaUnlocked(a.area) && KOS.Activities.isUnlocked(a.id));
       return all.find(a => !KOS.Storage.progress(a.id).plays) || all.find(a => KOS.Storage.progress(a.id).stars < 3) || null;
     } catch (e) { return null; }
@@ -507,7 +508,7 @@
   function topHtml() {
     return `<header class="hub-top">
       <button class="hub-me hub-glass" type="button" data-act="profile">
-        <span class="hub-avatar"></span>
+        <span class="hub-avatar"></span><span class="hub-lvl" aria-hidden="true">1</span>
         <span class="hub-me-txt"><b class="hub-name"></b><small class="hub-rank"></small><span class="hub-xp"><i></i></span></span>
       </button>
       <div class="hub-top-right">
@@ -547,6 +548,25 @@
     }
     const reduce = (() => { try { return (KOS.Storage && KOS.Storage.settings().reducedMotion) || root.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
     if (reduce) { rootEl.classList.add('hub-reduced'); try { rootEl.querySelector('svg.hub-map').pauseAnimations(); } catch (e) { /* ignore */ } }
+    else {
+      // slow device: the living map (sailing boats, ferry, gulls, clouds) costs frames; if the first seconds run well
+      // under 60 fps (or the game already dropped its quality level), freeze the map animations, keep the pins alive
+      const lite = () => { if (!state || state.root !== rootEl) return; rootEl.classList.add('hub-lite'); try { rootEl.querySelector('svg.hub-map').pauseAnimations(); } catch (e) { /* ignore */ } };
+      if (KOS.Perf && KOS.Perf.level < 2) lite();
+      else {
+        let n = 0, t0 = 0, raf = 0;
+        const tick = (now) => {
+          if (!state || state.root !== rootEl) return;
+          if (!t0) t0 = now;
+          n++;
+          if (now - t0 < 2500) { raf = requestAnimationFrame(tick); return; }
+          const avg = (now - t0) / Math.max(1, n - 1);
+          if (avg > 24) { lite(); if (KOS.Perf) { KOS.Perf.level = Math.min(KOS.Perf.level, 1); KOS.Perf.max = KOS.Perf.level; } }
+        };
+        setTimeout(() => { raf = requestAnimationFrame(tick); }, 600); // skip the mount/entry animation
+        state.listeners.push(() => cancelAnimationFrame(raf));
+      }
+    }
 
     bindInput();
     rootEl.addEventListener('click', onClick);
@@ -599,10 +619,13 @@
     av.innerHTML = avHtml;
     // xp / rank
     let xp = 0; try { xp = KOS.Storage ? KOS.Storage.xp() : 0; } catch (e) { /* ignore */ }
-    const lvl = Math.floor(xp / 500) + 1;
-    const rank = t('hub.rank.' + Math.min(7, lvl - 1));
-    R.querySelector('.hub-rank').textContent = t('hub.level', { n: lvl }) + ' · ' + rank;
-    R.querySelector('.hub-xp i').style.width = ((xp % 500) / 5).toFixed(1) + '%';
+    // same ranks as the Sejlerpas (KOS.App.rankOf); fallback: 500 XP per level
+    const rk = KOS.App && KOS.App.rankOf ? KOS.App.rankOf(xp) : { level: Math.floor(xp / 500) + 1, key: null, frac: (xp % 500) / 500, toNext: 500 - xp % 500 };
+    const rank = rk.key ? t(rk.key) : t('hub.rank.' + Math.min(7, rk.level - 1));
+    R.querySelector('.hub-rank').textContent = t('hub.level', { n: rk.level }) + ' · ' + rank;
+    R.querySelector('.hub-xp i').style.width = (Math.max(0, Math.min(1, rk.frac)) * 100).toFixed(1) + '%';
+    R.querySelector('.hub-lvl').textContent = rk.level;
+    R.querySelector('.hub-xp').setAttribute('title', xp + ' XP' + (rk.toNext ? ' · ' + t('hub.toNext', { n: rk.toNext }) : ''));
     // stars
     const have = totalStars();
     let max = 0; try { max = KOS.Activities ? KOS.Activities.maxStars() : 0; } catch (e) { /* ignore */ }
@@ -679,11 +702,29 @@
       if (portrait) {
         const x0 = school[0] - 125, x1 = vw >= 600 ? nav[0] + 150 : club[0] + 250;
         const sc = Math.max(cover, vw / (x1 - x0));
-        centerOn((x0 + x1) / 2, (bayPin[1] + club[1]) / 2 + 40, sc, true);
+        centerOn((x0 + x1) / 2, (bayPin[1] + club[1]) / 2 + 40 + 70 / sc, sc, true); // + keeps the club pin clear of the bottom card
       } else {
-        const x0 = bay[0] - 40, x1 = race[0] + 140, y0 = race[1] + 20, y1 = club[1] + 130;
+        const x0 = bay[0] - 40, x1 = race[0] + 140, y0 = race[1] - 70, y1 = club[1] + 210; // room for the top bar and the bottom card
         const sc = Math.max(cover, Math.min(vw / (x1 - x0), (vh - 70) / (y1 - y0)));
         centerOn((x0 + x1) / 2, (y0 + y1) / 2 - 35 / sc, sc, true);
+      }
+      // keep the place pins clear of the top bar and the bottom card: centre all pins in the free area when they fit,
+      // otherwise make sure at least the suggested place ("Næste udfordring") is not hidden
+      {
+        const vr = s.vp.getBoundingClientRect();
+        const top = vr.top + 76, bot = vr.bottom - 96, left = vr.left + 8, right = vr.right - 70;
+        const pins = Array.from(s.root.querySelectorAll('.hub-pin'));
+        const u = pins.reduce((o, el) => { const r = el.getBoundingClientRect(); return { t: Math.min(o.t, r.top), b: Math.max(o.b, r.bottom), l: Math.min(o.l, r.left), r: Math.max(o.r, r.right) }; }, { t: Infinity, b: -Infinity, l: Infinity, r: -Infinity });
+        const next = s.root.querySelector('.hub-pin.is-next');
+        const nr = next ? next.getBoundingClientRect() : null;
+        const fit1 = (lo, hi, a, b, na, nb) => {
+          if (b - a <= hi - lo) return (lo + hi) / 2 - (a + b) / 2;
+          if (!nr) return 0;
+          return na < lo ? lo - na : nb > hi ? hi - nb : 0;
+        };
+        const dy = pins.length ? fit1(top, bot, u.t, u.b, nr && nr.top, nr && nr.bottom) : 0;
+        const dx = pins.length ? fit1(left, right, u.l, u.r, nr && nr.left, nr && nr.right) : 0;
+        if (dx || dy) { s.tx += dx; s.ty += dy; clamp(); apply(); }
       }
     } else {
       s.s = s.s * (cover / (old || cover));

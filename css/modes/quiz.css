@@ -17,10 +17,11 @@
   display: flex; flex-direction: column; line-height: 1.05; padding: 6px 12px; border-radius: 14px;
   background: rgba(13, 19, 33, .62); border: 1px solid var(--glass-border); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
-.quiz-stat span { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.quiz-stat span { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
 .quiz-stat b { font-size: 1.25rem; font-weight: 900; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; }
 .quiz-stat b small { font-size: .8rem; opacity: .6; }
-.quiz-stat-score { flex: 1; }
+.quiz-stat { flex-shrink: 0; }
+.quiz-stat-score { flex: 1 1 auto; min-width: 0; }
 .quiz-stat.bump { animation: quizBump .45s var(--ease-pop); }
 @keyframes quizBump { 40% { transform: scale(1.1); } }
 .quiz-flame { width: 20px; height: 20px; color: rgba(255,255,255,.3); display: grid; transition: color .3s; }

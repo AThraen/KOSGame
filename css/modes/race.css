@@ -141,3 +141,23 @@
   .rp-list .rp-row:nth-child(n+4):not(.me) { display: none; }
   .race-card { top: calc(var(--safe-t) + 64px); }
 }
+
+/* ---- extra buttons (spol frem / laylines / strafrunde) sit under the pause button, clear of the flag panel */
+.race-layer .kc .kc-extras,
+.race-layer .kc.kc-landscape .kc-extras { right: auto; left: calc(var(--safe-l, 0px) + 12px); top: calc(var(--safe-t) + 66px); flex-direction: row; align-items: flex-start; }
+.race-layer .kc .kc-extra b { display: none; }
+.race-layer .kc .kc-extra { padding: 0 10px; min-width: 48px; height: 48px; }
+@media (min-width: 900px) and (min-height: 600px) {
+  .race-layer .kc .kc-extras { left: calc(var(--safe-l, 0px) + 12px); top: calc(var(--safe-t) + 66px); }
+}
+@media (max-width: 560px) and (orientation: portrait) {
+  .race-layer .kc .kc-extras, .race-layer .kc.kc-landscape .kc-extras { top: calc(var(--safe-t) + 128px); left: calc(var(--safe-l, 0px) + 8px); }
+  .race-card { top: calc(var(--safe-t) + 184px); }
+}
+
+/* short landscape screens: keep the finish board clear of the HUD strip and the coach bubble */
+@media (max-height: 520px) {
+  .race-board { top: calc(50% + 34px); max-height: calc(100% - var(--safe-b, 0px) - 96px); padding: 10px 12px; gap: 6px; }
+  .rb-row { padding: 3px 8px; font-size: .82rem; }
+}
+.race-rtable tr.me td { background: rgba(255,181,71,.26); }

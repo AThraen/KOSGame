@@ -1091,7 +1091,7 @@
       e.textContent = txt;
       const lr = host.layer.getBoundingClientRect(), sr = sceneEl.getBoundingClientRect();
       e.style.left = f(x != null ? x : sr.left - lr.left + sr.width / 2) + 'px';
-      e.style.top = f(y != null ? y : sr.top - lr.top + sr.height * 0.45) + 'px';
+      e.style.top = f(y != null ? y - (kind === 'good' ? 34 : 0) : sr.top - lr.top + sr.height * 0.45) + 'px';
       host.layer.appendChild(e);
       setTimeout(() => e.remove(), 1200);
     }

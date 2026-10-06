@@ -491,8 +491,21 @@
     for (const k of ['breakwaters', 'piers']) for (const p of v[k]) if (inBB(p._bb || bboxOf(p), x, y, 0) && pointInPoly(x, y, p)) return true;
     return false;
   }
+  // depth lookups are hot (physics, AI and rendering ask every step for every boat): memoise per venue on a 0.25 m grid
   function depthAt(v, x, y) {
     v = getV(v); if (!v) return DEPTH_DEFAULT;
+    const kx = Math.round(x * 4), ky = Math.round(y * 4);
+    if (kx > -2e6 && kx < 2e6 && ky > -2e6 && ky < 2e6) {
+      let c = v._dcache;
+      if (!c || c.size > 250000) { c = new Map(); Object.defineProperty(v, '_dcache', { value: c, enumerable: false, writable: true, configurable: true }); }
+      const key = kx * 4000003 + ky;
+      let d = c.get(key);
+      if (d === undefined) { d = depthRaw(v, kx / 4, ky / 4); c.set(key, d); }
+      return d;
+    }
+    return depthRaw(v, x, y);
+  }
+  function depthRaw(v, x, y) {
     if (isLand(v, x, y)) return 0;
     let d = v.defaultDepth;
     for (const z of v.depth) if (inBB(z._bb || bboxOf(z.poly), x, y, 0) && pointInPoly(x, y, z.poly)) d = z.d;

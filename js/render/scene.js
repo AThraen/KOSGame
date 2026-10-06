@@ -97,7 +97,11 @@
     let w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) { w = (typeof window !== 'undefined' && window.innerWidth) || 800; h = (typeof window !== 'undefined' && window.innerHeight) || 600; }
     const small = Math.min(w, h) < 600;
-    const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, small ? 2 : 2.5);
+    // KOS.Perf.level (set by the app's frame-time governor): 2 = full, 1 = lighter, 0 = slow device → fewer pixels
+    const lvl = KOS.Perf ? KOS.Perf.level : 2;
+    const cap = lvl >= 2 ? (small ? 2 : 2.5) : lvl === 1 ? 1.6 : 1.15;
+    const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, cap);
+    this._perfLvl = lvl;
     this.w = w; this.h = h; this.dpr = dpr;
     const cw = Math.round(w * dpr), ch = Math.round(h * dpr);
     if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
@@ -162,7 +166,7 @@
     const t1 = now(); const dt = this._last == null ? 1 / 60 : clamp(t1 - this._last, 0, 0.1); this._last = t1;
     this.t += dt;
     const t = this.t, ctx = this.ctx;
-    if (this.canvas.clientWidth && (Math.round(this.canvas.clientWidth * this.dpr) !== this.canvas.width || Math.round(this.canvas.clientHeight * this.dpr) !== this.canvas.height)) this.resize();
+    if (this.canvas.clientWidth && (Math.round(this.canvas.clientWidth * this.dpr) !== this.canvas.width || Math.round(this.canvas.clientHeight * this.dpr) !== this.canvas.height || (KOS.Perf && KOS.Perf.level !== this._perfLvl))) this.resize();
     this.updateCamera(dt);
     const fx = this.effects;
     if (fx) { fx.update(dt); for (const b of this.boats) if (b && !b.hidden) fx.trackBoat(b, dt); }

@@ -415,7 +415,7 @@
     // keep the rope a friendly size: never more than ~2.5 px per board unit (big desktop screens get more margin)
     function fitView() {
       const r = svg.getBoundingClientRect();
-      const vb = r.width < r.height * 0.95 ? (K.vbP || (K.vbP = knotBounds(K))) : K.vb; // phones in portrait: zoom in on the knot itself
+      const vb = r.width < r.height * 0.95 && K.vb[2] > K.vb[3] * 1.1 ? (K.vbP || (K.vbP = knotBounds(K))) : K.vb; // phones in portrait: zoom in on the knot itself
       let x = vb[0], y = vb[1], w = vb[2], h = vb[3];
       if (r.width > 0 && r.height > 0) {
         const maxS = 2.5, s = Math.min(r.width / w, r.height / h);
@@ -558,6 +558,7 @@
     // ---- progress
     function advanceTo(target) {
       const se = stepEnd();
+      if (moving.L[se] - arcAt(moving, target) < 8) target = se; // close enough to the step end: snap (finger lifted a hair early)
       target = Math.min(target, se);
       if (target <= S.prog) return;
       const before = S.prog;

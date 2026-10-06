@@ -90,8 +90,102 @@
     { id: 'rules-master', icon: 'rules', name: { da: 'Regelekspert', en: 'Rules master' }, desc: { da: 'Klar alle vigeregel-opgaver.', en: 'Clear every right-of-way task.' } },
     { id: 'navigator', icon: 'compass', name: { da: 'Navigatør', en: 'Navigator' }, desc: { da: 'Sejl hele sejlrenden uden at gå på grund.', en: 'Sail the whole channel without grounding.' } },
     { id: 'rib-driver', icon: 'rib', name: { da: 'RIB-kører', en: 'RIB driver' }, desc: { da: 'Klar din første RIB-mission.', en: 'Complete your first RIB mission.' } },
+    { id: 'school-grad', icon: 'school', name: { da: 'Sejlerskole-diplom', en: 'Sailing school diploma' }, desc: { da: 'Klar alle grundlektionerne i Sejlerskolen – helt til trekantbanen.', en: 'Finish every basic Sailing School lesson – all the way to the triangle.' } },
+    { id: 'podium', icon: 'place', name: { da: 'På podiet', en: 'On the podium' }, desc: { da: 'Bliv nummer 1, 2 eller 3 i en kapsejlads.', en: 'Finish 1st, 2nd or 3rd in a race.' } },
+    { id: 'race-five', icon: 'flag', name: { da: 'Kapsejler', en: 'Racer' }, desc: { da: 'Gennemfør 5 kapsejladser.', en: 'Finish 5 races.' } },
+    { id: 'rigger', icon: 'wrench', name: { da: 'Riggemester', en: 'Master rigger' }, desc: { da: 'Rig tre forskellige både til.', en: 'Rig three different boats.' } },
+    { id: 'quiz-whiz', icon: 'quiz', name: { da: 'Quizhaj', en: 'Quiz whiz' }, desc: { da: 'Få tre stjerner i en quiz.', en: 'Get three stars in a quiz.' } },
+    { id: 'night-sailor', icon: 'buoy', name: { da: 'Natsejler', en: 'Night sailor' }, desc: { da: 'Find vej efter fyrlysene om natten.', en: 'Find your way by the lights at night.' } },
+    { id: 'rescuer', icon: 'whistle', name: { da: 'Redder', en: 'Rescuer' }, desc: { da: 'Red en kæntret sejler med RIB’en.', en: 'Rescue a capsized sailor with the RIB.' } },
+    { id: 'clean-sea', icon: 'heart', name: { da: 'Ren havn', en: 'Clean harbour' }, desc: { da: 'Saml affald op i Svanemøllebugten.', en: 'Clean up rubbish in Svanemøllebugten.' } },
+    { id: 'explorer', icon: 'map', name: { da: 'Opdagelsesrejsende', en: 'Explorer' }, desc: { da: 'Prøv en aktivitet alle otte steder på kortet.', en: 'Try an activity in all eight places on the map.' } },
+    { id: 'stars-30', icon: 'sparkle', name: { da: 'Stjernesamler', en: 'Star collector' }, desc: { da: 'Saml 30 stjerner.', en: 'Collect 30 stars.' } },
+    { id: 'stars-100', icon: 'medal', name: { da: 'Stjernekaptajn', en: 'Star captain' }, desc: { da: 'Saml 100 stjerner.', en: 'Collect 100 stars.' } },
+    { id: 'pro-sailor', icon: 'shield', name: { da: 'Pro-sejler', en: 'Pro sailor' }, desc: { da: 'Få tre stjerner på hjælpeniveau Pro.', en: 'Get three stars on the Pro assist level.' } },
+    { id: 'skiff-pilot', icon: 'speed', name: { da: 'Skiffpilot', en: 'Skiff pilot' }, desc: { da: 'Gennemfør en aktivitet i 29’eren.', en: 'Finish an activity in the 29er.' } },
+    { id: 'keelboat', icon: 'anchor', name: { da: 'Kølbådsskipper', en: 'Keelboat skipper' }, desc: { da: 'Gennemfør en aktivitet i H-båden eller J/70’eren.', en: 'Finish an activity in the H-boat or the J/70.' } },
+    { id: 'boat-ladder', icon: 'boat', name: { da: 'Hele bådstigen', en: 'The whole ladder' }, desc: { da: 'Lås alle klubbens både op i Sejlerpasset.', en: 'Unlock all the club’s boats in the Sailing Passport.' } },
   ];
+  // milestone badges, checked after every finished activity (modes may also award their own via KOS.Storage.award)
+  function evalBadges(a, result) {
+    const all = S()._allProgress();
+    const done = id => !!(all[id] && all[id].done);
+    const ok = result.success !== false && (+result.stars || 0) > 0;
+    const st = +result.stars || 0;
+    const stats = result.stats || {};
+    const ids = [];
+    const give = (id, cond) => { if (cond) ids.push(id); };
+    give('first-sail', ok);
+    give('three-stars', st >= 3);
+    give('ten-tacks', +stats.tacks >= 10);
+    if (a.mode === 'race' && ok) {
+      const place = result.msgVars && +result.msgVars.place;
+      give('first-race-win', place === 1);
+      give('podium', place > 0 && place <= 3);
+      give('race-five', Object.keys(all).filter(k => k.indexOf('race.') === 0 && all[k].done).length >= 5);
+    }
+    give('navigator', a.id === 'nav.channel' && ok && Object.keys(stats).some(k => /ground$/.test(k) && +stats[k] === 0));
+    give('night-sailor', a.id === 'nav.night' && ok);
+    give('rib-driver', a.area === 'rib' && ok);
+    give('rescuer', a.id === 'rib.rescue' && ok);
+    give('clean-sea', a.id === 'sail.cleanup' && ok);
+    give('quiz-whiz', a.mode === 'quiz' && st >= 3);
+    give('capsize-recovery', a.mode === 'capsize' && ok);
+    give('rigger', Object.keys(all).filter(k => /^rigging\.(?!unrig)/.test(k) && all[k].done).length >= 3);
+    give('school-grad', KOS.Activities.byArea('school').filter(x => !x.boat).every(x => done(x.id)));
+    give('rules-master', KOS.Activities.byArea('rules').every(x => done(x.id)));
+    give('all-knots', KOS.Activities.list({ mode: 'knots' }).filter(x => x.id !== 'knots.speed').every(x => done(x.id)));
+    give('explorer', KOS.Activities.areas().every(ar => KOS.Activities.byArea(ar).some(x => all[x.id] && all[x.id].plays > 0)));
+    const total = S().totalStars();
+    give('stars-30', total >= 30);
+    give('stars-100', total >= 100);
+    give('pro-sailor', st >= 3 && settings().assist === 'pro');
+    const boat = a.boat || (run.host && run.host.boat);
+    give('skiff-pilot', ok && boat === '29er');
+    give('keelboat', ok && (boat === 'hboat' || boat === 'j70'));
+    give('boat-ladder', total >= Math.max.apply(null, Object.keys(BOAT_STARS).map(k => BOAT_STARS[k])));
+    return ids.filter(id => S().award(id));
+  }
   function addBadges(defs) { (Array.isArray(defs) ? defs : [defs]).forEach(d => { const i = BADGES.findIndex(b => b.id === d.id); if (i >= 0) BADGES[i] = d; else BADGES.push(d); }); }
+
+  // ------------------------------------------------------------------ "what should I do next?"
+  // A beginner path that mixes the sailing school with the clubhouse, harbour, rules and the first races, so a new
+  // 8-year-old always gets one clear next step. After the path: the easiest unlocked activity not yet done, then the
+  // easiest one that still has stars to win.
+  const PATH = [
+    'school.steer', 'school.beam', 'rigging.opti', 'school.beat', 'knots.eight', 'school.tack', 'capsize.opti',
+    'school.downwind', 'dock.opti.jetty', 'rowschool.r10', 'school.gybe', 'quiz.basics', 'sail.rings', 'school.irons',
+    'race.opti.1', 'nav.buoys', 'school.trim', 'knots.bowline', 'rowschool.r11', 'dock.opti.leave', 'school.hike',
+    'sail.cleanup', 'race.opti.2', 'school.mob', 'nav.channel', 'rowschool.r13', 'school.eight', 'race.opti.3',
+    'school.triangle', 'rigging.unrig.opti', 'quiz.rules',
+  ];
+  function areaOpen(area) { try { return !KOS.Hub || !KOS.Hub.isAreaUnlocked || KOS.Hub.isAreaUnlocked(area); } catch (e) { return true; } }
+  function suggest() {
+    if (!KOS.Activities) return null;
+    const A = KOS.Activities;
+    const open = a => a && areaOpen(a.area) && A.isUnlocked(a.id);
+    const fresh = a => { const p = S().progress(a.id); return !p.done && !(p.stars > 0); };
+    for (const id of PATH) { const a = A.get(id); if (open(a) && fresh(a)) return a; }
+    const all = A.list().filter(open);
+    const byEase = (x, y) => (x.difficulty || 1) - (y.difficulty || 1) || A.AREAS.indexOf(x.area) - A.AREAS.indexOf(y.area) || x.order - y.order;
+    const notDone = all.filter(fresh).sort(byEase);
+    if (notDone.length) return notDone[0];
+    const more = all.filter(a => S().progress(a.id).stars < 3).sort(byEase);
+    return more[0] || null;
+  }
+
+  // ------------------------------------------------------------------ first run: profile → hub → first school lesson
+  function onboard(name) {
+    const first = KOS.Activities && KOS.Activities.get('school.steer');
+    if (!first) { UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom' }); return; }
+    const step = (n, icon, key) => '<li><span class="ob-n">' + n + '</span>' + ico(icon) + '<span>' + esc(t(key)) + '</span></li>';
+    UI().dialog({
+      title: t('app.onboard.title', { name }), cls: 'onboard-dialog',
+      body: '<div class="ob-coach">' + UI().coachSvg('happy') + '</div><p class="ob-lead">' + esc(t('app.onboard.body')) + '</p>' +
+        '<ol class="ob-steps">' + step(1, 'school', 'app.onboard.s1') + step(2, 'star', 'app.onboard.s2') + step(3, 'boat', 'app.onboard.s3') + '</ol>',
+      buttons: [{ labelKey: 'app.onboard.later' }, { labelKey: 'app.onboard.go', kind: 'primary', icon: 'play', onClick: () => { App.play(first.id); } }],
+    });
+  }
 
   // ------------------------------------------------------------------ helpers
   function $(sel, rootEl) { return (rootEl || doc).querySelector(sel); }
@@ -220,6 +314,8 @@
     BADGES,
     RANKS,
     rankOf,
+    suggest,
+    PATH,
     addBadges,
     boatList,
     boatUnlocked,
@@ -437,6 +533,7 @@
     run.paused = false;
     run.finished = false;
     run.failed = false;
+    run.playBadges = [];
     const host = {
       canvas: kind === 'sea' ? canvas : null,
       ctx2d: kind === 'sea' ? canvas.getContext('2d') : null,
@@ -465,12 +562,24 @@
     run.running = true;
     run.acc = 0;
     run.last = performance.now();
+    run.startT = run.last; Perf.ema = 16.7; Perf.slowT = 0;
     cancelAnimationFrame(run.raf);
     run.raf = requestAnimationFrame(frame);
     emit('play:start', { id: a.id });
   };
   leave.play = function () { stopRun(); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
+
+  // frame-time governor: on a slow device drop to fewer pixels / particles (KOS.Perf.level 2 → 1 → 0), and climb back
+  // when there is headroom. Scene and effects read KOS.Perf.level.
+  const Perf = KOS.Perf = KOS.Perf || { level: 2, ema: 16.7, slowT: 0, fastT: 0 };
+  function govern(ms) {
+    if (!(ms > 0) || ms > 250) return; // tab switches / breakpoints
+    Perf.ema += (ms - Perf.ema) * 0.05;
+    if (Perf.ema > 21) { Perf.slowT += ms; Perf.fastT = 0; } else if (Perf.ema < 17.5) { Perf.fastT += ms; Perf.slowT = 0; } else { Perf.slowT = 0; Perf.fastT = 0; }
+    if (Perf.slowT > 1500 && Perf.level > 0 && performance.now() - run.startT > 2500) { Perf.level--; Perf.max = Perf.level; Perf.slowT = 0; Perf.ema = 16.7; }
+    else if (Perf.fastT > 12000 && Perf.level < (Perf.max === undefined ? 2 : Perf.max)) { Perf.level++; Perf.fastT = 0; }
+  }
 
   function frame(now) {
     if (!run.running) return;
@@ -479,6 +588,7 @@
     let dt = (now - run.last) / 1000;
     run.last = now;
     if (!(dt > 0)) dt = 0;
+    govern(dt * 1000);
     run.acc += Math.min(dt, 0.25);
     const step = DT();
     let n = 0;
@@ -531,6 +641,7 @@
     run.paused = b;
     if (b) {
       try { run.inst && run.inst.pause && run.inst.pause(); } catch (e) { console.error(e); }
+      if (UI().coachClose) UI().coachClose();
       showPause();
       audio('engine', null);
     } else {
@@ -596,12 +707,12 @@
     const a = run.act;
     let rec = {};
     try { rec = S().record(a.id, result); } catch (e) { console.error(e); }
-    // automatic badges
-    const newBadges = [];
-    if (result.success && S().award('first-sail')) newBadges.push('first-sail');
-    if ((+result.stars || 0) >= 3 && S().award('three-stars')) newBadges.push('three-stars');
-    if (result.stats && result.stats.tacks >= 10 && S().award('ten-tacks')) newBadges.push('ten-tacks');
-    if (a.area === 'rib' && result.success && S().award('rib-driver')) newBadges.push('rib-driver');
+    // badges: the ones a mode awarded during play + milestones checked now
+    let newBadges = (run.playBadges || []).slice();
+    try { newBadges = newBadges.concat(evalBadges(a, result)); } catch (e) { console.error(e); }
+    newBadges = newBadges.filter((id, i) => newBadges.indexOf(id) === i);
+    run.playBadges = [];
+    if (UI().coachClose) UI().coachClose();
     run.running = false;
     cancelAnimationFrame(run.raf);
     setTimeout(() => {
@@ -628,9 +739,28 @@
     setTimeout(() => {
       if (win) { sfx('win'); UI().confetti(); setTimeout(() => sfx('cheer', { vol: 0.6 }), 300); } else sfx('lose');
     }, 200);
-    (lr.newBadges || []).forEach((id, i) => {
-      const b = BADGES.find(x => x.id === id);
-      if (b) setTimeout(() => UI().toast(t('app.badge.new', { name: tt(b.name) }), { kind: 'star', icon: b.icon, ms: 3500 }), 1600 + i * 900);
+    const nb = (lr.newBadges || []).map(id => BADGES.find(x => x.id === id)).filter(Boolean);
+    if (nb.length) {
+      const strip = doc.createElement('div');
+      strip.className = 'results-badges';
+      strip.innerHTML = '<span class="rb-label">' + esc(t(nb.length > 1 ? 'app.badge.newMany' : 'app.badge.newOne')) + '</span>' +
+        nb.map((b, i) => '<button type="button" class="rb-medal" data-badge="' + esc(b.id) + '" style="--i:' + i + '" title="' + esc(tt(b.name)) + '"><span class="badge-medal">' + ico(b.icon) + '</span><b>' + esc(tt(b.name)) + '</b></button>').join('');
+      const btns = card.querySelector('.results-buttons');
+      card.insertBefore(strip, btns);
+      strip.addEventListener('click', e => {
+        const m = e.target.closest('[data-badge]');
+        if (!m) return;
+        const b = BADGES.find(x => x.id === m.getAttribute('data-badge'));
+        if (b) { sfx('click'); UI().dialog({ title: tt(b.name), icon: b.icon, body: '<p>' + esc(tt(b.desc)) + '</p><p class="good-txt">' + esc(t('app.badge.have')) + '</p>' }); }
+      });
+    }
+    nb.forEach((b, i) => {
+      setTimeout(() => {
+        if (App.cur !== 'results') return;
+        const m = sec.querySelector('.rb-medal[data-badge="' + b.id + '"]');
+        if (m) m.classList.add('in');
+        sfx('coin', { pitch: 1 + i * 0.1 }); setTimeout(() => sfx('star', { pitch: 1.3 }), 120);
+      }, 1600 + i * 900);
     });
     // boats unlocked by this result
     if (lr.rec && lr.rec.starsGained && !settings().unlockAll) {
@@ -827,7 +957,8 @@
         if (params.first || isNew) {
           App.stack = [{ screen: 'title', params: {} }];
           App.show('hub', {}, { replace: true });
-          setTimeout(() => UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom' }), 500);
+          if (isNew) setTimeout(() => { if (App.cur === 'hub') onboard(name); }, 650);
+          else setTimeout(() => UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom' }), 500);
         } else {
           UI().toast(t('app.profile.saved'), { kind: 'good' });
           App.back();
@@ -885,7 +1016,7 @@
         sfx('click');
         const b = BADGES.find(x => x.id === btn.getAttribute('data-id'));
         const has = owned.indexOf(b.id) >= 0;
-        UI().dialog({ title: tt(b.name), icon: has ? b.icon : 'lock', body: '<p>' + esc(tt(b.desc)) + '</p>' + (has ? '<p class="good-txt">' + esc(t('app.badge.have')) + '</p>' : '') });
+        UI().dialog({ title: tt(b.name), icon: has ? b.icon : 'lock', body: '<p>' + esc(tt(b.desc)) + '</p>' + (has ? '<p class="good-txt">' + esc(t('app.badge.have')) + '</p>' : '<p class="dim">' + esc(t('app.badge.locked')) + '</p>') });
       },
     });
   };
@@ -1041,7 +1172,8 @@
     }, { passive: true });
     on('lang', () => { App.refresh(); });
     on('badge', id => {
-      if (App.cur === 'play' || App.cur === 'results') return; // results screen announces its own
+      if (App.cur === 'play') { if (run.playBadges && run.playBadges.indexOf(id) < 0) run.playBadges.push(id); return; } // shown on the results screen
+      if (App.cur === 'results') return; // results screen announces its own
       const b = BADGES.find(x => x.id === id);
       if (b) UI().toast(t('app.badge.new', { name: tt(b.name) }), { kind: 'star', icon: b.icon });
     });
@@ -1098,13 +1230,18 @@
         saveFirst: 'Gem og sejl ud!', saved: 'Profil gemt!', needName: 'Skriv dit navn først.',
       },
       coach: { welcome: 'Hej {name}! Jeg er Coach Søs. Velkommen i KØS – vælg et sted på kortet, så sejler vi!' },
+      onboard: {
+        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Coach Søs, din træner. Vi starter i Sejlerskolen ude i bugten – der lærer du at styre og stoppe båden.',
+        s1: 'Tag din første lektion i Sejlerskolen', s2: 'Saml stjerner – op til tre i hver opgave', s3: 'Stjernerne låser nye både og steder op',
+        go: 'Første lektion!', later: 'Se kortet først',
+      },
       garage: {
         title: 'Sejlerpas', sub: 'Dine både og mærker', passport: 'SEJLERPAS · KØS SEJLSPORT', noName: 'Ny sejler',
         toNext: '{n} XP til næste niveau', boats: 'Bådstigen', badges: 'Mærker',
         statSpeed: 'Fart', statStab: 'Stabilitet', statCrew: 'Besætning', needStars: 'Lås op med {n} ★ (du har {have}).',
         choose: 'Vælg som min båd', chosen: '{name} er nu din båd!', unlockedToast: 'Ny båd låst op: {name}!',
       },
-      badge: { new: 'Nyt mærke: {name}!', have: 'Du har dette mærke!' },
+      badge: { new: 'Nyt mærke: {name}!', have: 'Du har dette mærke!', newOne: 'Nyt mærke!', newMany: 'Nye mærker!', locked: 'Ikke låst op endnu', count: '{n} af {of} mærker' },
       credits: {
         title: 'Om spillet', lead: 'KØS SEJL er lavet til de unge sejlere i KØS Sejlsport på Svaneknoppen – så du kan øve dig hele vinteren og være skarp, når bådene kommer i vandet igen.',
         made: 'Lavet af', club: 'Klub', code: 'Spil og kode', codeWho: 'Frivillige i KØS med hjælp fra Claude',
@@ -1161,13 +1298,18 @@
         saveFirst: 'Save and sail out!', saved: 'Profile saved!', needName: 'Type your name first.',
       },
       coach: { welcome: 'Hi {name}! I’m Coach Søs. Welcome to KØS – pick a spot on the map and let’s sail!' },
+      onboard: {
+        title: 'Welcome to KØS, {name}!', body: 'I’m Coach Søs, your coach. We start at the Sailing School out in the bay – that’s where you learn to steer and stop the boat.',
+        s1: 'Take your first Sailing School lesson', s2: 'Collect stars – up to three per challenge', s3: 'Stars unlock new boats and places',
+        go: 'First lesson!', later: 'Look at the map first',
+      },
       garage: {
         title: 'Sailing Passport', sub: 'Your boats and badges', passport: 'SAILING PASSPORT · KØS SEJLSPORT', noName: 'New sailor',
         toNext: '{n} XP to the next level', boats: 'The boat ladder', badges: 'Badges',
         statSpeed: 'Speed', statStab: 'Stability', statCrew: 'Crew', needStars: 'Unlock with {n} ★ (you have {have}).',
         choose: 'Make it my boat', chosen: '{name} is now your boat!', unlockedToast: 'New boat unlocked: {name}!',
       },
-      badge: { new: 'New badge: {name}!', have: 'You have this badge!' },
+      badge: { new: 'New badge: {name}!', have: 'You have this badge!', newOne: 'New badge!', newMany: 'New badges!', locked: 'Not unlocked yet', count: '{n} of {of} badges' },
       credits: {
         title: 'About', lead: 'KØS SEJL is made for the young sailors of KØS Sejlsport on Svaneknoppen – so you can practise all winter and be sharp when the boats go back in the water.',
         made: 'Made by', club: 'Club', code: 'Game and code', codeWho: 'KØS volunteers with help from Claude',

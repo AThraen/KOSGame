@@ -19,7 +19,15 @@
   }
   const E = Effects.prototype;
 
-  E.add = function (o) { if (this.p.length >= MAXP) this.p.shift(); this.p.push(o); return o; };
+  // on slow devices (KOS.Perf.level < 2, set by the app's frame-time governor) cosmetic spray is thinned out
+  const COSMETIC = { drop: 1, ripple: 1, foam: 1 };
+  E.add = function (o) {
+    const lvl = KOS.Perf ? KOS.Perf.level : 2;
+    if (lvl < 2 && COSMETIC[o.type] && Math.random() < (lvl === 1 ? 0.4 : 0.75)) return o;
+    const max = lvl >= 2 ? MAXP : lvl === 1 ? 500 : 250;
+    while (this.p.length >= max) this.p.shift();
+    this.p.push(o); return o;
+  };
   E.clear = function () { this.p.length = 0; this.trails.clear(); this.texts.length = 0; };
 
   // --- spawners -------------------------------------------------------------------------------
