@@ -147,7 +147,8 @@
   const chanX = (y) => 610 - 0.36 * y; // centreline x at a given y (for y <= 110)
 
   // The mainland: ONE coast polygon (Hellerup → Tuborg Havn → beach → club basin → Svaneknoppen →
-  // Svanemøllehavnen (inlet) → Kalkbrænderiløbet (inlet) → Nordhavn → Færgehavn Nord (inlet) → Nordhavn north coast).
+  // Svanemøllehavnen (inlet) → Kalkbrænderiløbet (inlet) → Nordhavn (Terminal 13) → Færgehavn Nord (marina basin) →
+// Skudehavnen (marina inside the outer spit) → Nordhavn north coast). Nordhavn traced from satellite (user 2026-10-07).
   const COAST = [
     [-3200, -4600], [-700, -4600], [-690, -2600], [-660, -1760],
     // Tuborg Havn block
@@ -169,14 +170,15 @@
     // across the channel's southern end and up the Nordhavn side (east bank)
     [712, 1300], [712, 800], [706, 400], [702, 160], [706, 40],
     [chanX(-100) + 100, -100], [chanX(-190) + 100, -190],
-    // Færgehavn Nord (inlet)
-    [900, -186], [1060, -176], [1122, -206], [1132, -318], [1064, -352], [900, -350], [chanX(-330) + 100, -330],
-    // Nordhavn west coast up to the tongue
-    [chanX(-500) + 100, -500], [chanX(-800) + 100, -800], [chanX(-1000) + 100, -1000], [chanX(-1110) + 100, -1110],
-    [1150, -1182], [1196, -1198], [1236, -1176],
-    // Nordhavn north coast → Københavns Nord Vinkelfyr → east coast
-    [1300, -1122], [1420, -1060], [1600, -962], [1800, -842], [2000, -724], [2200, -622], [2350, -566], [2500, -600],
-    [2800, -752], [3100, -902], [3400, -1042], [3620, -1142], [3720, -1122], [3900, -962], [4200, -700], [4600, -380],
+    // Terminal 13 and its north quay; north of it the Færgehavn Nord marina basin, behind a curved breakwater
+    [846, -300], [880, -322], [1000, -318], [1270, -304], [1290, -130], [1600, -112], [1900, -108],
+    // east side of the basin, then the Skudehavnen land going north
+    [1916, -330], [1700, -560], [1484, -800], [1520, -1040], [1546, -1262],
+    // Skudehavnen marina (opens north-west, sheltered by the long outer spit)
+    [1574, -1290], [1800, -1160], [2090, -990], [2120, -1030], [1830, -1250], [1650, -1440],
+    // spit tip, the outer coast running south-east, then on to Københavns Nord Vinkelfyr → east coast
+    [1630, -1510], [1700, -1500], [1800, -1404], [2090, -1244], [2360, -1036], [2700, -1010], [3100, -1010],
+    [3400, -1080], [3620, -1142], [3720, -1122], [3900, -962], [4200, -700], [4600, -380],
     [5400, 120], [5400, 3200], [-3200, 3200],
   ].map(p => [+p[0].toFixed(1), +p[1].toFixed(1)]);
   tag(COAST, { id: 'coast', kind: 'coast' });
@@ -193,9 +195,10 @@
     tag(strip([[-562, -340], [-560, -250], [-558, -100], [-556, 40], [-548, 120], [-526, 152], [-490, 165]], 9), { id: 'rev-w', kind: 'revetment' }),
     tag(strip([[-490, 165], [-380, 166], [-250, 162], [-130, 152], [-92, 113]], 9), { id: 'rev-s', kind: 'revetment' }),
     tag(strip([[44, -8], [110, -34], [170, -56], [250, -80], [330, -98], [420, -115], [470, -110], [505, -82], [522, -35], [525, 30], [522, 76]], 8), { id: 'rev-n', kind: 'revetment' }),
-    // Svanemøllehavnen moles, Nordhavn tongue head
+    // Svanemøllehavnen moles; Færgehavn Nord: curved breakwater off Terminal 13 + the short one from Skudehavnen
     tag(strip([[480, 300], [480, 150], [530, 136]], 8), { id: 'marina-s', kind: 'mole' }),
-    tag(strip([[1110, -1120], [1150, -1182], [1196, -1198], [1236, -1176]], 10), { id: 'tongue', kind: 'mole' }),
+    tag(strip([[884, -316], [960, -430], [1060, -556], [1170, -640], [1276, -680]], 10), { id: 'faerge-w', kind: 'mole', name: 'Færgehavn Nord' }),
+    tag(strip([[1250, -750], [1360, -792], [1490, -806]], 10), { id: 'faerge-n', kind: 'mole', name: 'Færgehavn Nord' }),
   ];
 
   // --- club jetties (heading in deg, 0 = north). Roots on the club corner.
@@ -222,8 +225,13 @@
     const y = 150 + i * 70;
     PIERS.push(tag(rectFrom(160, y, 90, 250, 2.2), { id: 'M' + (i + 1), kind: 'jetty' }));
   }
-  // Færgehavn Nord quay
-  PIERS.push(tag(rectFrom(900, -340, 90, 190, 6), { id: 'ferry-quay', kind: 'quay' }));
+  // ferry quay on Terminal 13's channel side
+  PIERS.push(tag(rectFrom(772, -180, 31.7, 120, 6), { id: 'ferry-quay', kind: 'quay' }));
+  // Færgehavn Nord marina: slanted pontoons off the Terminal 13 quay, straight ones off the south quay
+  for (let i = 0; i < 3; i++) PIERS.push(tag(rectFrom(1090 + i * 70, -318, 32, 220, 2.4), { id: 'FN' + (i + 1), kind: 'jetty' }));
+  for (let i = 0; i < 6; i++) PIERS.push(tag(rectFrom(1360 + i * 90, -126, 0, i < 5 ? 290 - i * 10 : 190, 2.4), { id: 'FN' + (i + 4), kind: 'jetty' }));
+  // Skudehavnen: short pontoons off the inner shore
+  for (let i = 0; i < 6; i++) { const t = 0.12 + i * 0.14; PIERS.push(tag(rectFrom(1574 + 516 * t, -1290 + 300 * t, 30, 70, 2), { id: 'SK' + (i + 1), kind: 'jetty' })); }
 
   // Berths: alongside the jetties, bow pointing out from the shore. side = boat side that faces the jetty.
   const BERTH_DEF = [
@@ -276,11 +284,13 @@
     { id: 'beach10', d: 1.0, poly: [[-700, -1060], [-500, -1044], [-512, -440], [-700, -440]] },
     { id: 'beach06', d: 0.6, poly: [[-700, -1040], [-534, -1030], [-546, -440], [-700, -440]] },
     { id: 'stone', d: 0.7, poly: ellipse(290, -700, 14, 10, 20, 12) },
-    // dredged channels and harbours
+    // dredged channels and harbours (the outer harbour off Nordhavn first, so the channels paint over it)
+    { id: 'outer', d: 5.5, poly: [[770, -300], [884, -320], [1276, -690], [1490, -810], [1560, -1300], [1640, -1560], [1000, -1560], [760, -700]] },
     { id: 'kalk', d: 6.5, poly: strip([[chanX(110), 110], [chanX(-1460), -1460]], 120) },
     { id: 'kalkInner', d: 6.5, poly: [[590, 1300], [712, 1300], [712, 60], [585, 60]] },
     { id: 'skude', d: 6.5, poly: strip([[1096, -1440], [1350, -2100], [1700, -3300], [1760, -3800]], 150) },
-    { id: 'faerge', d: 6.4, poly: [[770, -360], [1140, -360], [1140, -170], [770, -170]] },
+    { id: 'faerge', d: 4.0, poly: [[880, -322], [1280, -310], [1290, -120], [1910, -105], [1920, -330], [1490, -806], [1250, -760], [884, -330]] },
+    { id: 'skudehavn', d: 3.0, poly: [[1560, -1300], [2100, -985], [2130, -1040], [1650, -1460]] },
     { id: 'marina', d: 2.6, poly: [[140, 86], [534, 86], [534, 500], [140, 500]] },
   ];
 
@@ -304,7 +314,7 @@
   });
   BUOYS.push(
     { id: 'E-stenen', kind: 'cardE', x: 312, y: -700, light: 'Q(3) 10s', name: 'Stenen' },
-    { id: 'N-tongue', kind: 'cardN', x: 1206, y: -1272, light: 'Q', name: 'Nordhavn Nord' },
+    { id: 'N-skude', kind: 'cardN', x: 1640, y: -1590, light: 'Q', name: 'Skudehavnen' },
     { id: 'SAFE', kind: 'safe', x: 1010, y: -1560, light: 'LFl 10s', name: 'Kalkbrænderiløbet' },
     { id: 'W-stubben', kind: 'cardW', x: 1880, y: -1530, light: 'Q(9) 15s', name: 'Stubben' },
     { id: 'E-stubben', kind: 'cardE', x: 2830, y: -1420, light: 'Q(3) 10s', name: 'Stubben' },
@@ -320,14 +330,15 @@
     { id: 'marinaN', x: 522, y: 78, light: 'Fl G 3s', color: 'G', name: 'Svanemøllehavnen' },
     { id: 'marinaS', x: 528, y: 138, light: 'Fl R 3s', color: 'R', name: 'Svanemøllehavnen' },
     { id: 'forfyr', x: 712, y: 46, light: 'Iso R 2s', color: 'R', name: 'Kalkbrænderihavnen Forfyr' },
-    { id: 'tongue', x: 1236, y: -1176, light: 'Fl R 4s', color: 'R', name: 'Færgehavn Nord' },
+    { id: 'faerge', x: 1276, y: -680, light: 'Fl R 4s', color: 'R', name: 'Færgehavn Nord' },
+    { id: 'faergeN', x: 1250, y: -750, light: 'Fl G 4s', color: 'G', name: 'Færgehavn Nord' },
     { id: 'vinkel', x: 3640, y: -1150, light: 'Iso WRG 4s', color: 'W', name: 'Københavns Nord Vinkelfyr' },
   ];
 
   const LANES = [
     { id: 'kalk', kind: 'channel', width: 120, points: [[640, 900], [chanX(100), 100], [chanX(-1460), -1460]], name: 'Kalkbrænderiløbet' },
     { id: 'skude', kind: 'channel', width: 150, points: [[1096, -1440], [1350, -2100], [1700, -3300]], name: 'Skudeløbet' },
-    { id: 'ferry', kind: 'ferry', width: 140, points: [[1000, -262], [770, -262], [chanX(-650), -650], [chanX(-1300), -1300], [1250, -1600], [2000, -2150], [3000, -2350], [3200, -3700]], name: 'Færgerute' },
+    { id: 'ferry', kind: 'ferry', width: 140, points: [[790, -240], [chanX(-650), -650], [chanX(-1300), -1300], [1250, -1600], [2000, -2150], [3000, -2350], [3200, -3700]], name: 'Færgerute' },
   ];
 
   const ZONES = [
@@ -350,24 +361,26 @@
   add({ kind: 'gangway', poly: PIERS.find(p => p.id === 'C-gangway') || null, x: 62, y: -10 });
   add({ kind: 'lighthouse', x: -288, y: -424, light: 'Fl W 3s', color: 'W' });
   add({ kind: 'lighthouse', x: 3640, y: -1150, light: 'Iso WRG 4s', color: 'W' });
-  add({ kind: 'lighthouse', x: 1236, y: -1176, light: 'Fl R 4s', color: 'R' });
+  add({ kind: 'lighthouse', x: 1276, y: -680, light: 'Fl R 4s', color: 'R' });
   // the beach + park behind it
   add({ kind: 'beach', x: -585, y: -680, poly: [[-548, -980], [-566, -860], [-578, -720], [-576, -580], [-568, -450], [-562, -360], [-602, -360], [-610, -450], [-618, -580], [-620, -720], [-608, -860], [-590, -985]] });
   add({ kind: 'park', x: -660, y: -680, poly: [[-602, -1040], [-590, -985], [-608, -860], [-620, -720], [-618, -580], [-610, -450], [-604, -360], [-760, -340], [-780, -1040]] });
-  add({ kind: 'park', x: 300, y: 30, poly: [[180, -40], [420, -100], [470, -95], [500, -60], [505, 40], [180, 60]] });
+  add({ kind: 'park', x: 450, y: -20, poly: [[410, -96], [470, -95], [500, -60], [505, 30], [410, 40]] });
+  [[195, 10, 46, 18, '#cfc7b8'], [252, -18, 38, 16, '#b8b2a6'], [318, -42, 40, 18, '#c9a18a'], [372, 6, 50, 20, '#a9b4bd'], [250, 56, 60, 16, '#cfc7b8']]
+    .forEach(b => add({ kind: 'building', x: b[0], y: b[1], w: b[2], h: b[3], rot: -15, floors: 1, color: b[4] }));
   add({ kind: 'marina', x: 310, y: 290, poly: [[150, 104], [470, 92], [478, 486], [150, 480]] });
   add({ kind: 'powerstation', x: 40, y: 320, w: 90, h: 50, rot: 0, name: 'Svanemølleværket' });
   // Nordhavn: apartment towers, the silo, warehouses, cranes
-  const towers = [[900, -470, 40, 22, 9], [930, -620, 30, 30, 12], [990, -800, 44, 20, 10], [1060, -960, 26, 26, 14], [1120, -520, 50, 24, 8],
-    [1250, -1000, 34, 22, 11], [1400, -900, 46, 24, 9], [1580, -820, 30, 30, 13], [1760, -720, 44, 22, 10], [1000, -120, 40, 26, 7], [880, 20, 36, 24, 8]];
+  const towers = [[1050, -200, 40, 22, 9], [1180, -230, 30, 30, 12], [1960, -420, 44, 20, 10], [2100, -640, 26, 26, 14], [2250, -820, 50, 24, 8],
+    [1750, -980, 34, 22, 6], [2450, -900, 46, 24, 9], [2700, -850, 30, 30, 13], [2950, -860, 44, 22, 10], [1000, -120, 40, 26, 7], [880, 20, 36, 24, 8]];
   towers.forEach((t, i) => add({ kind: 'tower', x: t[0], y: t[1], w: t[2], h: t[3], floors: t[4], rot: -20, color: ['#d9d4cc', '#b9c6d4', '#e2c9a6', '#c5ccd6'][i % 4] }));
-  add({ kind: 'silo', x: 1180, y: -760, w: 28, h: 22, floors: 17, name: 'The Silo' });
-  add({ kind: 'crane', x: 1130, y: -380, rot: 30 });
+  add({ kind: 'silo', x: 1450, y: -50, w: 28, h: 22, floors: 17, name: 'The Silo' });
+  add({ kind: 'crane', x: 1220, y: -262, rot: 30 });
   add({ kind: 'crane', x: 1160, y: -160, rot: -40 });
   {
     const r = rng(7);
     // city blocks: Østerbro behind the beach & marina, Nordhavn warehouses
-    const areas = [[-1100, -1700, -760, 300, 26], [-250, 180, 120, 700, 10], [740, 120, 1400, 900, 14], [1250, -600, 2200, -300, 12], [2500, -500, 3500, 300, 16], [-560, -1700, 40, -1300, 10]];
+    const areas = [[-1100, -1700, -760, 300, 26], [-250, 180, 120, 700, 10], [740, 120, 1400, 900, 14], [1930, -700, 2400, -250, 10], [1500, -1200, 2000, -850, 12], [2300, -1000, 3400, -700, 14], [2500, -500, 3500, 300, 16], [-560, -1700, 40, -1300, 10]];
     for (const a of areas) {
       for (let i = 0; i < a[4]; i++) {
         const x = a[0] + r() * (a[2] - a[0]), y = a[1] + r() * (a[3] - a[1]);
@@ -376,7 +389,7 @@
       }
     }
     // trees: Svanemølle park behind the beach, Svaneknoppen, along the club
-    const treeAreas = [[-760, -1040, -612, -360, 46], [180, -30, 500, 70, 22], [-120, 120, 120, 180, 12], [-60, 40, 30, 120, 6], [1400, -560, 2300, -460, 14]];
+    const treeAreas = [[-760, -1040, -612, -360, 46], [400, -80, 500, 40, 8], [-120, 120, 120, 180, 12], [-60, 40, 30, 120, 6], [1950, -560, 2400, -400, 12]];
     for (const a of treeAreas) {
       for (let i = 0; i < a[4]; i++) {
         const x = a[0] + r() * (a[2] - a[0]), y = a[1] + r() * (a[3] - a[1]);
@@ -401,8 +414,9 @@
     { x: 360, y: -460, text: '3,4', size: 14, kind: 'depth' },
     { x: 310, y: 300, text: 'Svanemøllehavnen', size: 20, kind: 'water' },
     { x: 820, y: -760, text: 'Kalkbrænderiløbet', size: 18, rot: 70, kind: 'water' },
-    { x: 960, y: -268, text: 'Færgehavn Nord', size: 14, kind: 'water' },
-    { x: 1600, y: -560, text: 'Nordhavn', size: 44, kind: 'land' },
+    { x: 1500, y: -400, text: 'Færgehavn Nord', size: 16, kind: 'water' },
+    { x: 2350, y: -560, text: 'Nordhavn', size: 44, kind: 'land' },
+    { x: 1760, y: -1080, text: 'Skudehavnen', size: 14, kind: 'land' },
     { x: -260, y: -1500, text: 'Tuborg Havn', size: 22, kind: 'land' },
     { x: -1000, y: -900, text: 'Hellerup', size: 30, kind: 'land' },
     { x: 2360, y: -1500, text: 'Stubben', size: 24, kind: 'water' },
@@ -593,7 +607,7 @@
     poi: {
       club: { x: 96, y: 22 }, pier: { x: 10, y: -30 }, rib: { x: 56, y: -40 }, school: { x: -300, y: -150 },
       bay: { x: -290, y: -640 }, rules: { x: 200, y: -560 }, nav: { x: chanX(-700), y: -700 }, race: { x: 3750, y: -2000 },
-      mole: { x: -288, y: -424 }, marina: { x: 310, y: 290 }, ferry: { x: 960, y: -262 }, stubben: { x: 2350, y: -1500 },
+      mole: { x: -288, y: -424 }, marina: { x: 310, y: 290 }, ferry: { x: 790, y: -240 }, stubben: { x: 2350, y: -1500 },
     },
     chanX,
     util: { pointInPoly, polyNearest, bboxOf, strip, rectFrom, rectAt, ellipse },

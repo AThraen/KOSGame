@@ -371,9 +371,9 @@
       push('<g class="hub-city">' + blocks.join('') + '</g>');
     }
     // Nordhavn: a few extra green strips & roads for texture
-    push(`<path d="${pathOf([[740, 600], [800, -100], [1000, -700], [1150, -1100]], false, 40)}" class="hub-road"/>`);
+    push(`<path d="${pathOf([[740, 600], [790, -120], [900, -290], [1240, -280]], false, 40)}" class="hub-road"/>`);
     push(`<path d="${pathOf([[-800, 900], [-700, -300], [-720, -1800]], false, 40)}" class="hub-road"/>`);
-    push(`<path d="${pathOf([[1300, -1000], [2350, -500], [3600, -1080]], false, 50)}" class="hub-road"/>`);
+    push(`<path d="${pathOf([[1560, -1180], [1640, -760], [2350, -500], [3600, -1080]], false, 50)}" class="hub-road"/>`);
     // buildings + trees (sorted north→south for overlap)
     const lm = G.landmarks.slice().sort((a, b) => a.y - b.y);
     for (const l of lm) {
