@@ -245,13 +245,16 @@
     for (let i = 0; i < 14; i++) { const y = lerp(-L * 0.2, L * 0.44, i / 13); out.push({ d: 'M' + f3(-halfW(g, (y + L / 2) / L) + 0.55) + ' ' + f3(y) + 'L' + f3(halfW(g, (y + L / 2) / L) - 0.55) + ' ' + f3(y), stroke: 'rgba(255,255,255,0.05)', lw: 0.05 }); }
     // stern transom board
     out.push({ d: rr(-0.75, L / 2 - 0.3, 1.5, 0.22, 0.05), fill: '#25282d' });
-    // console
+    // centre console on the centreline: windscreen forward, black dash on the aft side, wheel on the AFT face
+    // (seen from above as a thin rim facing the stern), helm standing behind it, jockey seat aft of the helm
     const cy = yAt(g, 0.47);
     out.push({ d: rr(-0.42, cy - 0.35, 0.84, 0.75, 0.14), fill: { lin: [-0.42, 0, 0.42, 0], stops: [[0, '#e55c10'], [0.4, '#ff8a3d'], [1, '#d4520c']] }, stroke: '#8f3304', lw: 0.03 });
     out.push({ d: 'M-0.42 ' + f3(cy - 0.2) + 'Q0 ' + f3(cy - 0.62) + ' 0.42 ' + f3(cy - 0.2) + 'L0.36 ' + f3(cy - 0.08) + 'Q0 ' + f3(cy - 0.42) + ' -0.36 ' + f3(cy - 0.08) + 'Z', fill: 'rgba(170,215,240,0.85)', stroke: '#c9d3dc', lw: 0.03 });
-    out.push({ d: rr(-0.5, cy - 0.45, 1.0, 0.95, 0.2), fill: 'none', stroke: '#d0d5db', lw: 0.035 }); // stainless rail
-    out.push({ d: circ(0, cy + 0.08, 0.15), fill: 'none', stroke: '#111', lw: 0.045 });
-    out.push({ d: rr(-0.4, cy + 0.55, 0.8, 0.42, 0.12), fill: '#1d1f23', stroke: '#000', lw: 0.02 }); // jockey seat
+    out.push({ d: rr(-0.34, cy + 0.08, 0.68, 0.26, 0.06), fill: '#1d1f23', stroke: '#000', lw: 0.02 }); // black dash panel
+    out.push({ d: 'M-0.5 ' + f3(cy + 0.32) + 'V' + f3(cy - 0.25) + 'Q-0.5 ' + f3(cy - 0.45) + ' -0.3 ' + f3(cy - 0.45) + 'H0.3Q0.5 ' + f3(cy - 0.45) + ' 0.5 ' + f3(cy - 0.25) + 'V' + f3(cy + 0.32), fill: 'none', stroke: '#d0d5db', lw: 0.035 }); // stainless rail (open aft for the helm)
+    out.push({ d: 'M0 ' + f3(cy + 0.3) + 'L0 ' + f3(cy + 0.44), stroke: '#2a2d33', lw: 0.05 }); // wheel shaft out of the aft face
+    out.push({ d: ell(0, cy + 0.46, 0.17, 0.05), fill: 'none', stroke: '#111', lw: 0.05 }); // wheel rim, edge-on from above
+    out.push({ d: rr(-0.4, cy + 0.98, 0.8, 0.34, 0.12), fill: '#1d1f23', stroke: '#000', lw: 0.02 }); // jockey seat
     // bow locker + KØS box
     out.push({ d: rr(-0.36, -L / 2 + 0.95, 0.72, 0.62, 0.15), fill: '#2b2e33' });
     out.push({ d: rr(-0.42, -L / 2 + 0.28, 0.84, 0.42, 0.14), fill: '#111', stroke: '#000', lw: 0.02 });
@@ -615,7 +618,13 @@
     ctx.restore();
     // driver standing at the console
     const look = crewLook(boat, 0); look.jacket = boat.crewColors ? boat.crewColors[0] : '#ffd23f'; look.helmet = HAIR[hashStr(boat.id || 'r') % HAIR.length];
-    drawSailor(ctx, 0, yAt(g, 0.47) + 0.62, -1, 0, 'stand', Object.assign(look, { scale: 1.05 }));
+    // on the centreline behind the wheel, facing the bow (the sailor's 'out' axis turned to point forward)
+    const dy = yAt(g, 0.47) + 0.87, wy = yAt(g, 0.47) + 0.46;
+    ctx.save(); ctx.translate(0, dy); ctx.rotate(-PI / 2);
+    drawSailor(ctx, 0, 0, 1, 0, 'stand', Object.assign(look, { scale: 1.05 }));
+    ctx.restore();
+    ctx.strokeStyle = look.skin || SKIN[0]; ctx.lineWidth = 0.065; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-0.15, dy - 0.12); ctx.lineTo(-0.13, wy + 0.02); ctx.moveTo(0.15, dy - 0.12); ctx.lineTo(0.13, wy + 0.02); ctx.stroke();
     // passengers / crew
     if (boat.crewNames && boat.crewNames.length > 1) drawSailor(ctx, 0.55, yAt(g, 0.72), 1, 0, 'sit', Object.assign(crewLook(boat, 1), { scale: 1 }));
   }
@@ -905,12 +914,19 @@
       hd.push('<path d="M' + f3(x0 + 4) + ' ' + f3(ty + 4) + 'H' + f3(x1) + '" stroke="#111" stroke-width="4.5" stroke-linecap="round"/>');
       for (let i = 0; i < 9; i++) { const xx = lerp(x0 + 24, x1 - 14, i / 8); hd.push('<path d="M' + f3(xx) + ' ' + f3(ty - 5) + 'q7 5 14 0" stroke="#1b1b1b" stroke-width="1" fill="none"/>'); }
       hd.push('<rect x="' + f3(x0 + 18) + '" y="' + f3(ty - 8) + '" width="34" height="15" rx="6" fill="#111"/><text x="' + f3(x0 + 35) + '" y="' + f3(ty + 3.5) + '" font-size="11" font-weight="900" text-anchor="middle" fill="#fff" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">KØS</text>');
-      const cx = x0 + len * 0.47;
-      hd.push('<path d="M' + f3(cx - 16) + ' ' + f3(ty - tr) + 'v-22h30l6 22z" fill="#ff8a3d" stroke="#a83a05"/><path d="M' + f3(cx - 14) + ' ' + f3(ty - tr - 22) + 'l4 -14h20l4 14z" fill="rgba(170,215,240,.85)" stroke="#c9d3dc"/>');
-      hd.push('<path d="M' + f3(cx - 22) + ' ' + f3(ty - tr) + 'v-26a6 6 0 0 1 6 -6h34a6 6 0 0 1 6 6v26" stroke="#d0d5db" stroke-width="2" fill="none"/>');
-      hd.push('<circle cx="' + f3(cx + 4) + '" cy="' + f3(ty - tr - 27) + '" r="5" fill="none" stroke="#111" stroke-width="2"/>');
-      // driver
-      hd.push(personSide(cx + 26, ty - tr, '#ffd23f', SKIN[1], HAIR[0], true));
+      // centre console (bow is left, stern right): sloped forward face, windscreen raked aft, black dash on the
+      // aft side, wheel on the AFT face seen edge-on (its rim faces the stern), helm standing behind it
+      const cx = x0 + len * 0.47, cb = ty - tr, ct = cb - 24;
+      hd.push('<path d="M' + f3(cx + 27) + ' ' + f3(cb) + 'v-16h12v16z" fill="#1d1f23"/>'); // jockey seat behind the helm
+      hd.push('<path d="M' + f3(cx - 26) + ' ' + f3(cb) + 'v-20a6 6 0 0 1 6 -6h7" stroke="#d0d5db" stroke-width="2" fill="none"/>'); // stainless rail round the front
+      hd.push('<path d="M' + f3(cx - 20) + ' ' + f3(cb) + 'L' + f3(cx - 12) + ' ' + f3(ct) + 'H' + f3(cx + 10) + 'V' + f3(cb) + 'z" fill="#ff8a3d" stroke="#a83a05"/>');
+      hd.push('<path d="M' + f3(cx - 11) + ' ' + f3(ct) + 'L' + f3(cx - 6) + ' ' + f3(ct - 9) + 'H' + f3(cx + 2) + 'L' + f3(cx + 2) + ' ' + f3(ct) + 'z" fill="rgba(170,215,240,.85)" stroke="#c9d3dc"/>'); // windscreen
+      hd.push('<path d="M' + f3(cx + 2) + ' ' + f3(ct) + 'L' + f3(cx + 10) + ' ' + f3(ct + 6) + 'V' + f3(ct) + 'z" fill="#1d1f23"/>'); // dash
+      hd.push('<path d="M' + f3(cx + 10) + ' ' + f3(ct + 9) + 'l6 -3" stroke="#2a2d33" stroke-width="2.4" stroke-linecap="round"/>'); // wheel shaft
+      hd.push('<ellipse cx="' + f3(cx + 16) + '" cy="' + f3(ct + 6) + '" rx="2" ry="8" transform="rotate(-25 ' + f3(cx + 16) + ' ' + f3(ct + 6) + ')" fill="none" stroke="#111" stroke-width="2.2"/>'); // wheel, edge-on
+      // driver standing behind the wheel, hands on it
+      hd.push(personSide(cx + 27, cb, '#ffd23f', SKIN[1], HAIR[0], true));
+      hd.push('<path d="M' + f3(cx + 24) + ' ' + f3(cb - 18) + 'L' + f3(cx + 17) + ' ' + f3(ct + 4) + '" stroke="' + SKIN[1] + '" stroke-width="2.4" stroke-linecap="round"/>');
     } else {
       hd.push('<path d="M' + f3(x0 + 1) + ' ' + f3(deckY + 3) + 'L' + f3(x1 - 1) + ' ' + f3(deckY + 5) + '" stroke="' + c.trim + '" stroke-width="3" stroke-linecap="round"/>');
       if (g.cabin) { const cx0 = x0 + len * g.cabin[0], cx1 = x0 + len * g.cabin[1]; hd.push('<path d="M' + f3(cx0) + ' ' + f3(deckY) + 'L' + f3(cx0 + 10) + ' ' + f3(deckY - 9) + 'H' + f3(cx1) + 'V' + f3(deckY) + 'Z" fill="#eef1f4" stroke="#9aa1ab"/><rect x="' + f3(cx0 + 14) + '" y="' + f3(deckY - 7) + '" width="' + f3((cx1 - cx0) * 0.5) + '" height="3.5" rx="1.5" fill="#2a3442"/>'); hd.push('<path d="M' + f3(x0 + 4) + ' ' + f3(deckY - 7) + 'L' + f3(x1 - 4) + ' ' + f3(deckY - 6) + '" stroke="rgba(140,150,165,.8)" stroke-width="0.9"/>'); }

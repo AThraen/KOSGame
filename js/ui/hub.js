@@ -277,9 +277,10 @@
       <symbol id="hubRib" viewBox="-12 -8 24 16" overflow="visible">
         <path d="M-9 -2 L-20 -5 M-9 2 L-20 5" stroke="#fff" stroke-opacity=".75" stroke-width="1.6" fill="none" stroke-linecap="round"/>
         <path d="M-8 -3.6H4Q9 -3.6 9.5 0Q9 3.6 4 3.6H-8Z" fill="#ff7a1f" stroke="#1d1d1d" stroke-width="1.1"/>
-        <rect x="-3" y="-1.6" width="3.6" height="3.2" rx=".8" fill="#ff9a4a" stroke="#222" stroke-width=".5"/>
+        <rect x="-1.4" y="-1.6" width="3.4" height="3.2" rx=".8" fill="#ff9a4a" stroke="#222" stroke-width=".5"/>
+        <path d="M-2 -1.1V1.1" stroke="#111" stroke-width=".6" stroke-linecap="round"/>
         <rect x="-10" y="-1.4" width="2.4" height="2.8" rx=".5" fill="#1d1d1d"/>
-        <circle cx="-1.5" cy="0" r="1.1" fill="#ffd2a8"/>
+        <circle cx="-3.4" cy="0" r="1.1" fill="#ffd2a8"/>
       </symbol>
       <symbol id="hubFerry" viewBox="-30 -10 60 20" overflow="visible">
         <ellipse cx="0" cy="3" rx="30" ry="7" fill="#06264d" opacity=".2"/>
