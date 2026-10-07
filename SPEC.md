@@ -94,6 +94,7 @@ js/ui/audio.js        KOS.Audio
 js/ui/input.js        KOS.Input
 js/ui/ui.js           KOS.UI (toasts, dialogs, HUD, coach bubbles, results)
 js/ui/hub.js          KOS.Hub (the harbor map screen)
+js/ui/track.js        KOS.Track (anonymous Matomo stats, see Analytics)
 js/ui/app.js          KOS.App (screens, router, loop, settings, profile)
 js/modes/sail.js      free sail (reference mode)
 js/modes/school.js    sailing school lessons
@@ -325,6 +326,16 @@ the effects thin out cosmetic particles at lower levels.
   sail ties, daggerboard, rudder, bailer, painter, trapeze, gennaker...), **knots** (trace the rope: pælestik/bowline,
   ottetalsknob/figure-8, råbåndsknob/reef knot, dobbelt halvstik/clove hitch, klampe/cleat), **capsize recovery**
   (timing mini-game on the centreboard), **quiz** (rules, parts of the boat, weather, safety, knots).
+
+## Analytics (Matomo)
+
+`js/ui/track.js` (`KOS.Track`) loads Matomo (matomo.bering.codeart.dk, site 13) on the first real event: cookieless, honours Do-Not-Track, never sends
+names or other personal data. It is a no-op on localhost/127.x, `file:`, headless/automated browsers (`navigator.webdriver`, HeadlessChrome) and in God
+mode, so tests never touch the network. `sw.js` ignores cross-origin requests, so matomo.js/php are never cached. Everything is try/catch: blocked
+or offline changes nothing. Screen changes are virtual page views (`/#hub`, `/#play/<activity id>`). Events (category / action / name [value]):
+Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|unlockAll, View overview|zoom,
+Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson. Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
+`play:finish`, `settings`) plus a few direct `KOS.Track.event` calls in app.js.
 
 ## Testing
 
