@@ -235,6 +235,8 @@
   // own GPU layer and splits the map around each one (~160 layers, ~20M px), which phones can't hold in tile memory -
   // the map flashed black whenever a drag started or ended. SMIL repaints in place, and pauseAnimations() freezes it.
   const EASE = '.42 0 .58 1';
+  // mouse/trackpad = desktop-class GPU: whole-map effects (wave drift, marching coast foam) run there, not on phones
+  const FINE_POINTER = (() => { try { return root.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return false; } })();
   const BOB = `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="2.6s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
   const FLAP = `<animate attributeName="d" values="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0;M-7 1.2Q-3.5 -.4 0 1.2Q3.5 -.4 7 1.2;M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" dur="1s" begin="0s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
   const GLOW = `dur="3s" repeatCount="indefinite" keyTimes="0;.7;.8;1" calcMode="spline" keySplines="${EASE};${EASE};${EASE}"`;
@@ -304,9 +306,9 @@
     push('<g filter="url(#hubSoft)">');
     for (const z of G.depth) push(`<path d="${pathOf(z.poly, true, 60)}" fill="${depthColor(z.d)}"/>`);
     push('</g>');
-    // wave pattern. Static on purpose: anything that moves over the whole sea repaints the whole map every frame,
-    // and after a zoom a phone can't re-raster that fast enough (the bottom of the screen flashed black)
-    push(`<rect class="hub-waves" x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/>`);
+    // wave pattern, drifting on desktop only: anything that moves over the whole sea repaints the whole map every
+    // frame, and after a zoom a phone can't re-raster that fast enough (the bottom of the screen flashed black)
+    push(`<g class="hub-waves"><rect x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/>${FINE_POINTER ? '<animateTransform attributeName="transform" type="translate" from="0 0" to="130 90" dur="14s" repeatCount="indefinite"/>' : ''}</g>`);
     // sparkles
     {
       let s = 7;
