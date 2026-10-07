@@ -329,7 +329,33 @@
 
   // Page pinch-zoom is allowed on menus (accessibility), but during play every touch steers the boat, so a stray
   // pinch on an overlay could zoom the page with no way back out. Lock zoom while playing, and snap back to 100 %.
-  let viewportMeta = null, viewportBase = '';
+  // iOS ignores user-scalable=no and touch-action on the steering buttons (they use pointer events, which can't cancel
+  // a double-tap zoom), so quick taps on STYRBORD zoomed the page, and touch-action then blocked pinching back out.
+  let viewportMeta = null, viewportBase = '', lastTouchEnd = 0, unzoomT = 0;
+  const VV = window.visualViewport;
+  const LOCKED = () => viewportBase + ', maximum-scale=1, user-scalable=no';
+  const playing = () => doc.documentElement.classList.contains('in-play');
+  const noGesture = e => { if (playing()) e.preventDefault(); };
+  function noDoubleTap(e) {
+    if (!playing()) return;
+    const now = e.timeStamp, quick = now - lastTouchEnd < 400;
+    lastTouchEnd = now;
+    const el = e.target && e.target.closest ? e.target : null;
+    if (el && el.closest('input, textarea, select')) return;
+    // the controls never need a click (pointerdown drives them); elsewhere only swallow the second tap of a pair
+    if (e.cancelable && (quick || (el && el.closest('.kc')))) e.preventDefault();
+  }
+  // re-applying maximum-scale=1 makes iOS snap a zoomed page back to 100 %
+  function unzoom() {
+    if (!viewportMeta || !VV || VV.scale <= 1.01) return;
+    viewportMeta.setAttribute('content', viewportBase);
+    requestAnimationFrame(() => { if (playing()) viewportMeta.setAttribute('content', LOCKED()); });
+  }
+  doc.addEventListener('touchend', noDoubleTap, { passive: false, capture: true });
+  doc.addEventListener('dblclick', noGesture, { capture: true });
+  doc.addEventListener('gesturestart', noGesture, { passive: false, capture: true });
+  doc.addEventListener('gesturechange', noGesture, { passive: false, capture: true });
+  if (VV) VV.addEventListener('resize', () => { if (playing()) { clearTimeout(unzoomT); unzoomT = setTimeout(unzoom, 250); } });
   function lockZoom(on) {
     const de = doc.documentElement;
     if (de.classList.contains('in-play') === on) return;
@@ -337,7 +363,8 @@
     viewportMeta = viewportMeta || doc.querySelector('meta[name="viewport"]');
     if (!viewportMeta) return;
     viewportBase = viewportBase || viewportMeta.getAttribute('content');
-    viewportMeta.setAttribute('content', on ? viewportBase + ', maximum-scale=1, user-scalable=no' : viewportBase);
+    viewportMeta.setAttribute('content', on ? LOCKED() : viewportBase);
+    if (on) setTimeout(unzoom, 50);
   }
   // Sea modes: zoom out to see more of the water. Overview button (or M) shows the whole venue; two-finger pinch on
   // the water, the mouse wheel or +/- change the zoom (KOS.SailScene.view, applied by the scene camera).
