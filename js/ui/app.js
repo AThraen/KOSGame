@@ -1124,7 +1124,7 @@
       '<div class="credits-logo">' + logoSvg() + '</div>' +
       '<section class="panel glass"><p class="lead">' + esc(t('app.credits.lead')) + '</p></section>' +
       '<section class="panel glass"><h2>' + ico('heart') + esc(t('app.credits.made')) + '</h2>' +
-      '<ul class="credit-list"><li><b>' + esc(t('app.credits.club')) + '</b><span>KØS Sejlsport · Svaneknoppen</span></li>' +
+      '<ul class="credit-list"><li><b>' + esc(t('app.credits.club')) + '</b><span><a class="credit-link" href="https://kossejlsport.dk" target="_blank" rel="noopener">KØS Sejlsport</a> · Svaneknoppen</span></li>' +
       '<li><b>' + esc(t('app.credits.code')) + '</b><span>' + esc(t('app.credits.codeWho')) + '</span></li>' +
       '<li><b>' + esc(t('app.credits.thanks')) + '</b><span>' + esc(t('app.credits.thanksWho')) + '</span></li></ul></section>' +
       '<section class="panel glass safety"><h2>' + ico('life') + esc(t('app.credits.safetyTitle')) + '</h2><p>' + esc(t('app.credits.safety')) + '</p></section>' +

@@ -407,6 +407,7 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 .credit-list li { display: flex; flex-direction: column; }
 .credit-list b { color: var(--primary); font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; }
 .credit-list span { font-weight: 700; }
+.credit-link { color: inherit; text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 3px; }
 .safety { border-color: rgba(255, 122, 61, .45); }
 .coach-inline { display: flex; align-items: center; gap: 14px; justify-content: center; font-weight: 800; font-size: 1.1rem; }
 .coach-inline svg { width: 72px; height: 72px; animation: bob 3s ease-in-out infinite; }
