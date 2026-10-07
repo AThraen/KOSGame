@@ -29,47 +29,31 @@
 .hub { opacity: 0; transition: opacity .35s ease; }
 .hub.hub-in { opacity: 1; }
 
-/* water life */
-.hub-waves { animation: hub-waves 14s linear infinite; }
-@keyframes hub-waves { from { transform: translate(0, 0); } to { transform: translate(130px, 90px); } }
-.hub-sparkles path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; opacity: 0; animation: hub-spark 6s ease-in-out infinite; }
-@keyframes hub-spark { 0%, 100% { opacity: 0; transform: translateX(-4px); } 40% { opacity: .55; } 60% { opacity: .35; transform: translateX(6px); } }
+/* water life. Looping motion inside the map SVG is SMIL (see buildMap in hub.js): CSS transform/opacity/filter
+   animations there each become a GPU layer and the map flashes black on phones when a drag starts/ends */
+.hub-sparkles path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; opacity: 0; }
 .hub-foam { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 8; stroke-linejoin: round; }
 .hub-foam2 { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 16; stroke-linejoin: round; stroke-dasharray: 10 14; animation: hub-foam 5s linear infinite; }
 @keyframes hub-foam { to { stroke-dashoffset: -48; } }
 .hub-lane-chan { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 2; stroke-dasharray: 9 7; }
 .hub-lane-ferry { fill: none; stroke: rgba(238, 90, 170, .55); stroke-width: 2.4; stroke-dasharray: 2 6; stroke-linecap: round; }
 .hub-zone-swim { fill: rgba(255, 216, 74, .14); stroke: rgba(255, 216, 74, .85); stroke-width: 1.6; stroke-dasharray: 5 4; }
-.hub-zone-course { fill: rgba(255, 200, 69, .06); stroke: rgba(255, 220, 140, .5); stroke-width: 2; stroke-dasharray: 10 8; animation: hub-spin 60s linear infinite; transform-box: fill-box; transform-origin: center; }
-@keyframes hub-spin { to { transform: rotate(360deg); } }
+.hub-zone-course { fill: rgba(255, 200, 69, .06); stroke: rgba(255, 220, 140, .5); stroke-width: 2; stroke-dasharray: 10 8; }
 .hub-road { fill: none; stroke: rgba(255, 255, 255, .45); stroke-width: 3; stroke-linecap: round; }
 .hub-rock { fill: #8f897c; stroke: #59544a; stroke-width: 1.2; stroke-dasharray: 2.5 1.5; }
 .hub-pier { fill: #c79a62; stroke: #6b4a28; stroke-width: .8; }
 .hub-pontoon { fill: #e8ebef; stroke: #6c7686; stroke-width: .8; }
-.hub-buoy-lit { animation: hub-blink 3s steps(1) infinite; }
-@keyframes hub-blink { 0%, 86% { opacity: 1; filter: none; } 90% { opacity: 1; filter: brightness(1.8) drop-shadow(0 0 4px #fff); } 94% { opacity: 1; filter: none; } }
-.hub-lightglow { animation: hub-glow 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-@keyframes hub-glow { 0%, 70%, 100% { opacity: .15; transform: scale(.6); } 80% { opacity: 1; transform: scale(1.2); } }
-.hub-smoke circle { fill: rgba(255, 255, 255, .5); animation: hub-smoke 5s ease-out infinite; transform-box: fill-box; transform-origin: center; }
-.hub-smoke circle:nth-child(2) { animation-delay: -1.6s; }
-.hub-smoke circle:nth-child(3) { animation-delay: -3.2s; }
-@keyframes hub-smoke { from { opacity: .7; transform: translate(0, 0) scale(.6); } to { opacity: 0; transform: translate(14px, -18px) scale(1.6); } }
+.hub-smoke circle { fill: rgba(255, 255, 255, .5); }
 .hub-labels { position: absolute; inset: 0; pointer-events: none; }
 .hub-label { position: absolute; white-space: nowrap; line-height: 1; transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(var(--inv)); letter-spacing: .02em; }
 .hub-label-water { color: rgba(240, 250, 255, .92); font-style: italic; font-weight: 800; text-shadow: 0 1px 0 rgba(10, 40, 90, .6), 0 0 8px rgba(10, 40, 90, .55); }
 .hub-label-land { color: #6a5530; font-weight: 900; text-transform: uppercase; letter-spacing: .14em; font-size: .85em; text-shadow: 0 0 4px #fff6d8, 0 0 8px #fff6d8, 0 1px 0 #fff6d8; }
 .hub-mover, .hub-gull { cursor: pointer; }
-.hub-mover use { animation: hub-bob 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-@keyframes hub-bob { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg) scale(1.03); } }
+.hub-mover use { transform-box: fill-box; transform-origin: center; }
 .hub-mover.boing use { animation: hub-boing .6s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes hub-boing { 30% { transform: scale(1.6); } 100% { transform: scale(1); } }
-.hub-wing { animation: hub-flap .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
-@keyframes hub-flap { from { transform: scaleY(1); } to { transform: scaleY(.35) translateY(2px); } }
-.hub-gull-b .hub-wing { animation-delay: -.25s; }
 .hub-gull.flee use { animation: hub-flee 1.6s ease-in forwards; transform-box: fill-box; transform-origin: center; }
 @keyframes hub-flee { 20% { transform: translate(0, -12px) scale(1.5); } 100% { transform: translate(120px, -160px) scale(.4); opacity: 0; } }
-.hub-cloud { animation: hub-cloud 90s linear infinite alternate; }
-@keyframes hub-cloud { from { transform: translate(-160px, 40px); } to { transform: translate(220px, -60px); } }
 .hub-leader { fill: none; stroke: var(--c); stroke-width: 2.2; stroke-dasharray: 2 5; stroke-linecap: round; opacity: .9; }
 .hub-anchor { fill: var(--c); stroke: #fff; stroke-width: 2; animation: hub-anchor 2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes hub-anchor { 0% { stroke-width: 2; } 50% { stroke-width: 5; stroke-opacity: .4; } 100% { stroke-width: 2; } }
@@ -226,7 +210,6 @@
   .hub-bottom { left: 84px; transform: none; width: min(460px, calc(100% - 260px)); align-items: flex-start; }
 }
 /* slow devices (see KOS.Hub mount): the map stops moving, the place pins keep their bounce */
-.hub-lite .hub-cloud, .hub-lite .hub-buoy, .hub-lite .hub-lightglow, .hub-lite .hub-gull { animation: none !important; }
 .hub-lite svg.hub-map * { animation: none !important; }
 /* the painted menu background is fully covered by the harbour map: don't keep animating it underneath */
 body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
@@ -259,9 +242,6 @@ body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
 }
 @media (max-width: 380px) { .hub-places-grid { grid-template-columns: 1fr; } }
 
-/* while dragging/pinching, freeze the looping map animations so the moving layer is not repainted */
-.hub-viewport.is-dragging .hub-pin-badge, .hub-viewport.is-dragging .hub-pin-ring, .hub-viewport.is-dragging .hub-buoy,
-.hub-viewport.is-dragging .hub-smoke, .hub-viewport.is-dragging .hub-lightglow { animation-play-state: paused; }
-/* freeze ALL map animations while dragging (see freeze() in hub.js) — re-rasterising the big map SVG every frame
-   during a drag flashes on Android */
+/* while dragging/pinching, freeze every map animation (see freeze() in hub.js: SMIL is paused there) so the moving
+   layer is not repainted */
 .hub-viewport.is-dragging, .hub-viewport.is-dragging * { animation-play-state: paused !important; }

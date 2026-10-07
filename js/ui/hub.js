@@ -231,6 +231,14 @@
   function depthColor(d) { for (const s of DEPTH_STOPS) if (d <= s[0]) return s[1]; return DEPTH_STOPS[DEPTH_STOPS.length - 1][1]; }
   const BUOY_COL = { port: '#ff3b47', stbd: '#1fc46a', swim: '#ffd84a', special: '#ffd84a', cardN: '#ffd84a', cardE: '#ffd84a', cardS: '#ffd84a', cardW: '#ffd84a', isolated: '#ff3b47', safe: '#ff3b47' };
 
+  // Map animations are SMIL, not CSS: Chrome promotes every CSS transform/opacity/filter animation inside the SVG to its
+  // own GPU layer and splits the map around each one (~160 layers, ~20M px), which phones can't hold in tile memory -
+  // the map flashed black whenever a drag started or ended. SMIL repaints in place, and pauseAnimations() freezes it.
+  const EASE = '.42 0 .58 1';
+  const BOB = `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="2.6s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  const FLAP = `<animate attributeName="d" values="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0;M-7 1.2Q-3.5 -.4 0 1.2Q3.5 -.4 7 1.2;M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" dur="1s" begin="0s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  const GLOW = `dur="3s" repeatCount="indefinite" keyTimes="0;.7;.8;1" calcMode="spline" keySplines="${EASE};${EASE};${EASE}"`;
+  const flash = (t) => `<animate attributeName="filter" values="none;url(#hubFlash);none" keyTimes="0;.9;.94" calcMode="discrete" dur="3s" begin="${t}s" repeatCount="indefinite"/>`;
   function buildMap() {
     const W = KOS.World, G = W.global;
     PROJ = PROJ || makeProj();
@@ -283,8 +291,12 @@
         <rect x="-30" y="-5" width="10" height="10" fill="#e8b84a"/><rect x="-18" y="-5" width="10" height="10" fill="#4a8be8"/><rect x="-6" y="-5" width="10" height="10" fill="#4ae8a0"/><rect x="6" y="-5" width="10" height="10" fill="#e8e8e8"/>
         <rect x="-37" y="-4" width="6" height="8" rx="1" fill="#f6f6f6"/>
       </symbol>
+      <filter id="hubFlash" x="-150%" y="-150%" width="400%" height="400%"><feComponentTransfer><feFuncR type="linear" slope="1.8"/><feFuncG type="linear" slope="1.8"/><feFuncB type="linear" slope="1.8"/></feComponentTransfer><feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#fff"/></filter>
       <symbol id="hubGull" viewBox="-8 -5 16 10" overflow="visible">
-        <path class="hub-wing" d="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${FLAP}</path>
+      </symbol>
+      <symbol id="hubGullB" viewBox="-8 -5 16 10" overflow="visible">
+        <path d="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${FLAP.replace('begin="0s"', 'begin="-.25s"')}</path>
       </symbol>
     </defs>`);
     push(`<rect width="${P.W}" height="${P.H}" fill="url(#hubSea)"/>`);
@@ -292,8 +304,8 @@
     push('<g filter="url(#hubSoft)">');
     for (const z of G.depth) push(`<path d="${pathOf(z.poly, true, 60)}" fill="${depthColor(z.d)}"/>`);
     push('</g>');
-    // waves pattern drifting (CSS animated group)
-    push(`<g class="hub-waves"><rect x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/></g>`);
+    // waves pattern drifting
+    push(`<g class="hub-waves"><rect x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/><animateTransform attributeName="transform" type="translate" from="0 0" to="130 90" dur="14s" repeatCount="indefinite"/></g>`);
     // sparkles
     {
       let s = 7;
@@ -303,7 +315,8 @@
         const x = -900 + r() * 5400, y = -3800 + r() * 3600;
         if (W.isLand('sound', x, y)) continue;
         const q = P.p(x, y);
-        push(`<path d="M${f1(q[0] - 7)} ${f1(q[1])}q3.5 -3.5 7 0t7 0" style="animation-delay:${(-r() * 6).toFixed(2)}s"/>`);
+        const b = `begin="${(-r() * 6).toFixed(2)}s" dur="6s" repeatCount="indefinite"`;
+        push(`<path d="M${f1(q[0] - 7)} ${f1(q[1])}q3.5 -3.5 7 0t7 0"><animate attributeName="opacity" values="0;.55;.35;0" keyTimes="0;.4;.6;1" calcMode="spline" keySplines="${EASE};${EASE};${EASE}" ${b}/><animateTransform attributeName="transform" type="translate" values="-4 0;6 0;-4 0" keyTimes="0;.6;1" calcMode="spline" keySplines="${EASE};${EASE}" ${b}/></path>`);
       }
       push('</g>');
     }
@@ -315,7 +328,7 @@
     }
     for (const z of G.zones) {
       if (z.kind === 'swim') push(`<path d="${pathOf(z.poly, true, 30)}" class="hub-zone-swim"/>`);
-      if (z.kind === 'course') { const q = P.p(z.x, z.y); push(`<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="${f1(z.r * P.local(z.x, z.y))}" class="hub-zone-course"/>`); }
+      if (z.kind === 'course') { const q = P.p(z.x, z.y), c = `${f1(q[0])} ${f1(q[1])}`; push(`<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="${f1(z.r * P.local(z.x, z.y))}" class="hub-zone-course"><animateTransform attributeName="transform" type="rotate" from="0 ${c}" to="360 ${c}" dur="60s" repeatCount="indefinite"/></circle>`); }
     }
     // land: foam line, shadowed fill
     const coastD = pathOf(G.coast, true, 30);
@@ -381,7 +394,10 @@
           (l.kind === 'tower' ? `<path d="M${f1(-w / 2 + 2)} ${f1(-h / 2 - tall + 3)}h${f1(w - 4)}" stroke="#fff" stroke-opacity=".5" stroke-width="1"/>` : '') +
           (l.kind === 'powerstation' ? `<rect x="${f1(w / 2 - 6)}" y="${f1(-h / 2 - tall - 22)}" width="4.5" height="24" fill="#a9452f"/>` : '') +
           '</g>');
-        if (l.kind === 'powerstation') push(`<g class="hub-smoke" transform="translate(${f1(q[0] + w / 2 - 4)} ${f1(q[1] - h / 2 - tall - 24)})"><circle r="4"/><circle r="5" cx="4" cy="-6"/><circle r="6" cx="9" cy="-13"/></g>`);
+        if (l.kind === 'powerstation') push(`<g class="hub-smoke" transform="translate(${f1(q[0] + w / 2 - 4)} ${f1(q[1] - h / 2 - tall - 24)})">${[[4, 0, 0, 0], [5, 4, -6, -1.6], [6, 9, -13, -3.2]].map(([r, x, y, t]) => {
+          const b = `dur="5s" begin="${t}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 .58 1"`;
+          return `<circle r="${r}" cx="${x}" cy="${y}"><animate attributeName="r" values="${r * 0.6};${r * 1.6}" ${b}/><animate attributeName="cx" values="${x};${x + 14}" ${b}/><animate attributeName="cy" values="${y};${y - 18}" ${b}/><animate attributeName="opacity" values=".7;0" ${b}/></circle>`;
+        }).join('')}</g>`);
       } else if (l.kind === 'boatpark') {
         push(`<g transform="translate(${f1(q[0])} ${f1(q[1])}) rotate(${l.rot || 0})">` + [0, 1, 2, 3].map(i => `<path d="M${-8 + i * 5} -5l2 0 0 10 -2 0z" fill="${['#fff', '#ff8a3d', '#fff', '#ffd84a'][i]}" stroke="#24364f" stroke-width=".4"/>`).join('') + '</g>');
       } else if (l.kind === 'crane') {
@@ -413,11 +429,11 @@
     for (const b of G.buoys) {
       const q = P.p(b.x, b.y);
       const lit = b.light ? ' hub-buoy-lit' : '';
-      push(`<g class="hub-buoy${lit}" transform="translate(${f1(q[0])} ${f1(q[1])})" style="animation-delay:${((b.x * 7 + b.y * 3) % 3000 / 1000).toFixed(2)}s"><circle r="4.4" fill="#06264d" opacity=".25" cy="1.4"/><circle r="3.4" fill="${BUOY_COL[b.kind] || '#f80'}" stroke="#16243a" stroke-width="1"/>${b.kind.startsWith('card') ? '<path d="M-3.4 0h6.8" stroke="#16243a" stroke-width="1.6"/>' : ''}</g>`);
+      push(`<g class="hub-buoy${lit}" transform="translate(${f1(q[0])} ${f1(q[1])})">${b.light ? flash(((b.x * 7 + b.y * 3) % 3000 / 1000).toFixed(2)) : ''}<circle r="4.4" fill="#06264d" opacity=".25" cy="1.4"/><circle r="3.4" fill="${BUOY_COL[b.kind] || '#f80'}" stroke="#16243a" stroke-width="1"/>${b.kind.startsWith('card') ? '<path d="M-3.4 0h6.8" stroke="#16243a" stroke-width="1.6"/>' : ''}</g>`);
     }
     for (const l of G.lights) {
       const q = P.p(l.x, l.y);
-      push(`<g transform="translate(${f1(q[0])} ${f1(q[1])})"><circle class="hub-lightglow" r="16" fill="url(#hubGlow)"/><circle r="3" fill="#fff" stroke="#333" stroke-width="1"/></g>`);
+      push(`<g transform="translate(${f1(q[0])} ${f1(q[1])})"><circle class="hub-lightglow" r="16" fill="url(#hubGlow)"><animate attributeName="opacity" values=".15;.15;1;.15" ${GLOW}/><animateTransform attributeName="transform" type="scale" values=".6;.6;1.2;.6" ${GLOW}/></circle><circle r="3" fill="#fff" stroke="#333" stroke-width="1"/></g>`);
     }
     // race marks on the course
     {
@@ -425,7 +441,7 @@
       if (c) {
         const top = P.p(c.x, c.y - 420), bot = P.p(c.x - 40, c.y + 380), bot2 = P.p(c.x + 40, c.y + 380);
         push(`<path d="M${f1(bot[0])} ${f1(bot[1])}L${f1(bot2[0])} ${f1(bot2[1])}" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 3"/>`);
-        for (const m of [top, bot, bot2]) push(`<g class="hub-buoy hub-buoy-lit" transform="translate(${f1(m[0])} ${f1(m[1])})"><circle r="5" fill="#06264d" opacity=".25" cy="1.5"/><path d="M-4 2.5L0 -5.5L4 2.5Z" fill="#ff7a1f" stroke="#3a1a08" stroke-width="1"/></g>`);
+        for (const m of [top, bot, bot2]) push(`<g class="hub-buoy hub-buoy-lit" transform="translate(${f1(m[0])} ${f1(m[1])})">${flash(0)}<circle r="5" fill="#06264d" opacity=".25" cy="1.5"/><path d="M-4 2.5L0 -5.5L4 2.5Z" fill="#ff7a1f" stroke="#3a1a08" stroke-width="1"/></g>`);
       }
     }
     // moving boats
@@ -437,7 +453,7 @@
       for (let i = 0; i < n; i++) {
         const begin = -((dur / n) * i + (opts.offset || 0));
         const sz = opts.size || 16;
-        push(`<g class="hub-mover" data-kind="${opts.kind || 'boat'}" style="--sail:${(opts.sails || ['#fff'])[i % (opts.sails || ['#fff']).length]}"><use href="#${sym}" x="${-sz / 2}" y="${-sz / 2}" width="${sz}" height="${sz}"/>` +
+        push(`<g class="hub-mover" data-kind="${opts.kind || 'boat'}" style="--sail:${(opts.sails || ['#fff'])[i % (opts.sails || ['#fff']).length]}"><use href="#${sym}" x="${-sz / 2}" y="${-sz / 2}" width="${sz}" height="${sz}">${BOB}</use>` +
           `<animateMotion dur="${dur}s" begin="${begin.toFixed(2)}s" repeatCount="indefinite" rotate="auto" path="${d}"/></g>`);
       }
     };
@@ -451,22 +467,22 @@
       const lane = G.lanes.find(l => l.kind === 'ferry');
       if (lane) {
         const pts = lane.points.concat(lane.points.slice(1, -1).reverse());
-        push(`<g class="hub-mover" data-kind="ferry"><use href="#hubFerry" x="-36" y="-12" width="72" height="24"/><animateMotion dur="160s" begin="-30s" repeatCount="indefinite" rotate="auto" path="${smoothPath(pts, true)}"/></g>`);
+        push(`<g class="hub-mover" data-kind="ferry"><use href="#hubFerry" x="-36" y="-12" width="72" height="24">${BOB}</use><animateMotion dur="160s" begin="-30s" repeatCount="indefinite" rotate="auto" path="${smoothPath(pts, true)}"/></g>`);
       }
     }
-    push(`<g class="hub-mover" data-kind="ship"><use href="#hubShip" x="-36" y="-9" width="72" height="18"/><animateMotion dur="200s" begin="-60s" repeatCount="indefinite" rotate="auto" path="${smoothPath([[4600, -500], [4300, -2000], [4100, -4300], [4400, -4300], [4650, -2000], [4800, -500]], true)}"/></g>`);
+    push(`<g class="hub-mover" data-kind="ship"><use href="#hubShip" x="-36" y="-9" width="72" height="18">${BOB}</use><animateMotion dur="200s" begin="-60s" repeatCount="indefinite" rotate="auto" path="${smoothPath([[4600, -500], [4300, -2000], [4100, -4300], [4400, -4300], [4650, -2000], [4800, -500]], true)}"/></g>`);
     push('</g>');
     // cloud shadows
     push('<g class="hub-clouds">');
     [[0.2, 0.3, 260, 120], [0.65, 0.15, 340, 150], [0.45, 0.7, 300, 120], [0.85, 0.55, 260, 110]].forEach((c, i) => {
-      push(`<ellipse class="hub-cloud" style="animation-delay:${-i * 23}s" cx="${f1(c[0] * P.W)}" cy="${f1(c[1] * P.H)}" rx="${c[2]}" ry="${c[3]}" fill="url(#hubCloud)"/>`);
+      push(`<ellipse class="hub-cloud" cx="${f1(c[0] * P.W)}" cy="${f1(c[1] * P.H)}" rx="${c[2]}" ry="${c[3]}" fill="url(#hubCloud)"><animateTransform attributeName="transform" type="translate" values="-160 40;220 -60;-160 40" dur="180s" begin="${-i * 23}s" repeatCount="indefinite"/></ellipse>`);
     });
     push('</g>');
     // gulls
     push('<g class="hub-gulls">');
     [[[-500, -300], [200, -700], [900, -400], [400, 0]], [[0, -1100], [700, -1300], [1100, -900], [300, -800]], [[2500, -1200], [3300, -1600], [3000, -2400], [2300, -1900]], [[-300, -600], [-100, -100], [-500, 50], [-650, -500]]].forEach((pts, i) => {
       push(`<g class="hub-gull" data-kind="gull"><use href="#hubGull" x="-13" y="-8" width="26" height="16"/><animateMotion dur="${34 + i * 9}s" begin="${-i * 7}s" repeatCount="indefinite" rotate="auto" path="${smoothPath(pts, true)}"/></g>`);
-      push(`<g class="hub-gull hub-gull-b" data-kind="gull"><use href="#hubGull" x="-10" y="-6" width="20" height="12"/><animateMotion dur="${34 + i * 9}s" begin="${-i * 7 - 1.4}s" repeatCount="indefinite" rotate="auto" path="${smoothPath(pts, true)}"/></g>`);
+      push(`<g class="hub-gull hub-gull-b" data-kind="gull"><use href="#hubGullB" x="-10" y="-6" width="20" height="12"/><animateMotion dur="${34 + i * 9}s" begin="${-i * 7 - 1.4}s" repeatCount="indefinite" rotate="auto" path="${smoothPath(pts, true)}"/></g>`);
     });
     push('</g>');
     // warm sunset glow
