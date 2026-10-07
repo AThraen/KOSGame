@@ -333,7 +333,7 @@
       { windDeg: 0, windKn: 8, gust: 0.15 }],
     ['hike', 'heel', 3, 3, { da: 'Hæng ud i pustene', en: 'Hike in the gusts' },
       { da: 'Hold båden flad, når de mørke vindpust rammer.', en: 'Keep the boat flat when the dark gusts hit.' },
-      { windDeg: 0, windKn: 10, gust: 0.9 }],
+      { windDeg: 0, windKn: 12, gust: 0.9 }],
     ['mob', 'life', 3, 3, { da: 'Mand over bord', en: 'Man overboard' },
       { da: 'Bobby er faldet i! Vend om, og stop lige ved siden af ham.', en: 'Bobby fell in! Turn back and stop right next to him.' },
       { windDeg: 0, windKn: 8, gust: 0.15 }],
@@ -387,6 +387,8 @@
     const tol = easy ? 8 : pro ? 0 : 4;                   // degrees of slack on the point-of-sail checks
     const ringK = easy ? 1.35 : pro ? 0.8 : 1;            // target ring size
     const heelLimit = cls.canCapsize ? cls.capsizeHeel * 0.62 : R(cls.maxHeel || 30) * 0.72;
+    // hiking lessons judge 'flat' much tighter: un-hiked a dinghy sits at ~15-25 deg in these gusts, hiked ~0-10 deg
+    const hikeFlat = R((cls.optHeel || 6) + (cls.hikeRight || 20) * 0.4);
     const SM = KOS.SailMode || {};
     const starsFor = SM.starsFor || ((r, a) => { const th = a === 'easy' ? [1.35, 1.9] : a === 'pro' ? [1.0, 1.4] : [1.15, 1.6]; return r <= th[0] ? 3 : r <= th[1] ? 2 : 1; });
     const legSpeed = SM.legSpeed || ((c, tws, a) => U.ms(c.polar(Math.max(a, c.noGo + 0.1), tws)) * 0.8);
@@ -682,7 +684,7 @@
               enter() { this.m = pts.map((p, i) => mark(p, 'orange', String(i + 1))); this.par = 0; let q = { x: boat.x, y: boat.y }; for (const p of pts) { const bx = boat.x, by = boat.y; boat.x = q.x; boat.y = q.y; this.par += parTo(p); boat.x = bx; boat.y = by; q = p; } this.d0 = dist(pts[0]); gustAhead(pts[0]); },
               taskVars() { return { n: this.i }; },
               tick(dt) {
-                this.tot += dt; if (Math.abs(boat.heel) < heelLimit) this.flat += dt;
+                this.tot += dt; if (Math.abs(boat.heel) < hikeFlat) this.flat += dt;
                 const p = this.m[this.i];
                 if (dist(p) < 6 * ringK + cls.length * 0.4) {
                   dropMark(p, true); sfx('coin', { pitch: 1 + this.i * 0.12 }); floatText(t('school.fx.buoy'), '#ffd25e', p.x, p.y);
@@ -1390,7 +1392,7 @@
       if (S.hudT <= 0) {
         S.hudT = 0.1;
         hud.update({ wind: { dir: boat.windDir || wind.dir, speed: boat.tws || wind.speed }, speed: U.kn(Math.abs(boat.speed)), pos: boat.pos,
-          timer: S.time * 1000, heel: boat.heel, heelMax: cls.capsizeHeel || 0.8 });
+          timer: S.time * 1000, heel: boat.heel, heelMax: L.hike ? hikeFlat / 0.8 : cls.capsizeHeel || 0.8 });
         ctrl.setIdealSheet(controls.autoTrim || boat.inIrons ? null : KOS.Physics.idealSheet(boat), L.manualTrim ? (easy ? 0.11 : pro ? 0.05 : 0.08) : 0.07);
         if (S.pathLine && S.step && S.step.target) { const tg = S.step.target(); if (tg) { S.pathLine.a.x = boat.x; S.pathLine.a.y = boat.y; S.pathLine.b.x = tg.x; S.pathLine.b.y = tg.y; } }
         paintPanel(false);
