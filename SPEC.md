@@ -396,3 +396,19 @@ the effects thin out cosmetic particles at lower levels.
 - **Club facts (user 2026-10-07):** KØS J70s are kept rigged (rudder + halyards on) and lie **inside Svanemøllehavnen,
   south of the clubhouse**, not at the club pier: J70 docking/undocking and race departures should start there
   (world venue 'harbor'). H-boats: red topsides with "KØS Sejlsport", white deck, rudder/tiller/halyards kept on.
+- **Club boat photos (user 2026-10-07, described, not on disk).** What the real KØS boats look like:
+  - **29er:** white hull, clear/white mylar main + jib with **red-orange leech tape and batten pockets**, red "29er"
+    logo at the head, sail number **DEN 63**; **purple asymmetric spinnaker** (game today: pink/navy/white). Crew of two
+    in dark wetsuits, trapezing. Backdrop: grey overcast Øresund, red-brick power station with three tall thin white
+    chimneys on the shore.
+  - **RS Feva:** white hull with a **red-white-blue band at the transom** (boat name "STORM" on the side); grey mylar
+    main and white jib with **lime-yellow panels**, pink "RS Feva" logo; **yellow gennaker** (game today: red/yellow/white).
+    Two kids, blue life jackets.
+  - **ILCA:** white hulls and sails, **red "ILCA" logo**, red sail numbers (e.g. 221362, 219042 DEN), **blue patch at
+    the clew/tack**. Launched from a grey wooden floating pontoon; rock breakwater and white apartment blocks behind.
+    Sailors in blue wetsuits, one green helmet.
+  - **Optimist:** white hull, white sail with **blue** Optimist logo and blue sail number (DEN 8445); sailor in a
+    blue life jacket. Nordhavn towers on the horizon, deep-blue choppy water, big cumulus.
+  - **J70:** white hull with **bow number "48"** and name **"Julia"** at the stern quarter; main with a **red head
+    panel with a big white X** and the J/70 logo; white jib with grey stripes; 4–5 kids in life jackets in the cockpit.
+    Backdrop: white Nordhavn apartment blocks and a red tower crane.
