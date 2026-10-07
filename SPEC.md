@@ -374,8 +374,8 @@ the effects thin out cosmetic particles at lower levels.
   reduce sail. Plan: a late-unlocked "Hårdt vejr" chapter at 16–25 kn with strong gusts, bigger waves/spray, a
   "Kuling-varsel" card, capsizing on even at Let. Teach depowering (hike, ease in gusts, feather), safe gybes / the
   "chicken gybe" (tack round instead), and when to reef or head home. Sail area: **Reb** button for H-boat (slab reef in
-  the main, optional smaller jib; must luff up and slow down, takes seconds with crew animation) and Zest (confirm with
-  the club how theirs reef); ILCA chooses rig on land (ILCA 4/6/7 = smaller sail for lighter sailors / strong wind);
+  the main, optional smaller jib; must luff up and slow down, takes seconds with crew animation) and Zest (KØS Zests
+  reef by rotating the mast twice so the sail rolls around it: a two-step "Rul masten" action, about 25 % less sail); ILCA chooses rig on land (ILCA 4/6/7 = smaller sail for lighter sailors / strong wind);
   J70: gennaker stays down; Optimist: no reef → go home early or call the coach RIB. Physics: less sail = less power
   and heel, slower in light wind, so reefing too early or too late both cost.
 - **Hiking everywhere + crew commands (user 2026-10-06):** the HIKE button is hidden on Let (free sail/race/nav), for
@@ -393,3 +393,6 @@ the effects thin out cosmetic particles at lower levels.
   Crew weight: rail upwind, forward in light air, aft when planing. Let = crew auto-trims, player gives big calls;
   Pro = player trims one sail or rotates positions. Lighter version for H-boat (main, jib, spinnaker, rail);
   two-person version for Feva/29er. ASK the club which J70 commands/controls and Danish words they use before building.
+- **Club facts (user 2026-10-07):** KØS J70s are kept rigged (rudder + halyards on) and lie **inside Svanemøllehavnen,
+  south of the clubhouse**, not at the club pier: J70 docking/undocking and race departures should start there
+  (world venue 'harbor'). H-boats: red topsides with "KØS Sejlsport", white deck, rudder/tiller/halyards kept on.

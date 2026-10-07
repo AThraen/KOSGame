@@ -176,11 +176,12 @@
     // KØS H-boats keep rudder, tiller and halyards on in the harbour (see KEEP_ON): the jobs start with the cover
     // jib sheets go on before the jib is hoisted, or it flogs out of control
     hboat: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['lines', 4, 'off'], ['fenders', 5, 'off']],
-    j70: [['vest', 0], ['cover', 1, 'off'], ['rudder', 2], ['halyard', 3], ['jibsheets', 4], ['sail', 4], ['jib', 5], ['pole', 6], ['gennaker', 7],
-      ['lines', 8, 'off'], ['fenders', 9, 'off']],
+    // KØS J70s are also kept rigged in the harbour (rudder + halyards on, see KEEP_ON)
+    j70: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['pole', 4], ['gennaker', 5],
+      ['lines', 6, 'off'], ['fenders', 7, 'off']],
   };
   // parts that stay rigged on the club's boats all season (drawn in place, never a job)
-  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'] };
+  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'], j70: ['rudder', 'halyard'] };
   const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)
