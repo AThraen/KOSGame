@@ -241,9 +241,59 @@
   }
   function topDialog() { return dialogStack[dialogStack.length - 1] || null; }
 
-  // ------------------------------------------------------------------ Coach Søs
-  // Friendly club trainer: orange KØS cap, ponytail, orange jacket, whistle.
-  function coachSvg(mood) {
+  // ------------------------------------------------------------------ the club's coaches
+  // Søs is the game's own trainer; Anton, Storm and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07).
+  // setCoach(id) picks who talks during an activity (KOS.App does it per activity); coach()/coachSvg() take an
+  // explicit opts.coach / who to override.
+  const COACHES = {
+    // chief coach, J70 trainer: short blond hair with buzzed sides, sunglasses pushed up, light grey vest over a white shirt
+    anton: { skin: '#f3c6a2', ear: '#eab18c', brow: '#c9a35e', eye: '#2c4a6e',
+      body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#f4f6f8"/>' +
+        '<path d="M14 100c2-18 13-26 27-28l3 28zM86 100c-2-18-13-26-27-28l-3 28z" fill="#d3d7dc" stroke="#283653" stroke-width="2"/>' +
+        '<path d="M40 73l10 8 10-8" fill="none" stroke="#c8ccd2" stroke-width="2.4"/>',
+      hair: '<path d="M30 44c-1-13 8-21 20-21s21 7 20 21c-3-6-7-9-11-10-6 2-12 2-18 0-5 1-9 4-11 10z" fill="#d9b56a"/>' +
+        '<path d="M30 44c0-6 2-10 4-13M70 44c0-6-2-10-4-13" stroke="#e7cf9c" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+        '<path d="M36 31h28" stroke="#283653" stroke-width="2"/><ellipse cx="42" cy="31" rx="6.5" ry="4" fill="#4aa3e0" stroke="#283653" stroke-width="1.6"/>' +
+        '<ellipse cx="58" cy="31" rx="6.5" ry="4" fill="#4aa3e0" stroke="#283653" stroke-width="1.6"/><path d="M39 30l3-1.5M55 30l3-1.5" stroke="#d6efff" stroke-width="1.2"/>' },
+    // youth coach: a big tousled brown mop swept across the forehead, white T-shirt, wide grin
+    storm: { skin: '#f6c7a4', ear: '#eeb48f', brow: '#6b4527', eye: '#3a2a1e', fringe: true,
+      body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#f7f8fa"/><path d="M41 73q9 7 18 0" fill="none" stroke="#d5d9df" stroke-width="2.4"/>',
+      hair: '<path d="M23 60C16 32 31 15 50 15c21 0 33 15 28 44-2-7-4-11-7-14-8 3-17 3-26 0-5 2-9 4-13 4-3 2-6 6-9 11z" fill="#7a5634"/>' +
+        '<path d="M28 47c6-11 20-16 36-12-7 1-15 5-21 11-5 1-10 1-15 1z" fill="#946a41"/>' +
+        '<path d="M36 22c5-4 12-5 18-3M60 21c6 1 10 5 12 10M27 38c1-6 4-11 9-14M44 30c6-3 14-3 20 0" stroke="#5e3f22" stroke-width="2" fill="none" stroke-linecap="round"/>' },
+    // family trainer + club president: light, thinning hair swept back (high forehead), blue eyes, navy fleece
+    jesper: { skin: '#f1c19c', ear: '#e7ad87', brow: '#bca36e', eye: '#2f5d9a',
+      body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#283f86"/><path d="M38 72l12 7 12-7v6l-12 6-12-6z" fill="#334c99"/>' +
+        '<path d="M50 80v20" stroke="#1b2c63" stroke-width="2"/>',
+      hair: '<path d="M30 45c-1-14 8-22 20-22s21 8 20 22c-2-6-4-9-7-10-1-4-5-6-9-4-3-2-7-2-10 0-4-1-7 1-8 4-3 1-5 4-6 10z" fill="#cfbd90"/>' +
+        '<path d="M38 27c6-3 16-3 24 1M36 31c4-3 8-4 12-3M53 28c4 0 8 2 10 5" stroke="#e6d8b2" stroke-width="1.4" fill="none" stroke-linecap="round"/>' },
+  };
+  let coachId = 'soes';
+  function setCoach(id) { coachId = COACHES[id] || id === 'soes' ? id : 'soes'; }
+  function currentCoach() { return coachId; }
+  function coachName(id) { id = id || coachId; const n = t('ui.coach.who.' + id); return n && n.indexOf('ui.coach.who') < 0 ? n : t('ui.coach.name'); }
+  function coachMouth(mood, k) {
+    return mood === 'wow' ? '<ellipse cx="50" cy="66" rx="5" ry="6" fill="#7a2d22"/>' :
+      mood === 'oops' ? '<path d="M42 68q8-5 16 0" stroke="#7a2d22" stroke-width="3" fill="none" stroke-linecap="round"/>' :
+        '<path d="M' + (50 - k) + ' 63q' + k + ' ' + k + ' ' + 2 * k + ' 0" stroke="#7a2d22" stroke-width="3" fill="#fff" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  function realCoachSvg(c, mood, id) {
+    return '<svg class="coach-svg coach-' + id + '" viewBox="0 0 100 100" aria-hidden="true">' +
+      '<circle cx="50" cy="50" r="48" fill="#1c2a47"/>' + c.body +
+      '<rect x="43" y="62" width="14" height="14" rx="6" fill="' + c.ear + '"/>' +
+      '<ellipse cx="50" cy="52" rx="21" ry="22" fill="' + c.skin + '"/>' +
+      '<ellipse cx="29.5" cy="54" rx="4" ry="5" fill="' + c.ear + '"/><ellipse cx="70.5" cy="54" rx="4" ry="5" fill="' + c.ear + '"/>' +
+      c.hair +
+      '<ellipse cx="41.5" cy="53" rx="3" ry="3.6" fill="' + c.eye + '"/><ellipse cx="58.5" cy="53" rx="3" ry="3.6" fill="' + c.eye + '"/>' +
+      '<circle cx="42.6" cy="51.8" r="1.1" fill="#fff"/><circle cx="59.6" cy="51.8" r="1.1" fill="#fff"/>' +
+      '<path d="M36.5 47q5-3 9 0M54.5 47q5-3 9 0" stroke="' + c.brow + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+      '<ellipse cx="35" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".45"/><ellipse cx="65" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".45"/>' +
+      coachMouth(mood, id === 'storm' ? 12 : id === 'jesper' ? 8 : 10) + '</svg>';
+  }
+  // Coach Søs: friendly club trainer: orange KØS cap, ponytail, orange jacket, whistle.
+  function coachSvg(mood, who) {
+    const id = who || coachId;
+    if (COACHES[id]) return realCoachSvg(COACHES[id], mood, id);
     const mouth = mood === 'wow' ? '<ellipse cx="50" cy="66" rx="5" ry="6" fill="#7a2d22"/>' :
       mood === 'oops' ? '<path d="M42 68q8-5 16 0" stroke="#7a2d22" stroke-width="3" fill="none" stroke-linecap="round"/>' :
         '<path d="M40 63q10 10 20 0" stroke="#7a2d22" stroke-width="3" fill="#fff" stroke-linecap="round" stroke-linejoin="round"/>';
@@ -277,8 +327,8 @@
     const pos = opts.pos || 'bottom';
     const node = el('div', 'coach coach-' + pos + (opts.ms === 0 || opts.tapToClose ? ' coach-tapclose' : ''));
     node.setAttribute('role', 'status');
-    node.innerHTML = '<div class="coach-avatar">' + (opts.avatar && opts.avatar !== 'coach' ? opts.avatar : coachSvg(opts.mood)) + '</div>' +
-      '<div class="coach-bubble"><div class="coach-name">' + esc(opts.name || t('ui.coach.name')) + '</div><div class="coach-text">' + esc(text) + '</div>' +
+    node.innerHTML = '<div class="coach-avatar">' + (opts.avatar && opts.avatar !== 'coach' ? opts.avatar : coachSvg(opts.mood, opts.coach)) + '</div>' +
+      '<div class="coach-bubble"><div class="coach-name">' + esc(opts.name || coachName(opts.coach)) + '</div><div class="coach-text">' + esc(text) + '</div>' +
       (opts.ms === 0 || opts.tapToClose ? '<div class="coach-tap">' + esc(t('ui.coach.tap')) + '</div>' : '') + '</div>';
     host.appendChild(node);
     requestAnimationFrame(() => node.classList.add('in'));
@@ -597,14 +647,14 @@
   }
 
   KOS.UI = {
-    toast, dialog, topDialog, trapFocus, coach, coachClose, coachSvg, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
+    toast, dialog, topDialog, trapFocus, coach, coachClose, coachSvg, setCoach, currentCoach, coachName, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
     results, avatarSvg, AVATAR, shade, esc, el, fmtTime, reduced, sfx,
   };
 
   if (KOS.I18n) {
     KOS.I18n.add('da', {
       ui: {
-        coach: { name: 'Coach Søs', tap: 'Tryk for at lukke' },
+        coach: { name: 'Coach Søs', tap: 'Tryk for at lukke', who: { soes: 'Coach Søs', anton: 'Cheftræner Anton', storm: 'Ungdomstræner Storm', jesper: 'Jesper, formand' } },
         countdown: { go: 'Sejl!' },
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
         pos: { irons: 'I vindøjet', closehauled: 'Bidevind', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
@@ -618,7 +668,7 @@
     });
     KOS.I18n.add('en', {
       ui: {
-        coach: { name: 'Coach Søs', tap: 'Tap to close' },
+        coach: { name: 'Coach Søs', tap: 'Tap to close', who: { soes: 'Coach Søs', anton: 'Head coach Anton', storm: 'Youth coach Storm', jesper: 'Jesper, club president' } },
         countdown: { go: 'Sail!' },
         hud: { wind: 'Wind', speed: 'Speed', pos: 'Course', timer: 'Time', place: 'Place', lap: 'Lap', score: 'Score', heel: 'Heel', tack: 'Tack', penalty: 'Penalty' },
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },

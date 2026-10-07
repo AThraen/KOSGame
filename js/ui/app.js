@@ -175,10 +175,22 @@
     return more[0] || null;
   }
 
+  // ------------------------------------------------------------------ who coaches what (the real KØS coaches)
+  // Søs keeps the Sailing School and the quiz (her name is in their scripts). Anton (head coach, J70 trainer) takes the
+  // keelboats, Storm (youth coach) racing, the rules school, the RIB and the youth dinghies, Jesper (family trainer
+  // and club president) free sailing.
+  function coachFor(a, boat) {
+    if (a.mode === 'school' || a.mode === 'quiz') return 'soes';
+    if (boat === 'j70' || boat === 'hboat') return 'anton';
+    if (a.mode === 'race' || a.mode === 'rowschool' || a.mode === 'rib' || ['feva', 'zest', 'ilca', '29er'].includes(boat)) return 'storm';
+    if (a.mode === 'sail') return 'jesper';
+    return 'soes';
+  }
+
   // ------------------------------------------------------------------ first run: profile → hub → first school lesson
   function onboard(name) {
     const first = KOS.Activities && KOS.Activities.get('school.steer');
-    if (!first) { UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom' }); return; }
+    if (!first) { UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom', coach: 'jesper' }); return; }
     const step = (n, icon, key) => '<li><span class="ob-n">' + n + '</span>' + ico(icon) + '<span>' + esc(t(key)) + '</span></li>';
     UI().dialog({
       title: t('app.onboard.title', { name }), cls: 'onboard-dialog',
@@ -619,6 +631,7 @@
       isPaused: () => run.paused,
     };
     run.host = host;
+    if (UI().setCoach) UI().setCoach(coachFor(a, host.boat));
     audio('music', null);
     try {
       run.inst = run.mode.create(host, a);
@@ -636,7 +649,7 @@
     run.raf = requestAnimationFrame(frame);
     emit('play:start', { id: a.id });
   };
-  leave.play = function () { stopRun(); };
+  leave.play = function () { stopRun(); if (UI().setCoach) UI().setCoach('soes'); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
 
   // frame-time governor: on a slow device drop to fewer pixels / particles (KOS.Perf.level 2 → 1 → 0), and climb back
@@ -1035,7 +1048,7 @@
           App.stack = [{ screen: 'title', params: {} }];
           App.show('hub', {}, { replace: true });
           if (isNew) setTimeout(() => { if (App.cur === 'hub') onboard(name); }, 650);
-          else setTimeout(() => UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom' }), 500);
+          else setTimeout(() => UI().coach(t('app.coach.welcome', { name }), { ms: 7000, pos: 'bottom', coach: 'jesper' }), 500);
         } else {
           UI().toast(t('app.profile.saved'), { kind: 'good' });
           App.back();
@@ -1128,7 +1141,7 @@
       '<li><b>' + esc(t('app.credits.code')) + '</b><span>' + esc(t('app.credits.codeWho')) + '</span></li>' +
       '<li><b>' + esc(t('app.credits.thanks')) + '</b><span>' + esc(t('app.credits.thanksWho')) + '</span></li></ul></section>' +
       '<section class="panel glass safety"><h2>' + ico('life') + esc(t('app.credits.safetyTitle')) + '</h2><p>' + esc(t('app.credits.safety')) + '</p></section>' +
-      '<div class="coach-inline">' + UI().coachSvg() + '<p>' + esc(t('app.credits.coach')) + '</p></div>' +
+      '<div class="coach-inline">' + UI().coachSvg(null, 'jesper') + '<p>' + esc(t('app.credits.coach')) + '</p></div>' +
       '</div></div>';
     bind(sec, { back: () => { sfx('click'); App.back(); } });
   };
@@ -1321,7 +1334,7 @@
         boat: 'Din båd', sailNo: 'Sejlnummer', boatColor: 'Bådens farve', random: 'Overrask mig',
         saveFirst: 'Gem og sejl ud!', saved: 'Profil gemt!', needName: 'Skriv dit navn først.',
       },
-      coach: { welcome: 'Hej {name}! Jeg er Coach Søs. Velkommen i KØS – vælg et sted på kortet, så sejler vi!' },
+      coach: { welcome: 'Hej {name}! Jeg er Jesper, formand i KØS. Velkommen i klubben – vælg et sted på kortet, så sejler vi!' },
       onboard: {
         title: 'Velkommen i KØS, {name}!', body: 'Jeg er Coach Søs, din træner. Vi starter i Sejlerskolen ude i bugten – der lærer du at styre og stoppe båden.',
         s1: 'Tag din første lektion i Sejlerskolen', s2: 'Saml stjerner – op til tre i hver opgave', s3: 'Stjernerne låser nye både og steder op',
@@ -1391,7 +1404,7 @@
         boat: 'Your boat', sailNo: 'Sail number', boatColor: 'Boat colour', random: 'Surprise me',
         saveFirst: 'Save and sail out!', saved: 'Profile saved!', needName: 'Type your name first.',
       },
-      coach: { welcome: 'Hi {name}! I’m Coach Søs. Welcome to KØS – pick a spot on the map and let’s sail!' },
+      coach: { welcome: 'Hi {name}! I’m Jesper, president of KØS. Welcome to the club – pick a spot on the map and let’s sail!' },
       onboard: {
         title: 'Welcome to KØS, {name}!', body: 'I’m Coach Søs, your coach. We start at the Sailing School out in the bay – that’s where you learn to steer and stop the boat.',
         s1: 'Take your first Sailing School lesson', s2: 'Collect stars – up to three per challenge', s3: 'Stars unlock new boats and places',
