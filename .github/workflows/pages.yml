@@ -1,8 +1,12 @@
-# Deploy KØS SEJL to GitHub Pages when a release tag (v*) is pushed, or on demand.
+# Deploy KØS SEJL when a release tag (v*) is pushed, or on demand, to two places:
+#   - GitHub Pages (https://athraen.github.io/KOSGame/)
+#   - our own server (https://spil.kossejlsport.dk) via rsync over SSH
 # Release: git tag v0.2.0 && git push origin v0.2.0
 # Pages source must be "GitHub Actions" (Settings > Pages); set once via the API.
+# Server deploy needs repo secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
+# (and optionally DEPLOY_PATH, default /var/www/spil.kossejlsport.dk); it is skipped if DEPLOY_HOST is unset.
 # Only the shipped game is published (index.html, sw.js, manifest, css/, js/, assets/), never tools/ or docs/.
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
   push:
@@ -11,19 +15,14 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,9 +46,68 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
+      # the Pages artifact (a tarball named github-pages) doubles as the input for the server deploy
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
+  pages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  server:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: kossejlsport
+      url: https://spil.kossejlsport.dk
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/var/www/spil.kossejlsport.dk' }}
+    steps:
+      - name: Check configuration
+        id: cfg
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "::warning::DEPLOY_HOST secret not set - skipping server deploy"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.cfg.outputs.skip != 'true'
+        with:
+          name: github-pages
+          path: .
+
+      - name: Unpack site
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          mkdir _site
+          tar -xf artifact.tar -C _site
+          rm _site/.nojekyll
+
+      - name: Set up SSH
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+
+      # sw.js last: a client that sees the new service worker is guaranteed to find every file it precaches
+      - name: Upload
+        if: steps.cfg.outputs.skip != 'true'
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          rsync -rlz --delete --checksum --exclude sw.js -e "$SSH" _site/ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+          rsync -rlz --checksum -e "$SSH" _site/sw.js "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/sw.js"
