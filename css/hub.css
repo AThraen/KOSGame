@@ -26,6 +26,9 @@
 .hub-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; --inv: 1; }
 .hub-stage.is-easing { transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
 .hub-map { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: hidden; }
+.hub-fx { pointer-events: none; }
+.hub-cloud { animation: hub-cloud 90s linear infinite alternate; }
+@keyframes hub-cloud { from { transform: translate(-160px, 40px); } to { transform: translate(220px, -60px); } }
 .hub { opacity: 0; transition: opacity .35s ease; }
 .hub.hub-in { opacity: 1; }
 
@@ -33,8 +36,8 @@
    animations there each become a GPU layer and the map flashes black on phones when a drag starts/ends */
 .hub-sparkles path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; opacity: 0; }
 .hub-foam { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 8; stroke-linejoin: round; }
-.hub-foam2 { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 16; stroke-linejoin: round; stroke-dasharray: 10 14; animation: hub-foam 5s linear infinite; }
-@keyframes hub-foam { to { stroke-dashoffset: -48; } }
+/* static: a marching dash along the whole coastline repainted the entire map every frame */
+.hub-foam2 { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 16; stroke-linejoin: round; stroke-dasharray: 10 14; }
 .hub-lane-chan { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 2; stroke-dasharray: 9 7; }
 .hub-lane-ferry { fill: none; stroke: rgba(238, 90, 170, .55); stroke-width: 2.4; stroke-dasharray: 2 6; stroke-linecap: round; }
 .hub-zone-swim { fill: rgba(255, 216, 74, .14); stroke: rgba(255, 216, 74, .85); stroke-width: 1.6; stroke-dasharray: 5 4; }

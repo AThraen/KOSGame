@@ -304,8 +304,9 @@
     push('<g filter="url(#hubSoft)">');
     for (const z of G.depth) push(`<path d="${pathOf(z.poly, true, 60)}" fill="${depthColor(z.d)}"/>`);
     push('</g>');
-    // waves pattern drifting
-    push(`<g class="hub-waves"><rect x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/><animateTransform attributeName="transform" type="translate" from="0 0" to="130 90" dur="14s" repeatCount="indefinite"/></g>`);
+    // wave pattern. Static on purpose: anything that moves over the whole sea repaints the whole map every frame,
+    // and after a zoom a phone can't re-raster that fast enough (the bottom of the screen flashed black)
+    push(`<rect class="hub-waves" x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/>`);
     // sparkles
     {
       let s = 7;
@@ -473,12 +474,6 @@
     }
     push(`<g class="hub-mover" data-kind="ship"><use href="#hubShip" x="-36" y="-9" width="72" height="18">${BOB}</use><animateMotion dur="200s" begin="-60s" repeatCount="indefinite" rotate="auto" path="${smoothPath([[4600, -500], [4300, -2000], [4100, -4300], [4400, -4300], [4650, -2000], [4800, -500]], true)}"/></g>`);
     push('</g>');
-    // cloud shadows
-    push('<g class="hub-clouds">');
-    [[0.2, 0.3, 260, 120], [0.65, 0.15, 340, 150], [0.45, 0.7, 300, 120], [0.85, 0.55, 260, 110]].forEach((c, i) => {
-      push(`<ellipse class="hub-cloud" cx="${f1(c[0] * P.W)}" cy="${f1(c[1] * P.H)}" rx="${c[2]}" ry="${c[3]}" fill="url(#hubCloud)"><animateTransform attributeName="transform" type="translate" values="-160 40;220 -60;-160 40" dur="180s" begin="${-i * 23}s" repeatCount="indefinite"/></ellipse>`);
-    });
-    push('</g>');
     // gulls
     push('<g class="hub-gulls">');
     [[[-500, -300], [200, -700], [900, -400], [400, 0]], [[0, -1100], [700, -1300], [1100, -900], [300, -800]], [[2500, -1200], [3300, -1600], [3000, -2400], [2300, -1900]], [[-300, -600], [-100, -100], [-500, 50], [-650, -500]]].forEach((pts, i) => {
@@ -501,11 +496,22 @@
     push('</svg>');
     return out.join('');
   }
+  // cloud shadows: big and always moving, so they live in their own SVG with CSS (GPU) animation, stacked above the
+  // map and the place names - the compositor slides them without repainting anything and splits nothing off
+  function buildClouds() {
+    const P = PROJ, out = [], push = (s) => out.push(s);
+    push(`<svg class="hub-map hub-fx" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${P.W} ${P.H}" width="${P.W}" height="${P.H}" preserveAspectRatio="none" aria-hidden="true">`);
+    [[0.2, 0.3, 260, 120], [0.65, 0.15, 340, 150], [0.45, 0.7, 300, 120], [0.85, 0.55, 260, 110]].forEach((c, i) => {
+      push(`<ellipse class="hub-cloud" style="animation-delay:${-i * 23}s" cx="${f1(c[0] * P.W)}" cy="${f1(c[1] * P.H)}" rx="${c[2]}" ry="${c[3]}" fill="url(#hubCloud)"/>`);
+    });
+    push('</svg>');
+    return out.join('');
+  }
   const chanX = (y) => (KOS.World && KOS.World.chanX ? KOS.World.chanX(y) : 610 - 0.36 * y);
 
   // ------------------------------------------------------------------ DOM / state
   let state = null;
-  let mapCache = null;
+  let mapCache = null, cloudsCache = null;
 
   function pinHtml(a) {
     return `<button class="hub-pin" type="button" data-area="${a.id}" style="--c:${a.color}">
@@ -549,10 +555,10 @@
     if (state && state.host === sectionEl && sectionEl.contains(state.root)) { refresh(); state.paused = false; return; }
     if (state) unmount();
     if (!KOS.World) { sectionEl.textContent = 'KOS.World missing'; return; }
-    if (!mapCache) mapCache = buildMap();
+    if (!mapCache) { mapCache = buildMap(); cloudsCache = buildClouds(); }
     const rootEl = document.createElement('div');
     rootEl.className = 'hub';
-    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${mapCache}<div class="hub-labels">${labelsHtml()}</div><div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
+    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${mapCache}<div class="hub-labels">${labelsHtml()}</div>${cloudsCache}<div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
       ${topHtml()}
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
