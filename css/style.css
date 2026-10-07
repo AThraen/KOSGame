@@ -407,6 +407,8 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 .credit-list li { display: flex; flex-direction: column; }
 .credit-list b { color: var(--primary); font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; }
 .credit-list span { font-weight: 700; }
+.results-locknote { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 0; color: var(--text-dim); font-size: .9rem; font-weight: 700; text-align: center; }
+.results-locknote svg { width: 16px; height: 16px; flex: none; }
 .credit-link { color: inherit; text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 3px; }
 .safety { border-color: rgba(255, 122, 61, .45); }
 .coach-inline { display: flex; align-items: center; gap: 14px; justify-content: center; font-weight: 800; font-size: 1.1rem; }
