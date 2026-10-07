@@ -805,10 +805,15 @@
     const lr = run.lastResult;
     if (!lr) { App.show('hub', {}, { replace: true }); return; }
     const a = lr.activity;
-    const next = KOS.Activities.next(a.id);
-    const card = UI().results(lr.result, a, { record: lr.rec, next, nextUnlocked: next && KOS.Activities.isUnlocked(next.id), capsized: !!lr.capsized });
+    // Næste: the next activity in this area that is already open (skip ones still locked behind stars or a
+    // later boat); if none is open, keep the locked button and say what it takes
+    const later = (() => { const list = KOS.Activities.byArea(a.area), i = list.indexOf(a); return i >= 0 ? list.slice(i + 1) : []; })();
+    const next = later.find(x => KOS.Activities.isUnlocked(x.id)) || later[0] || null;
+    const nextUnlocked = !!next && KOS.Activities.isUnlocked(next.id);
+    const card = UI().results(lr.result, a, { record: lr.rec, next, nextUnlocked, capsized: !!lr.capsized });
     sec.innerHTML = '<div class="scroll center"></div>';
     sec.firstChild.appendChild(card);
+    if (next && !nextUnlocked) card.querySelector('.results-buttons').insertAdjacentHTML('afterend', '<p class="results-locknote">' + ico('lock') + '<span>' + esc(tt(next.title)) + ': ' + esc(lockText(next.id)) + '</span></p>');
     const win = lr.result.success !== false && (+lr.result.stars || 0) > 0;
     if (lr.rec && lr.rec.starsGained) {
       card.insertAdjacentHTML('afterbegin', '<div class="results-gain">' + ico('star') + '+' + lr.rec.starsGained + '</div>');
