@@ -43,7 +43,7 @@
       crew: [{ s: 0.66, role: 'helm' }], colors: { hull: '#39b8f2', deck: '#f6f8fb', sail: '#ffffff', trim: '#1b6aa8', floor: '#dfe7ef' } },
     feva: { L: 3.64, B: 1.42, bowW: 0.06, pb: 0.5, maxAt: 0.6, sternW: 0.82, bowArc: 0.04, sternArc: 0.03,
       mast: 0.33, mastH: 5.6, boom: 2.15, jib: 0.04, jibLen: 1.0, spi: 'asym', bowsprit: 1.0, retractSprit: true,
-      spiColors: ['#e8323c', '#ffd23f', '#ffffff'], cockpit: [0.4, 0.96, 0.12, 0.8], board: 0.48,
+      spiColors: ['#ffd23f', '#f2c200', '#fff3a8'], cockpit: [0.4, 0.96, 0.12, 0.8], board: 0.48,
       crew: [{ s: 0.47, role: 'crew' }, { s: 0.72, role: 'helm' }], colors: { hull: '#ffffff', deck: '#eef2f6', sail: '#ffffff', trim: '#e8323c', floor: '#d8dee6' } },
     zest: { L: 3.9, B: 1.6, bowW: 0.1, pb: 0.42, maxAt: 0.58, sternW: 0.86, bowArc: 0.05, sternArc: 0.03,
       mast: 0.33, mastH: 5.5, boom: 2.3, jib: 0.04, jibLen: 1.0, spi: 'none', cockpit: [0.4, 0.96, 0.1, 0.8], board: 0.48,
@@ -53,7 +53,7 @@
       crew: [{ s: 0.7, role: 'helm' }], colors: { hull: '#ffffff', deck: '#f2f4f7', sail: '#ffffff', trim: '#8a96a8', floor: '#dde3ea' }, battens: 3 },
     '29er': { L: 4.45, B: 1.12, wings: 1.77, wingS: [0.5, 0.86], bowW: 0.0, pb: 0.7, maxAt: 0.68, sternW: 0.9, bowArc: 0.01, sternArc: 0.01,
       mast: 0.38, mastH: 6.25, boom: 2.3, jib: 0.04, jibLen: 1.0, spi: 'asym', bowsprit: 1.4,
-      spiColors: ['#ff4fa0', '#2d3a8c', '#ffffff'], cockpit: [0.42, 0.97, 0.18, 0.7], board: 0.47,
+      spiColors: ['#7b3fb0', '#5a2b8c', '#a57bd6'], cockpit: [0.42, 0.97, 0.18, 0.7], board: 0.47,
       crew: [{ s: 0.55, role: 'trap' }, { s: 0.74, role: 'helm' }], colors: { hull: '#ffffff', deck: '#3b4250', sail: '#e9edf2', trim: '#ff4fa0', floor: '#5a6272' }, battens: 4, mylar: true },
     hboat: { L: 8.28, B: 2.18, bowW: 0.0, pb: 0.6, maxAt: 0.55, sternW: 0.55, bowArc: 0.02, sternArc: 0.05,
       mast: 0.4, mastH: 10.5, boom: 3.5, jib: 0.03, jibLen: 1.18, spi: 'sym', keel: true, cabin: [0.2, 0.5, 0.62],
@@ -872,9 +872,17 @@
       }
       // class insignia + sail number on main
       const sx = mx + g.boom * s * 0.38, sy = lerp(mastTop, boomY, 0.62), fs = clamp(g.boom * s * 0.2, 9, 20);
-      const ins = { opti: '⛵', tera: 'T', feva: 'F', zest: 'Z', ilca: '▽', '29er': '29', hboat: 'H', j70: 'J/70' }[clsId] || '';
-      if (ins) rig.push('<text x="' + f3(sx) + '" y="' + f3(lerp(mastTop, boomY, 0.3)) + '" font-size="' + f3(fs * (ins.length > 2 ? 0.75 : 1)) + '" font-weight="900" text-anchor="middle" fill="' + c.trim + '" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + ins + '</text>');
-      if (o.sailNo != null) rig.push('<text x="' + f3(sx) + '" y="' + f3(sy) + '" font-size="' + f3(fs * 0.85) + '" font-weight="900" text-anchor="middle" fill="#1d2a44" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + esc(String(o.sailNo).slice(0, 7)) + '</text>');
+      if (clsId === 'j70' && !g.sprit) { // the club's J70 mains: red head panel with a big white X
+        const hx0 = mx + 2, hy0 = mastTop + 2, hy1 = lerp(mastTop, boomY, 0.36), hx1 = lerp(mx + 2 + g.boom * s * 0.25, boomX, 0.36) + g.boom * s * 0.05;
+        rig.push('<path d="M' + f3(hx0) + ' ' + f3(hy0) + 'L' + f3(mx + 2 + g.boom * s * 0.25) + ' ' + f3(mastTop + 3) + 'L' + f3(hx1) + ' ' + f3(hy1) + 'L' + f3(hx0) + ' ' + f3(hy1) + 'Z" fill="#e3262e"/>');
+        rig.push('<path d="M' + f3(hx0 + 2) + ' ' + f3(hy0 + 3) + 'L' + f3(hx1 - 2) + ' ' + f3(hy1 - 2) + 'M' + f3(hx1 - 4) + ' ' + f3(hy0 + 6) + 'L' + f3(hx0 + 2) + ' ' + f3(hy1 - 2) + '" stroke="#fff" stroke-width="3"/>');
+      }
+      if (clsId === 'ilca') rig.push('<path d="M' + f3(boomX) + ' ' + f3(boomY) + 'l-' + f3(g.boom * s * 0.16) + ' 0l' + f3(g.boom * s * 0.1) + ' -' + f3(g.boom * s * 0.12) + 'z" fill="#1f5fbf"/>');
+      const ins = { opti: '⛵', tera: 'T', feva: 'RS Feva', zest: 'Z', ilca: 'ILCA', '29er': '29er', hboat: 'H', j70: '' }[clsId] || '';
+      const insCol = { feva: '#ff3d8b', '29er': '#e8402a', ilca: '#d8323c', hboat: '#d8323c' }[clsId] || c.trim;
+      const noCol = { opti: '#1f5fbf', ilca: '#d8323c' }[clsId] || '#1d2a44';
+      if (ins) rig.push('<text x="' + f3(sx) + '" y="' + f3(lerp(mastTop, boomY, 0.3)) + '" font-size="' + f3(fs * (ins.length > 4 ? 0.55 : ins.length > 2 ? 0.75 : 1)) + '" font-weight="900" text-anchor="middle" fill="' + insCol + '" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + ins + '</text>');
+      if (o.sailNo != null) rig.push('<text x="' + f3(sx) + '" y="' + f3(sy) + '" font-size="' + f3(fs * 0.85) + '" font-weight="900" text-anchor="middle" fill="' + noCol + '" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + esc(String(o.sailNo).slice(0, 8)) + '</text>');
       // jib
       if (g.jib) {
         const tackX = x0 + len * g.jib + 2, headY = deckY - g.mastH * s * (g.L > 6 ? 0.8 : 0.72), clewX = tackX + (mx - tackX) * (g.jibLen || 1) * 1.05;
@@ -893,7 +901,7 @@
       // orange tube with black strake, KØS box, console, rail
       const ty = deckY - 2, tr = 11;
       hd.push('<path d="M' + f3(x0 + tr) + ' ' + f3(ty - tr) + 'H' + f3(x1 - 2) + 'a' + tr + ' ' + tr + ' 0 0 1 0 ' + 2 * tr + 'H' + f3(x0 + tr) + 'a' + tr + ' ' + tr + ' 0 0 1 0 -' + 2 * tr + 'z" fill="#ff7a26" stroke="#b44406" stroke-width="1.2"/>');
-      hd.push('<path d="M' + f3(x0 + tr) + ' ' + f3(ty - tr + 3) + 'H' + f3(x1 - 4) + '" stroke="rgba(255,255,255,.45)" stroke-width="3" stroke-linecap="round"/>');
+      hd.push('<path d="M' + f3(x0 + tr) + ' ' + f3(ty - tr + 3) + 'H' + f3(x1 - 4) + '" stroke="#3a3d42" stroke-width="5" stroke-linecap="round"/>');
       hd.push('<path d="M' + f3(x0 + 4) + ' ' + f3(ty + 4) + 'H' + f3(x1) + '" stroke="#111" stroke-width="4.5" stroke-linecap="round"/>');
       for (let i = 0; i < 9; i++) { const xx = lerp(x0 + 24, x1 - 14, i / 8); hd.push('<path d="M' + f3(xx) + ' ' + f3(ty - 5) + 'q7 5 14 0" stroke="#1b1b1b" stroke-width="1" fill="none"/>'); }
       hd.push('<rect x="' + f3(x0 + 18) + '" y="' + f3(ty - 8) + '" width="34" height="15" rx="6" fill="#111"/><text x="' + f3(x0 + 35) + '" y="' + f3(ty + 3.5) + '" font-size="11" font-weight="900" text-anchor="middle" fill="#fff" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">KØS</text>');

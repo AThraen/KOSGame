@@ -412,3 +412,9 @@ the effects thin out cosmetic particles at lower levels.
   - **J70:** white hull with **bow number "48"** and name **"Julia"** at the stern quarter; main with a **red head
     panel with a big white X** and the J/70 logo; white jib with grey stripes; 4–5 kids in life jackets in the cockpit.
     Backdrop: white Nordhavn apartment blocks and a red tower crane.
+  - **H-boat (photo 2):** red topsides with white "KØS Sejlsport", white deck and cabin top, cream sails, red "H"
+    logo and navy **DEN 123** on the main, Danish flag on the stern; 3 kids in life jackets.
+  - **RIBs (photo 2):** orange tubes with a **dark grey non-slip top** and black rubbing strake, black "KØS" box on the
+    bow, orange console with a black front panel, wheel, stainless rail, black outboard; they carry **yellow
+    inflatable sausage marks**. Moored at a grey concrete floating pontoon in front of a rock breakwater
+    (Nordhavn towers behind). Visiting coach RIBs are grey with a race number board ("COACH RIB 20").
