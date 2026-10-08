@@ -177,14 +177,14 @@
   }
 
   // ------------------------------------------------------------------ who coaches what (the real KØS coaches)
-  // Storm runs the Sailing School (the lesson script introduces Storm), Jesper is the default (quiz, map, menus). Anton (head coach, J70 trainer) takes the
-  // keelboats, Storm (youth coach) racing, the rules school, the RIB and the youth dinghies, Jesper (family trainer
-  // and club president) free sailing.
+  // Jesper (family trainer, club president) is the default: quiz, map, menus, free sailing. Storm (youth coach) runs the
+  // Sailing School (the lesson script introduces Storm), racing and the rules school; Marius (youth coach) the RIB and the
+  // youth dinghies; Anton (head coach, J70 trainer) the keelboats.
   function coachFor(a, boat) {
     if (a.mode === 'school') return 'storm';
     if (boat === 'j70' || boat === 'hboat') return 'anton';
-    if (a.mode === 'race' || a.mode === 'rowschool' || a.mode === 'rib' || ['feva', 'zest', 'ilca', '29er'].includes(boat)) return 'storm';
-    if (a.mode === 'sail') return 'jesper';
+    if (a.mode === 'race' || a.mode === 'rowschool') return 'storm';
+    if (a.mode === 'rib' || ['feva', 'zest', 'ilca', '29er'].includes(boat)) return 'marius';
     return 'jesper';
   }
 
