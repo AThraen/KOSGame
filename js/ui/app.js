@@ -485,7 +485,7 @@
       '<div class="topbar">' +
       '<div class="topbar-left">' + starPill() + (p ? xpPill() : '') + (S().god() ? '<span class="god-pill" title="God mode">GOD</span>' : '') + '</div>' +
       '<div class="topbar-right">' +
-      (App.installPrompt ? '<button type="button" class="icon-btn" data-act="install" aria-label="' + esc(t('app.install')) + '">' + ico('download') + '</button>' : '') +
+      (canInstall() ? '<button type="button" class="icon-btn" data-act="install" aria-label="' + esc(t('app.install')) + '">' + ico('download') + '</button>' : '') +
       (doc.fullscreenEnabled ? '<button type="button" class="icon-btn hide-sm" data-act="fullscreen" aria-label="' + esc(t('app.fullscreen')) + '">' + ico('fullscreen') + '</button>' : '') +
       '<button type="button" class="icon-btn avatar-btn" data-act="profile" aria-label="' + esc(t('app.profile.title')) + '">' + profileAvatar() + '</button>' +
       settingsBtn() + '</div></div>' +
@@ -938,7 +938,7 @@
       '<button type="button" class="btn btn-glass btn-wide hold-btn" data-hold="unlock"><span class="hold-fill"></span>' + ico('hand') + '<span>' + esc(t('app.settings.hold')) + '</span></button>' +
       '<button type="button" class="btn btn-danger btn-wide" data-act="reset">' + ico('trash') + '<span>' + esc(t('app.settings.reset')) + '</span></button></section>' +
       '<section class="panel glass panel-links">' +
-      (App.installPrompt ? '<button type="button" class="btn btn-primary btn-wide" data-act="install">' + ico('download') + '<span>' + esc(t('app.install')) + '</span></button>' : '') +
+      (canInstall() ? '<button type="button" class="btn btn-primary btn-wide" data-act="install">' + ico('download') + '<span>' + esc(t('app.install')) + '</span></button>' : '') +
       '<button type="button" class="btn btn-glass btn-wide" data-act="credits">' + ico('heart') + '<span>' + esc(t('app.credits.title')) + '</span></button>' +
       '<p class="version">KØS SEJL · ' + esc(App.version || 'dev') + '</p></section>' +
       '</div></div>';
@@ -1196,9 +1196,32 @@
   App.applySettings = applySettings;
 
   // ------------------------------------------------------------------ PWA
+  // iPhone/iPad never fire beforeinstallprompt: there the install button opens a "Sådan installerer du" guide instead
+  // (Share → Føj til hjemmeskærm). iPadOS reports itself as a Mac, so a Mac with touch counts too. Hidden once installed.
+  function iosNeedsGuide() {
+    try {
+      const nav = root.navigator || {};
+      const ios = /iPhone|iPad|iPod/.test(nav.userAgent || '') || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1);
+      const standalone = nav.standalone === true || (root.matchMedia && root.matchMedia('(display-mode: standalone)').matches);
+      return ios && !standalone;
+    } catch (e) { return false; }
+  }
+  function canInstall() { return !!App.installPrompt || iosNeedsGuide(); }
+  function iosGuide() {
+    track('Install', 'ios-guide');
+    const SHARE = '<svg class="ios-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9H6v12h12V9h-2M12 3v12M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const ADD = '<svg class="ios-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const step = (n, key, icon) => '<li><span class="ob-n">' + n + '</span>' + (icon || '') + '<span>' + esc(t(key)) + '</span></li>';
+    UI().dialog({
+      title: t('app.ios.title'), icon: 'download', cls: 'ios-install-dialog',
+      body: '<p class="ob-lead">' + esc(t('app.ios.lead')) + '</p><ol class="ob-steps">' + step(1, 'app.ios.s1', SHARE) + step(2, 'app.ios.s2', ADD) + step(3, 'app.ios.s3', ico('check')) + '</ol>' +
+        '<p class="dim">' + esc(t('app.ios.note')) + '</p>',
+      buttons: [{ labelKey: 'app.ios.ok', kind: 'primary' }],
+    });
+  }
   App.install = function () {
     const ev = App.installPrompt;
-    if (!ev) return;
+    if (!ev) { if (iosNeedsGuide()) iosGuide(); return; }
     App.installPrompt = null;
     try {
       ev.prompt();
@@ -1329,6 +1352,9 @@
     app: {
       stars: 'Stjerner',
       install: 'Installer appen', installed: 'KØS SEJL er installeret – god vind!', fullscreen: 'Fuld skærm',
+      ios: { title: 'Sådan installerer du', lead: 'Læg KØS SEJL på hjemmeskærmen, så åbner det som en app – i fuld skærm og også uden net.',
+        s1: 'Tryk på Del-knappen i Safari (firkanten med pilen op).', s2: 'Rul ned, og vælg "Føj til hjemmeskærm".', s3: 'Tryk "Tilføj" – så ligger KØS SEJL på din hjemmeskærm.',
+        note: 'Bruger du Chrome på iPhone, ligger Del-knappen i adresselinjen.', ok: 'Forstået' },
       update: { ready: 'Ny version klar!', reload: 'Opdater' },
       storage: { volatile: 'Dit fremskridt kan ikke gemmes i denne browser – det forsvinder, når du lukker fanen.' },
       rank: { 0: 'Sejlerspire', 1: 'Letmatros', 2: 'Matros', 3: 'Styrmand', 4: 'Skipper', 5: 'Kaptajn', 6: 'Kommandør', 7: 'Admiral' },
@@ -1399,6 +1425,9 @@
     app: {
       stars: 'Stars',
       install: 'Install the app', installed: 'KØS SEJL is installed – fair winds!', fullscreen: 'Fullscreen',
+      ios: { title: 'How to install', lead: 'Put KØS SEJL on your home screen and it opens like an app – full screen, and it works offline too.',
+        s1: 'Tap the Share button in Safari (the square with the arrow pointing up).', s2: 'Scroll down and choose "Add to Home Screen".', s3: 'Tap "Add" – KØS SEJL is now on your home screen.',
+        note: 'Using Chrome on iPhone? The Share button is in the address bar.', ok: 'Got it' },
       update: { ready: 'New version ready!', reload: 'Update' },
       storage: { volatile: 'Your progress cannot be saved in this browser – it disappears when you close the tab.' },
       rank: { 0: 'Sprout Sailor', 1: 'Deckhand', 2: 'Able Sailor', 3: 'Mate', 4: 'Skipper', 5: 'Captain', 6: 'Commodore', 7: 'Admiral' },
