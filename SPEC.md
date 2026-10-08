@@ -354,9 +354,13 @@ the effects thin out cosmetic particles at lower levels.
 - `club` — Clubhouse mini-games: **rigging/unrigging** each class the KØS way (see "Club facts ... rigging" below):
   drag each part onto its glowing spot (or tap + "Sæt på", or hold a card and drag in any direction, or the keyboard); a
   ghost-finger demo shows the drag at the start (static hint with reduced motion). A kid sailor stands next to the boat
-  (dinghies: holding the trolley handle; keelboats: on the pontoon). Dinghies: land jobs → the launch (the kid puts the
-  life jacket on by itself, backs the boat down the slipway stern first, hops in) → in-water jobs with the boat afloat at
-  the foot of the slipway → the boat turns and sails off. Keelboats: pontoon jobs → life jacket on, step aboard, leave.
+  (dinghies: holding the trolley handle; keelboats: on the pontoon). Dinghies: land jobs → **life jacket gate** → the
+  launch (the kid backs the boat down the slipway stern first and hops in) → in-water jobs with the boat afloat at the foot
+  of the slipway → the boat turns and sails off. Keelboats: pontoon jobs → life jacket gate → step aboard, leave. At the
+  gate the tray shows one "Redningsvest" card with its target on the kid (Træner: "Båden er klar! Men først:
+  redningsvesten på – det er regel nummer ét."); the player drags it on (or tap + "Tag den på" / Enter) and only then the
+  film runs. It is not a job (not in "Opgaver x/y", never a mistake); the finger demo shows it if the player has not
+  dragged anything yet. Where the boom is its own job (Tera, Zest, ILCA, Feva) the sail's foot hangs loose until it is on.
   Unrigging is the exact reverse (in-water jobs, the boat pulled up the slipway, land jobs, rinse, roll the sail; the life
   jacket comes off at the very end). **knots** (trace the rope: pælestik/bowline,
   ottetalsknob/figure-8, råbåndsknob/reef knot, dobbelt halvstik/clove hitch, klampe/cleat), **capsize recovery**
@@ -450,8 +454,10 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
   south of the clubhouse**, not at the club pier: J70 docking/undocking and race departures should start there
   (world venue 'harbor'). H-boats: red topsides with "KØS Sejlsport", white deck, rudder/tiller/halyards kept on.
 - **Club facts (user 2026-10-08, rigging - the club's answers, authoritative):**
-  - The life jacket is not a rigging job: it goes on just before launching / boarding (shown automatically with the line
-    "Redningsvesten på – altid, før du går på vandet!") and comes off at the very end of unrigging.
+  - The life jacket is not a rigging job, but the player puts it on the sailor at the gate just before launching /
+    boarding (the film is locked until it is on); it comes off automatically at the very end of unrigging.
+  - Tera / Zest: the boom is not stored with the mast and sail - it is fitted after the mast is stepped (gooseneck +
+    clew/outhaul); unrigging takes it off before the sail is rolled round the mast.
   - Dinghies: rudder and daggerboard are put IN the boat on land ("Læg ror og sværd i båden") and only fitted / lowered
     afloat; the boat is pushed in stern first. Unrigging = reverse, except RS Tera and RS Zest: the sail is rolled round
     the mast and the whole mast with sail goes to the shed (their last job).

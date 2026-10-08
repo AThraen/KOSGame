@@ -119,6 +119,7 @@
         doneRigKeel: 'Alt er klar – kast los og sejl ud!',
         doneUnrig: 'Flot pakket! Vesten af og hæng den til tørre – båden er klar til næste tur.',
         vestOn: 'Redningsvesten på – altid, før du går på vandet!',
+        vestGate: 'Båden er klar! Men først: redningsvesten på – det er regel nummer ét.',
         water: 'Vesten er på, og båden flyder! Gør det sidste klar herude i vandet.',
         retrieve: 'Nu hiver vi båden op ad slæbestedet.',
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
@@ -170,6 +171,7 @@
         doneRigKeel: 'All set – cast off and sail out!',
         doneUnrig: 'Nicely packed! Life jacket off and hang it up to dry – the boat is ready for next time.',
         vestOn: 'Life jacket on – always, before you go afloat!',
+        vestGate: 'The boat is ready! But first: life jacket on – that\'s rule number one.',
         water: 'Life jacket on and she\'s floating! Do the last jobs out here in the water.',
         retrieve: 'Now pull the boat up the slipway.',
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
@@ -464,18 +466,22 @@
   // Each returns an SVG string in scene units. `st` = {flyGennaker} for the sail-off.
   const SPAR = '#b8c3cf', SPAR_D = '#5b6470';
   function sparLine(x1, y1, x2, y2, w) { return ln(x1, y1, x2, y2, SPAR_D, w + 2.4) + ln(x1, y1, x2, y2, SPAR, w) + ln(x1, y1, x2, y2, 'rgba(255,255,255,.55)', Math.max(1, w * 0.3)); }
-  function mainShape(g) {
+  // loose = no boom yet (Tera, Zest, ILCA, Feva rig the boom after the sail): the clew hangs and the foot sags
+  function mainShape(g, loose) {
     const { mx, top, boomY, boomX } = g, L = g.boomL;
+    const cl = loose ? { x: mx - L * 0.62, y: boomY + 8 } : { x: boomX + 4, y: boomY - 2 };
+    const foot = loose ? 'Q' + f(mx - L * 0.3) + ' ' + f(boomY + 18) + ' ' + f(mx - 3) + ' ' + f(boomY - 2) + 'Z' : 'Z';
     if (g.sail === 'sprit') {
       return 'M' + f(mx - 3) + ' ' + f(boomY - 2) + 'L' + f(mx - 3) + ' ' + f(top + 10) + 'L' + f(g.peak.x) + ' ' + f(g.peak.y) +
-        'Q' + f(boomX + 6) + ' ' + f((g.peak.y + boomY) / 2) + ' ' + f(boomX + 4) + ' ' + f(boomY - 2) + 'Z';
+        'Q' + f(boomX + 6) + ' ' + f((g.peak.y + boomY) / 2) + ' ' + f(cl.x) + ' ' + f(cl.y) + foot;
     }
     if (g.sail === 'square') {
       return 'M' + f(mx - 3) + ' ' + f(boomY - 2) + 'L' + f(mx - 3) + ' ' + f(top + 4) + 'L' + f(mx - L * 0.34) + ' ' + f(top + 12) +
-        'Q' + f(boomX - L * 0.08) + ' ' + f((top + boomY) / 2) + ' ' + f(boomX + 4) + ' ' + f(boomY - 2) + 'Z';
+        'Q' + f((loose ? cl.x : boomX) - L * 0.08) + ' ' + f((top + boomY) / 2) + ' ' + f(cl.x) + ' ' + f(cl.y) + foot;
     }
-    return 'M' + f(mx - 3) + ' ' + f(boomY - 2) + 'L' + f(mx - 3) + ' ' + f(top + 4) + 'Q' + f(boomX - L * 0.14) + ' ' + f((top + boomY) / 2 + 10) + ' ' + f(boomX + 4) + ' ' + f(boomY - 2) + 'Z';
+    return 'M' + f(mx - 3) + ' ' + f(boomY - 2) + 'L' + f(mx - 3) + ' ' + f(top + 4) + 'Q' + f((loose ? cl.x : boomX) - L * 0.14) + ' ' + f((top + boomY) / 2 + 10) + ' ' + f(cl.x) + ' ' + f(cl.y) + foot;
   }
+  let sailClipN = 0;
   const INS = { opti: '⛵', tera: 'T', feva: 'F', zest: 'Z', ilca: '▽', '29er': '29', hboat: 'H', j70: 'J/70' };
   function jibPts(g) { return [[g.jx, g.jDeck], [g.mx - 3, g.jHead], [g.jcx, g.jcy]]; }
 
@@ -554,19 +560,24 @@
       return ln(g.jx, g.jDeck - 2, x1, y1, '#1f3b73', 9) + ln(g.jx, g.jDeck - 2, x1, y1, 'rgba(255,255,255,.25)', 2);
     },
     // KØS Opti: mast, sail and boom go in as one rig (the sail stays tied on with the sail ties)
-    optiRig(g, col, o) { return DRAW.sail(g, col, o) + DRAW.ties(g) + DRAW.mast(g) + DRAW.boom(g); },
+    optiRig(g, col, o) { return DRAW.sail(g, col, Object.assign({}, o, { boomOn: true })) + DRAW.ties(g) + DRAW.mast(g) + DRAW.boom(g); },
     boom(g) { return sparLine(g.mx - 2, g.boomY, g.boomX, g.boomY, g.mw - 1) + circ(g.mx - 3, g.boomY, 3.2, '#2a2f3a'); },
     sprit(g) { return sparLine(g.spritLow.x - 2, g.spritLow.y, g.peak.x + 4, g.peak.y + 3, 3); },
     sail(g, col, o) {
-      const d = mainShape(g), sc = col.sail || '#fff';
-      let s = '<defs><linearGradient id="rgSail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="' + shade(sc, -0.12) + '"/><stop offset=".55" stop-color="' + sc + '"/><stop offset="1" stop-color="' + shade(sc, -0.08) + '"/></linearGradient></defs>';
+      // the boom is its own job on most dinghies: until it is on, the sail's foot hangs loose (no boom drawn)
+      const loose = !g.keelboat && !!o && o.boomOn === false;
+      const d = mainShape(g, loose), sc = col.sail || '#fff', cid = 'rgSailClip' + (++sailClipN);
+      let s = '<defs><linearGradient id="rgSail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="' + shade(sc, -0.12) + '"/><stop offset=".55" stop-color="' + sc + '"/><stop offset="1" stop-color="' + shade(sc, -0.08) + '"/></linearGradient>' +
+        '<clipPath id="' + cid + '"><path d="' + d + '"/></clipPath></defs>';
       s += '<path d="' + d + '" fill="url(#rgSail)" stroke="' + shade(sc, -0.4) + '" stroke-width="1.6" stroke-linejoin="round"/>';
+      s += '<g clip-path="url(#' + cid + ')">';
       // seams
       for (let i = 1; i < 5; i++) { const y = g.boomY - (g.boomY - g.top) * i / 5; s += ln(g.mx - 3, y, g.mx - 3 - g.boomL * (1 - i / 5) * 0.95, y + 10, 'rgba(60,70,90,.12)', 1); }
       for (let i = 1; i <= (g.battens || 0); i++) {
         const k = i / (g.battens + 1), y = g.top + (g.boomY - g.top) * k, xr = g.mx - 3 - g.boomL * (g.sail === 'square' ? 0.3 + 0.7 * k : k) - (g.sail === 'square' ? 8 : 4);
         s += ln(xr + 4, y, xr + 4 + g.boomL * 0.28, y - 2, 'rgba(40,50,70,.35)', 2);
       }
+      s += '</g>';
       if (g.sail === 'sleeve') s += '<rect x="' + f(g.mx - g.mw / 2 - 3) + '" y="' + f(g.top + 2) + '" width="' + f(g.mw + 6) + '" height="' + f(g.boomY - g.top) + '" rx="4" fill="' + shade(sc, -0.05) + '" stroke="' + shade(sc, -0.35) + '" stroke-width="1.2"/>';
       const ix = g.mx - g.boomL * 0.36, fs = Math.max(12, g.boomL * 0.12);
       s += '<text x="' + f(ix) + '" y="' + f(g.top + (g.boomY - g.top) * 0.36) + '" font-size="' + f(fs * (INS[g.id].length > 2 ? 0.8 : 1)) + '" font-weight="900" text-anchor="middle" fill="' + (col.trim || '#1f6fb2') + '" font-family="ui-rounded,Segoe UI,system-ui,sans-serif">' + INS[g.id] + '</text>';
@@ -783,7 +794,7 @@
     const I = {
       mast: '<rect x="29" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><path d="M32 4v-0l-12 3 12 3z" fill="#e8323c"/>',
       optiRig: '<path d="M16 8L50 12Q44 32 54 50H16z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="11" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><rect x="11" y="49" width="46" height="5" rx="2.5" fill="' + SPAR + '" ' + sp + '/><path d="M12 16h8M12 28h8M12 40h8" stroke="#e8323c" stroke-width="2.4" stroke-linecap="round"/><text x="33" y="36" font-size="11" font-weight="900" fill="' + (col.trim || '#1f6fb2') + '" text-anchor="middle" font-family="system-ui">' + (INS[col.id] || '') + '</text>',
-      mastSail: '<path d="M18 8Q46 30 54 54H18z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="12" y="4" width="7" height="56" rx="3.5" fill="#f2f4f7" stroke="#8a95a3" stroke-width="2"/><path d="M15.5 4l-10 3 10 3z" fill="#e8323c"/>',
+      mastSail: '<path d="M18 8Q44 28 44 50Q30 60 18 54z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="12" y="4" width="7" height="56" rx="3.5" fill="#f2f4f7" stroke="#8a95a3" stroke-width="2"/><path d="M15.5 4l-10 3 10 3z" fill="#e8323c"/>',
       mastJoin: '<path d="M4 40L34 26" stroke="' + SPAR_D + '" stroke-width="9" stroke-linecap="round"/><path d="M4 40L34 26" stroke="#a9b5c2" stroke-width="6" stroke-linecap="round"/><path d="M30 28L60 14" stroke="' + SPAR_D + '" stroke-width="6.5" stroke-linecap="round"/><path d="M30 28L60 14" stroke="#cdd6df" stroke-width="4" stroke-linecap="round"/><path d="M36 38l8-4M40 44l6-3" stroke="#ffd25e" stroke-width="2.4" stroke-linecap="round"/>',
       sleeve: '<path d="M8 50L56 50L20 18z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="6" y="46" width="52" height="9" rx="4.5" fill="#f2f4f7" stroke="#8a95a3" stroke-width="2"/><path d="M44 38l10 6-10 6" stroke="#18a957" stroke-width="3" fill="none" stroke-linecap="round"/>',
       zestJib: '<rect x="8" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><path d="M14 10L14 52L48 52z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><path d="M10 20h8M10 34h8M10 46h8" stroke="#e8323c" stroke-width="2.4" stroke-linecap="round"/>',
@@ -957,6 +968,11 @@
     // the tray shows jobs shuffled (seeded), so the order isn't given away
     const cards = steps.concat(decoys).map(s => s);
     for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const tmp = cards[i]; cards[i] = cards[j]; cards[j] = tmp; }
+    // the life jacket gate: when the land jobs (dinghies) / pontoon jobs (keelboats) are done, the player puts the life
+    // jacket on the sailor before the launch / boarding can start. Not a job: not counted, never a mistake.
+    const gate = unrig ? [] : [{ k: 'vest', i: 200, type: 'on', w: 'gate', gate: true, done: false }];
+    gate.forEach(v => cards.push(v));
+    const zoned = steps.concat(gate);
 
     const lab = st => jobLabel(st.k, st.type, st.w === 'water' ? 'w' : '');
 
@@ -1030,7 +1046,7 @@
     function drawPart(k, mode) {
       const e = partEl[k];
       if (!e || !DRAW[k]) return;
-      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib, mastUp: !!inst.mastSail, rudderOn: !!inst.rudder, boardOn: !!inst.daggerboard });
+      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib, mastUp: !!inst.mastSail, rudderOn: !!inst.rudder, boardOn: !!inst.daggerboard, boomOn: !!inst.boom });
       e.setAttribute('class', 'rig-part' + (mode ? ' ' + mode : '') + (GROW[k] ? ' grow' : ''));
     }
     function clearPart(k) { const e = partEl[k]; if (e) { e.innerHTML = ''; e.setAttribute('class', 'rig-part'); } }
@@ -1042,7 +1058,7 @@
 
     // zones
     const zoneEl = {};
-    steps.forEach(s => {
+    zoned.forEach(s => {
       const z = zoneOf(g, s.k);
       const e = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
       e.setAttribute('class', 'rig-zone');
@@ -1056,7 +1072,7 @@
       const m = svg.getScreenCTM();
       const k = m ? m.a : 1;
       const r = 24 / Math.max(0.05, k);
-      steps.forEach(s => {
+      zoned.forEach(s => {
         const e = zoneEl[s.i];
         e.querySelector('.rgz-glow').setAttribute('r', f(r));
         e.querySelector('.rgz-ring').setAttribute('r', f(r * 0.66));
@@ -1084,7 +1100,7 @@
       b.addEventListener('click', e => { if (b.__noClick) { b.__noClick = false; return; } select(s); e.preventDefault(); });
       b.addEventListener('focus', () => { if (S.sel !== s && !S.drag && !S.ptr) select(s, true); });
     });
-    const byI = i => steps[i] || decoys.find(d => d.i === i);
+    const byI = i => steps[i] || decoys.find(d => d.i === i) || gate.find(d => d.i === i);
 
     // ---- HUD
     const hud = KOS.UI.hud(host.layer, ['timer', { id: 'steps', icon: 'wrench', labelKey: 'rigging.hud.steps' }, { id: 'oops', icon: 'penalty', labelKey: 'rigging.hud.oops' }]);
@@ -1092,7 +1108,8 @@
 
     // ---- logic
     function available(s) {
-      if (s.done || s.decoy || s.w !== S.stage) return false;
+      if (s.gate) return !!S.gate && !s.done;
+      if (s.done || s.decoy || s.w !== S.stage || S.gate) return false;
       return !steps.some(o => !o.done && o.g < s.g);
     }
     const stageLeft = () => steps.some(o => !o.done && o.w === S.stage);
@@ -1102,7 +1119,7 @@
 
     function refresh() {
       const easy = assist === 'easy';
-      steps.forEach(s => {
+      zoned.forEach(s => {
         const c = cardEl[s.i];
         const av = available(s);
         if (c) { c.classList.toggle('is-next', easy && av); c.classList.toggle('is-sel', S.sel === s); }
@@ -1114,11 +1131,11 @@
       });
       decoys.forEach(d => { const c = cardEl[d.i]; if (c) c.classList.toggle('is-sel', S.sel === d); });
       // only the jobs for where the boat is now (on land / afloat) are in the tray
-      cards.forEach(c => { const e = cardEl[c.i]; if (e) e.classList.toggle('rg-later', c.w !== S.stage); });
+      cards.forEach(c => { const e = cardEl[c.i]; if (e) e.classList.toggle('rg-later', c.gate ? !(S.gate && !c.done) : (c.w !== S.stage || !!S.gate)); });
       rootEl.classList.toggle('is-busy', S.phase !== 'play');
       trayTitle();
       // easy: faint ghost outline of parts that can be fitted now
-      steps.forEach(s => {
+      zoned.forEach(s => {
         if (s.done || s.type !== 'on' || !DRAW[s.k] || inst[s.k]) return;
         const ghost = (easy && available(s)) || (S.drag && S.drag.s === s && assist !== 'pro') || (S.sel === s && assist !== 'pro');
         if (ghost && !partEl[s.k].classList.contains('rig-ghost')) drawPart(s.k, 'rig-ghost');
@@ -1203,6 +1220,7 @@
           clearTimeout(st.armT);
           card.classList.remove('is-armed');
           st.active = true;
+          S.dragged = true;
           S.drag = st;
           card.__noClick = true;
           try { card.setPointerCapture(st.id); } catch (er) { /* ignore */ }
@@ -1289,8 +1307,8 @@
     }
     function startDemo() {
       stopDemo();
-      if (S.demoDone || autopilot || S.phase !== 'play' || S.doneN > 0) return;
-      const s = nextStep(), card = s && cardEl[s.i];
+      if (S.demoDone || autopilot || S.phase !== 'play' || (S.doneN > 0 && !S.gate)) return;
+      const s = S.gate ? gate[0] : nextStep(), card = s && cardEl[s.i];
       if (!card) return;
       try { card.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* old browsers */ }
       const lr = host.layer.getBoundingClientRect(), cr = card.getBoundingClientRect(), z = zoneScreen(s);
@@ -1320,6 +1338,7 @@
     function attempt(s, p, ghost) {
       if (S.phase !== 'play' || !s || s.done) { if (ghost) ghost.remove(); return; }
       start();
+      if (s.gate) { if (!available(s)) { if (ghost) flyBack(ghost, cardEl[s.i]); return; } if (ghost) flyTo(ghost, s); wearVest(s); return; }
       if (s.decoy) { mistake(s, null, ghost); return; }
       if (!available(s)) { mistake(s, blocking(s), ghost); return; }
       if (ghost) flyTo(ghost, s);
@@ -1373,7 +1392,8 @@
       if (S.streak === 5) tip('streak', 'rigging.coach.streak');
       else if (left === Math.floor(steps.length / 2) && steps.length >= 8) tip('half', 'rigging.coach.half');
       else if (left === 1) tip('last', 'rigging.coach.last');
-      if (left === 0) finishRun();
+      if (!unrig && !inst.vest && (left === 0 || (!stageLeft() && S.stage === 'land'))) openGate();
+      else if (left === 0) finishRun();
       else if (!stageLeft()) {
         // all the jobs here are done: launch (land -> water) or bring her up the slipway (water -> land)
         if (S.stage === 'land') startLaunch(); else startRetrieve();
@@ -1384,7 +1404,7 @@
       if (n && assist === 'easy' && cardEl[n.i]) scrollCard(cardEl[n.i]);
     }
     // parts whose drawing depends on another part
-    const DEPS = { jib: ['jibsheets', 'jibFurl'], mastSail: ['zestJib', 'mastJoin', 'sleeve'], rudder: ['stow'], daggerboard: ['stow'], boom: ['cover'] };
+    const DEPS = { jib: ['jibsheets', 'jibFurl'], mastSail: ['zestJib', 'mastJoin', 'sleeve'], rudder: ['stow'], daggerboard: ['stow'], boom: ['cover', 'sail', 'mastSail'] };
     function redrawDeps(k, delay) {
       const go = () => (DEPS[k] || []).forEach(d => { if (inst[d]) drawPart(d); });
       if (delay) setTimeout(go, delay); else go();
@@ -1394,6 +1414,31 @@
       const e = partEl[k];
       if (e) { e.setAttribute('class', 'rig-part off'); setTimeout(() => { if (!inst[k]) clearPart(k); }, 480); }
       redrawDeps(k, 480);
+    }
+    // ---- the life jacket gate
+    function openGate() {
+      S.gate = true; S.sel = null; hideInfo();
+      KOS.UI.coach(t('rigging.coach.vestGate'), { pos: 'top', ms: 7000 });
+      const c = cardEl[gate[0].i];
+      if (c) setTimeout(() => scrollCard(c), 60);
+      if (!S.dragged && !autopilot) { S.demoDone = false; setTimeout(() => { if (S.gate) startDemo(); }, 500); }
+    }
+    function wearVest(v) {
+      v.done = true; S.gate = false;
+      stopDemo(true);
+      const c = cardEl[v.i];
+      if (c) { c.classList.add('gone'); setTimeout(() => c.remove(), 350); }
+      delete cardEl[v.i];
+      if (S.sel === v) { S.sel = null; hideInfo(); }
+      const z = zoneScreen(v);
+      inst.vest = true; drawPart('vest', 'pop');
+      sfx('zip', { vol: 0.8 });
+      setTimeout(() => sfx('coin', { vol: 0.35 }), 120);
+      sparkle(v.zx, v.zy);
+      floatText(pname('vest') + ' ✓', z ? z.x : null, z ? z.y : null, 'good');
+      // a moment to see it zipped up, then the launch / boarding film (sim-time, see update)
+      S.phase = 'vesting'; S.vestT = 0.7;
+      refresh();
     }
     function scrollCard(c) { try { c.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); } catch (e) { /* old browsers */ } }
     function tip(id, key, vars) {
@@ -1474,7 +1519,7 @@
         partEl.vest.setAttribute('class', 'rig-part off');
         setTimeout(() => clearPart('vest'), 480);
       }
-      if (!unrig && g.keelboat) { S.poseT = 0; KOS.UI.coach(t('rigging.coach.vestOn'), { pos: 'top', mood: 'wow' }); }
+      if (!unrig && g.keelboat) S.poseT = 0; // the sailor (life jacket on) steps aboard, then she leaves
       else KOS.UI.coach(t(unrig ? 'rigging.coach.doneUnrig' : 'rigging.coach.doneRig'), { pos: 'top', mood: 'wow' });
       sfx('cheer', { vol: 0.55 });
       if (stars >= 3) { try { KOS.UI.confetti(); } catch (e) { /* ignore */ } }
@@ -1631,7 +1676,7 @@
     }
 
     // ---- keyboard
-    function cardsInOrder() { return Array.prototype.slice.call(cardsEl.querySelectorAll('.rigging-card:not(.gone)')); }
+    function cardsInOrder() { return Array.prototype.slice.call(cardsEl.querySelectorAll('.rigging-card:not(.gone):not(.rg-later)')); }
     function onKey(e) {
       if (S.phase !== 'play' || (host.isPaused && host.isPaused())) return;
       if (e.target && /input|textarea/i.test(e.target.tagName)) return;
@@ -1684,6 +1729,8 @@
       if (S.phase === 'play') {
         if (S.started) S.time += dt;
         if (autopilot && (S.botT -= dt) <= 0) { S.botT = 0.45; doNext(); }
+      } else if (S.phase === 'vesting') {
+        if ((S.vestT -= dt) <= 0) { if (g.keelboat) finishRun(); else { startLaunch(); refresh(); } }
       } else if (S.phase === 'launch') {
         S.launchT = red ? LT.afloat : S.launchT + dt;
         S.poseT = Math.min(S.launchT, LT.afloat);
@@ -1727,6 +1774,7 @@
     }
     function doNext() {
       if (S.phase !== 'play') return false;
+      if (S.gate) { attempt(gate[0], null); return true; }
       const n = nextStep();
       if (!n) return false;
       start();
