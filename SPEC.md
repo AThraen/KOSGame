@@ -332,7 +332,10 @@ the effects thin out cosmetic particles at lower levels.
 `js/ui/track.js` (`KOS.Track`) loads Matomo (matomo.bering.codeart.dk, site 13) on the first real event: cookieless, honours Do-Not-Track, never sends
 names or other personal data. It is a no-op on localhost/127.x, `file:`, headless/automated browsers (`navigator.webdriver`, HeadlessChrome) and in God
 mode, so tests never touch the network. `sw.js` ignores cross-origin requests, so matomo.js/php are never cached. Everything is try/catch: blocked
-or offline changes nothing. Screen changes are virtual page views (`/#hub`, `/#play/<activity id>`). Events (category / action / name [value]):
+or offline changes nothing. Screen changes are virtual page views on real-looking paths (Matomo drops `#...`): `/kort`, `/profil`, `/sejlerpas`,
+`/indstillinger`, `/om-spillet`, `/start`, one per area (`/sejlerskolen`, `/klubhuset`, `/fri-sejlads`, `/kapsejlads`, `/vigeregler`, `/navigation`,
+`/havnemanoevrer`, `/rib-missioner`), activities as `/<area>/<activity id>` and `/<area>/<activity id>/resultat`; titles are fixed Danish
+(`KØS SEJL / Sejlerskolen / Styr og stop`), with `setReferrerUrl` to the previous screen. No cookies: `disableCookies` is set before any hit. Events (category / action / name [value]):
 Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|unlockAll, View overview|zoom,
 Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson. Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
 `play:finish`, `settings`) plus a few direct `KOS.Track.event` calls in app.js.

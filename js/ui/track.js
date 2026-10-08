@@ -76,6 +76,27 @@
     } catch (e) { /* ignore */ }
   }
 
+  // fixed Danish names, so the statistics don't split by the player's language
+  const SCREENS = { title: ['start', 'Start'], hub: ['kort', 'Kort'], profile: ['profil', 'Profil'], garage: ['sejlerpas', 'Sejlerpas'],
+    settings: ['indstillinger', 'Indstillinger'], credits: ['om-spillet', 'Om spillet'] };
+  const AREAS = { club: ['klubhuset', 'Klubhuset'], school: ['sejlerskolen', 'Sejlerskolen'], bay: ['fri-sejlads', 'Fri sejlads'],
+    race: ['kapsejlads', 'Kapsejlads'], rules: ['vigeregler', 'Vigeregler'], nav: ['navigation', 'Navigation'],
+    pier: ['havnemanoevrer', 'Havnemanøvrer'], rib: ['rib-missioner', 'RIB-missioner'] };
+  function pageFor(screen, params) {
+    if (SCREENS[screen]) return { path: '/' + SCREENS[screen][0], title: [SCREENS[screen][1]] };
+    const areaOf = id => AREAS[id] || [String(id || 'ukendt'), String(id || 'Ukendt')];
+    if (screen === 'area') { const ar = areaOf(params.area); return { path: '/' + ar[0], title: [ar[1]] }; }
+    if (screen === 'play' || screen === 'results') {
+      const A = KOS.Activities, run = KOS.App && KOS.App.run;
+      const act = (screen === 'play' && run && run.act) || (params.id && A && A.get(params.id)) || (run && run.act);
+      if (!act) return null;
+      const ar = areaOf(act.area), name = act.title ? (act.title.da || act.title.en || act.id) : act.id;
+      return screen === 'play' ? { path: '/' + ar[0] + '/' + act.id, title: [ar[1], name] }
+        : { path: '/' + ar[0] + '/' + act.id + '/resultat', title: [ar[1], name, 'Resultat'] };
+    }
+    return { path: '/' + screen, title: [screen] };
+  }
+
   const Track = (KOS.Track = {
     event(category, action, name, value) {
       const a = ['trackEvent', category, action];
@@ -84,13 +105,16 @@
       dims();
       push(a);
     },
-    // virtual page view for a screen change (not for a re-render of the same screen)
-    screen(screen, id) {
-      const key = screen + (id ? '/' + id : '');
-      if (key === lastScreen) return;
-      lastScreen = key;
-      push(['setCustomUrl', '/#' + key]);
-      push(['setDocumentTitle', 'KØS SEJL - ' + key]);
+    // virtual page view for a screen change (Matomo's single-page-app pattern). Matomo drops "#..." from URLs, so
+    // every screen gets a real-looking path: /kort, /profil, /sejlerskolen, /sejlerskolen/school.steer, .../resultat
+    screen(screen, params) {
+      const p = pageFor(screen, params || {});
+      if (!p || p.path === lastScreen) return;
+      const base = (root.location && root.location.origin) || '';
+      if (lastScreen) push(['setReferrerUrl', base + lastScreen]);
+      lastScreen = p.path;
+      push(['setCustomUrl', base + p.path]);
+      push(['setDocumentTitle', ['KØS SEJL'].concat(p.title).join(' / ')]);
       dims();
       push(['trackPageView']);
     },
@@ -100,7 +124,7 @@
     const E = KOS.Events;
     if (!E || !E.on) return;
     try { lastSettings = Object.assign({}, KOS.Storage.settings()); } catch (e) { lastSettings = {}; }
-    E.on('screen', s => { Track.screen(s, s === 'play' && KOS.App && KOS.App.run && KOS.App.run.act ? KOS.App.run.act.id : ''); });
+    E.on('screen', s => { Track.screen(s, (KOS.App && KOS.App.params) || {}); });
     E.on('play:start', p => {
       if (!p) return;
       Track.event('Activity', 'start', p.id);
