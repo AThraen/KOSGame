@@ -17,7 +17,8 @@
   // ======================================================================== 1. parts (names + what they are)
   // name.da / name.en are the part's Danish and English names (shown together in both languages); desc is per language.
   const PARTS = {
-    vest: ['Redningsvest', 'Life jacket', 'Altid på, før du går på vandet – og lynet skal være helt lukket. Sikkerhed først!', 'Always on before you go afloat – zip it right up. Safety first!'],
+    vest: ['Redningsvest', 'Life jacket', 'Tag redningsvesten på, før du går ned til vandet – og lyn den helt op. Det er regel nummer ét. Sikkerhed først!', 'Put your life jacket on before you go down to the water – and zip it right up. That\'s rule number one. Safety first!'],
+    optiRig: ['Mast med sejl og bom', 'Mast with sail and boom', 'I KØS bliver optimistens sejl siddende bundet til mast og bom. Hele riggen sættes i mastefoden på én gang – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'At KØS the Optimist\'s sail stays tied to the mast and boom. The whole rig goes into the mast step in one go – remember the mast clip so it can\'t fall out if you capsize.'],
     mast: ['Mast', 'Mast', 'Den lange stang, sejlet sidder på. Masten står i mastefoden – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'The tall pole the sail is set on. It stands in the mast step – remember the mast clip so it can\'t fall out if you capsize.'],
     mastBottom: ['Undermast', 'Bottom mast section', 'ILCA-masten er i to dele. Den nederste, tykke del står i mastefoden og kommer først.', 'The ILCA mast comes in two parts. The thick bottom section sits in the mast step and goes in first.'],
     mastTop: ['Topmast', 'Top mast section', 'Den tynde øverste del stikkes ned i undermasten. Den skal sidde helt i bund!', 'The thin top section slots into the bottom section. Push it all the way home!'],
@@ -26,8 +27,8 @@
     sail: ['Storsejl', 'Mainsail', 'Bådens motor! Vinden i sejlet skubber og suger båden frem.', 'The boat\'s engine! Wind in the sail pushes and pulls the boat along.'],
     ties: ['Sejlbånd', 'Sail ties', 'Små snore, der binder sejlet til mast og bom. Bind dem med et råbåndsknob – lige stramme hele vejen.', 'Little strings that tie the sail to the mast and boom. Use a reef knot – equally tight all the way.'],
     mainsheet: ['Storskøde', 'Mainsheet', 'Tovet du trimmer sejlet med: hal ind og fier ud. Slå et ottetalsknob i enden, så det ikke smutter ud af blokken.', 'The rope you trim the sail with: pull in and ease out. Tie a figure-eight knot in the end so it can\'t slip out of the block.'],
-    daggerboard: ['Sværd', 'Daggerboard', 'Pladen der stikker ned under båden, så den ikke driver sidelæns. På vognen er det oppe – det sænkes, når vandet er dybt nok.', 'The board under the boat that stops it sliding sideways. On the trolley it stays up – lower it when the water is deep enough.'],
-    rudder: ['Ror og rorpind', 'Rudder and tiller', 'Roret styrer båden, og rorpinden er håndtaget. Husk rorlåsen, så roret ikke falder af.', 'The rudder steers the boat and the tiller is its handle. Remember the rudder clip so it can\'t fall off.'],
+    daggerboard: ['Sværd', 'Daggerboard', 'Pladen der stikker ned under båden, så den ikke driver sidelæns. Sæt det i sværdkassen ved slæbestedet, men hold det oppe – det skubbes først ned, når båden flyder. Træk det op igen, før du sejler ind på lavt vand.', 'The board under the boat that stops it sliding sideways. Put it in its case at the slipway but keep it up – push it down only once the boat floats. Pull it up again before you sail into shallow water.'],
+    rudder: ['Ror og rorpind', 'Rudder and tiller', 'Roret styrer båden, og rorpinden er håndtaget. Sæt roret på agterspejlet ved slæbestedet med bladet oppe – bladet sænkes først, når du er i vandet, og hives op igen, før du kommer ind. Husk rorlåsen, så roret ikke falder af.', 'The rudder steers the boat and the tiller is its handle. Hang it on the transom at the slipway with the blade up – lower the blade only once you\'re in the water, and raise it again before you come in. Remember the rudder clip so it can\'t fall off.'],
     bailer: ['Øsekar', 'Bailer', 'Til at øse vand ud af båden. Bind det fast, så det ikke flyder væk, hvis du kæntrer.', 'For scooping water out of the boat. Tie it on so it doesn\'t float away if you capsize.'],
     paddle: ['Pagaj', 'Paddle', 'Dør vinden, padler du hjem. Den skal også bindes fast i båden.', 'If the wind dies, you paddle home. Tie it into the boat too.'],
     painter: ['Fangline', 'Painter', 'Tovet i stævnen. Bruges til at fortøje båden – eller til at blive slæbt hjem af RIB\'en.', 'The rope at the bow. Use it to tie the boat up – or to get towed home by the RIB.'],
@@ -70,20 +71,22 @@
     rigging: Object.assign(strDa, {
       hud: { steps: 'Opgaver', oops: 'Fejl' },
       on: 'PÅ', off: 'AF', decoyTag: '?',
-      btn: { on: 'Sæt på', off: 'Tag af', do: 'Gør det', close: 'Luk' },
+      btn: { on: 'Sæt på', off: 'Tag af', do: 'Gør det', close: 'Luk', wear: 'Tag den på', unwear: 'Tag den af' },
       keys: 'Træk en del op på båden · Tastatur: ←/→ vælg, Enter gør det',
+      keysTouch: 'Træk op på båden ↑',
+      demo: 'Træk!',
       trayTitle: 'Delene på jorden', trayTitleUnrig: 'Opgaver',
       intro: {
-        rig: 'Nu rigger vi {boat} til! Redningsvesten først – og rig altid med stavnen mod vinden. Træk delene op på båden i den rigtige rækkefølge.',
-        rigKeel: 'Vi skal ud med {boat}! Gør båden klar ved broen – i den rigtige rækkefølge. Tryk på en del for at lære, hvad den hedder.',
-        unrig: 'Godt sejlet! Nu rigger vi {boat} af i den rigtige rækkefølge – og pakker alt pænt sammen.',
-        unrigKeel: 'Vi er tilbage ved broen med {boat}. Fortøj, tag sejlene ned i den rigtige rækkefølge og pak båden sammen.',
+        rig: 'Nu rigger vi {boat} til! Først tager du redningsvesten på. Træk delene hen på båden – eller tryk på en del og vælg \'Sæt på\'. Rig altid med stævnen mod vinden.',
+        rigKeel: 'Vi skal ud med {boat}! Først tager du redningsvesten på. Træk opgaverne hen på båden – eller tryk og vælg \'Gør det\' – i den rigtige rækkefølge.',
+        unrig: 'Godt sejlet! Nu rigger vi {boat} af i den rigtige rækkefølge – træk delene hen på båden, eller tryk og vælg \'Tag af\'.',
+        unrigKeel: 'Vi er tilbage ved broen med {boat}. Fortøj, tag sejlene ned i den rigtige rækkefølge og pak båden sammen. Træk opgaverne hen på båden.',
       },
       coach: {
         order: 'Hov! {part} må vente lidt. Først: {need}!',
         orderOff: 'Hov! {part} skal blive siddende lidt endnu. Først af: {need}!',
         orderMix: 'Ikke helt endnu! Først: {need}.',
-        miss: 'Træk delen hen til den lysende cirkel på båden.',
+        miss: 'Slip delen over den lysende cirkel – den bliver grøn, når du rammer.',
         streak: 'Du er en rigge-haj! 🦈',
         half: 'Halvvejs – godt gået!',
         last: 'Sidste opgave!',
@@ -93,7 +96,7 @@
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
       },
       decoy: {
-        opti: 'En optimist har ingen gennaker – den har kun ét sejl. Den lægger vi tilbage!',
+        opti: 'Vores optimister har ingen pagaj med – træneren i RIB\'en passer på jer derude. Den bliver på land!',
         tera: 'En Tera har ikke trapez – den er alt for lille til at stå ude på kanten.',
         feva: 'Spryd hører til optimisten. En Feva har en almindelig bom.',
         zest: 'En Zest har ingen trapez. Den er en rolig træningsbåd.',
@@ -102,7 +105,8 @@
         hboat: 'En H-båd har intet sværd – den har en tung køl, der altid sidder fast.',
         j70: 'En J/70 har intet sværd – den har en køl med en tung bombe i bunden.',
       },
-      fx: { ok: 'Sådan!', oops: 'Ups! +{s} sek', streak: 'Combo x{n}!', rinse: 'Skyllet!', roll: 'Rullet!' },
+      fx: { ok: 'Sådan!', oops: 'Ups! +{s} sek', streak: 'Combo x{n}!', rinse: 'Skyllet!', roll: 'Rullet!', foils: 'Sværd og ror ned!' },
+      keelRudder: 'Roret styrer båden, og rorpinden er håndtaget. På klubbens kølbåde bliver roret siddende hele sæsonen.',
       done: { packed: 'PAKKET' },
       res: {
         rig: '{boat} rigget til på {time} med {oops} fejl.',
@@ -115,20 +119,22 @@
     rigging: Object.assign(strEn, {
       hud: { steps: 'Jobs', oops: 'Oops' },
       on: 'ON', off: 'OFF', decoyTag: '?',
-      btn: { on: 'Fit it', off: 'Take off', do: 'Do it', close: 'Close' },
+      btn: { on: 'Fit it', off: 'Take off', do: 'Do it', close: 'Close', wear: 'Put it on', unwear: 'Take it off' },
       keys: 'Drag a part onto the boat · Keyboard: ←/→ choose, Enter do it',
+      keysTouch: 'Drag onto the boat ↑',
+      demo: 'Drag!',
       trayTitle: 'Parts on the ground', trayTitleUnrig: 'Jobs',
       intro: {
-        rig: 'Let\'s rig the {boat}! Life jacket first – and always rig with the bow into the wind. Drag the parts onto the boat in the right order.',
-        rigKeel: 'We\'re taking the {boat} out! Get her ready at the pontoon – in the right order. Tap a part to learn what it\'s called.',
-        unrig: 'Well sailed! Now unrig the {boat} in the right order – and pack everything away neatly.',
-        unrigKeel: 'We\'re back at the pontoon with the {boat}. Tie up, drop the sails in the right order and pack the boat away.',
+        rig: 'Let\'s rig the {boat}! First, put your life jacket on. Drag the parts onto the boat – or tap a part and choose \'Fit it\'. Always rig with the bow into the wind.',
+        rigKeel: 'We\'re taking the {boat} out! First, put your life jacket on. Drag the jobs onto the boat – or tap and choose \'Do it\' – in the right order.',
+        unrig: 'Well sailed! Now unrig the {boat} in the right order – drag the parts onto the boat, or tap and choose \'Take off\'.',
+        unrigKeel: 'We\'re back at the pontoon with the {boat}. Tie up, drop the sails in the right order and pack the boat away. Drag the jobs onto the boat.',
       },
       coach: {
         order: 'Oops! The {part} has to wait. First: {need}!',
         orderOff: 'Oops! The {part} has to stay on a bit longer. First off: {need}!',
         orderMix: 'Not quite yet! First: {need}.',
-        miss: 'Drag the part to the glowing circle on the boat.',
+        miss: 'Let go over the glowing circle – it turns green when you\'re on it.',
         streak: 'You\'re a rigging shark! 🦈',
         half: 'Halfway – nice work!',
         last: 'Last job!',
@@ -138,7 +144,7 @@
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
       },
       decoy: {
-        opti: 'An Optimist has no gennaker – it only has one sail. Let\'s put that back!',
+        opti: 'Our Optis don\'t carry a paddle – the coach in the RIB looks after you out there. It stays ashore!',
         tera: 'A Tera has no trapeze – it\'s far too small to stand out on the edge.',
         feva: 'A sprit belongs on the Optimist. A Feva has a normal boom.',
         zest: 'A Zest has no trapeze. It\'s a calm training boat.',
@@ -147,7 +153,8 @@
         hboat: 'An H-boat has no daggerboard – it has a heavy keel that is always there.',
         j70: 'A J/70 has no daggerboard – it has a keel with a heavy bulb at the bottom.',
       },
-      fx: { ok: 'Nice!', oops: 'Oops! +{s} sec', streak: 'Combo x{n}!', rinse: 'Rinsed!', roll: 'Rolled!' },
+      fx: { ok: 'Nice!', oops: 'Oops! +{s} sec', streak: 'Combo x{n}!', rinse: 'Rinsed!', roll: 'Rolled!', foils: 'Board and rudder down!' },
+      keelRudder: 'The rudder steers the boat and the tiller is its handle. On the club\'s keelboats the rudder stays on all season.',
       done: { packed: 'PACKED' },
       res: {
         rig: '{boat} rigged in {time} with {oops} mistakes.',
@@ -161,18 +168,21 @@
   // [part, group, type?]  group: all steps of a lower group must be done first; same group = any order.
   // type 'off' = a removal job while rigging (sail cover off, cast off, fenders in).
   const RIG = {
-    opti: [['vest', 0], ['mast', 1], ['boom', 2], ['sail', 3], ['ties', 4], ['sprit', 5], ['mainsheet', 6],
-      ['daggerboard', 7], ['rudder', 7], ['bailer', 7], ['paddle', 7], ['painter', 7]],
+    // KØS Optis are stored with the sail tied to mast and boom: the whole rig goes in at once, then the sprit
+    // (no paddle: the club's Optis train with a RIB looking after them)
+    opti: [['vest', 0], ['optiRig', 1], ['sprit', 2], ['mainsheet', 3],
+      ['daggerboard', 4], ['rudder', 4], ['bailer', 4], ['painter', 4]],
     tera: [['vest', 0], ['mast', 1], ['sail', 2], ['boom', 3], ['outhaul', 4], ['kicker', 4], ['mainsheet', 5],
       ['daggerboard', 6], ['rudder', 6], ['painter', 6]],
-    feva: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
-      ['jibsheets', 6], ['chute', 7], ['pole', 8], ['gennaker', 9], ['daggerboard', 10], ['rudder', 10]],
+    // KØS Fevas and 29ers keep the mast up all season (mast, shrouds, forestay: see KEEP_ON)
+    feva: [['vest', 0], ['jib', 1], ['sail', 2], ['boom', 3], ['kicker', 4], ['mainsheet', 4],
+      ['jibsheets', 4], ['chute', 5], ['pole', 6], ['gennaker', 7], ['daggerboard', 8], ['rudder', 8]],
     zest: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
       ['jibsheets', 6], ['daggerboard', 7], ['rudder', 7], ['painter', 7]],
     ilca: [['vest', 0], ['mastBottom', 1], ['mastTop', 2], ['sail', 3], ['boom', 4], ['outhaul', 5], ['kicker', 5], ['cunningham', 5],
       ['mainsheet', 6], ['daggerboard', 7], ['rudder', 7]],
-    '29er': [['vest', 0], ['wings', 1], ['mast', 2], ['shrouds', 3], ['forestay', 3], ['trapeze', 4], ['jib', 5], ['sail', 6], ['boom', 7],
-      ['kicker', 8], ['cunningham', 8], ['jibsheets', 8], ['pole', 9], ['gennaker', 10], ['daggerboard', 11], ['rudder', 11]],
+    '29er': [['vest', 0], ['wings', 1], ['trapeze', 2], ['jib', 3], ['sail', 4], ['boom', 5],
+      ['kicker', 6], ['cunningham', 6], ['jibsheets', 6], ['pole', 7], ['gennaker', 8], ['daggerboard', 9], ['rudder', 9]],
     // KØS H-boats keep rudder, tiller and halyards on in the harbour (see KEEP_ON): the jobs start with the cover
     // jib sheets go on before the jib is hoisted, or it flogs out of control
     hboat: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['lines', 4, 'off'], ['fenders', 5, 'off']],
@@ -181,8 +191,8 @@
       ['lines', 6, 'off'], ['fenders', 7, 'off']],
   };
   // parts that stay rigged on the club's boats all season (drawn in place, never a job)
-  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'], j70: ['rudder', 'halyard'] };
-  const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
+  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'], j70: ['rudder', 'tiller', 'halyard'], feva: ['mast', 'shrouds', 'forestay'], '29er': ['mast', 'shrouds', 'forestay'] };
+  const DECOY = { opti: 'paddle', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)
   const CFG = {
@@ -210,7 +220,8 @@
       unlock: i === 0 ? null : { stars: BOAT_STARS[id] || 0 },
       title: { da: 'Rig til · ' + n, en: 'Rig the ' + n },
       desc: keel ? { da: 'Gør ' + n + ' klar ved broen: sejl op, skøder gennem blokkene, fendere ind og kast los.', en: 'Get the ' + n + ' ready at the pontoon: sails up, sheets through the blocks, fenders in and cast off.' }
-        : { da: 'Sæt mast, sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så triller den ud på vandet.', en: 'Fit the mast, sail, rudder and board on the ' + n + ' in the right order – then roll her into the water.' },
+        : (KEEP_ON[id] || []).indexOf('mast') >= 0 ? { da: 'Masten står oppe hele sæsonen: sæt sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så bakker du den ud i vandet.', en: 'The mast stays up all season: fit the sails, rudder and board on the ' + n + ' in the right order – then back her into the water.' }
+        : { da: 'Sæt mast, sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så bakker du den ud i vandet.', en: 'Fit the mast, sail, rudder and board on the ' + n + ' in the right order – then back her into the water.' },
       params: { cls: id, unrig: false, seed: 11 + i * 7 },
     });
     if (UNRIG.indexOf(id) >= 0) {
@@ -252,6 +263,51 @@
   const circ = (x, y, r, fill, stroke, w) => '<circle cx="' + f(x) + '" cy="' + f(y) + '" r="' + r + '" fill="' + fill + '"' + (stroke ? ' stroke="' + stroke + '" stroke-width="' + (w || 1) + '"' : '') + '/>';
   const block = (x, y, r) => circ(x, y, r || 3.4, '#2a2f3a', '#9aa3b5', 1.2) + circ(x, y, (r || 3.4) * 0.35, '#c9d0db');
   const ease = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  const reducedMotion = () => { try { return !!(KOS.UI && KOS.UI.reduced && KOS.UI.reduced()); } catch (e) { return false; } };
+  // a pointing hand, fingertip at (18, 1)
+  const HAND_SVG = '<svg viewBox="0 0 40 50" aria-hidden="true"><path d="M14 5a4 4 0 0 1 8 0v15l1.5-.6a3.6 3.6 0 0 1 5 2.2l.4 1a3.6 3.6 0 0 1 5.4 2.4l.2 1.2a3.4 3.4 0 0 1 4 3.2V38q0 10-10 11h-9q-5.5 0-8.5-5.5L3.5 33a3.4 3.4 0 0 1 5.3-4.2L14 34z" fill="#fff" stroke="#1d2a44" stroke-width="2.4" stroke-linejoin="round"/><path d="M22 21v8M28.5 23.5v6M34 27.5v4" stroke="#9aa3b5" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+  // ---------------------------------------------------------------- the sailor (kid art, 100 units tall, feet at 0,0)
+  const KID_H = { opti: 124, hboat: 98, j70: 102 }; // keelboat sailors drawn a bit big so they read at phone size
+  const KID = { skin: '#f2c39b', skinD: '#c98d68', shirt: '#2fa7a0', shirtD: '#1d7570', pants: '#33508a', pantsD: '#23396a', shoe: '#262b33', hair: '#7a4a26' };
+  // the arm on the -x side reaches to `hand` (local coords); the other arm hangs relaxed
+  function kidUnder() {
+    const K = KID;
+    return '<ellipse cx="0" cy="-0.5" rx="20" ry="3" fill="rgba(0,0,0,.18)"/>' +
+      '<path d="M-10 -35L-10 -5h7.5L-0.8 -29h1.6L3 -5h7.5L10 -35Z" fill="' + K.pants + '" stroke="' + K.pantsD + '" stroke-width="1" stroke-linejoin="round"/>' +
+      '<ellipse cx="-7" cy="-3" rx="7" ry="3.6" fill="' + K.shoe + '"/><ellipse cx="7" cy="-3" rx="7" ry="3.6" fill="' + K.shoe + '"/>' +
+      '<path d="M-6 -4.2h4M8 -4.2h4" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>' +
+      '<path d="M-13 -64Q0 -69 13 -64L14.5 -33Q0 -30 -14.5 -33Z" fill="' + K.shirt + '" stroke="' + K.shirtD + '" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<path d="M-4 -52l4 -5 4 5 -4 5z" fill="#ffd25e" opacity=".9"/>';
+  }
+  function kidArm(sx, sy, ex, ey, hx, hy) {
+    const K = KID, mx = sx + (ex - sx) * 0.6, my = sy + (ey - sy) * 0.6;
+    return ln(sx, sy, ex, ey, K.skin, 5.4) + ln(ex, ey, hx, hy, K.skin, 5) + ln(sx, sy, mx, my, K.shirt, 7.4) + circ(hx, hy, 3.4, K.skin, K.skinD, 0.8);
+  }
+  function kidOver(hand) {
+    const K = KID, h = hand || [-17, -39];
+    // elbow: halfway, bent down/outwards a little
+    const sx = -12.5, sy = -62, dx = h[0] - sx, dy = h[1] - sy, d = Math.hypot(dx, dy) || 1;
+    const ex = sx + dx / 2 + (dy / d) * 4 * (dx < 0 ? 1 : -1), ey = sy + dy / 2 + Math.abs(dx / d) * 4;
+    let s = kidArm(sx, sy, ex, ey, h[0], h[1]) + kidArm(12.5, -62, 16.5, -50.5, 17, -39);
+    s += '<rect x="-3.6" y="-71" width="7.2" height="9" rx="3" fill="' + K.skin + '"/>';
+    s += circ(-12.4, -80, 3, K.skin, K.skinD, 0.8) + circ(12.4, -80, 3, K.skin, K.skinD, 0.8);
+    s += circ(0, -80, 12.5, K.skin, K.skinD, 0.9);
+    s += '<path d="M-13 -79Q-14 -95 0 -94.5Q14 -95 13 -79Q11 -87 4 -88.5Q-2 -84 -9 -86Q-12 -83 -13 -79Z" fill="' + K.hair + '"/>';
+    s += circ(-4.6, -79.5, 1.7, '#2a1d14') + circ(4.6, -79.5, 1.7, '#2a1d14') + circ(-4.1, -80.1, 0.6, '#fff') + circ(5.1, -80.1, 0.6, '#fff');
+    s += '<ellipse cx="-8" cy="-75" rx="2.6" ry="1.6" fill="#ff8f7f" opacity=".5"/><ellipse cx="8" cy="-75" rx="2.6" ry="1.6" fill="#ff8f7f" opacity=".5"/>';
+    s += '<path d="M-4 -74.5Q0 -71 4 -74.5" stroke="#7a2d22" stroke-width="1.5" fill="none" stroke-linecap="round"/>';
+    return s;
+  }
+  // the orange buoyancy aid, zipped right up (drawn between the shirt and the arms)
+  function kidVest() {
+    return '<path d="M-15.5 -65.5Q-10 -70 -5.5 -67.5L0 -58L5.5 -67.5Q10 -70 15.5 -65.5L16.5 -35Q0 -31 -16.5 -35Z" fill="#ff7a1a" stroke="#a94415" stroke-width="1.3" stroke-linejoin="round"/>' +
+      '<path d="M-8.5 -62V-36M8.5 -62V-36" stroke="#e0620d" stroke-width="1.2"/>' +
+      '<path d="M-16 -47H-3M3 -47H16" stroke="#e8eef5" stroke-width="2.4"/>' +
+      '<path d="M0 -58V-33" stroke="#4a2408" stroke-width="1.8"/>' + '<rect x="-1.6" y="-59.5" width="3.2" height="4.6" rx="1" fill="#c9d0db" stroke="#4a2408" stroke-width=".6"/>' +
+      '<path d="M-16.5 -39.5H16.5" stroke="#2a2f3a" stroke-width="2.8"/><rect x="-3" y="-41.8" width="6" height="4.6" rx="1" fill="#111"/>';
+  }
+  function kidTf(kd, dx, dy) { return 'translate(' + f(kd.x + (dx || 0)) + ' ' + f(kd.y + (dy || 0)) + ') scale(' + f(kd.flip ? -kd.k : kd.k) + ' ' + f(kd.k) + ')'; }
 
   // ---------------------------------------------------------------- geometry
   function geo(id) {
@@ -281,10 +337,17 @@
     // sail centroid-ish
     g.sailC = { x: g.mx - c.boomL * 0.33, y: g.boomY - (g.boomY - g.top) * 0.36 };
     g.ground = { x: g.keelboat ? g.xb - L * 0.3 : L * 0.05, y: g.keelboat ? g.dAt(g.xb - L * 0.3) - 6 : 52 };
-    // view box (fully rigged, with room for the trolley handle / pole / rudder)
-    const x0 = g.xs - 80, x1 = g.xb + (g.keelboat ? 110 : 100), y0 = g.top - 26, y1 = g.keelboat ? g.bot + L * 0.24 : 78;
+    // the sailor: on dinghies standing at the bow holding the trolley handle (grip at xb+62, y -70);
+    // on keelboats on the pontoon by the stern, waving. Kid art is 100 units tall (feet at 0), scaled by k.
+    const kh = KID_H[id] || 112, kk = kh / 100;
+    if (g.keelboat) g.kid = { x: g.xs - 40, y: -20, h: kh, k: kk, flip: true, hand: [-24, -76] };
+    else g.kid = { x: g.xb + 62 + 30 * kk, y: 2, h: kh, k: kk, flip: false, hand: [-30, (-70 - 2) / kk] };
+    g.kid.x0 = g.kid.x - 22 * kk; g.kid.x1 = g.kid.x + 22 * kk; // body extent (both sides, arms included)
+    // view box (fully rigged, with room for the trolley handle / pole / rudder / sailor)
+    const x0 = Math.min(g.xs - 80, g.kid.x0 - 16), x1 = Math.max(g.xb + (g.keelboat ? 110 : 100), g.kid.x1 + 16), y0 = g.top - 26, y1 = g.keelboat ? g.bot + L * 0.24 : 78;
     g.vb = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-    g.xW = g.xb + 150; // slipway: ground ends, ramp down into the water
+    // slipway (dinghies): flat apron, then the ramp runs down into the water to the LEFT, so the boat is backed in stern first
+    g.xW = g.xs - 150;
     g.waterY = 30;
     return g;
   }
@@ -385,6 +448,8 @@
         '<rect x="' + f(g.mx - w / 2) + '" y="' + f(g.top) + '" width="' + w + '" height="' + f(g.mid - g.top + 10) + '" rx="2" fill="#cdd6df"/>' +
         '<path d="M' + f(g.mx) + ' ' + f(g.top) + 'v-14l-16 4z" fill="#e8323c" class="rig-flag"/>';
     },
+    // KØS Opti: mast, sail and boom go in as one rig (the sail stays tied on with the sail ties)
+    optiRig(g, col, o) { return DRAW.sail(g, col, o) + DRAW.ties(g) + DRAW.mast(g) + DRAW.boom(g); },
     boom(g) { return sparLine(g.mx - 2, g.boomY, g.boomX, g.boomY, g.mw - 1) + circ(g.mx - 3, g.boomY, 3.2, '#2a2f3a'); },
     sprit(g) { return sparLine(g.spritLow.x - 2, g.spritLow.y, g.peak.x + 4, g.peak.y + 3, 3); },
     sail(g, col, o) {
@@ -414,14 +479,20 @@
       return ln(bx - 3, g.boomY + 3, bx - 3, dy, '#24395c', 1.6) + ln(bx + 3, g.boomY + 3, bx + 3, dy, '#24395c', 1.6) +
         block(bx, g.boomY + 4) + block(bx, dy) + '<path d="M' + f(bx + 3) + ' ' + f(dy) + 'q14 2 22 -6t18 -2" stroke="#24395c" stroke-width="1.8" fill="none"/>';
     },
-    daggerboard(g) {
-      const dy = g.dAt(g.dx);
+    daggerboard(g, col, o) {
+      // raised in its case on land; pushed down (o.down 0..1) once the boat floats
+      const dy = g.dAt(g.dx) + (g.keelboat ? 0 : 44 * ((o && o.down) || 0));
       return '<rect x="' + f(g.dx - 8) + '" y="' + f(dy - 44) + '" width="16" height="70" rx="5" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5"/>' +
         '<rect x="' + f(g.dx - 4) + '" y="' + f(dy - 38) + '" width="8" height="9" rx="3" fill="#7d8794"/>';
     },
-    rudder(g) {
+    rudder(g, col, o) {
       const xs = g.xs, dS = g.dAt(xs), bladeBot = g.keelboat ? g.bot + g.L * 0.12 : Math.min(-8, g.bot + 34);
-      let s = '<path d="M' + f(xs - 3) + ' ' + f(dS - 8) + 'L' + f(xs - 7) + ' ' + f(dS - 8) + 'L' + f(xs - 10) + ' ' + f(bladeBot - 20) + 'Q' + f(xs - 22) + ' ' + f(bladeBot) + ' ' + f(xs - 4) + ' ' + f(bladeBot) + 'L' + f(xs + 3) + ' ' + f(dS + 10) + 'Z" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5" stroke-linejoin="round"/>';
+      // dinghies: hung on the transom with the blade pulled up; lowered (o.down 0..1) once afloat
+      const up = g.keelboat ? 0 : 1 - ((o && o.down) || 0);
+      let s = '';
+      if (!g.keelboat) s += '<rect x="' + f(xs - 9) + '" y="' + f(dS - 10) + '" width="10" height="' + f(g.fb * 0.62) + '" rx="3" fill="#dfe4ea" stroke="#7d8794" stroke-width="1.3"/>';
+      s += '<path d="M' + f(xs - 3) + ' ' + f(dS - 8) + 'L' + f(xs - 7) + ' ' + f(dS - 8) + 'L' + f(xs - 10) + ' ' + f(bladeBot - 20) + 'Q' + f(xs - 22) + ' ' + f(bladeBot) + ' ' + f(xs - 4) + ' ' + f(bladeBot) + 'L' + f(xs + 3) + ' ' + f(dS + 10) + 'Z" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5" stroke-linejoin="round"' +
+        (up ? ' transform="translate(0 ' + f(-(bladeBot - g.bot + 4) * up) + ')"' : '') + '/>';
       s += ln(xs - 4, dS - 8, xs + g.L * 0.3, dS - 14, '#c58b4f', 4.5) + ln(xs - 4, dS - 8, xs + g.L * 0.3, dS - 14, 'rgba(255,255,255,.35)', 1.2);
       if (g.id !== 'opti') s += ln(xs + g.L * 0.3, dS - 14, xs + g.L * 0.45, dS - 34, '#2a2f3a', 2.2) + circ(xs + g.L * 0.45, dS - 34, 3, '#2a2f3a');
       return s;
@@ -436,10 +507,12 @@
       return '<path d="M' + f(x - 9) + ' ' + f(y + 12) + 'l3 -13h14l3 13z" fill="#ff7a3d" stroke="#a94415" stroke-width="1.2" transform="rotate(-14 ' + f(x) + ' ' + f(y) + ')"/>' +
         '<path d="M' + f(x + 6) + ' ' + f(y - 4) + 'q8 -6 14 2" stroke="#ffd25e" stroke-width="1.6" fill="none"/>';
     },
-    vest(g) {
-      const x = g.mx + g.L * 0.2, y = g.dAt(x) - 6;
-      return '<path d="M' + f(x - 10) + ' ' + f(y + 4) + 'v-12q0 -6 5 -6h4q3 5 6 0h4q5 0 5 6v12z" fill="#ff7a1a" stroke="#a94415" stroke-width="1.2" stroke-linejoin="round"/>' +
-        '<path d="M' + f(x) + ' ' + f(y - 14) + 'v18M' + f(x - 9) + ' ' + f(y - 3) + 'h18" stroke="#ffd25e" stroke-width="1.6"/>';
+    // the life jacket goes on the sailor (its group sits inside the sailor's scaled group, see createRigging)
+    vest() { return kidVest(); },
+    // the sailor aboard (sail-off): sitting in the cockpit, the hull hides the legs
+    crew(g) {
+      const kd = g.kid, x = g.xs + g.L * (g.keelboat ? 0.16 : 0.3), y = g.dAt(x) + kd.h * 0.36;
+      return '<g transform="translate(' + f(x) + ' ' + f(y) + ') scale(' + f(kd.k) + ')">' + kidUnder() + kidVest() + kidOver([-22, -56]) + '</g>';
     },
     paddle(g) {
       const x = g.xs + g.L * 0.34, y = g.dAt(x);
@@ -542,14 +615,15 @@
     },
   };
   // drawing order (back to front); HULL is the fixed hull group
-  const ORDER = ['gennakerFly', 'lines', 'sail', 'jib', 'ties', 'mastBottom', 'mastTop', 'mast', 'sprit', 'boom', 'outhaul', 'kicker', 'cunningham',
-    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'cover', 'daggerboard', 'bailer', 'paddle', 'vest', 'HULL',
+  const ORDER = ['gennakerFly', 'lines', 'sail', 'jib', 'ties', 'mastBottom', 'mastTop', 'mast', 'optiRig', 'sprit', 'boom', 'outhaul', 'kicker', 'cunningham',
+    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'cover', 'daggerboard', 'bailer', 'paddle', 'crew', 'HULL',
     'jibsheets', 'wings', 'rudder', 'tiller', 'painter', 'pole', 'chute', 'gennaker', 'fenders'];
   // where each job's snap target sits
   function zoneOf(g, k) {
     const L = g.L;
     switch (k) {
       case 'mast': return [g.mx, g.mDeck - g.mastH * 0.45];
+      case 'optiRig': return [g.mx - g.boomL * 0.2, g.boomY - (g.boomY - g.top) * 0.4];
       case 'mastBottom': return [g.mx, g.mDeck - g.mastH * 0.25];
       case 'mastTop': return [g.mx, g.mDeck - g.mastH * 0.78];
       case 'boom': return [g.mx - g.boomL * 0.5, g.boomY];
@@ -561,7 +635,7 @@
       case 'rudder': return [g.xs - 6, g.dAt(g.xs) + 16];
       case 'tiller': return [g.xs + L * 0.14, g.dAt(g.xs) - 12];
       case 'bailer': return [g.mx - L * 0.34, g.dAt(g.mx - L * 0.34) - 8];
-      case 'vest': return [g.mx + L * 0.2, g.dAt(g.mx + L * 0.2) - 8];
+      case 'vest': return [g.kid.x, g.kid.y - g.kid.h * 0.5]; // on the sailor's chest
       case 'paddle': return [g.xs + L * 0.3, g.dAt(g.xs) - 24];
       case 'painter': return [g.xb + 2, g.dAt(g.xb) + 16];
       case 'shrouds': return [g.mx - 7, (g.hounds + g.mDeck) / 2 + 30];
@@ -585,10 +659,10 @@
       default: return [0, g.deck];
     }
   }
-  const SOUND = { mast: 'rigClick', mastBottom: 'rigClick', mastTop: 'rigClick', boom: 'rigClick', sprit: 'rigClick', pole: 'rigClick', wings: 'rigClick',
+  const SOUND = { optiRig: 'rigClick', mast: 'rigClick', mastBottom: 'rigClick', mastTop: 'rigClick', boom: 'rigClick', sprit: 'rigClick', pole: 'rigClick', wings: 'rigClick',
     tiller: 'rigClick', rudder: 'rigClick', daggerboard: 'rigClick', sail: 'zip', jib: 'zip', gennaker: 'zip', cover: 'zip', chute: 'zip',
     ties: 'knot', painter: 'knot', hose: 'splash', roll: 'whoosh', fenders: 'bump', bailer: 'tap', paddle: 'tap', vest: 'zip' };
-  const GROW = { mast: 1, mastBottom: 1, mastTop: 1, sail: 1, jib: 1, halyard: 1 }; // grow up from the bottom when fitted
+  const GROW = { optiRig: 1, mast: 1, mastBottom: 1, mastTop: 1, sail: 1, jib: 1, halyard: 1 }; // grow up from the bottom when fitted
 
   // ---------------------------------------------------------------- tray icons (64×64)
   function icon(k, col) {
@@ -597,6 +671,7 @@
     const rope = c => 'stroke="' + c + '" stroke-width="3.2" fill="none" stroke-linecap="round"';
     const I = {
       mast: '<rect x="29" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><path d="M32 4v-0l-12 3 12 3z" fill="#e8323c"/>',
+      optiRig: '<path d="M16 8L50 12Q44 32 54 50H16z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="11" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><rect x="11" y="49" width="46" height="5" rx="2.5" fill="' + SPAR + '" ' + sp + '/><path d="M12 16h8M12 28h8M12 40h8" stroke="#e8323c" stroke-width="2.4" stroke-linecap="round"/><text x="33" y="36" font-size="11" font-weight="900" fill="' + (col.trim || '#1f6fb2') + '" text-anchor="middle" font-family="system-ui">' + (INS[col.id] || '') + '</text>',
       mastBottom: '<rect x="28" y="22" width="8" height="38" rx="3" fill="#a9b5c2" ' + sp + '/>',
       mastTop: '<rect x="29.5" y="4" width="5" height="40" rx="2.5" fill="#cdd6df" ' + sp + '/><path d="M32 4l-11 3 11 3z" fill="#e8323c"/>',
       boom: '<rect x="4" y="29" width="56" height="6" rx="3" fill="' + SPAR + '" ' + sp + '/><circle cx="8" cy="32" r="3.5" fill="#2a2f3a"/>',
@@ -681,22 +756,24 @@
       [g.xb + 70, g.xs - 60].forEach(x => { s += '<path d="M' + f(x - 10) + ' -20h20l-4 -4h-12z" fill="#2a2f3a"/>'; });
       return s;
     }
-    // concrete slipway apron + ramp into the water
+    // concrete slipway apron + ramp down into the water on the left (boats are backed in stern first)
     const xW = g.xW, slope = 0.18;
-    s += '<path d="M-4000 -6L' + f(xW) + ' -6L' + f(xW + 2000) + ' ' + f(-6 + 2000 * slope) + 'L' + f(xW + 2000) + ' 3000L-4000 3000Z" fill="url(#rgGround)"/>';
-    s += '<path d="M-4000 -6L' + f(xW) + ' -6L' + f(xW + 2000) + ' ' + f(-6 + 2000 * slope) + '" stroke="#ddd6cc" stroke-width="3" fill="none"/>';
-    for (let x = -1000; x < xW; x += 90) s += ln(x, 0, x - 60, 300, 'rgba(60,55,50,.15)', 2);
-    for (let i = 0; i < 9; i++) s += ln(xW + i * 40, -6 + i * 40 * slope, xW + i * 40 - 70, 300, 'rgba(60,80,90,.16)', 2);
-    // a coiled hose and a rack in the background for flavour
+    s += '<path d="M9000 -6L' + f(xW) + ' -6L' + f(xW - 2000) + ' ' + f(-6 + 2000 * slope) + 'L' + f(xW - 2000) + ' 3000L9000 3000Z" fill="url(#rgGround)"/>';
+    s += '<path d="M9000 -6L' + f(xW) + ' -6L' + f(xW - 2000) + ' ' + f(-6 + 2000 * slope) + '" stroke="#ddd6cc" stroke-width="3" fill="none"/>';
+    for (let x = 2000; x > xW; x -= 90) s += ln(x, 0, x + 60, 300, 'rgba(60,55,50,.15)', 2);
+    for (let i = 0; i < 9; i++) s += ln(xW - i * 40, -6 + i * 40 * slope, xW - i * 40 + 70, 300, 'rgba(60,80,90,.16)', 2);
+    // a coiled hose in the background for flavour
     s += '<ellipse cx="' + f(g.xs - 40) + '" cy="20" rx="20" ry="7" fill="none" stroke="#18a957" stroke-width="4"/><ellipse cx="' + f(g.xs - 40) + '" cy="20" rx="12" ry="4" fill="none" stroke="#139047" stroke-width="3"/>';
     return s;
   }
   function nearWaterSvg(g) {
-    const y = g.keelboat ? 0 : g.waterY, x0 = g.keelboat ? -4000 : g.xW + (g.waterY + 6) / 0.18;
-    let s = '<rect x="' + f(x0) + '" y="' + f(y) + '" width="13000" height="3000" fill="url(#rgNear)"/>';
+    // keelboats: water everywhere in front of the pontoon; dinghies: the water starts where the ramp (left) dips under
+    const y = g.keelboat ? 0 : g.waterY, xe = g.keelboat ? 9000 : g.xW - (g.waterY + 6) / 0.18, x0 = -4000, w = xe - x0;
+    let s = '<rect x="' + f(x0) + '" y="' + f(y) + '" width="' + f(w) + '" height="3000" fill="url(#rgNear)"/>';
     s += '<g class="rig-waves">';
-    for (let i = 0; i < 60; i++) { const x = x0 + 30 + (i % 20) * 90 + (i > 19 ? 45 : 0), yy = y + 10 + Math.floor(i / 20) * 18; s += '<path d="M' + f(x) + ' ' + f(yy) + 'q10 -5 20 0t20 0" stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none"/>'; }
-    s += '</g><rect x="' + f(x0) + '" y="' + f(y - 1) + '" width="13000" height="3" fill="rgba(255,255,255,.55)"/>';
+    const wx0 = g.keelboat ? -3970 : xe - 30 - 1800;
+    for (let i = 0; i < 60; i++) { const x = wx0 + (i % 20) * 90 + (i > 19 ? 45 : 0), yy = y + 10 + Math.floor(i / 20) * 18; if (x + 40 < xe) s += '<path d="M' + f(x) + ' ' + f(yy) + 'q10 -5 20 0t20 0" stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none"/>'; }
+    s += '</g><rect x="' + f(x0) + '" y="' + f(y - 1) + '" width="' + f(w) + '" height="3" fill="rgba(255,255,255,.55)"/>';
     return s;
   }
   function groundSailSvg(g, state, col) {
@@ -757,8 +834,10 @@
     if (unrig) base.forEach(s => { inst[s[0]] = s[2] !== 'off'; });
     else base.forEach(s => { inst[s[0]] = s[2] === 'off'; });
     // keelboats keep their mast stepped and the boom and standing rigging on all season
-    if (g.keelboat) ['mast', 'boom', 'shrouds', 'forestay'].concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
+    // keelboats keep their mast stepped and the boom and standing rigging on all season (Feva / 29er: the mast, see KEEP_ON)
+    (g.keelboat ? ['mast', 'boom', 'shrouds', 'forestay'] : []).concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
     let groundSail = null; // null | 'flat' | 'rolled'
+    let foilsDown = 0; // dinghy rudder blade + daggerboard: 0 = raised (on land), 1 = lowered (afloat)
 
     const S = {
       phase: 'play', time: 0, started: false, penalty: 0, mistakes: 0, streak: 0, bestStreak: 0, doneN: 0,
@@ -781,6 +860,7 @@
       '<g class="rg-ground">' + groundSvg(g) + '</g>' +
       '<g class="rg-gsail"></g>' +
       '<g class="rg-trolley">' + (g.keelboat ? '' : trolleySvg(g)) + '</g>' +
+      '<g class="rg-kid"><g class="rg-kid-in" transform="' + kidTf(g.kid) + '">' + kidUnder() + '<g class="rig-part" data-k="vest"></g>' + kidOver(g.kid.hand) + '</g></g>' +
       '<g class="rg-wake"></g>' +
       '<g class="rg-boat"><g class="rg-boat-in"></g></g>' +
       '<g class="rg-water">' + nearWaterSvg(g) + '</g>' +
@@ -790,7 +870,7 @@
 
       '<div class="rigging-stamp" hidden></div>' +
       '</div>' +
-      '<div class="rigging-tray"><div class="rigging-info" hidden></div><div class="rigging-tray-head"><span class="rigging-tray-title"></span><span class="rigging-keys"></span></div><div class="rigging-cards" role="listbox"></div></div>';
+      '<div class="rigging-tray"><div class="rigging-info" hidden></div><div class="rigging-tray-head"><span class="rigging-tray-title"></span><span class="rigging-keys"></span><span class="rigging-keys-touch"></span></div><div class="rigging-cards" role="listbox"></div></div>';
     host.layer.appendChild(rootEl);
     const sceneEl = rootEl.querySelector('.rigging-scene');
     const svg = rootEl.querySelector('svg');
@@ -801,6 +881,8 @@
     const cardsEl = rootEl.querySelector('.rigging-cards');
     rootEl.querySelector('.rigging-tray-title').textContent = t(unrig || g.keelboat ? 'rigging.trayTitleUnrig' : 'rigging.trayTitle');
     rootEl.querySelector('.rigging-keys').textContent = t('rigging.keys');
+    rootEl.querySelector('.rigging-keys-touch').textContent = t('rigging.keysTouch');
+    const kidG = svg.querySelector('.rg-kid'), kidIn = svg.querySelector('.rg-kid-in');
 
     // part groups in drawing order
     const partEl = {};
@@ -814,11 +896,14 @@
     function drawPart(k, mode) {
       const e = partEl[k];
       if (!e || !DRAW[k]) return;
-      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib });
+      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib, down: foilsDown });
       e.setAttribute('class', 'rig-part' + (mode ? ' ' + mode : '') + (GROW[k] ? ' grow' : ''));
     }
     function clearPart(k) { const e = partEl[k]; if (e) { e.innerHTML = ''; e.setAttribute('class', 'rig-part'); } }
+    // the life jacket is worn by the sailor standing next to the boat
+    partEl.vest = kidG.querySelector('[data-k="vest"]');
     ORDER.forEach(k => { if (k !== 'HULL' && inst[k]) drawPart(k); });
+    if (inst.vest) drawPart('vest');
     function drawGroundSail() { gsailG.innerHTML = groundSail ? groundSailSvg(g, groundSail, col) : ''; }
 
     // zones
@@ -860,6 +945,8 @@
       cardsEl.appendChild(b);
       cardEl[s.i] = b;
       b.addEventListener('pointerdown', e => onCardDown(e, s));
+      // once a touch drag has started (or the card is held = armed), stop the tray from scrolling under the finger
+      b.addEventListener('touchmove', e => { const st = S.ptrSt; if (st && (st.active || st.armed) && e.cancelable) e.preventDefault(); }, { passive: false });
       b.addEventListener('click', e => { if (b.__noClick) { b.__noClick = false; return; } select(s); e.preventDefault(); });
       b.addEventListener('focus', () => { if (S.sel !== s && !S.drag && !S.ptr) select(s, true); });
     });
@@ -917,9 +1004,10 @@
       refresh();
     }
     function showInfo(k, s) {
-      const btn = s ? '<button type="button" class="btn btn-primary rigging-do">' + esc(t(s.decoy ? 'rigging.btn.do' : s.type === 'off' ? 'rigging.btn.off' : (s.pack ? 'rigging.btn.do' : 'rigging.btn.on'))) + '</button>' : '';
+      const bk = s && (s.decoy ? 'do' : s.k === 'vest' ? (s.type === 'off' ? 'unwear' : 'wear') : s.type === 'off' ? 'off' : s.pack ? 'do' : 'on');
+      const btn = s ? '<button type="button" class="btn btn-primary rigging-do">' + esc(t('rigging.btn.' + bk)) + '</button>' : '';
       infoEl.innerHTML = '<div class="rgi-ico">' + icon(k, col) + '</div><div class="rgi-txt"><div class="rgi-name">' + esc(pname(k)) + ' <small>· ' + esc(pother(k)) + '</small></div>' +
-        '<div class="rgi-desc">' + esc(t('rigging.p.' + k + '.desc')) + '</div></div>' + btn +
+        '<div class="rgi-desc">' + esc(k === 'rudder' && g.keelboat ? t('rigging.keelRudder') : t('rigging.p.' + k + '.desc')) + '</div></div>' + btn +
         '<button type="button" class="icon-btn rgi-close" aria-label="' + esc(t('rigging.btn.close')) + '">' + KOS.UI.iconSvg('close') + '</button>';
       infoEl.hidden = false;
       infoEl.classList.remove('in'); void infoEl.offsetWidth; infoEl.classList.add('in');
@@ -929,8 +1017,8 @@
     }
     function hideInfo() { infoEl.hidden = true; }
 
-    // tap a fitted part on the boat → learn what it is
-    boatIn.addEventListener('click', e => {
+    // tap a fitted part on the boat (or the sailor's life jacket) → learn what it is
+    const onPartTap = e => {
       if (S.phase !== 'play') return;
       const pe = e.target.closest && e.target.closest('.rig-part');
       if (!pe || pe.classList.contains('rig-ghost')) return;
@@ -939,7 +1027,9 @@
       const s = steps.find(o => o.k === k && !o.done);
       sfx('tap', { vol: 0.5 });
       if (s && unrig) { S.sel = s; showInfo(k, s); refresh(); } else showInfo(k, null);
-    });
+    };
+    boatIn.addEventListener('click', onPartTap);
+    kidG.addEventListener('click', onPartTap);
 
     // ---- drag & drop
     function layerXY(e) { const r = host.layer.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
@@ -957,14 +1047,22 @@
       const p0 = layerXY(e);
       S.ptr = true;
       const side = rootEl.classList.contains('tray-side');
-      const st = { s, id: e.pointerId, x0: p0.x, y0: p0.y, ghost: null, active: false, near: false };
+      const st = { s, id: e.pointerId, x0: p0.x, y0: p0.y, ghost: null, active: false, near: false, armed: false };
+      S.ptrSt = st;
+      // touch: holding the card still for a moment arms it, then it can be dragged in any direction
+      const touch = e.pointerType !== 'mouse';
+      if (touch) st.armT = setTimeout(() => { if (!st.active && S.ptrSt === st) { st.armed = true; card.classList.add('is-armed'); } }, 200);
       const move = ev => {
         if (ev.pointerId !== st.id) return;
         const p = layerXY(ev), dx = p.x - st.x0, dy = p.y - st.y0;
         if (!st.active) {
           // portrait tray scrolls sideways, so a drag starts when the finger moves mostly up (or left for a side tray)
-          const ok = ev.pointerType === 'mouse' ? Math.hypot(dx, dy) > 7 : side ? (-dx > 8 && Math.abs(dx) > Math.abs(dy)) : (-dy > 8 && Math.abs(dy) > Math.abs(dx) * 0.8);
-          if (!ok) { if (Math.hypot(dx, dy) > 14 && ev.pointerType !== 'mouse') cleanup(); return; }
+          // the tray scrolls sideways (or up/down for a side tray): a quick swipe along it scrolls; a move towards the boat
+          // (or any move after holding the card) drags
+          const ok = ev.pointerType === 'mouse' || st.armed ? Math.hypot(dx, dy) > 6 : side ? (-dx > 8 && Math.abs(dx) > Math.abs(dy) * 0.6) : (-dy > 8 && Math.abs(dy) > Math.abs(dx) * 0.4);
+          if (!ok) { if (Math.hypot(dx, dy) > 14 && ev.pointerType !== 'mouse') cleanup(); else if (Math.hypot(dx, dy) > 6) clearTimeout(st.armT); return; }
+          clearTimeout(st.armT);
+          card.classList.remove('is-armed');
           st.active = true;
           S.drag = st;
           card.__noClick = true;
@@ -984,7 +1082,12 @@
         if (!s.decoy) {
           const z = zoneScreen(s);
           const near = !!z && Math.hypot(z.x - p.x, z.y - p.y) < SNAP;
-          if (near !== st.near) { st.near = near; zoneEl[s.i].classList.toggle('hot', near); st.ghost.classList.toggle('hot', near); if (near) sfx('tap', { vol: 0.35, pitch: 1.6 }); refresh(); }
+          if (near !== st.near) {
+            st.near = near; zoneEl[s.i].classList.toggle('hot', near); st.ghost.classList.toggle('hot', near);
+            if (near) sfx('tap', { vol: 0.35, pitch: 1.6 });
+            refresh();
+            if (partEl[s.k]) partEl[s.k].classList.toggle('hot', near);
+          }
         }
         st.last = p;
       };
@@ -1003,11 +1106,15 @@
       const cancel = ev => { if (ev.pointerId !== st.id) return; const g0 = st.ghost; cleanup(); if (g0) flyBack(g0, card); };
       function cleanup() {
         S.ptr = false;
+        clearTimeout(st.armT);
+        if (S.ptrSt === st) S.ptrSt = null;
+        card.classList.remove('is-armed');
         root.removeEventListener('pointermove', move);
         root.removeEventListener('pointerup', up);
         root.removeEventListener('pointercancel', cancel);
         card.classList.remove('is-dragging');
         if (zoneEl[s.i]) zoneEl[s.i].classList.remove('hot');
+        if (partEl[s.k]) partEl[s.k].classList.remove('hot');
         if (S.drag === st) S.drag = null;
         refresh();
       }
@@ -1030,6 +1137,45 @@
       ghost.style.transform = 'translate(' + f(z.x) + 'px,' + f(z.y) + 'px) translate(-50%,-50%) scale(.35)';
       setTimeout(() => ghost.remove(), 240);
     }
+
+    // ---- drag demo: a ghost finger drags the first part from the tray onto its spot (a static hint with reduced motion).
+    // Shown when the activity starts; any touch, click or key stops it.
+    let demo = null;
+    function stopDemo(forGood) {
+      if (forGood) S.demoDone = true;
+      if (!demo) return;
+      clearTimeout(demo.timer);
+      demo.el.remove();
+      demo = null;
+    }
+    function startDemo() {
+      stopDemo();
+      if (S.demoDone || autopilot || S.phase !== 'play' || S.doneN > 0) return;
+      const s = nextStep(), card = s && cardEl[s.i];
+      if (!card) return;
+      try { card.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* old browsers */ }
+      const lr = host.layer.getBoundingClientRect(), cr = card.getBoundingClientRect(), z = zoneScreen(s);
+      if (!z || !cr.width) return;
+      const x0 = cr.left + cr.width / 2 - lr.left, y0 = cr.top + cr.height * 0.42 - lr.top, x1 = z.x, y1 = z.y;
+      const cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - Math.max(30, Math.abs(x1 - x0) * 0.25);
+      const xm = (x0 + 2 * cx + x1) / 4, ym = (y0 + 2 * cy + y1) / 4;
+      const still = reducedMotion();
+      const el = doc.createElement('div');
+      el.className = 'rigging-demo' + (still ? ' still' : '');
+      el.setAttribute('aria-hidden', 'true');
+      el.style.cssText = '--x0:' + f(x0) + 'px;--y0:' + f(y0) + 'px;--xm:' + f(xm) + 'px;--ym:' + f(ym) + 'px;--x1:' + f(x1) + 'px;--y1:' + f(y1) + 'px';
+      el.innerHTML = '<svg class="rgd-path" width="100%" height="100%"><path d="M' + f(x0) + ' ' + f(y0) + 'Q' + f(cx) + ' ' + f(cy) + ' ' + f(x1) + ' ' + f(y1) + '"/>' +
+        '<circle cx="' + f(x1) + '" cy="' + f(y1) + '" r="7"/></svg>' +
+        '<div class="rgd-mover"><div class="rgd-item">' + icon(s.k, col) + '</div><div class="rgd-hand">' + HAND_SVG + '</div><div class="rgd-label">' + esc(t('rigging.demo')) + '</div></div>';
+      host.layer.appendChild(el);
+      demo = { el, s };
+      const mover = el.querySelector('.rgd-mover');
+      if (!still) mover.addEventListener('animationend', () => stopDemo(true));
+      demo.timer = setTimeout(() => stopDemo(true), still ? 9000 : 8000);
+    }
+    const onAnyInput = () => { if (demo || !S.demoDone) stopDemo(true); };
+    rootEl.addEventListener('pointerdown', onAnyInput, true);
+    root.addEventListener('keydown', onAnyInput, true);
 
     // ---- doing a job
     function attempt(s, p, ghost) {
@@ -1063,6 +1209,7 @@
       refresh();
     }
     function complete(s) {
+      stopDemo(true);
       s.done = true; S.doneN++; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
       const c = cardEl[s.i];
       if (c) { c.classList.add('gone'); setTimeout(() => c.remove(), 350); }
@@ -1078,7 +1225,7 @@
         if (s.k === 'jib' && inst.jibsheets) setTimeout(() => drawPart('jibsheets'), 480);
         const e = partEl[s.k];
         if (e) { e.setAttribute('class', 'rig-part off'); setTimeout(() => { if (!inst[s.k]) clearPart(s.k); }, 480); }
-        if (unrig && ((s.k === 'sail' && !g.keelboat) || (s.k === 'jib' && g.keelboat))) { groundSail = 'flat'; setTimeout(() => { drawGroundSail(); }, 300); }
+        if (unrig && (((s.k === 'sail' || s.k === 'optiRig') && !g.keelboat) || (s.k === 'jib' && g.keelboat))) { groundSail = 'flat'; setTimeout(() => { drawGroundSail(); }, 300); }
       }
       if (s.k === 'boom' && partEl.cover && inst.cover) drawPart('cover');
       sfx(SOUND[s.k] || 'rope', { vol: 0.8 });
@@ -1180,34 +1327,102 @@
     function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 
     // sail-off animation (sim-time driven, see render)
+    // Dinghies are backed down the slipway STERN FIRST: the sailor (life jacket on) holds the trolley handle at the bow and
+    // pushes the boat backwards into the water until it floats off, hops in, the boat turns round and sails away.
+    // Keelboats: the sailor steps aboard and the boat motors/sails out from the pontoon.
     const slope = 0.18;
-    const groundAt = x => (x <= g.xW ? 0 : (x - g.xW) * slope);
-    let anim = { bx: 0, by: 0, ba: 0, tx: 0, ty: 0, ta: 0, cam: 0, heel: 0, fly: false };
+    const groundAt = x => (x >= g.xW ? 0 : (g.xW - x) * slope); // ramp runs down to the left
+    let viewCx = 0; // world x at the centre of the view (set by layout)
+    const LT = { push0: 0.5, push1: 3.3, hop: 3.45, hopD: 0.4, foil0: 3.95, foil1: 4.55, float1: 4.65, turn1: 5.45, end: 7.9 };
+    let anim = { bx: 0, by: 0, ba: 0, sx: 1, cam: 0, camY: 0, fly: false };
+    // only ONE sailor at a time: the kid hops from where it stands into the cockpit (sim-time driven), and only when it
+    // lands is the standing kid hidden and the sitting crew drawn in the boat
+    function boardKid() {
+      if (anim.aboard) return;
+      anim.aboard = true;
+      kidG.classList.add('aboard');
+      drawPart('crew');
+    }
+    // where the crew sits, in world coords, for a boat at (bx, by) (rotation ignored: it is small while hopping)
+    function crewAt(bx, by) {
+      const x = g.xs + g.L * (g.keelboat ? 0.16 : 0.3);
+      return { x: bx + x, y: by + g.dAt(x) + g.kid.h * 0.36 };
+    }
+    // kid transform while hopping from (fx, fy) world feet to the cockpit; boards when done. Returns null when not hopping.
+    function hopKid(T, T0, fx, fy, bx, by) {
+      if (anim.aboard || T < T0) return null;
+      const u = (T - T0) / LT.hopD;
+      if (u >= 1) { boardKid(); return null; }
+      // jump in front of the sail, then drop in behind the hull so the gunwale hides the legs as the sailor sits down
+      const front = u < 0.75;
+      if (front !== (kidG.previousElementSibling === boatG)) { if (front) boatG.after(kidG); else boatG.before(kidG); }
+      const c = crewAt(bx, by), e = ease(u);
+      const x = fx + (c.x - fx) * e, y = fy + (c.y - fy) * e - Math.sin(Math.PI * u) * g.kid.h * 0.45;
+      return kidTf(g.kid, x - g.kid.x, y - g.kid.y);
+    }
     function sailOff(T) {
       if (unrig) return;
       const a = anim;
       if (g.keelboat) {
+        const hk = hopKid(T, 0.3, g.kid.x, g.kid.y, 0, 0);
+        if (hk) a.kidTf = hk;
         const τ = Math.max(0, T - 0.8);
         a.bx = 22 * τ * τ + 10 * τ; a.by = Math.sin(T * 2.2) * 1.5; a.ba = -Math.min(5, τ * 3); a.cam = Math.max(0, a.bx - 40);
+        a.boatTf = 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ')';
         if (τ > 1.2 && !a.fly && inst.gennaker) { a.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
         return;
       }
-      // roll down the slipway on the trolley, float off, sail away
-      const τ1 = U.clamp((T - 0.6) / 2.2, 0, 1);
-      const trolleyStop = g.xW + 260;
-      const cx = (trolleyStop) * ease(τ1);
-      a.tx = cx; a.ty = groundAt(cx); a.ta = cx > g.xW ? Math.atan(slope) * 180 / Math.PI * U.clamp((cx - g.xW) / 40, 0, 1) : 0;
+      const kd = g.kid, k = kd.k;
+      // trolley: one wheel pair (axle A) + the handle the sailor holds (grip G). The sailor stays upright on the ramp, so the
+      // trolley pivots on its axle to keep the handle at the sailor's hand height.
+      const ax = -g.L * 0.06, ay = -18, Gx = g.xb + 62, Gy = -70, Dx = Gx - ax, Dy = Gy - ay;
+      const wheelDeep = (g.waterY + 6) + 22; // how far down the ramp the wheels go (well into the water)
+      const P = (g.xW - wheelDeep / slope) - ax; // trolley offset when fully pushed in (negative)
+      const τ1 = U.clamp((T - LT.push0) / (LT.push1 - LT.push0), 0, 1);
+      const tx = P * ease(τ1), dw = groundAt(tx + ax);
+      let φ = 0, kx = kd.x + tx, dk = 0;
+      for (let it = 0; it < 3; it++) {
+        dk = groundAt(kx);
+        const sn = U.clamp(((Dy + dk - dw) - Dy * Math.cos(φ)) / Dx, -0.6, 0.6);
+        φ = Math.asin(sn);
+        kx = ax + tx + Dx * Math.cos(φ) - Dy * Math.sin(φ) + 30 * k;
+      }
+      const φd = φ * 180 / Math.PI;
+      a.trolleyTf = 'translate(' + f(tx) + ' ' + f(dw) + ') rotate(' + f(φd) + ' ' + f(ax) + ' ' + f(ay) + ')';
+      const walking = τ1 > 0 && τ1 < 1;
+      a.kidTf = kidTf(kd, kx - kd.x, dk - (walking ? Math.abs(Math.sin(T * 9)) * 2 : 0));
       const floatDy = g.waterY + 62;
-      const τ2 = Math.max(0, T - 2.8);
-      a.bx = cx + 30 * τ2 * τ2 + 20 * τ2;
-      const onTrolley = Math.min(groundAt(a.bx), floatDy);
-      a.by = τ2 > 0 ? floatDy + Math.sin(T * 3) * 2 : onTrolley;
-      a.ba = τ2 > 0 ? -Math.min(6, τ2 * 3) : (a.bx > g.xW ? a.ta * U.clamp(1 - (groundAt(a.bx) - floatDy + 20) / 20, 0, 1) : 0);
-      if (a.by >= floatDy - 1 && τ2 <= 0) a.ba = a.ta * 0.4;
-      a.cam = Math.max(0, a.bx - 60);
+      if (T < LT.push1) { a.bx = tx; a.by = dw; a.ba = φd; a.sx = 1; }
+      else {
+        if (!a.splash) { a.splash = true; sfx('splash', { vol: 0.7 }); }
+        const τf = ease(U.clamp((T - LT.push1) / (LT.float1 - LT.push1), 0, 1));
+        const bob = Math.sin(T * 3) * 2 * τf;
+        a.bx = tx - 46 * τf; a.by = dw + (floatDy - dw) * τf + bob; a.ba = φd * (1 - τf);
+        if (T >= LT.hop) { const hk = hopKid(T, LT.hop, kx, kd.y + dk, a.bx, a.by); if (hk) a.kidTf = hk; }
+        // afloat with the sailor aboard: push the daggerboard down and lower the rudder blade
+        const fd = ease(U.clamp((T - LT.foil0) / (LT.foil1 - LT.foil0), 0, 1));
+        if (fd !== foilsDown) {
+          if (foilsDown === 0) { sfx('rigClick', { vol: 0.6 }); if (!reducedMotion()) floatText(t('rigging.fx.foils'), null, null, 'good'); }
+          foilsDown = fd;
+          if (inst.rudder) drawPart('rudder');
+          if (inst.daggerboard) drawPart('daggerboard');
+        }
+        // turn round (seen from the side: the boat flips to face the other way), then sail off to the left
+        const τt = U.clamp((T - LT.float1) / (LT.turn1 - LT.float1), 0, 1);
+        a.sx = Math.cos(Math.PI * ease(τt));
+        if (Math.abs(a.sx) < 0.08) a.sx = a.sx < 0 ? -0.08 : 0.08;
+        a.bx -= 14 * τt;
+        const τs = Math.max(0, T - LT.turn1);
+        a.bx -= 30 * τs * τs + 20 * τs;
+        a.ba += τs > 0 ? Math.min(6, τs * 3) : 0;
+        if (τs > 0.6 && !a.fly && inst.gennaker) { a.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
+      }
+      a.boatTf = 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ' ' + f(ax) + ' ' + f(ay) + ') scale(' + f(a.sx) + ' 1)';
+      // camera: keep sailor + boat framed while pushing, then ease over to centre the boat once it floats
+      const λ = ease(U.clamp((T - LT.push1) / (LT.turn1 - LT.push1), 0, 1));
+      a.cam = a.bx - (viewCx - (g.xs + g.xb) / 2) * λ;
+      boatG.classList.toggle('flipped', a.sx < 0);
       a.camY = Math.max(0, a.by - 16) * 0.8; // follow the boat down the ramp so it never hides behind the tray
-      if (τ2 > 0.6 && !a.fly && inst.gennaker) { a.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
-      if (τ2 > 0 && !a.splash) { a.splash = true; sfx('splash', { vol: 0.7 }); }
     }
 
     // ---- keyboard
@@ -1245,10 +1460,11 @@
       let x0 = vb.x, x1 = vb.x + vb.w;
       let s = Math.min(sw / (x1 - x0), availH / vb.h);
       if (s < availH / vb.h) { // width-limited: crop the side margins
-        x0 = Math.min(g.xs - 34, g.boomX - 14); x1 = g.xb + (g.keelboat ? 70 : 74);
+        x0 = Math.min(g.xs - 34, g.boomX - 14, g.kid.x0 - 12); x1 = Math.max(g.xb + (g.keelboat ? 70 : 74), g.kid.x1 + 14);
         s = Math.min(sw / (x1 - x0), availH / vb.h);
       }
       const vw = sw / s, vh = sh / s, cx = (x0 + x1) / 2;
+      viewCx = cx;
       svg.setAttribute('viewBox', f(cx - vw / 2) + ' ' + f(y1 - vh) + ' ' + f(vw) + ' ' + f(vh));
       svg.setAttribute('preserveAspectRatio', 'xMidYMax meet');
       zoneScale();
@@ -1263,8 +1479,9 @@
         if (autopilot && (S.botT -= dt) <= 0) { S.botT = 0.45; doNext(); }
       } else if (S.phase === 'end') {
         S.endT += dt;
-        sailOff(S.endT);
-        if (!S.finishing && S.endT > (unrig ? 3.2 : g.keelboat ? 5.2 : 6.2)) { S.finishing = true; host.finish(S.result); }
+        // reduced motion: no launch film, just the boat afloat with the sailor aboard
+        sailOff(reducedMotion() && !unrig ? (g.keelboat ? 3 : LT.turn1 + 0.6) : S.endT);
+        if (!S.finishing && S.endT > (unrig ? 3.2 : reducedMotion() ? 2.6 : g.keelboat ? 5.2 : LT.end)) { S.finishing = true; host.finish(S.result); }
       }
       if ((S.ambT -= dt) <= 0) { S.ambT = 0.5; try { KOS.Audio.ambient({ wind: 7, waves: 0.25, harbor: 0.9 }); } catch (e) { /* optional */ } }
       if ((S.gullT -= dt) <= 0) { S.gullT = 9 + rand() * 10; sfx('gull', { vol: 0.25, pitch: 0.9 + rand() * 0.3 }); }
@@ -1278,17 +1495,27 @@
       const a = anim;
       worldG.setAttribute('transform', 'translate(' + f(-a.cam) + ' ' + f(-(a.camY || 0)) + ')');
       skylineG.setAttribute('transform', 'translate(' + f(-a.cam * 0.25) + ' ' + f(-(a.camY || 0)) + ')');
-      trolleyG.setAttribute('transform', 'translate(' + f(a.tx) + ' ' + f(a.ty) + ') rotate(' + f(a.ta) + ')');
-      boatG.setAttribute('transform', 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ')');
-      const moving = g.keelboat ? S.endT > 1 : S.endT > 2.9;
-      if (moving) {
-        const wy = g.keelboat ? 0 : g.waterY + 2, sx = a.bx + g.xs, wx0 = Math.max(g.keelboat ? -4000 : g.xW + (g.waterY + 6) / 0.18, sx - 320);
-        wakeG.innerHTML = '<path d="M' + f(Math.min(wx0, sx - 10)) + ' ' + f(wy + 2) + 'Q' + f(sx - 20) + ' ' + f(wy + 6) + ' ' + f(sx + 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
-          '<path d="M' + f(a.bx + g.xb - 10) + ' ' + f(wy) + 'q10 -8 22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
+      if (a.trolleyTf) trolleyG.setAttribute('transform', a.trolleyTf);
+      if (a.kidTf) kidIn.setAttribute('transform', a.kidTf);
+      if (a.boatTf) boatG.setAttribute('transform', a.boatTf);
+      if (g.keelboat ? S.endT > 1 : S.endT > LT.turn1) {
+        const wy = g.keelboat ? 0 : g.waterY + 2;
+        if (g.keelboat) {
+          const sx = a.bx + g.xs, wx0 = Math.max(-4000, sx - 320);
+          wakeG.innerHTML = '<path d="M' + f(Math.min(wx0, sx - 10)) + ' ' + f(wy + 2) + 'Q' + f(sx - 20) + ' ' + f(wy + 6) + ' ' + f(sx + 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+            '<path d="M' + f(a.bx + g.xb - 10) + ' ' + f(wy) + 'q10 -8 22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
+        } else {
+          // turned round: the stern is now on the right (bx - xs), the bow on the left
+          const sx = a.bx - g.xs, bw = a.bx - g.xb;
+          wakeG.innerHTML = '<path d="M' + f(sx + 260) + ' ' + f(wy + 2) + 'Q' + f(sx + 20) + ' ' + f(wy + 6) + ' ' + f(sx - 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+            '<path d="M' + f(bw + 10) + ' ' + f(wy) + 'q-10 -8 -22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
+        }
       }
     }
     function destroy() {
       root.removeEventListener('keydown', onKey);
+      root.removeEventListener('keydown', onAnyInput, true);
+      stopDemo(true);
       root.removeEventListener('resize', onResize);
       if (S.drag && S.drag.ghost) S.drag.ghost.remove();
       if (S.cleanupDrag) { try { S.cleanupDrag(); } catch (e) { /* already gone */ } }
@@ -1315,13 +1542,13 @@
     if (unrig) boatG.classList.add('wet');
 
     return {
-      start() { KOS.UI.coach(t(introKey, { boat: boatName }), { pos: 'top', ms: 7000 }); setTimeout(zoneScale, 50); },
+      start() { KOS.UI.coach(t(introKey, { boat: boatName }), { pos: 'top', ms: 9000 }); setTimeout(zoneScale, 50); setTimeout(() => { if (!S.demoDone) startDemo(); }, 900); },
       update, render, destroy,
       pause() { try { KOS.Audio.ambient(null); } catch (e) { /* optional */ } },
       resume() {},
-      onResize() { layout(); },
-      setAutopilot(on) { autopilot = !!on; },
-      skipIntro() {},
+      onResize() { layout(); if (demo) startDemo(); },
+      setAutopilot(on) { autopilot = !!on; if (autopilot) stopDemo(true); },
+      skipIntro() { stopDemo(true); },
       doNext,
       state: S, steps, decoys,
       select: i => select(byI(i)),
