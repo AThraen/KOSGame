@@ -8,6 +8,10 @@
 //   ctrl.setSheet(v)                 sync the sheet thumb (e.g. from auto-trim)
 //   ctrl.setIdealSheet(center, half) show the green "ideal trim" zone on the sheet slider (null hides)
 //   ctrl.setThrottle(v), ctrl.setSpinnaker(on, available), ctrl.setAutoTrim(on)
+//   opts.board: show the "Sværd" button (cycles Ned → Halvt → Op = state.board 1 / 0.5 / 0.15, key B; event 'board')
+//     ctrl.showBoard(actual)       paint the board icon at the boat's real (animated) board position
+//   opts.jib: show the small "Fok" slider next to the sheet (state.jib 0..1, state.autoJib; keys Q/Z or Shift+↑/↓;
+//     events 'jib' (first manual move), 'autojib')   ctrl.setJib(v), ctrl.setIdealJib(center, half), ctrl.setAutoJib(on)
 //   ctrl.setEnabled(id, bool), ctrl.highlight(id, bool)   ids: left right steer sheet hike spi throttle wheel joystick pause <extra ids>
 //   ctrl.setLayout(layout, opts), ctrl.detach()
 //   KOS.Input.toControls(state, boat, prevControls[, dt]) → physics controls with smooth rudder
@@ -26,6 +30,8 @@
       'input.wheel': 'Rat', 'input.joystick': 'Styrepind', 'input.pause': 'Pause', 'input.action': 'Handling',
       'input.horn': 'Horn', 'input.flag': 'Flag', 'input.lifebuoy': 'Redningskrans', 'input.rope': 'Tov', 'input.anchor': 'Anker',
       'input.camera': 'Kamera', 'input.help': 'Hjælp', 'input.look': 'Kig', 'input.turn': 'Strafrunde', 'input.tow': 'Slæb',
+      'input.board': 'Sværd', 'input.boardDown': 'Ned', 'input.boardHalf': 'Halvt', 'input.boardUp': 'Op', 'input.boardHint': 'Sværdet ned, halvt op eller op (B)',
+      'input.jib': 'Fok', 'input.jibHint': 'Fokkeskøde: hal ind / fier ud (Q / Z)',
     },
     en: {
       'input.left': 'Port', 'input.right': 'Starboard', 'input.leftHint': 'Turn left', 'input.rightHint': 'Turn right',
@@ -35,6 +41,8 @@
       'input.wheel': 'Wheel', 'input.joystick': 'Joystick', 'input.pause': 'Pause', 'input.action': 'Action',
       'input.horn': 'Horn', 'input.flag': 'Flag', 'input.lifebuoy': 'Lifebuoy', 'input.rope': 'Rope', 'input.anchor': 'Anchor',
       'input.camera': 'Camera', 'input.help': 'Help', 'input.look': 'Look', 'input.turn': 'Penalty turn', 'input.tow': 'Tow',
+      'input.board': 'Board', 'input.boardDown': 'Down', 'input.boardHalf': 'Half', 'input.boardUp': 'Up', 'input.boardHint': 'Daggerboard down, half up or up (B)',
+      'input.jib': 'Jib', 'input.jibHint': 'Jib sheet: in / out (Q / Z)',
     },
   };
   if (KOS.I18n && KOS.I18n.add) { try { KOS.I18n.add('da', STR.da); KOS.I18n.add('en', STR.en); } catch (e) {} }
@@ -78,6 +86,15 @@
     action: sv('<path d="M26 4L10 28h13l-2 16 16-24H24z" fill="currentColor" fill-opacity=".3"/>'),
     play: sv('<path d="M16 10l22 14-22 14z" fill="currentColor"/>'),
   };
+  // daggerboard icon: hull cross-section from astern with the board at v (1 = down, 0 = up)
+  function boardIcon(v) {
+    const bot = 23 + 21 * clamp(v, 0, 1), top = bot - 27;
+    return '<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 22h42" stroke-width="2" opacity=".45" stroke-dasharray="3 3"/>' +
+      '<path d="M5 15h38l-5 9H10z" fill="currentColor" fill-opacity=".22" stroke-width="3"/>' +
+      '<rect x="21" y="' + top.toFixed(1) + '" width="6" height="27" rx="2" fill="currentColor" stroke-width="0"/></svg>';
+  }
+  const JIB_SVG = sv('<path d="M12 42L28 5c6 12 9 24 8 37z" fill="currentColor" fill-opacity=".25" stroke-width="3"/>');
   function iconFor(name) {
     if (ICON[name]) return ICON[name];
     try { if (KOS.UI && KOS.UI.iconSvg) { const s = KOS.UI.iconSvg(name); if (s) return s; } } catch (e) {}
@@ -114,14 +131,17 @@
   function attach(layer, opts) {
     ensureStrings();
     if (active) { try { active.detach(); } catch (e) {} }
-    opts = Object.assign({ layout: 'sail', spinnaker: false, hike: true, autoTrim: false, extraButtons: [], pauseButton: true }, opts || {});
+    opts = Object.assign({ layout: 'sail', spinnaker: false, hike: true, autoTrim: false, extraButtons: [], pauseButton: true,
+      board: false, jib: false, autoJib: true }, opts || {});
     const listeners = {};
     const state = { steer: 0, sheet: 0.5, sheetDelta: 0, hike: 0, spinnaker: false, throttle: 0, action: false,
-      autoTrim: !!opts.autoTrim, buttons: {} };
+      autoTrim: !!opts.autoTrim, buttons: {}, board: 1, jib: 0.5, autoJib: opts.autoJib !== false };
+    const BOARD_STEPS = [1, 0.5, 0.15];
+    let boardIdx = 0, boardShown = 1, idealJ = null;
     // inputs that combine into state
     const keys = new Set();
     const src = { padL: new Set(), padR: new Set(), joyX: 0, wheel: 0, wheelHeld: false, hikeHeld: new Set(),
-      sheetDrag: null, thrDrag: null, keyHike: false, keyAction: false, detentHold: false };
+      sheetDrag: null, jibDrag: null, thrDrag: null, keyHike: false, keyAction: false, detentHold: false };
     let ideal = null, enabled = {}, lastSteerSign = 0, raf = 0, lastT = 0, dead = false;
 
     const ctrl = {
@@ -137,6 +157,16 @@
         state.spinnaker = !!on; paintToggles();
       },
       setAutoTrim(on) { state.autoTrim = !!on; paintSheet(); },
+      setJib(v) { if (src.jibDrag == null) { state.jib = clamp(+v || 0, 0, 1); paintJib(); } },
+      setIdealJib(center, half) { idealJ = center == null ? null : { c: clamp(center, 0, 1), h: clamp(half == null ? 0.07 : half, 0.01, 0.5) }; paintJib(); },
+      setAutoJib(on) { state.autoJib = !!on; paintJib(); },
+      setBoard(v) { // set the wanted board position (snaps the button to the nearest step)
+        state.board = clamp(+v, 0, 1);
+        let bi = 0; BOARD_STEPS.forEach((b, i) => { if (Math.abs(b - state.board) < Math.abs(BOARD_STEPS[bi] - state.board)) bi = i; });
+        boardIdx = bi; paintBoard();
+      },
+      showBoard(v) { const nv = clamp(+v, 0, 1); if (Math.abs(nv - boardShown) > 0.01) { boardShown = nv; paintBoard(); } },
+      cycleBoard() { cycleBoard(); },
       setEnabled(id, on) { enabled[id] = on !== false; const el = find(id); if (el) el.classList.toggle('kc-disabled', on === false); },
       highlight(id, on) { const el = find(id); if (el) el.classList.toggle('kc-highlight', on !== false); },
       setLayout(layout, o) { Object.assign(opts, o || {}, { layout }); render(); },
@@ -153,7 +183,7 @@
 
     function find(id) {
       const map = { left: '.kc-steer-l', right: '.kc-steer-r', steer: '.kc-steer', sheet: '.kc-sheet', hike: '.kc-hike', spi: '.kc-spi',
-        throttle: '.kc-throttle', wheel: '.kc-wheel', joystick: '.kc-joy', pause: '.kc-pause' };
+        throttle: '.kc-throttle', wheel: '.kc-wheel', joystick: '.kc-joy', pause: '.kc-pause', board: '.kc-board', jib: '.kc-jib' };
       return rootEl.querySelector(map[id] || '[data-btn="' + id + '"]');
     }
     const isOn = id => enabled[id] !== false;
@@ -167,7 +197,7 @@
     function keycap(t) { return '<span class="kc-key">' + t + '</span>'; }
     function render() {
       const L = opts.layout, joy = mode();
-      rootEl.className = 'kc kc-' + L + (joy ? ' kc-joymode' : '') + (isTouchDevice() ? ' kc-touch' : ' kc-fine') + (opts.pauseButton === false ? ' kc-nopause' : '');
+      rootEl.className = 'kc kc-' + L + (joy ? ' kc-joymode' : '') + (isTouchDevice() ? ' kc-touch' : ' kc-fine') + (opts.pauseButton === false ? ' kc-nopause' : '') + (L === 'sail' && opts.board ? ' kc-hasboard' : '');
       let h = '';
       if (opts.pauseButton !== false) h += '<button class="kc-btn kc-pause" type="button" aria-label="' + tr('input.pause') + '">' + ICON.pause + keycap('P') + '</button>';
       if (L === 'sail' || L === 'rib') {
@@ -188,16 +218,25 @@
           '<span class="kc-sl-lbl kc-bot">' + ICON.sheetOut + '<b>' + tr('input.sheetOut') + '</b></span>' + keycap('↑ ↓') + '</div>';
         if (opts.hike !== false) h += '<button class="kc-btn kc-round kc-hike" type="button" aria-label="' + tr('input.hike') + '">' + ICON.hike + '<b>' + tr('input.hike') + '</b>' + keycap('Space') + '</button>';
         if (opts.spinnaker) h += '<button class="kc-btn kc-round kc-spi" type="button" aria-pressed="false" aria-label="' + tr(opts.spinnakerKind === 'asym' ? 'input.gennaker' : 'input.spi') + '">' + ICON.spi + '<b>' + (opts.spinnakerKind === 'asym' ? 'GEN' : 'SPI') + '</b>' + keycap('E') + '</button>';
+        if (opts.jib) {
+          h += '<div class="kc-slider kc-jib" role="slider" aria-label="' + tr('input.jibHint') + '" title="' + tr('input.jibHint') + '">' +
+            '<button class="kc-auto" type="button">' + tr('input.auto') + '</button>' +
+            '<span class="kc-sl-lbl kc-top">' + JIB_SVG + '<b>' + tr('input.jib') + '</b></span>' +
+            '<div class="kc-track"><div class="kc-fill"></div><div class="kc-zone"></div><div class="kc-thumb"><i></i><i></i></div></div>' + keycap('Q Z') + '</div>';
+        }
       }
+      const boardBtn = L === 'sail' && opts.board;
       if (L === 'rib') {
         h += '<div class="kc-slider kc-throttle" role="slider" aria-label="' + tr('input.throttle') + '">' +
           '<span class="kc-sl-lbl kc-top"><b>' + tr('input.ahead') + '</b></span>' +
           '<div class="kc-track"><div class="kc-fill"></div><div class="kc-notch"><span>' + tr('input.neutral') + '</span></div><div class="kc-thumb kc-lever"><i></i><i></i><i></i></div></div>' +
           '<span class="kc-sl-lbl kc-bot"><b>' + tr('input.astern') + '</b></span>' + keycap('↑ ↓') + '</div>';
       }
-      if (opts.extraButtons && opts.extraButtons.length) {
+      if ((opts.extraButtons && opts.extraButtons.length) || boardBtn) {
         h += '<div class="kc-extras">';
-        opts.extraButtons.forEach((b, i) => {
+        if (boardBtn) h += '<button class="kc-btn kc-extra kc-board" type="button" aria-label="' + tr('input.boardHint') + '" title="' + tr('input.boardHint') + '">' +
+          '<span class="kc-bd-ico"></span><span class="kc-bd-txt"><b>' + tr('input.board') + '</b><i></i></span>' + keycap('B') + '</button>';
+        (opts.extraButtons || []).forEach((b, i) => {
           const lbl = b.labelKey ? tr(b.labelKey) : (b.label || tr('input.' + (b.icon || b.id)));
           h += '<button class="kc-btn kc-extra" type="button" data-btn="' + b.id + '" aria-label="' + lbl + '" title="' + lbl + '">' + iconFor(b.icon || b.id) +
             '<b>' + lbl + '</b>' + keycap(b.key || (i < 9 ? String(i + 1) : '')) + '</button>';
@@ -207,7 +246,7 @@
       rootEl.innerHTML = h;
       wire();
       orient();
-      paintSheet(); paintThrottle(); paintToggles(); paintSteer();
+      paintSheet(); paintThrottle(); paintToggles(); paintSteer(); paintJib(); paintBoard();
       Object.keys(enabled).forEach(id => ctrl.setEnabled(id, enabled[id]));
     }
 
@@ -292,6 +331,26 @@
           up: e => { if (src.sheetDrag === e.pointerId) { src.sheetDrag = null; sh.classList.remove('kc-on'); state.sheetDelta = keySheetDelta(); } },
         });
       }
+      // jib slider
+      const jb = q('.kc-jib');
+      if (jb) {
+        const track = jb.querySelector('.kc-track');
+        const val = e => { const r = track.getBoundingClientRect(), th = 34; return clamp((e.clientY - r.top - th / 2) / Math.max(1, r.height - th), 0, 1); };
+        press(jb.querySelector('.kc-auto'), { down: () => { state.autoJib = !state.autoJib; haptic(15); sfx('rigClick'); paintJib(); ctrl.emit('autojib', state.autoJib); } });
+        press(track, {
+          down: e => {
+            if (!isOn('jib')) return;
+            src.jibDrag = e.pointerId; jb.classList.add('kc-on'); haptic(8);
+            jibManual();
+            setJibFrom(val(e));
+          },
+          move: e => { if (src.jibDrag === e.pointerId) setJibFrom(val(e)); },
+          up: e => { if (src.jibDrag === e.pointerId) { src.jibDrag = null; jb.classList.remove('kc-on'); } },
+        });
+      }
+      // daggerboard button
+      const bd = q('.kc-board');
+      press(bd, { down: () => { if (!isOn('board')) return; hit(bd); cycleBoard(); } });
       // throttle
       const th = q('.kc-throttle');
       if (th) {
@@ -333,6 +392,21 @@
       if (Math.floor(v * 10) !== Math.floor(prev * 10)) sfx('rigClick', { vol: 0.25, pitch: 1.4 - v * 0.6 });
       paintSheet();
     }
+    function jibManual() { if (state.autoJib) { state.autoJib = false; ctrl.emit('autojib', false); } ctrl.emit('jib', state.jib); }
+    function setJibFrom(v) {
+      const prev = state.jib;
+      state.jib = v;
+      const inZ = idealJ && Math.abs(v - idealJ.c) <= idealJ.h, wasZ = idealJ && Math.abs(prev - idealJ.c) <= idealJ.h;
+      if (inZ && !wasZ) haptic(14);
+      if (Math.floor(v * 10) !== Math.floor(prev * 10)) sfx('rigClick', { vol: 0.2, pitch: 1.6 - v * 0.6 });
+      paintJib();
+    }
+    function cycleBoard() {
+      boardIdx = (boardIdx + 1) % BOARD_STEPS.length;
+      state.board = BOARD_STEPS[boardIdx];
+      haptic(boardIdx === 0 ? [10, 30, 10] : 14); sfx('rigClick', { pitch: 0.8 + boardIdx * 0.2 });
+      paintBoard(); ctrl.emit('board', state.board);
+    }
     function setThrottle(v) {
       const prev = state.throttle;
       if (prev !== 0 && v !== 0 && Math.sign(prev) !== Math.sign(v)) v = 0; // always pass through neutral
@@ -362,6 +436,23 @@
       sh.classList.toggle('kc-good', !!ideal && Math.abs(v - ideal.c) <= ideal.h);
       sh.classList.toggle('kc-autoon', !!state.autoTrim);
       const a = sh.querySelector('.kc-auto'); if (a) a.setAttribute('aria-pressed', state.autoTrim ? 'true' : 'false');
+    }
+    function paintJib() {
+      const jb = rootEl.querySelector('.kc-jib'); if (!jb) return;
+      const v = state.jib;
+      jb.style.setProperty('--v', v.toFixed(4));
+      const z = jb.querySelector('.kc-zone');
+      if (idealJ && !state.autoJib) { z.style.display = 'block'; jb.style.setProperty('--z0', clamp(idealJ.c - idealJ.h, 0, 1).toFixed(4)); jb.style.setProperty('--z1', clamp(idealJ.c + idealJ.h, 0, 1).toFixed(4)); }
+      else z.style.display = 'none';
+      jb.classList.toggle('kc-good', !!idealJ && !state.autoJib && Math.abs(v - idealJ.c) <= idealJ.h);
+      jb.classList.toggle('kc-autoon', !!state.autoJib);
+      const a = jb.querySelector('.kc-auto'); if (a) a.setAttribute('aria-pressed', state.autoJib ? 'true' : 'false');
+    }
+    function paintBoard() {
+      const bd = rootEl.querySelector('.kc-board'); if (!bd) return;
+      const ico = bd.querySelector('.kc-bd-ico'); if (ico) ico.innerHTML = boardIcon(boardShown);
+      const txt = bd.querySelector('.kc-bd-txt i'); if (txt) txt.textContent = tr(['input.boardDown', 'input.boardHalf', 'input.boardUp'][boardIdx]);
+      bd.setAttribute('data-pos', String(boardIdx));
     }
     function paintThrottle() {
       const th = rootEl.querySelector('.kc-throttle'); if (!th) return;
@@ -398,7 +489,8 @@
 
     // ------------------------------------------------ keyboard
     const KEYMAP = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', ArrowUp: 'U', KeyW: 'U', ArrowDown: 'D', KeyS: 'D', Space: 'H',
-      KeyE: 'SPI', Enter: 'ACT', NumpadEnter: 'ACT', KeyF: 'ACT', KeyP: 'PAUSE', Escape: 'PAUSE' };
+      KeyE: 'SPI', Enter: 'ACT', NumpadEnter: 'ACT', KeyF: 'ACT', KeyP: 'PAUSE', Escape: 'PAUSE', KeyB: 'BOARD', KeyQ: 'JU', KeyZ: 'JD' };
+    const jibKeys = () => opts.layout === 'sail' && opts.jib && isOn('jib');
     function keySheetDelta() { return (keys.has('D') ? 1 : 0) - (keys.has('U') ? 1 : 0); }
     function onKey(e) {
       if (dead) return;
@@ -406,6 +498,9 @@
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       let k = KEYMAP[e.code] || KEYMAP[e.key];
       const down = e.type === 'keydown';
+      if ((k === 'BOARD' && !(opts.board && opts.layout === 'sail')) || ((k === 'JU' || k === 'JD') && !jibKeys())) k = null; // free for extra buttons
+      if (e.shiftKey && (k === 'U' || k === 'D') && jibKeys()) k = k === 'U' ? 'JU' : 'JD'; // Shift+↑/↓ = jib sheet
+      if (!down && (e.code === 'ArrowUp' || e.code === 'ArrowDown')) { keys.delete(e.code === 'ArrowUp' ? 'JU' : 'JD'); }
       if (!k && /^Digit[1-9]$/.test(e.code) && opts.extraButtons) {
         const idx = +e.code.slice(5) - 1, b = opts.extraButtons[idx];
         if (b) k = 'X:' + b.id;
@@ -420,6 +515,8 @@
       else if (k === 'SPI') { if (down && opts.spinnaker && isOn('spi') && opts.layout === 'sail') toggleSpi(); }
       else if (k === 'ACT') { src.keyAction = down; state.action = down || !!state.buttons.action; if (down) { ctrl.emit('action'); flashBtn('action'); } }
       else if (k === 'PAUSE') { if (down) ctrl.emit('pause'); }
+      else if (k === 'BOARD') { if (down && isOn('board')) { flashBtn('board'); cycleBoard(); } }
+      else if (k === 'JU' || k === 'JD') { if (down) jibManual(); }
       else if (k.indexOf('X:') === 0) {
         const id = k.slice(2);
         if (isOn(id)) { state.buttons[id] = down; if (down) { flashBtn(id); if (id !== 'action') { ctrl.emit(id); ctrl.emit('button', id); } else { state.action = true; ctrl.emit('action'); ctrl.emit('button', id); } } else if (id === 'action') state.action = src.keyAction; }
@@ -431,7 +528,7 @@
       }
       paintSteer();
     }
-    function flashBtn(id) { const b = rootEl.querySelector('[data-btn="' + id + '"]'); if (b) { hit(b); b.classList.add('kc-on'); setTimeout(() => b.classList.remove('kc-on'), 140); } }
+    function flashBtn(id) { const b = id === 'board' ? rootEl.querySelector('.kc-board') : rootEl.querySelector('[data-btn="' + id + '"]'); if (b) { hit(b); b.classList.add('kc-on'); setTimeout(() => b.classList.remove('kc-on'), 140); } }
     function dialogOpen() {
       try { const d = document.getElementById('dialogs'); return !!(d && d.children.length && d.offsetParent !== null && d.querySelector('[open], .dialog, .modal')); } catch (e) { return false; }
     }
@@ -467,6 +564,10 @@
         const d = keySheetDelta();
         state.sheetDelta = d;
         if (d) { const prev = state.sheet; state.sheet = clamp(state.sheet + d * 0.55 * dt, 0, 1); if (state.sheet !== prev) setSheetFrom(state.sheet); state.sheetDelta = d; }
+      }
+      if (opts.layout === 'sail' && opts.jib && src.jibDrag == null) {
+        const dj = (keys.has('JD') ? 1 : 0) - (keys.has('JU') ? 1 : 0);
+        if (dj) setJibFrom(clamp(state.jib + dj * 0.5 * dt, 0, 1));
       }
       if (opts.layout === 'rib' && src.thrDrag == null) {
         const d = (keys.has('U') ? 1 : 0) - (keys.has('D') ? 1 : 0);
@@ -536,6 +637,9 @@
     c.spinnaker = !!state.spinnaker;
     if (state.throttle != null) c.throttle = clamp(state.throttle, -1, 1);
     if (state.autoTrim != null) c.autoTrim = !!state.autoTrim;
+    if (state.board != null) c.board = clamp(+state.board, 0, 1);
+    if (state.jib != null) c.jib = clamp(+state.jib, 0, 1);
+    if (state.autoJib != null) c.autoJib = !!state.autoJib;
     return c;
   }
 

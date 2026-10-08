@@ -76,7 +76,16 @@
   q('parts', 'part:jib', ['Hvad hedder det lille sejl foran masten?', 'What is the small sail in front of the mast called?'],
     [['Fokken', 'The jib'], ['Storsejlet', 'The mainsail'], ['Spilet', 'The spinnaker'], ['Agterliget', 'The leech']],
     ['Fokken sidder foran masten, storsejlet bag den. En Opti har kun et storsejl.', 'The jib sits in front of the mast, the mainsail behind it. An Opti only has a mainsail.']);
-  q('parts', 'part:luff', ['Hvad hedder sejlets forreste kant, der sidder ind mod masten?', 'What is the front edge of the sail, along the mast, called?'],
+  q('parts', 'part:board', ['Du sejler læns (vinden bagfra) i en jolle. Hvad gør du med sværdet?', 'You are sailing on a run (wind from behind) in a dinghy. What do you do with the daggerboard?'],
+    [['Hiver det halvt op – så glider båden lettere', 'Pull it halfway up – the boat glides more easily'], ['Sætter det helt ned', 'Push it all the way down'], ['Tager det helt ud af båden', 'Take it right out of the boat'], ['Det er lige meget', 'It makes no difference']],
+    ['Med vinden bagfra driver båden ikke sidelæns, så et halvt oppe sværd giver mindre modstand og lidt mere fart. Men helt oppe bliver båden rullende og ustabil.', 'With the wind from behind the boat does not slide sideways, so a half-raised board means less drag and a bit more speed. All the way up, the boat gets rolly and unstable.']);
+  q('parts', 'part:board', ['Hvad sker der, hvis du krydser op mod vinden med sværdet oppe?', 'What happens if you beat upwind with the daggerboard up?'],
+    [['Båden driver sidelæns og kommer ikke op mod vinden', 'The boat slides sideways and cannot get upwind'], ['Båden sejler hurtigere', 'The boat goes faster'], ['Båden kan sejle helt op i vindøjet', 'The boat can point straight into the wind'], ['Der sker ingenting', 'Nothing happens']],
+    ['Sværdet giver båden fat i vandet. Uden det skubber vinden båden til læ – derfor: sværdet ned på kryds!', 'The board gives the boat grip in the water. Without it the wind pushes the boat sideways – so: board down when beating!']);
+  q('parts', 'part:jib', ['Fokken blafrer forrest ved forliget, mens du sejler. Hvad gør du?', 'The jib is flapping at its front edge while you sail. What do you do?'],
+    [['Haler fokkeskødet lidt ind', 'Sheet the jib in a little'], ['Fierer fokkeskødet mere ud', 'Ease the jib sheet out more'], ['Tager fokken ned', 'Take the jib down'], ['Hiver sværdet op', 'Pull the daggerboard up']],
+    ['Et sejl, der blafrer, er fieret for meget. Hal ind, til det stopper – og kun lige præcis det. Kig på tælletrådene (de små uldtråde) på fokken – de skal flyve pænt på begge sider.', 'A flapping sail is eased too far. Sheet in until it stops – and only just that. Watch the telltales (the little threads) on the jib: they should stream nicely on both sides.']);
+  q('parts', 'part:luff',['Hvad hedder sejlets forreste kant, der sidder ind mod masten?', 'What is the front edge of the sail, along the mast, called?'],
     [['Forliget', 'The luff'], ['Agterliget', 'The leech'], ['Underliget', 'The foot'], ['Skødehornet', 'The clew']],
     ['Forliget er forkanten, agterliget er bagkanten, og underliget er nederst langs bommen.', 'The luff is the front edge, the leech the back edge and the foot runs along the boom.']);
   q('parts', 'part:shrouds', ['Hvad hedder wirerne, der holder masten oppe fra siderne?', 'What are the wires that hold the mast up from the sides called?'],

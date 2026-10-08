@@ -375,10 +375,11 @@
     host.layer.addEventListener('wheel', onWheel, { passive: false });
 
     // ---- controls + HUD
-    const ctrl = KOS.Input.attach(host.layer, {
+    const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'gennaker' : 'spi',
       hike: !cls.keel && !easy, autoTrim: controls.autoTrim, pauseButton: false,
-    });
+    }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
+    const aids = KOS.SailAids.create({ ctrl, boat, assist, coach: txt => { S.tipT = S.time; KOS.UI.coach(txt, { ms: 5600 }); } });
     ctrl.on('action', () => { if (card && card.primary) card.primary.click(); });
     const hudItems = ['speed', 'timer'];
     if (kind === 'swim') hudItems.push({ id: 'rings', icon: 'star', labelKey: 'nav.hud.rings' }, { id: 'pen', icon: 'whistle', labelKey: 'nav.hud.penalty' });
@@ -1307,13 +1308,13 @@
       if (kind === 'buoys' || kind === 'cardinal') { S.phase = 'brief'; briefCard(); return; }
       if (kind === 'night') { S.phase = 'quiz'; quizCard(0); return; }
       const key = kind === 'compass' && pro ? 'compassPro' : kind === 'depth' && pro ? 'depthPro' : kind;
-      coachIntro = KOS.UI.coach(t('nav.intro.' + key, { boat: cls.name, d: fmtDec(draft) }) + (touch ? '' : '  ' + t('nav.keys')), { ms: 8500 });
+      coachIntro = KOS.UI.coach(t('nav.intro.' + key, { boat: cls.name, d: fmtDec(draft) }) + (touch ? '' : '  ' + t('nav.keys') + aids.keys()), { ms: 8500 });
       beginCountdown(true);
     }
     function beginCountdown(skipCoach) {
       if (!skipCoach) {
         const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
-        coachIntro = KOS.UI.coach(t('nav.intro.' + kind) + (touch ? '' : '  ' + t('nav.keys')), { ms: 7500 });
+        coachIntro = KOS.UI.coach(t('nav.intro.' + kind) + (touch ? '' : '  ' + t('nav.keys') + aids.keys()), { ms: 7500 });
       }
       S.phase = 'intro';
       scene.fixedZoom = null;
@@ -1339,6 +1340,7 @@
       const px = boat.x, py = boat.y;
       controls = KOS.Input.toControls(ctrl.state, boat, controls, dt);
       if (easy) controls.autoHike = true;
+      aids.apply(controls);
       if (autopilot) {   // single-target plans: restart the helm whenever the target changes (it would otherwise stay 'finished')
         const ak = S.stepI + ':' + S.guideI;
         if (ak !== autoKey) { autoKey = ak; autopilot.reset(); }
@@ -1347,6 +1349,7 @@
       KOS.Physics.step(boat, controls, env, dt);
       KOS.Physics.collide([boat], venue, S.marks);
       if (controls.autoTrim) ctrl.setSheet(boat.sheet);
+      aids.tick(dt, S.phase === 'go');
       if (S.phase === 'go') {
         S.time += dt;
         checkStep(px, py);

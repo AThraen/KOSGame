@@ -92,6 +92,7 @@ js/render/scene.js    KOS.SailScene
 js/ui/storage.js      KOS.Storage
 js/ui/audio.js        KOS.Audio
 js/ui/input.js        KOS.Input
+js/ui/sailaids.js     KOS.SailAids (daggerboard + jib controls/tips shared by sail, race, nav)
 js/ui/ui.js           KOS.UI (toasts, dialogs, HUD, coach bubbles, results)
 js/ui/hub.js          KOS.Hub (the harbor map screen)
 js/ui/track.js        KOS.Track (anonymous Matomo stats, see Analytics)
@@ -133,6 +134,8 @@ Each: `{id, name, crew, length, beam, mass, sailArea, maxKn, polar(twaAbsRad, tw
  noGo (rad, half-angle), tackTime (s), turnRate, hasSpinnaker ('none'|'asym'|'sym'), spinnakerBoost, canCapsize,
  capsizeHeel, keel (bool), plane (kn at which it planes, or 0), colors: {hull, deck, sail}, desc: {da,en},
  ageHint: {da,en}, motor (rib only): {maxKn, accel}}`.
+Implemented extras: `hasBoard` (daggerboard/centreboard dinghies: opti tera feva zest ilca 29er), `hasJib` + `jibShare`
+(boats with a jib: feva zest 29er hboat j70; jibShare = the jib's part of the drive, 0.3–0.35).
 Make the characters distinct: Opti slow & forgiving, Tera tiny & tippy, Feva 2-person with gennaker, Zest
 stable trainer, ILCA physical single-hander (hiking matters a lot), 29er fast skiff that planes and capsizes easily
 (sym-asym gennaker, trapeze), H-boat keelboat (can't capsize, heavy, steady), J70 sporty keelboat with gennaker
@@ -178,6 +181,18 @@ follow the action: keep `bounds` ~600 m around the play area and recenter on the
   `tow(a, b, len, dt)` (rope from a's stern to b's bow), `bow(boat)`, `stern(boat)`. Boat defs also carry `draft, recoverTime,
   trapeze, heelAt10, hikeRight, spiFactor(twaAbs)`. `KOS.Wind.steady(dir, kn)` = constant wind. Easy assist: no capsize, some
   steerage even when stopped, no reversed steering in sternway (normal/pro: realistic).
+- **Daggerboard** (`cls.hasBoard`): controls `board` (0..1 wanted position, 1 = fully down, default) or `autoBoard: true`
+  (follows `idealBoard`); `boat.board` moves there at 1.4/s (Ned → Op ≈ 0.6 s). Board 1 is exactly the classic model.
+  Less board: leeway × up to ~7 (scaled by sail power, so mostly upwind) and a drive loss `0.55·(need − board)²` below the
+  board the angle needs (`need` 1 up to 55° TWA, 0.55 at 100°, 0.25 from 145°); less wetted area gives up to +7 % speed
+  from a reach to a run; right up (< 0.3) on a run she rolls a little and loses ~1 %. Measured (Opti, 10 kn): close-hauled
+  board 1 / 0.5 / 0.15 → VMG 2.0 / 1.6 / 0.6 kn, leeway 4° / 8° / 24°; run 170° → 3.59 / 3.77 / 3.75 kn.
+  Helpers `idealBoard(cls, twaAbs)` (1 upwind, ~0.55 beam reach, 0.3 on a run; always 1 without a board) and
+  `boardFactor(board, twaAbs)` (speed multiplier).
+- **Jib** (`cls.hasJib`): controls `autoJib` (default true = the crew trims it with the main: exactly the classic model) and
+  `jib` (0..1 sheet, same scale as the main sheet; used when `autoJib === false`). Boat fields `jib, jibAng` (signed, for
+  drawing), `jibManual, jibTrim, jibLuffing` (eased too far: it flaps, up to −27 % speed), `jibStalled` (over-sheeted).
+  Trimmed right by hand (within ~0.05 of `idealJib(boat)`): +2.5 % speed and 15 % less leeway upwind (telltales streaming).
 
 ### KOS.Rules (core/rules.js)
 Racing Rules of Sailing Part 2 (simplified) and the basic collision rules (COLREGs) for navigation.
@@ -256,6 +271,19 @@ Keyboard: ←/→ or A/D steer, ↑/↓ or W/S sheet in/out (throttle for RIB), 
 Enter/F action, P/Esc pause. Touch: big left/right tiller pads (bottom-left / bottom-right in portrait, sides in
 landscape), a vertical sheet slider, a HIKE hold button, SPI button; optional virtual joystick. Mouse works on all.
 `KOS.Input.toControls(state, boat, prevControls)` → physics controls (steer → rudder smoothing).
+Implemented extras: `opts.board` adds a compact **Sværd** button to the extras (cycles Ned → Halvt → Op = `state.board`
+1 / 0.5 / 0.15, key **B**, event `board`, `ctrl.showBoard(actual)` paints the icon at the boat's real board position);
+`opts.jib` adds a narrow **Fok** slider left of the sheet slider with its own AUTO (`state.jib`, `state.autoJib`, keys **Q / Z**
+or **Shift+↑/↓**, events `jib`, `autojib`, `ctrl.setJib`, `setIdealJib`, `setAutoJib`). With the board button the portrait
+extras form a row along the top edge. `toControls` copies `board`, `jib`, `autoJib`.
+**KOS.SailAids** (ui/sailaids.js) wires both into a sea mode: `inputOpts(cls, assist)` → `{board, jib, autoJib}` for attach
+(shown on Normal/Pro only; the jib starts on AUTO on Normal, by hand on Pro), `create({ctrl, boat, assist, coach})` →
+`apply(controls)` (Easy: `autoBoard` + auto jib) and `tick(dt, sailing)` (syncs the button/slider; once per session the
+Træner says "Prøv at hive sværdet halvt op på læns …" after 4 s on a run (TWA > 140°) with the board down, "Sværdet ned,
+når du krydser …" after 3 s close-hauled with it up, and "Fokken blafrer – hal den lidt ind!" after 2.5 s of a flapping
+jib), `keys()` (keyboard hint for the intro). Used by sail.js, race.js and nav.js; the Sailing School keeps the board down
+and the jib automatic. AI helms (`KOS.AI`) set `board` to `idealBoard` ± a skill-based error and, on Normal/Pro, trim the
+jib by hand near `idealJib` (Easy: auto), so races stay fair.
 
 ### KOS.UI (ui/ui.js)
 `toast(text, {kind, ms})`, `dialog({titleKey|title, body (html), buttons: [{labelKey, kind, onClick}]})`,
@@ -302,8 +330,9 @@ the effects thin out cosmetic particles at lower levels.
 - **Sejlerpas** (sailing passport): boats unlock by total stars: opti 0, tera 6, feva 15, zest 25, ilca 40,
   29er 55, hboat 70, j70 90, rib 20. `settings.unlockAll` (coach/parent switch) unlocks everything.
 - Within an area, activities unlock by `unlock` rules; the first activity of each area is always open.
-- Assist levels: **Let** (easy: auto-trim, no capsize, ghost hints, generous scoring), **Normal**, **Pro** (manual
-  trim, capsize, penalty turns, stricter stars). Default `easy` for new profiles; the profile asks age range.
+- Assist levels: **Let** (easy: auto-trim, no capsize, ghost hints, generous scoring; daggerboard and jib automatic),
+  **Normal** (+ Sværd button and Fok slider, jib on AUTO), **Pro** (manual trim incl. the jib, capsize, penalty turns,
+  stricter stars). Default `easy` for new profiles; the profile asks age range.
 
 ## Content plan (each mode registers its own activities)
 
@@ -337,7 +366,8 @@ or offline changes nothing. Screen changes are virtual page views on real-lookin
 `/havnemanoevrer`, `/rib-missioner`), activities as `/<area>/<activity id>` and `/<area>/<activity id>/resultat`; titles are fixed Danish
 (`KØS SEJL / Sejlerskolen / Styr og stop`), with `setReferrerUrl` to the previous screen. No cookies: `disableCookies` is set before any hit. Events (category / action / name [value]):
 Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|unlockAll, View overview|zoom,
-Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson. Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
+Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson, Controls board|jib <activity id> (first use per
+activity, from the `controls:use` bus event that KOS.SailAids emits). Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
 `play:finish`, `settings`) plus a few direct `KOS.Track.event` calls in app.js.
 Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `kos.pid`, never derived from the name). Custom dimensions
 (ids in `DIM` in track.js, must match the ones created in Matomo): visit scope 1 age band, 2 boat; action scope 3 activities completed,

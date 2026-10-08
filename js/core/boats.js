@@ -5,6 +5,8 @@
 //   def.polar(twaAbs, twsKn)  target boat speed in knots WITHOUT spinnaker (multiply by def.spiFactor(twaAbs) for kite)
 //   def.spiFactor(twaAbs)     spinnaker/gennaker multiplier (1 when not useful, < 1 when it collapses too high)
 //   KOS.Boats.optimal(def, tws, 'up'|'down', spi) -> {twa, speed, vmg}  best VMG angle from the polar
+//   def.hasBoard              daggerboard/centreboard dinghy: the board can be raised (board model in physics.js)
+//   def.hasJib, def.jibShare  carries a jib (forsejl/fok) that can be trimmed on its own; jibShare = its part of the drive
 // Pure data + math. Speeds in knots here; physics converts to m/s.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -21,6 +23,7 @@
       tackTime: 2.2, turnRate: 1.0, uRef: 1.0, accelT: 2.2, decelT: 3.0,
       hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(55), keel: false, plane: 0,
       heelAt10: 24, hikeRight: 22, optHeel: 6, leeway: 0.07, draft: 0.8, boomMax: 85, recoverTime: 4, trapeze: false,
+      hasBoard: true, hasJib: false,
       colors: { hull: '#ffffff', deck: '#e9eef3', sail: '#fdfdfd', trim: '#1f5fbf' }, // KØS optis: white, blue insignia + number
       desc: {
         da: 'Klubbens første båd. Lille, stabil og tilgivende – her lærer du at styre, skøde og krydse.',
@@ -34,6 +37,7 @@
       tackTime: 2.0, turnRate: 1.1, uRef: 1.0, accelT: 1.8, decelT: 2.6,
       hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(52), keel: false, plane: 0,
       heelAt10: 26, hikeRight: 22, optHeel: 5, leeway: 0.07, draft: 0.7, boomMax: 85, recoverTime: 3, trapeze: false,
+      hasBoard: true, hasJib: false,
       colors: { hull: '#ffd23f', deck: '#fff2b0', sail: '#ffffff', trim: '#1f6fb2' },
       desc: {
         da: 'Lille, kvik og sjov i pust – en stabil båd mellem Opti og jolle.',
@@ -47,6 +51,7 @@
       tackTime: 2.8, turnRate: 0.9, uRef: 1.1, accelT: 2.4, decelT: 3.4,
       hasSpinnaker: 'asym', spinnakerBoost: 1.25, canCapsize: true, capsizeHeel: R(50), keel: false, plane: 8,
       heelAt10: 24, hikeRight: 25, optHeel: 6, leeway: 0.065, draft: 0.9, boomMax: 85, recoverTime: 5, trapeze: false,
+      hasBoard: true, hasJib: true, jibShare: 0.3,
       colors: { hull: '#ffffff', deck: '#eef2f6', sail: '#e6e9ed', trim: '#a8d81e' }, // KØS Fevas: white hull, grey/lime sails, yellow gennaker
       desc: {
         da: 'To-mandsjolle med gennaker. Rorsmand og gast samarbejder – og på læns flyver den!',
@@ -60,6 +65,7 @@
       tackTime: 2.6, turnRate: 0.85, uRef: 1.1, accelT: 2.8, decelT: 3.8,
       hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(52), keel: false, plane: 0,
       heelAt10: 20, hikeRight: 19, optHeel: 7, leeway: 0.065, draft: 0.9, boomMax: 85, recoverTime: 4, trapeze: false,
+      hasBoard: true, hasJib: true, jibShare: 0.3,
       colors: { hull: '#2b6cb0', deck: '#d6e9fb', sail: '#ffffff', trim: '#ffd25e' },
       desc: {
         da: 'Bred og stabil skolejolle. Masser af plads, svær at vælte – perfekt til at øve nye manøvrer.',
@@ -73,6 +79,7 @@
       tackTime: 3.0, turnRate: 0.85, uRef: 1.2, accelT: 2.4, decelT: 3.8,
       hasSpinnaker: 'none', spinnakerBoost: 1, canCapsize: true, capsizeHeel: R(48), keel: false, plane: 8,
       heelAt10: 32, hikeRight: 36, optHeel: 5, leeway: 0.06, draft: 0.8, boomMax: 88, recoverTime: 5, trapeze: false,
+      hasBoard: true, hasJib: false,
       colors: { hull: '#f4f6f8', deck: '#ffffff', sail: '#f7f7f2', trim: '#e8323c' },
       desc: {
         da: 'Olympisk enmandsjolle. Hurtig og fysisk – du skal hænge ud for at holde den flad!',
@@ -86,6 +93,7 @@
       tackTime: 3.4, turnRate: 0.95, uRef: 1.4, accelT: 1.8, decelT: 3.0,
       hasSpinnaker: 'asym', spinnakerBoost: 1.32, canCapsize: true, capsizeHeel: R(42), keel: false, plane: 9,
       heelAt10: 38, hikeRight: 46, optHeel: 4, leeway: 0.055, draft: 1.0, boomMax: 85, recoverTime: 6, trapeze: true,
+      hasBoard: true, hasJib: true, jibShare: 0.3,
       colors: { hull: '#ffffff', deck: '#3b4250', sail: '#f2f6ff', trim: '#ff5a1f' }, // KØS 29ers: white hull, red-orange tape, purple kite
       desc: {
         da: 'Lynhurtig skiff med trapez og gennaker. Planer på læns – men den kæntrer, hvis du blinker!',
@@ -99,6 +107,7 @@
       tackTime: 4.5, turnRate: 0.42, uRef: 1.8, accelT: 7.0, decelT: 12.0,
       hasSpinnaker: 'sym', spinnakerBoost: 1.12, canCapsize: false, capsizeHeel: R(90), keel: true, plane: 0,
       heelAt10: 18, hikeRight: 6, optHeel: 18, maxHeel: 38, leeway: 0.05, draft: 1.3, boomMax: 80, recoverTime: 0, trapeze: false,
+      hasBoard: false, hasJib: true, jibShare: 0.35,
       colors: { hull: '#c8262e', deck: '#f4f1ea', sail: '#f6f1e4', trim: '#f4f1ea' }, // KØS H-boats: red topsides, white deck
       desc: {
         da: 'Klassisk nordisk kølbåd. Tung, rolig og sikker – den kan ikke kæntre. Hele besætningen hjælper.',
@@ -112,6 +121,7 @@
       tackTime: 4.0, turnRate: 0.5, uRef: 1.6, accelT: 5.0, decelT: 9.0,
       hasSpinnaker: 'asym', spinnakerBoost: 1.3, canCapsize: false, capsizeHeel: R(90), keel: true, plane: 10,
       heelAt10: 16, hikeRight: 7, optHeel: 16, maxHeel: 34, leeway: 0.045, draft: 1.45, boomMax: 80, recoverTime: 0, trapeze: false,
+      hasBoard: false, hasJib: true, jibShare: 0.3,
       colors: { hull: '#ffffff', deck: '#d9dee5', sail: '#eef0f3', trim: '#e3262e' }, // KØS J70s: red head panel with a white X
       desc: {
         da: 'Sporty kølbåd med stor gennaker. Planer på læns i frisk vind – kapsejlads for hele holdet!',

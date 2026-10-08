@@ -52,10 +52,11 @@
   const ctrl = KOS.Input.attach(document.getElementById('layer'), {
     layout, spinnaker: P.get('spi') !== '0', spinnakerKind: P.get('kind') || 'asym', hike: true,
     autoTrim: P.get('auto') === '1', joystick: P.get('joy') === '1', extraButtons: extras,
+    board: P.get('board') === '1', jib: P.get('jib') === '1',
   });
   window.ctrl = ctrl;
   window.events = [];
-  ['action', 'pause', 'spinnaker', 'hike', 'autotrim', 'gear', 'button', 'horn'].forEach(ev =>
+  ['action', 'pause', 'spinnaker', 'hike', 'autotrim', 'gear', 'button', 'horn', 'board', 'jib', 'autojib'].forEach(ev =>
     ctrl.on(ev, v => { events.push(ev + (v === undefined ? '' : ':' + v)); document.getElementById('log').textContent = ev + (v === undefined ? '' : ' ' + v); }));
   let controls = KOS.Input.toControls(ctrl.state, null, null), heading = 0.6, last = performance.now(), acc = 0;
   const boat = { cls: { id: layout === 'rib' ? 'rib' : 'opti' } };

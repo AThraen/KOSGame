@@ -2,6 +2,7 @@
 // KOS.AI: computer helmsmen.
 //   const helm = KOS.AI.createHelm(boat, {skill /*0..1*/, aggression /*0..1*/, seed})
 //   helm.think(env, plan, others) -> physics controls (call once per physics step, before KOS.Physics.step)
+//   (also sets controls.board to the ideal daggerboard, and on Normal/Pro trims the jib by hand: autoJib false, jib near ideal)
 //     env  = {wind, venue, assist, t}
 //     plan = {target: {x, y}} | {course: [{x, y, round: 'port'|'starboard'} | {line: [p1, p2]}], leg}
 //            optional plan.start = {line: [p1, p2], t0}   (holds back behind the line, hits it at the gun)
@@ -34,6 +35,9 @@
       lateMargin: 0.4 + (1 - skill) * rnd.range(1.5, 6),
       _lastT: null, _planLeg: undefined, _course: null, _px: boat.x, _py: boat.y,
     };
+    // drawn after the others so older seeds keep their pinch/trim/start numbers
+    helm.boardErr = (rnd() - 0.5) * 0.3 * (1 - skill); // daggerboard a little off the ideal
+    helm.jibErr = (rnd() - 0.5) * 0.08 * (1 - skill);  // jib sheet a little off the ideal
 
     function nowOf(env) { return env && env.t !== undefined ? env.t : env && env.wind && env.wind.t !== undefined ? env.wind.t : boat.t; }
 
@@ -451,6 +455,10 @@
       c.trimBias = helm.trimErr + sheetBias + (1 - skill) * 0.05 * U.noise1(nseed ^ 7, b.t / 4);
       c.autoHike = false;
       c.hike = U.clamp(KOS.Physics.neededHike(b) * (0.72 + 0.28 * skill) + (b.maneuverT > 0 ? 0 : 0.02), 0, 1);
+      // daggerboard: the ideal for the current angle (down upwind, half up downwind), slightly off for weaker helms
+      if (b.cls.hasBoard) c.board = U.clamp(KOS.Physics.idealBoard(b.cls, Math.abs(twaNow)) + helm.boardErr, 0.15, 1);
+      // jib: on Normal/Pro the crew trims it by hand (near the ideal, eased with the main when slowing); Easy = auto like the player
+      if (b.cls.hasJib && helm._assist !== 'easy') { c.autoJib = false; c.jib = U.clamp(KOS.Physics.idealJib(b) + helm.jibErr + sheetBias, 0, 1); }
 
       // spinnaker / gennaker
       if (b.cls.hasSpinnaker !== 'none') {

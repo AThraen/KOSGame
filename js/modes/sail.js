@@ -249,14 +249,16 @@
     scene.fixedZoom = scene.baseZoom() * 0.3; // start zoomed out; eases in when the intro ends
 
     // ---- controls (pause is App's own button top-left, so Input's is off)
-    const ctrl = KOS.Input.attach(host.layer, {
+    const aidOpts = isRib ? {} : KOS.SailAids.inputOpts(cls, assist); // daggerboard button + jib slider on Normal/Pro
+    const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: isRib ? 'rib' : 'sail',
       spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'gennaker' : 'spi',
       hike: !isRib && !cls.keel && assist !== 'easy',
       autoTrim: controls.autoTrim, pauseButton: false,
       extraButtons: P.kind === 'free' ? [{ id: 'done', icon: 'check', labelKey: 'sail.btn.done' }] : [],
-    });
+    }, aidOpts));
     ctrl.on('done', () => endFree());
+    const aids = isRib ? null : KOS.SailAids.create({ ctrl, boat, assist, coach: txt => { S.tipT = S.time; KOS.UI.coach(txt, { ms: 5600 }); } });
 
     // ---- HUD
     const hudItems = ['wind', 'speed'];
@@ -649,7 +651,7 @@
     function start() {
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
       const intro = t('sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind), { n: S.items.length }) +
-        (touch ? '' : '  ' + t(isRib ? 'sail.keysRib' : 'sail.keys'));
+        (touch ? '' : '  ' + t(isRib ? 'sail.keysRib' : 'sail.keys') + (aids ? aids.keys() : ''));
       coachIntro = KOS.UI.coach(intro, { ms: P.kind === 'free' ? 9000 : 7000 });
       paintGoals();
       ambient();
@@ -679,10 +681,12 @@
       const px = boat.x, py = boat.y, ph = boat.heading;
       controls = KOS.Input.toControls(st, boat, controls, dt);
       if (assist === 'easy') controls.autoHike = true;
+      if (aids) aids.apply(controls);
       if (autopilot) controls = Object.assign(controls, autopilot.think(env, autoPlan(), [boat]));
       KOS.Physics.step(boat, controls, env, dt);
       KOS.Physics.collide([boat], venue, S.marks);
       if (controls.autoTrim && !isRib) ctrl.setSheet(boat.sheet);
+      if (aids) aids.tick(dt, S.phase === 'go');
       // easy assist: the red no-go wedge appears only when the bow points close to the wind (a hint, not clutter)
       if (assist === 'easy' && !isRib) scene.showNoGo = Math.abs(boat.twa) < cls.noGo + 0.12 || boat.inIrons;
 

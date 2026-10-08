@@ -125,10 +125,18 @@
     if (!E || !E.on) return;
     try { lastSettings = Object.assign({}, KOS.Storage.settings()); } catch (e) { lastSettings = {}; }
     E.on('screen', s => { Track.screen(s, (KOS.App && KOS.App.params) || {}); });
+    let ctlUsed = {}, ctlAct = '';
     E.on('play:start', p => {
       if (!p) return;
+      ctlUsed = {}; ctlAct = p.id || '';
       Track.event('Activity', 'start', p.id);
       if (p.boat) Track.event('Boat', 'sailed', p.boat);
+    });
+    // Controls board|jib <activity id>: the first time per activity the player raises the daggerboard / trims the jib
+    E.on('controls:use', u => {
+      if (!u || !u.what || ctlUsed[u.what]) return;
+      ctlUsed[u.what] = true;
+      Track.event('Controls', u.what, ctlAct);
     });
     E.on('play:finish', p => {
       if (!p || !p.result) return;

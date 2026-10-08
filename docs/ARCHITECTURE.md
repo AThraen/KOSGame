@@ -51,6 +51,7 @@ render  js/render/sprites.js    KOS.Sprites
 ui      js/ui/storage.js        KOS.Storage
         js/ui/audio.js          KOS.Audio
         js/ui/input.js          KOS.Input
+        js/ui/sailaids.js       KOS.SailAids
         js/ui/ui.js             KOS.UI
         js/ui/hub.js            KOS.Hub
         js/ui/app.js            KOS.App
@@ -91,6 +92,7 @@ results), `css/controls.css`, `css/hub.css`, and one `css/modes/<mode>.css` per 
 | `js/ui/storage.js` | `KOS.Storage` | localStorage (prefix `kos.`, in-memory fallback): settings, profile, progress, stars, XP, badges |
 | `js/ui/audio.js` | `KOS.Audio` | Web Audio synthesis: one-shots, ambient wind/waves, RIB engine, generative music |
 | `js/ui/input.js` | `KOS.Input` | Keyboard/mouse/multi-touch controls for sea modes (tiller pads, sheet slider, hike, spinnaker) |
+| `js/ui/sailaids.js` | `KOS.SailAids` | Daggerboard button + jib slider wiring for sea modes (Normal/Pro), auto on Easy, one-time Træner tips |
 | `js/ui/ui.js` | `KOS.UI` | Toasts, dialogs, coach bubbles, HUD, countdown, stars, confetti, results card, avatar |
 | `js/ui/hub.js` | `KOS.Hub` | The illustrated harbor map screen (areas, pins, locks) drawn from `KOS.World` geometry |
 | `js/ui/app.js` | `KOS.App` | Screens, router, fixed-step game loop, settings, profile, results, PWA registration |

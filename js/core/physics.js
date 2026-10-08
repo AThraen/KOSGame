@@ -6,7 +6,9 @@
 //   KOS.Physics.collide(boats, venue, marks)    -> [{type:'boat'|'shore'|'mark'|'pier', a, b, speed, x, y}]
 //   helpers: idealSheet(boat), idealBoom(cls, awaAbs), vmg(boat, dirOrPoint), laylines(mark, windDir, cls, tws, opts),
 //            optimal(cls, tws, 'up'|'down', spi), neededHike(boat), pointOfSail(twaAbs, cls), right(boat, windDir),
-//            capsize(boat, side), tow(a, b, len, dt), velocityAt(boat), bow(boat), stern(boat)
+//            capsize(boat, side), tow(a, b, len, dt), velocityAt(boat), bow(boat), stern(boat),
+//            idealBoard(cls, twaAbs), boardFactor(board, twaAbs), idealJib(boat)
+//   controls also carry board (0..1 target, 1 = down) / autoBoard, and jib (0..1 sheet) / autoJib (default true = crew trims it)
 // Events (KOS.Events): boat:tack, boat:gybe {boat, from, to, power}, boat:capsize, boat:righted, boat:irons,
 //   boat:plane, boat:spiCollapse, boat:heelWarn, boat:ground {boat, type, speed}, boat:collide {a, b, type, speed}
 // Model summary:
@@ -25,8 +27,42 @@
   function emit(name, payload) { if (KOS.Events) KOS.Events.emit(name, payload); }
 
   function controls() {
-    return { rudder: 0, sheet: 0.5, hike: 0, spinnaker: false, throttle: 0, autoTrim: true, autoHike: false, trimBias: 0 };
+    return { rudder: 0, sheet: 0.5, hike: 0, spinnaker: false, throttle: 0, autoTrim: true, autoHike: false, trimBias: 0,
+      board: 1, autoBoard: false, jib: 0.5, autoJib: true };
   }
+
+  // ---- daggerboard / centreboard (cls.hasBoard): boat.board 0..1, 1 = fully down (= the classic model, unchanged).
+  // Less board = less lateral resistance (more leeway, less drive upwind) but also less wetted area (less drag off the
+  // wind). boardNeed(twa) is the least board that still grips at that angle; below it the boat slides and loses drive.
+  const BOARD_RATE = 1.4; // board travel per second (Ned -> Op in ~0.6 s)
+  function boardNeed(aTwa) {
+    const a = U.deg(aTwa);
+    if (a <= 55) return 1;
+    if (a <= 100) return 1 - 0.45 * U.smoothstep(55, 100, a);
+    return 0.55 - 0.3 * U.smoothstep(100, 145, a);
+  }
+  /** Speed multiplier for a board position at a true wind angle (exactly 1 with the board fully down). */
+  function boardFactor(b, aTwa) {
+    if (b >= 1) return 1;
+    const def = Math.max(0, boardNeed(aTwa) - b);
+    const gain = 0.07 * Math.min(1, (1 - b) / 0.7) * U.smoothstep(R(50), R(120), aTwa); // less wetted area
+    const wobble = b < 0.3 ? 0.015 * (0.3 - b) / 0.15 * U.smoothstep(R(130), R(165), aTwa) : 0; // board right up: rolls downwind
+    return 1 - 0.55 * def * def + gain - wobble;
+  }
+  const boardCache = {};
+  /** Best board position for a true wind angle (1 on boats without a board): down upwind, ~0.6 on a beam reach, ~0.3 on a run. */
+  function idealBoard(cls, twaAbs) {
+    if (cls && cls.cls) cls = cls.cls;
+    if (typeof cls === 'string') cls = KOS.Boats.get(cls);
+    if (!cls || !cls.hasBoard) return 1;
+    const deg = Math.round(U.deg(Math.abs(U.wrapPi(twaAbs))));
+    if (boardCache[deg] !== undefined) return boardCache[deg];
+    let best = 1, bf = 1;
+    for (let b = 0.95; b >= 0.149; b -= 0.05) { const f = boardFactor(b, R(deg)); if (f > bf + 1e-9) { bf = f; best = Math.round(b * 100) / 100; } }
+    return (boardCache[deg] = best);
+  }
+  /** Ideal jib sheet (0 = hard in, 1 = eased) for the boat's apparent wind: the same scale as the main sheet. */
+  function idealJib(boat) { return idealSheet(boat); }
 
   let nextId = 1;
   function createBoat(classId, o) {
@@ -47,6 +83,7 @@
       isPlayer: !!o.isPlayer, crewNames: o.crewNames || [],
       rudder: 0, throttle: 0, power: 0, targetKn: 0,
       grounded: false, groundT: 0, r13: false, maneuverT: 0, wakeSize: 0, skid: 0, depower: 0,
+      board: 1, jib: 0.5, jibAng: 0, jibManual: false, jibTrim: 1, jibLuffing: false, jibStalled: false,
       _init: false, _wakeT: 0, _warnT: 0, _groundCd: 0,
     };
     if (b.speed) { const f = U.vec(b.heading); b.vx = f.x * b.speed; b.vy = f.y * b.speed; }
@@ -200,6 +237,39 @@
     boat.luffing = !boat.capsized && tws > 1 && (luffFrac > 0.28 || aTwa < cls.noGo * 0.95);
     boat.stalled = !boat.capsized && overFrac > 0.45 && aAwa > R(50);
 
+    // ---- daggerboard: moves smoothly towards the wanted position (autoBoard = the ideal for this angle)
+    if (cls.hasBoard) {
+      const want = U.clamp(c.autoBoard ? idealBoard(cls, aTwa) : (c.board === undefined || c.board === null ? 1 : +c.board), 0, 1);
+      const step = BOARD_RATE * dt;
+      boat.board += U.clamp(want - boat.board, -step, step);
+    } else boat.board = 1;
+    const board = boat.board;
+
+    // ---- jib (forsejl): autoJib (default) = trimmed with the main by the crew, exactly the classic model.
+    // Trimmed by hand: telltales streaming = a little faster and higher upwind; eased too far = it flaps; too hard = stalls.
+    let jibF = 1, jibGood = 0;
+    if (cls.hasJib) {
+      const manual = c.autoJib === false;
+      boat.jibManual = manual;
+      if (manual) boat.jib += (U.clamp(c.jib === undefined ? 0.5 : +c.jib, 0, 1) - boat.jib) * U.approach(dt, 0.12);
+      else boat.jib += (ideal - boat.jib) * U.approach(dt, 0.35);
+      const jl = MIN_BOOM + boat.jib * (maxB - MIN_BOOM);
+      const jibT = boat.capsized ? boat.jibAng : -s * Math.min(jl, aAwa) * 0.72;
+      boat.jibAng += U.clamp((jibT - boat.jibAng) * U.approach(dt, 0.1), -maxSwing, maxSwing);
+      if (manual && !boat.capsized) {
+        const dev = boat.jib - ideal;
+        const luffJ = U.clamp((dev - 0.05) / 0.25, 0, 1), overJ = U.clamp((-dev - 0.05) / 0.3, 0, 1);
+        jibGood = 1 - U.smoothstep(0.02, 0.08, Math.abs(dev));
+        const w = (cls.jibShare || 0.3) * (1 - 0.5 * U.smoothstep(R(90), R(150), aAwa));
+        const upness = 1 - U.smoothstep(R(60), R(100), aTwa);
+        jibF = 1 - w * Math.pow(luffJ, 1.2) * 0.9 - w * 0.6 * Math.pow(overJ, 1.3) + 0.025 * jibGood * upness;
+        jibGood *= upness;
+        boat.jibTrim = U.clamp(1 - Math.pow(luffJ, 1.2) * 0.9 - 0.6 * Math.pow(overJ, 1.3), 0, 1);
+        boat.jibLuffing = tws > 1 && luffJ > 0.2 && aTwa > cls.noGo;
+        boat.jibStalled = overJ > 0.4 && aAwa > R(40);
+      } else { boat.jibTrim = 1; boat.jibLuffing = false; boat.jibStalled = false; }
+    }
+
     // ---- spinnaker / gennaker
     const wantSpi = !!c.spinnaker && cls.hasSpinnaker !== 'none' && !boat.capsized;
     boat.spinnaker = wantSpi;
@@ -231,6 +301,7 @@
     if (cls.keel) netDeg = cls.maxHeel * Math.tanh(netDeg / cls.maxHeel);
     else if (netDeg > 0.6 * capDeg) netDeg *= 1 + 0.35 * (netDeg / capDeg - 0.6); // dinghy stability fades
     let heelT = -s * R(netDeg);
+    if (board < 0.3) heelT += R(5) * (0.3 - board) / 0.15 * U.smoothstep(R(130), R(165), aTwa) * Math.sin(boat.t * 2.3); // board right up on a run: she rolls
     if (boat.capsized) heelT = boat.capsizeSide * R(88);
     boat.heel += (heelT - boat.heel) * U.approach(dt, boat.capsized ? 0.6 : cls.keel ? 1.1 : 0.42);
 
@@ -254,6 +325,8 @@
     if (boat.spinnaker) tKn *= cls.spiFactor(aTwa);
     tKn = Math.min(tKn, cls.maxKn * (cls.hasSpinnaker !== 'none' ? 1.05 : 1)); // the kite never lifts a boat beyond its class ceiling
     tKn *= boat.trim;
+    if (board < 1) tKn *= boardFactor(board, aTwa);
+    if (jibF !== 1) tKn *= jibF;
     const leeHeel = boat.heel * -s; // + when heeling to leeward
     const opt = R(cls.optHeel);
     const excess = leeHeel >= 0 ? Math.max(0, leeHeel - opt) : -leeHeel * 1.6;
@@ -296,7 +369,12 @@
     boat.heading = U.wrapPi(boat.heading + boat.yawRate * dt);
 
     // ---- leeway & drift
-    const leeAng = U.clamp(cls.leeway * (0.4 + 0.6 * Math.min(P, 1.5)) * (1 + 1.5 * Math.max(0, 1 - Math.abs(boat.speed) / cls.uRef)), 0, 0.3);
+    let leeAng = U.clamp(cls.leeway * (0.4 + 0.6 * Math.min(P, 1.5)) * (1 + 1.5 * Math.max(0, 1 - Math.abs(boat.speed) / cls.uRef)), 0, 0.3);
+    if (board < 1) { // less board, less grip: she slides sideways (most when the sail pulls hard, i.e. upwind)
+      const grip = Math.pow(0.1 + 0.9 * board, 1.4);
+      leeAng = U.clamp(leeAng * (1 + (1 / grip - 1) * U.clamp(1.5 * P, 0.3, 1)), 0, 0.3 + 0.4 * (1 - board));
+    }
+    if (jibGood > 0) leeAng *= 1 - 0.15 * jibGood; // telltales streaming: points a little higher
     const slipT = -s * Math.abs(boat.speed) * Math.tan(leeAng);
     boat.slip += (slipT - boat.slip) * U.approach(dt, 0.8);
     const dmag = twsMs * (boat.capsized ? 0.035 : 0.022) * (1 - U.clamp(Math.abs(boat.speed) / cls.uRef, 0, 1));
@@ -617,5 +695,6 @@
     controls, createBoat, step, collide,
     idealSheet, idealBoom, sheetForBoom, vmg, laylines, optimal, neededHike, pointOfSail,
     right, capsize, tow, velocityAt, bow, stern, capsule, syncLocal,
+    idealBoard, boardFactor, idealJib,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

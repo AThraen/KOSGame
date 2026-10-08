@@ -173,6 +173,24 @@ async function keyboardSuite(browser) {
   // detach cleans up
   const left = await page.evaluate(() => { ctrl.detach(); return document.querySelectorAll('.kc').length; });
   ok(left === 0, 'detach removes DOM');
+  // daggerboard button (B cycles Ned -> Halvt -> Op) and the jib slider (Q/Z, Shift+arrows)
+  await page.goto(demo('?layout=sail&spi=0&board=1&jib=1')); await page.waitForTimeout(200);
+  ok(await page.locator('.kc-board').count() === 1 && await page.locator('.kc-jib').count() === 1, 'board button + jib slider shown');
+  await page.keyboard.press('KeyB'); ok((await st(page)).board === 0.5, 'B: board half up');
+  await page.keyboard.press('KeyB'); ok((await st(page)).board === 0.15, 'B again: board up');
+  await page.click('.kc-board'); ok((await st(page)).board === 1, 'click: board down again');
+  const bt = await page.evaluate(() => document.querySelector('.kc-board .kc-bd-txt i').textContent);
+  ok(bt.length > 0, 'board button shows its position: ' + bt);
+  const j0 = (await st(page)).jib;
+  await page.keyboard.down('KeyQ'); await page.waitForTimeout(400); await page.keyboard.up('KeyQ');
+  const j1 = await st(page);
+  ok(j1.jib < j0 - 0.1 && j1.autoJib === false, 'Q sheets the jib in and switches jib AUTO off (' + j0.toFixed(2) + ' -> ' + j1.jib.toFixed(2) + ')');
+  const m0 = j1.sheet;
+  await page.keyboard.down('Shift'); await page.keyboard.down('ArrowDown'); await page.waitForTimeout(400); await page.keyboard.up('ArrowDown'); await page.keyboard.up('Shift');
+  const j2 = await st(page);
+  ok(j2.jib > j1.jib + 0.1 && Math.abs(j2.sheet - m0) < 1e-6, 'Shift+ArrowDown eases the jib, not the main');
+  const tc = await page.evaluate(() => KOS.Input.toControls(ctrl.state, null, null));
+  ok(tc.board === 1 && tc.autoJib === false && Math.abs(tc.jib - j2.jib) < 1e-9, 'toControls carries board/jib');
   // RIB keyboard throttle with neutral detent
   await page.goto(demo('?layout=rib')); await page.waitForTimeout(200);
   await page.keyboard.down('ArrowUp'); await page.waitForTimeout(700); await page.keyboard.up('ArrowUp');

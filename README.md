@@ -61,7 +61,7 @@ On a phone:
 
 ### What makes it tick
 
-- **Real sailing physics.** True and apparent wind, gusts and shifts, heel and hiking, sail trim and stall, luffing, irons, tacks and gybes, planing, capsizing. Sail power flattens in a strong breeze the way a crew would depower the rig, so more wind means more speed (and more risk), not less.
+- **Real sailing physics.** True and apparent wind, gusts and shifts, heel and hiking, sail trim and stall, luffing, irons, tacks and gybes, planing, capsizing, a daggerboard you can raise (half up on a run is faster, up on a beat and you slide sideways) and a jib you can trim on its own. Sail power flattens in a strong breeze the way a crew would depower the rig, so more wind means more speed (and more risk), not less.
 - **Real racing rules.** Port/starboard, windward/leeward, overtaking, tacking and mark-room are judged by the same code that drives the computer opponents. A rule 44 penalty is one turn (a 360°).
 - **The real KØS coaches** (Jesper, Ida, Storm, Marius, Maria, Anton) explain things in short, kid-friendly Danish sentences, with English one tap away. Every lesson and race opens with a card that says in a line or two what to do.
 - **Made for thumbs.** Large touch targets, steering pads, a sheet slider, HUD that fits a phone in portrait and landscape, and keyboard control on desktop.
@@ -77,8 +77,8 @@ capsizes easily. The H-boat is heavy and steady. The J70 planes downwind with it
 Three help levels make it fun for an 8-year-old as well as a 29er sailor:
 
 - **Let** (easy): automatic sail trim, no capsizing.
-- **Normal**
-- **Pro**: manual trim, capsizing and penalty turns.
+- **Normal**: auto trim you can switch off, capsizing, plus the daggerboard button (Sværd) on dinghies and a jib slider (Fok) on boats with a jib.
+- **Pro**: manual trim (main and jib), capsizing and penalty turns.
 
 Parents and coaches can unlock everything in the settings.
 
@@ -90,6 +90,8 @@ Parents and coaches can unlock everything in the settings.
 | Sheet in / out (pull the sail in / let it out) | ↑ ↓ or W S | Sheet slider (or AUTO) |
 | Hike out | Hold Space | HIKE button |
 | Gennaker / spinnaker | E | SPI button |
+| Daggerboard down / half / up (Normal, Pro) | B | SVÆRD button |
+| Jib sheet in / out (Normal, Pro; Feva, Zest, 29er, H-boat, J70) | Q Z or Shift+↑ ↓ | Fok slider (or its AUTO) |
 | RIB throttle | ↑ ↓ | Throttle lever and wheel |
 | Pause | Esc or P | Pause button |
 

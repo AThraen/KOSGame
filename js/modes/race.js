@@ -461,10 +461,11 @@
 
     const extra = [{ id: 'ff', icon: 'forward', labelKey: 'race.btn.ff', key: 'G' }, { id: 'layl', icon: 'compass', labelKey: 'race.btn.layl', key: 'L' }];
     if (assist !== 'easy') extra.push({ id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' });
-    const ctrl = KOS.Input.attach(host.layer, {
+    const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'asym' : 'spi',
       hike: !cls.keel && assist !== 'easy', autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
-    });
+    }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
+    const aids = KOS.SailAids.create({ ctrl, boat: me, assist, coach: txt => say(txt) });
     ctrl.on('ff', () => { if (S.phase === 'pre' && S.clock < -14) { S.ff = !S.ff; sfx('whoosh', { vol: 0.5 }); ctrl.highlight('ff', S.ff); } });
     ctrl.on('layl', () => { S.laylines = !S.laylines; sfx('rigClick'); ctrl.highlight('layl', S.laylines); if (S.laylines) tip('laylines'); });
     ctrl.on('turn', () => { if (S.pen) { S.pen.auto = true; sfx('tap'); } });
@@ -771,7 +772,7 @@
       closeIntroCard();
       sfx('whistle', { vol: 0.5 });
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
-      coachIntro = KOS.UI.coach(t(P.venue === 'bay' ? 'race.introBay' : 'race.intro') + (touch ? '' : '  ' + t('race.keys')), { ms: 6000 });
+      coachIntro = KOS.UI.coach(t(P.venue === 'bay' ? 'race.introBay' : 'race.intro') + (touch ? '' : '  ' + t('race.keys') + aids.keys()), { ms: 6000 });
     }
     function buildIntroCard() {
       const el = document.createElement('div');
@@ -811,6 +812,7 @@
       // player controls
       controls = KOS.Input.toControls(ctrl.state, me, controls, dt);
       if (assist === 'easy') controls.autoHike = true;
+      aids.apply(controls);
       if (autopilot) Object.assign(controls, autopilot.think(env, autoPlan(), live));
       if (S.phase === 'finish') { controls.trimBias = 0.4; }
       if (S.pen && (S.pen.auto || autopilot)) penControls(me, controls);
@@ -854,6 +856,7 @@
       const n = S.ff ? 5 : S.phase === 'finish' ? 4 : 1;
       for (let i = 0; i < n; i++) simStep(dt);
       if (controls.autoTrim) ctrl.setSheet(me.sheet);
+      aids.tick(dt * n, S.phase === 'race');
       if (assist === 'easy') scene.showNoGo = Math.abs(me.twa) < cls.noGo + 0.12 || me.inIrons;
       if (S.phase === 'race') raceFeedback(dt);
       if (S.phase === 'finish') {

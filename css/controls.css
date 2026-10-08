@@ -247,3 +247,40 @@
 .kc-slider .kc-key { top: 50%; right: -16px; margin-top: -11px; }
 .kc-slider { padding-top: 16px; }
 .kc-throttle .kc-track { margin: 6px 0; }
+
+/* ---------- daggerboard button (in the extras column) + the small jib ("Fok") slider next to the sheet ---------- */
+.kc-board { flex-direction: column; justify-content: center; gap: 1px; padding: 3px 6px 4px; min-width: 60px; }
+.kc-board .kc-bd-ico { width: 32px; height: 30px; flex: none; }
+.kc-board .kc-bd-txt { display: block; text-align: center; }
+.kc-board .kc-bd-txt b, .kc-landscape .kc-board .kc-bd-txt b { display: block; font-size: 9.5px; }
+.kc-board .kc-bd-txt i { display: none; }
+.kc-board[data-pos="1"], .kc-board[data-pos="2"] { border-color: rgba(255, 198, 92, .7); }
+.kc-board[data-pos="1"] .kc-bd-ico, .kc-board[data-pos="2"] .kc-bd-ico { color: var(--kc-hot1); }
+.kc-board.kc-on .kc-bd-ico { color: inherit; }
+/* with the board button the portrait extras form a row under the top edge (a column would run into the HUD) */
+.kc-portrait.kc-hasboard .kc-extras { flex-direction: row-reverse; align-items: flex-start; }
+.kc { --kc-jw: 50px; }
+.kc-slider.kc-jib {
+  width: var(--kc-jw); height: calc(var(--kc-sl) * .86); border-radius: 22px;
+  right: calc(var(--kc-sl-right) + (var(--kc-pad) - var(--kc-sl-w)) / 2 + var(--kc-sl-w) + 8px);
+  bottom: calc(var(--kc-sl-bot) + var(--kc-pad) + var(--kc-gap) + 4px);
+}
+.kc-jib .kc-sl-lbl svg { width: 20px; height: 20px; }
+.kc-jib .kc-sl-lbl b { font-size: 10px; }
+.kc-jib .kc-thumb { width: 42px; height: 34px; margin-left: -21px; border-radius: 12px; top: calc(var(--v, .5) * (100% - 34px)); }
+.kc-jib .kc-thumb i { height: 14px; }
+.kc-jib .kc-fill { height: calc(var(--v, .5) * (100% - 34px) + 8px); width: 5px; }
+.kc-jib .kc-zone { left: 4px; right: 4px; top: calc(var(--z0, .4) * (100% - 34px) + 17px); height: max(8px, calc((var(--z1, .6) - var(--z0, .4)) * (100% - 34px))); }
+.kc-jib .kc-auto { min-width: 44px; padding: 0 6px; font-size: 10px; }
+.kc-jib.kc-good .kc-thumb {
+  background: linear-gradient(180deg, #8ff5c1, var(--kc-good)); border-color: #d7ffe9;
+  box-shadow: 0 0 0 4px rgba(62, 224, 143, .3), 0 0 14px rgba(62, 224, 143, .7), inset 0 2px 0 rgba(255, 255, 255, .5);
+}
+.kc-jib.kc-autoon .kc-track { opacity: .55; }
+.kc-jib.kc-autoon .kc-thumb { transition: top .25s ease; }
+.kc-joymode.kc-sail .kc-jib { bottom: calc(var(--kc-sl-bot) + var(--kc-round) + var(--kc-gap) + 4px); }
+.kc-landscape .kc-jib { right: calc(var(--kc-sl-right) + var(--kc-pad) + var(--kc-gap) + var(--kc-sl-w) + 8px); bottom: var(--kc-sl-bot); }
+.kc-landscape.kc-joymode.kc-sail .kc-jib { right: calc(var(--kc-sl-right) + var(--kc-round) + var(--kc-gap) + var(--kc-sl-w) + 8px); bottom: var(--kc-sl-bot); }
+.kc-narrow { --kc-jw: 44px; }
+.kc-landscape.kc-nopause.kc-hasboard .kc-extras { right: var(--kc-sl-right); } /* no Input pause button: use its corner */
+.kc-slider.kc-jib .kc-key { right: auto; left: -18px; }

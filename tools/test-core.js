@@ -369,6 +369,81 @@ test('Physics: spinnaker boost only on broad angles, collapses when too high', (
 });
 
 // ====================================================================== RIB
+function settleStats(cls, twaDeg, tws, ctl) {
+  const wind = KOS.Wind.steady(0, tws);
+  const b = P.createBoat(cls, { heading: R(-twaDeg) });
+  const c = Object.assign(P.controls(), { autoHike: true }, ctl || {});
+  let sp = 0, lee = 0, vmg = 0, n = 0;
+  for (let i = 0; i < 40 * 60; i++) {
+    b.heading = R(-twaDeg); b.yawRate = 0;
+    if (ctl && ctl.jibOff !== undefined) c.jib = U.clamp(P.idealJib(b) + ctl.jibOff, 0, 1);
+    P.step(b, c, { wind, assist: 'normal' }, KOS.DT);
+    if (i >= 30 * 60) { sp += b.speed; lee += Math.atan2(Math.abs(b.slip), b.speed); vmg += -b.vy; n++; }
+  }
+  return { b, kn: kn(sp / n), lee: U.deg(lee / n), vmg: kn(vmg / n) };
+}
+test('Physics: daggerboard — board 1 = classic model; up upwind slides sideways; half up on a run is faster', () => {
+  for (const id of ['opti', 'ilca', '29er']) {
+    const ng = KOS.Boats.get(id).noGoDeg;
+    // board fully down (explicit) reproduces the default controls exactly
+    const a = settleStats(id, ng + 6, 10), a1 = settleStats(id, ng + 6, 10, { board: 1 });
+    ok(a.b.x === a1.b.x && a.b.y === a1.b.y && a.b.speed === a1.b.speed, id + ' board 1 identical');
+    const up = settleStats(id, ng + 6, 10, { board: 0.15 }), half = settleStats(id, ng + 6, 10, { board: 0.5 });
+    ok(up.lee > a.lee * 3, `${id} board up upwind: leeway ${up.lee.toFixed(1)}° vs ${a.lee.toFixed(1)}°`);
+    ok(up.vmg < a.vmg * 0.5, `${id} board up upwind: VMG ${up.vmg.toFixed(2)} vs ${a.vmg.toFixed(2)} kn`);
+    ok(half.vmg < a.vmg * 0.9 && half.vmg > up.vmg, `${id} half board upwind in between: ${half.vmg.toFixed(2)}`);
+    const run = settleStats(id, 170, 10), runHalf = settleStats(id, 170, 10, { board: 0.4 });
+    between(runHalf.kn / run.kn, 1.03, 1.09, id + ' half board on a run: a few % faster');
+    const reach = settleStats(id, 90, 10), reachHalf = settleStats(id, 90, 10, { board: 0.55 });
+    ok(reachHalf.kn >= reach.kn * 0.99, id + ' board ~half on a beam reach is fine');
+  }
+});
+test('Physics: daggerboard moves smoothly, auto board follows the ideal, keelboats have none', () => {
+  const wind = KOS.Wind.steady(0, 10);
+  const b = P.createBoat('opti', { heading: R(-170) });
+  const c = Object.assign(P.controls(), { board: 0.15 });
+  sim(b, c, wind, 0.25);
+  between(b.board, 0.3, 0.9, 'half way after 0.25 s: ' + b.board.toFixed(2));
+  sim(b, c, wind, 0.6);
+  near(b.board, 0.15, 1e-9, 'up after ~0.6 s');
+  const a = P.createBoat('ilca', { heading: R(-170) });
+  sim(a, Object.assign(P.controls(), { autoBoard: true }), wind, 3);
+  near(a.board, P.idealBoard('ilca', R(170)), 1e-9, 'auto board = ideal');
+  near(P.idealBoard('opti', R(48)), 1, 1e-9, 'down upwind');
+  between(P.idealBoard('opti', R(90)), 0.45, 0.7, 'about half on a beam reach');
+  between(P.idealBoard('opti', R(175)), 0.2, 0.4, 'mostly up on a run');
+  near(P.idealBoard('j70', R(175)), 1, 1e-9, 'keelboat: no board');
+  const k = P.createBoat('hboat', { heading: R(-170) });
+  sim(k, Object.assign(P.controls(), { board: 0.15 }), wind, 2);
+  ok(k.board === 1, 'keelboat ignores the board control');
+});
+test('Physics: jib — auto = classic; hand-trimmed right is a bit faster/higher; flapping or over-sheeted is slower', () => {
+  for (const id of ['feva', 'j70']) {
+    const ng = KOS.Boats.get(id).noGoDeg;
+    const auto = settleStats(id, ng + 6, 10), auto2 = settleStats(id, ng + 6, 10, { autoJib: true, jib: 0.9 });
+    ok(auto.b.x === auto2.b.x && auto.b.speed === auto2.b.speed, id + ' auto jib ignores the jib sheet');
+    const good = settleStats(id, ng + 6, 10, { autoJib: false, jibOff: 0 });
+    between(good.kn / auto.kn, 1.005, 1.05, id + ' well-trimmed jib: modest bonus');
+    ok(good.lee < auto.lee, id + ' and points a little higher');
+    const flap = settleStats(id, ng + 6, 10, { autoJib: false, jibOff: 0.3 });
+    ok(flap.kn < auto.kn * 0.9 && flap.b.jibLuffing, id + ' eased jib flaps: ' + flap.kn.toFixed(2));
+    const stall = settleStats(id, 95, 10, { autoJib: false, jibOff: -0.3 }), reach = settleStats(id, 95, 10);
+    ok(stall.kn < reach.kn * 0.95 && stall.b.jibStalled, id + ' over-sheeted jib on a reach stalls');
+  }
+  const o = settleStats('opti', 60, 10), o2 = settleStats('opti', 60, 10, { autoJib: false, jib: 1 });
+  ok(o.b.speed === o2.b.speed, 'no jib on an Opti');
+});
+test('AI: sets its daggerboard to about the ideal and trims the jib near ideal on Normal', () => {
+  const wind = KOS.Wind.steady(0, 10);
+  const b = P.createBoat('feva', { x: 0, y: 0, heading: R(175), speed: 2 });
+  const h = KOS.AI.createHelm(b, { skill: 0.8, seed: 2 });
+  let c;
+  for (let i = 0; i < 60 * 8; i++) { c = h.think({ wind, t: i * KOS.DT, assist: 'normal' }, { target: { x: 0, y: 400 } }, [b]); P.step(b, c, { wind, assist: 'normal' }, KOS.DT); }
+  between(c.board, 0.15, 0.55, 'board half up on the run: ' + c.board);
+  ok(c.autoJib === false && Math.abs(c.jib - P.idealJib(b)) < 0.05, 'jib trimmed near ideal');
+  const e = h.think({ wind, t: 9, assist: 'easy' }, { target: { x: 0, y: 400 } }, [b]);
+  ok(e.autoJib !== false, 'easy: auto jib');
+});
 test('RIB: throttle, planing, reverse, prop-wash steering, skidding turns, wake size', () => {
   const wind = KOS.Wind.steady(0, 8);
   const b = P.createBoat('rib', { heading: R(90) });

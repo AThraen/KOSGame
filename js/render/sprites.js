@@ -514,6 +514,14 @@
       else { gr.addColorStop(0, 'rgba(0,20,50,' + a + ')'); gr.addColorStop(0.5, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(255,255,255,' + a * 0.5 + ')'); }
       ctx.fillStyle = gr; ctx.fill(hullD);
     }
+    // raised daggerboard: its top sticks up out of the case (the higher, the longer its shadow)
+    if (g.board && boat.cls && boat.cls.hasBoard && boat.board != null && boat.board < 0.97) {
+      const up = clamp(1 - boat.board, 0, 1), by = yAt(g, g.board - 0.06), bl = g.L * 0.11;
+      const sh = toLocal(0.12 + up * 0.5, 0.18 + up * 0.6);
+      ctx.fillStyle = 'rgba(0,25,60,0.25)'; ctx.fillRect(-0.04 + sh[0] * 0.6, by + sh[1] * 0.6, 0.08, bl);
+      ctx.fillStyle = clsId === 'opti' ? '#c08a55' : '#eef1f5'; ctx.strokeStyle = 'rgba(30,35,45,0.7)'; ctx.lineWidth = 0.015;
+      ctx.fillRect(-0.04, by - up * 0.06, 0.08, bl); ctx.strokeRect(-0.04, by - up * 0.06, 0.08, bl);
+    }
     const rudder = clamp(opts.rudder != null ? opts.rudder : boat.rudder != null ? boat.rudder : (boat.controls && boat.controls.rudder) || clamp((boat.yawRate || 0) * 1.5, -1, 1), -1, 1);
     if (g.motor) { drawRibLive(ctx, boat, g, colors, t, rudder, st); ctx.restore(); return; }
     // rudder + tiller
@@ -541,7 +549,9 @@
     const flutter = luff ? 0.05 + (boat.inIrons ? 0.03 : 0) : 0;
     const so = toLocal(0.35 + g.mastH * 0.06, 0.5 + g.mastH * 0.08);
     const sOpt = { t, phase: st.phase, flutter, twist: 0.42, upper: g.sprit ? 0.92 : 0.72, headX, headY: 0 };
-    const jibAng = clamp(boom * 0.72, -1.05, 1.05) || lee * 0.15;
+    // hand-trimmed jib (Normal/Pro): its own angle from physics, and it flutters when eased too far
+    const jibAng = boat.jibManual && Number.isFinite(boat.jibAng) ? clamp(boat.jibAng, -1.05, 1.05) || lee * 0.15 : clamp(boom * 0.72, -1.05, 1.05) || lee * 0.15;
+    const jibFlutter = boat.jibLuffing ? 0.07 : flutter;
     const jibTack = [0, -L / 2 + L * (g.jib || 0)];
     const jibChord = (mastY - jibTack[1]) * (g.jibLen || 1) * 1.02;
     // shadows of sails
@@ -583,7 +593,7 @@
     ctx.beginPath(); ctx.moveTo(clewX * 0.85, mastY + (clewY - mastY) * 0.85); ctx.lineTo(0, Math.min(L / 2 - 0.1, yAt(g, 0.88))); ctx.stroke();
     // jib
     if (g.jib) {
-      drawSailShape(ctx, jibTack, jibAng, jibChord, depth * 0.95, lee, Object.assign({}, sOpt, { upper: 0.22, twist: 0.2, headX: headX * 0.75, color: colors.sail, mylar: g.mylar, lw: 0.02 }));
+      drawSailShape(ctx, jibTack, jibAng, jibChord, depth * (boat.jibLuffing ? 0.45 : 0.95), lee, Object.assign({}, sOpt, { flutter: jibFlutter, upper: 0.22, twist: 0.2, headX: headX * 0.75, color: colors.sail, mylar: g.mylar, lw: 0.02 }));
       ctx.strokeStyle = 'rgba(160,170,185,0.8)'; ctx.lineWidth = 0.015; ctx.beginPath(); ctx.moveTo(jibTack[0], jibTack[1]); ctx.lineTo(headX * 0.75, mastY); ctx.stroke();
     }
     // mainsail
