@@ -73,8 +73,15 @@
 
 /* ---------------------------------------------------------------- phones */
 @media (max-width: 560px) {
-  .school-panel { top: calc(var(--safe-t) + 148px); width: min(240px, 62vw); padding: 7px 10px 8px; }
-  .sp-task { font-size: .88rem; }
+  /* one compact row right under the HUD: badge · task · step, then a thin bar (the dots repeat the step count) */
+  .school-panel { top: calc(var(--safe-t) + 122px); width: min(320px, calc(100vw - 20px - var(--safe-l) - var(--safe-r))); padding: 6px 10px 7px;
+    border-radius: 13px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 8px; }
+  .sp-head { display: contents; }
+  .sp-badge { grid-row: 1; grid-column: 1; font-size: .56rem; padding: 2px 6px; }
+  .sp-task { grid-row: 1; grid-column: 2; font-size: .84rem; line-height: 1.15; }
+  .sp-step { grid-row: 1; grid-column: 3; font-size: .6rem; }
+  .sp-bar { grid-row: 2; grid-column: 1 / -1; margin-top: 5px; height: 4px; }
+  .sp-dots { display: none; }
   .sc-in { padding: 14px 16px 16px; }
   .sc-body { flex-direction: column; gap: 6px; }
   .sc-dia { width: 138px; height: 138px; }
