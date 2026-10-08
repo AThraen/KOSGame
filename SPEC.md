@@ -336,6 +336,9 @@ or offline changes nothing. Screen changes are virtual page views (`/#hub`, `/#p
 Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|unlockAll, View overview|zoom,
 Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson. Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
 `play:finish`, `settings`) plus a few direct `KOS.Track.event` calls in app.js.
+Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `kos.pid`, never derived from the name). Custom dimensions
+(ids in `DIM` in track.js, must match the ones created in Matomo): visit scope 1 age band, 2 boat; action scope 3 activities completed,
+4 total stars, 5 player level. They are set before every page view and event.
 
 ## Testing
 

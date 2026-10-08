@@ -108,6 +108,8 @@ new version.
 
 So the club can see whether the game is used, it reports anonymous usage to the club's own Matomo server: which screens are opened, which activities
 are started and finished (with stars and time), which boat, language and control/assist/sound settings are used, and whether the app was installed.
+Each device gets a random player id (e.g. `P-7K3QX9`, used as the Matomo User ID) so progress can be followed over time, sent with the
+player's age band, chosen boat, activities completed, stars and level.
 It is cookieless, respects the browser's Do-Not-Track setting, and never sends the player's name or anything personal. It is switched off on localhost,
 in headless/test runs and in God mode, and the game works the same if an adblocker blocks it. Code: `js/ui/track.js`.
 

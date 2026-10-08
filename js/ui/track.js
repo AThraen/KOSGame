@@ -1,6 +1,7 @@
 // KØS SEJL — js/ui/track.js
 // KOS.Track: anonymous usage statistics via Matomo (cookieless, honours Do-Not-Track). Tells the club whether the
-// game is used and which options people pick. Never sends names or any personal data. A no-op on localhost,
+// game is used and which options people pick. Never sends names or any personal data: the Matomo User ID is a
+// random per-device player id, plus age band, boat and progress as custom dimensions (DIM). A no-op on localhost,
 // file:, headless/automated browsers and in God mode. Every call is wrapped: an adblocker or being offline
 // changes nothing for the player. See SPEC.md (Analytics).
 (function (root) {
@@ -8,6 +9,9 @@
   const BASE = 'https://matomo.bering.codeart.dk/';
   const SITE_ID = '13';
   const WATCHED = ['lang', 'sound', 'music', 'assist', 'controls', 'reducedMotion', 'unlockAll']; // volume is too chatty
+  // Custom dimension ids as created in Matomo (Administration > Websites > Custom Dimensions). 0 = not sent.
+  // Visit scope: who is playing; action scope: progress at the moment of each page view / event.
+  const DIM = { age: 1, boat: 2, done: 3, stars: 4, level: 5 };
   let state = 0; // 0 not started, 1 live, -1 disabled
   let lastScreen = null;
   let lastSettings = null;
@@ -34,6 +38,8 @@
       _paq.push(['enableLinkTracking']);
       _paq.push(['setTrackerUrl', BASE + 'matomo.php']);
       _paq.push(['setSiteId', SITE_ID]);
+      const pid = playerId();
+      if (pid) _paq.push(['setUserId', pid]);
       const d = root.document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
       g.async = true; g.src = BASE + 'matomo.js';
       g.onerror = () => { /* blocked or offline: ignore */ };
@@ -44,11 +50,38 @@
   }
   function push(args) { try { if (start()) root._paq.push(args); } catch (e) { /* ignore */ } }
 
+  // anonymous player id: random, made on this device, never derived from the name (e.g. "P-7K3QX9")
+  function playerId() {
+    try {
+      const S = KOS.Storage;
+      let id = S.get('pid', '');
+      if (!/^P-[0-9A-Z]{6}$/.test(id)) {
+        const A = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ', r = new Uint8Array(6);
+        (root.crypto && root.crypto.getRandomValues) ? root.crypto.getRandomValues(r) : r.forEach((_, i) => { r[i] = Math.random() * 256; });
+        id = 'P-' + Array.from(r, b => A[b % A.length]).join('');
+        S.set('pid', id);
+      }
+      return id;
+    } catch (e) { return ''; }
+  }
+  // progress snapshot sent with every hit (dimensions are re-set each time so they're never stale)
+  function dims() {
+    try {
+      const S = KOS.Storage, p = S.profile() || {}, all = S._allProgress();
+      let done = 0;
+      for (const k in all) if (all[k] && all[k].done) done++;
+      const xp = S.xp(), rank = KOS.App && KOS.App.rankOf ? KOS.App.rankOf(xp) : null;
+      const v = { age: p.age || '', boat: S.get('boat', 'opti'), done: String(done), stars: String(S.totalStars()), level: rank ? String(rank.level) : '' };
+      for (const k in DIM) if (DIM[k] && v[k] !== '') push(['setCustomDimension', DIM[k], v[k]]);
+    } catch (e) { /* ignore */ }
+  }
+
   const Track = (KOS.Track = {
     event(category, action, name, value) {
       const a = ['trackEvent', category, action];
       if (name != null) a.push(String(name));
       if (value != null && isFinite(value)) a.push(+value);
+      dims();
       push(a);
     },
     // virtual page view for a screen change (not for a re-render of the same screen)
@@ -58,6 +91,7 @@
       lastScreen = key;
       push(['setCustomUrl', '/#' + key]);
       push(['setDocumentTitle', 'KØS SEJL - ' + key]);
+      dims();
       push(['trackPageView']);
     },
   });
