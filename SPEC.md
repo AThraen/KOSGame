@@ -474,8 +474,9 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
     (confirmed, no outboard / boat hook / bilge job).
   - J/70: rudder, tiller, halyards and bowsprit stay on; the jib lives furled on the forestay inside a sock. Jobs: cover
     off, sock off the jib ("Tag strømpen af fokken"), jib sheets, hoist the main, unfurl the jib ("Rul fokken ud"),
-    gennaker ready, cast off, fenders in; unrigging furls the jib and puts the sock back on. **Unconfirmed:** whether the
-    main is hoisted at the pontoon, and whether there is a gennaker besides the furled headsail.
+    gennaker ready, cast off, fenders in; unrigging furls the jib and puts the sock back on. Confirmed (club 2026-10-08): the main is hoisted at the pontoon,
+    and there is a gennaker besides the furled headsail.
+  - RS Tera / RS Zest: the mast with its sail rolled round it lives in the club's shed (skuret) between sessions.
 - **Club boat photos (user 2026-10-07, described, not on disk).** What the real KØS boats look like:
   - **29er:** white hull, clear/white mylar main + jib with **red-orange leech tape and batten pockets**, red "29er"
     logo at the head, sail number **DEN 63**; **purple asymmetric spinnaker** (game today: pink/navy/white). Crew of two
