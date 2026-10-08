@@ -97,7 +97,7 @@ function svgFor(v, opts) {
   const bay = W.get('bay');
   const checks = [
     ['club basin is water', !W.isLand(bay, -200, -100)],
-    ['clubhouse is land', W.isLand(bay, 96, 22)],
+    ['clubhouse is land', W.isLand(bay, 60, 60)],
     ['basin depth 1.6', W.depthAt(bay, -300, -100) === 1.6],
     ['east bay depth ≥ 3', W.depthAt(bay, 400, -600) >= 3],
     ['channel 6.5', W.depthAt('harbor', W.chanX(-500), -500) === 6.5],
@@ -106,7 +106,7 @@ function svgFor(v, opts) {
     ['spawns in water', W.ids.every(id => { const v = W.get(id); return !W.isSolid(v, v.spawn.x, v.spawn.y); })],
     ['berths in water', W.global.berths.every(b => !W.isSolid('pier', b.x, b.y))],
     ['buoys in water', W.global.buoys.every(b => !W.isSolid('sound', b.x, b.y) && !W.isSolid('bay', b.x, b.y))],
-    ['hit shore', !!W.hit(bay, 96, 22, 2)],
+    ['hit shore', !!W.hit(bay, 60, 60, 2)],
     ['hit pier', (W.hit('pier', W.global.berths[0].x, W.global.berths[0].y, 2) || {}).type === 'pier'],
     ['shallow hit', (W.hit(bay, -560, -700, 0.5, 1.0) || {}).type === 'shallow'],
   ];
