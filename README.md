@@ -104,6 +104,13 @@ run in progress and waits until you are back on a menu. Progress, stars and sett
 After changing or adding game files, refresh the offline file list (`node tools/gen-precache.js`) so players get the
 new version.
 
+## Anonymous usage statistics
+
+So the club can see whether the game is used, it reports anonymous usage to the club's own Matomo server: which screens are opened, which activities
+are started and finished (with stars and time), which boat, language and control/assist/sound settings are used, and whether the app was installed.
+It is cookieless, respects the browser's Do-Not-Track setting, and never sends the player's name or anything personal. It is switched off on localhost,
+in headless/test runs and in God mode, and the game works the same if an adblocker blocks it. Code: `js/ui/track.js`.
+
 ## Running it locally
 
 There is no build step: the repository is the game.

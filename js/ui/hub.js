@@ -112,7 +112,7 @@
 
   // anchor = world point (m) the pin points at; off = pin offset in map px from the anchor (for crowded spots)
   const AREAS = [
-    { id: 'club', icon: 'club', color: '#ff8a3d', minStars: 0, anchor: 'club', off: [110, 20] },
+    { id: 'club', icon: 'club', color: '#ff8a3d', minStars: 0, anchor: 'club', off: [125, -32] },
     { id: 'pier', icon: 'pier', color: '#4aa8ff', minStars: 2, anchor: 'pier', off: [-130, -60] },
     { id: 'rib', icon: 'rib', color: '#ff5a36', minStars: 20, anchor: 'rib', off: [70, -150] },
     { id: 'school', icon: 'school', color: '#2fd0c3', minStars: 0, anchor: 'school', off: [0, -90] },

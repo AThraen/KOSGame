@@ -351,12 +351,12 @@
   const LANDMARKS = [];
   const add = (o) => (LANDMARKS.push(o), o);
   // the club
-  add({ kind: 'clubhouse', x: 96, y: 22, w: 34, h: 14, rot: -22, name: 'KØS' });
+  add({ kind: 'clubhouse', x: 60, y: 60, w: 34, h: 14, rot: -22, name: 'KØS' }); // the real KØS house, SW of the boat hall
   add({ kind: 'flagpole', x: 34, y: 16, flag: 'dk' });
   add({ kind: 'boatpark', x: -6, y: 64, w: 30, h: 18, rot: -40 });
   add({ kind: 'container', x: 140, y: 6, w: 12, h: 5, rot: -22, color: '#e8762b' });
   add({ kind: 'container', x: 150, y: 14, w: 12, h: 5, rot: -22, color: '#3a7bd5' });
-  add({ kind: 'building', x: 60, y: 60, w: 26, h: 12, rot: -22, color: '#c9c3b6', floors: 1, name: 'Bådhal' });
+  add({ kind: 'building', x: 96, y: 22, w: 26, h: 12, rot: -22, color: '#c9c3b6', floors: 1, name: 'Bådhal' });
   add({ kind: 'slipway', poly: SLIP_POLY, heading: SLIP.heading, x: SLIP.x, y: SLIP.y });
   add({ kind: 'gangway', poly: PIERS.find(p => p.id === 'C-gangway') || null, x: 62, y: -10 });
   add({ kind: 'lighthouse', x: -288, y: -424, light: 'Fl W 3s', color: 'W' });
@@ -408,7 +408,7 @@
     { x: -660, y: -720, text: 'Svanemøllestranden', size: 18, rot: -88, kind: 'land' },
     { x: -420, y: -460, text: 'Badestrandens mole', size: 11, rot: -14, kind: 'land' },
     { x: 290, y: -40, text: 'Svaneknoppen', size: 18, rot: -12, kind: 'land' },
-    { x: 96, y: 44, text: 'KØS', size: 12, kind: 'club' },
+    { x: 60, y: 82, text: 'KØS', size: 12, kind: 'club' },
     { x: -320, y: -120, text: '1,6', size: 14, kind: 'depth' },
     { x: 150, y: -260, text: '2,4', size: 14, kind: 'depth' },
     { x: 360, y: -460, text: '3,4', size: 14, kind: 'depth' },
@@ -605,7 +605,7 @@
     global: { coast: COAST, breakwaters: BREAKWATERS, piers: PIERS, depth: DEPTH, defaultDepth: DEPTH_DEFAULT, buoys: BUOYS, lights: LIGHTS, lanes: LANES, zones: ZONES, landmarks: LANDMARKS, labels: LABELS, berths: BERTHS, slip: SLIP, jetties: JETTIES },
     // points of interest in world meters (used by the hub map pins and by modes for camera intros)
     poi: {
-      club: { x: 96, y: 22 }, pier: { x: 10, y: -30 }, rib: { x: 56, y: -40 }, school: { x: -300, y: -150 },
+      club: { x: 60, y: 60 }, pier: { x: 10, y: -30 }, rib: { x: 56, y: -40 }, school: { x: -300, y: -150 },
       bay: { x: -290, y: -640 }, rules: { x: 200, y: -560 }, nav: { x: chanX(-700), y: -700 }, race: { x: 3750, y: -2000 },
       mole: { x: -288, y: -424 }, marina: { x: 310, y: 290 }, ferry: { x: 790, y: -240 }, stubben: { x: 2350, y: -1500 },
     },
