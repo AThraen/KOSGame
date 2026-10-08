@@ -1,0 +1,96 @@
+/* css/modes/shed.css — tidy the sailing shed (js/modes/shed.js). The drag demo, floating text and sparkles reuse the
+   rigging classes (.rigging-demo, .rigging-float, .rig-sparkle) from css/modes/rigging.css. */
+.shed-root { position: absolute; inset: 0; overflow: hidden; background: #6e5034; touch-action: none; -webkit-user-select: none; user-select: none; }
+.shed-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: hidden; }
+
+/* HUD: top centre (the pause button sits top-right in dom modes) */
+.play-layer.mode-shed .hud.shed-hud { max-width: calc(100% - 84px - var(--safe-l) - var(--safe-r)); }
+@media (max-width: 520px) {
+  .play-layer.mode-shed .hud.shed-hud { left: calc(50% - 26px); }
+  .play-layer.mode-shed .hud.shed-hud .hud-item { padding: 3px 7px 3px 4px; }
+  .play-layer.mode-shed .hud.shed-hud .hud-ico .ico { width: 18px; height: 18px; }
+}
+.shed-meter { display: inline-block; width: 46px; height: 10px; margin-right: 6px; border-radius: 6px; background: rgba(255,255,255,.14); overflow: hidden; vertical-align: 1px; }
+.shed-meter i { display: block; height: 100%; border-radius: 6px; background: var(--good); transition: width .25s, background .25s; }
+.hud-mess.warn .shed-meter i { background: #ffd25e; }
+.hud-mess.alert .shed-meter i { background: var(--bad); }
+.hud-mess.alert { background: rgba(255, 77, 94, .22); animation: shedAlert .7s ease-in-out infinite; }
+@keyframes shedAlert { 50% { background: rgba(255, 77, 94, .42); } }
+@media (max-width: 520px) { .shed-meter { width: 30px; margin-right: 4px; } }
+
+/* ------------------------------------------------------------------ places */
+.shed-place { cursor: pointer; }
+.shed-place-hit { fill: rgba(255, 255, 255, 0); stroke: none; pointer-events: all; transition: fill .2s, stroke .2s; }
+.shed-label rect { fill: rgba(13, 19, 33, .78); stroke: rgba(255, 255, 255, .22); stroke-width: 1px; }
+.shed-label text { fill: #fff; font-weight: 900; font-family: ui-rounded, "Segoe UI Variable Display", system-ui, sans-serif; }
+.shed-sil * { fill: rgba(255, 255, 255, .08) !important; stroke: rgba(255, 255, 255, .55) !important; stroke-width: 2.4px !important; stroke-dasharray: 5 4; }
+.shed-sil text { display: none; }
+.shed-sil { opacity: .7; }
+/* holding a thing: every place is a choice; easy shows the right one */
+.shed-place.is-pick .shed-place-hit { fill: rgba(255, 255, 255, .05); stroke: rgba(255, 255, 255, .35); stroke-width: 2px; stroke-dasharray: 8 6; vector-effect: non-scaling-stroke; }
+.shed-place.is-hint .shed-place-hit { fill: rgba(255, 210, 94, .16); stroke: #ffd25e; stroke-width: 3px; stroke-dasharray: none; animation: shedHint 1.1s ease-in-out infinite; }
+.shed-place.is-hint .shed-label rect { fill: #ffd25e; } .shed-place.is-hint .shed-label text { fill: #3a2606; }
+.shed-place.is-hot .shed-place-hit, .shed-place.is-kb .shed-place-hit { fill: rgba(62, 224, 143, .22); stroke: #3ee08f; stroke-width: 4px; stroke-dasharray: none; animation: none; }
+.shed-place.is-hot .shed-label rect, .shed-place.is-kb .shed-label rect { fill: #3ee08f; } .shed-place.is-hot .shed-label text, .shed-place.is-kb .shed-label text { fill: #0b2a18; }
+.shed-place.is-wrong .shed-place-hit { fill: rgba(255, 77, 94, .28); stroke: var(--bad); stroke-width: 4px; stroke-dasharray: none; }
+.shed-place.is-wrong .shed-label { animation: shedNo .45s ease; }
+.shed-place.is-flash .shed-place-hit { fill: rgba(255, 210, 94, .22); stroke: #ffd25e; stroke-width: 4px; stroke-dasharray: none; animation: shedHint .4s ease-in-out 3; }
+.shed-place.is-gulp .shed-lid { transform-box: fill-box; transform-origin: 0 100%; animation: shedLid .45s ease; }
+@keyframes shedHint { 50% { fill: rgba(255, 210, 94, .32); } }
+@keyframes shedNo { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+@keyframes shedLid { 40% { transform: rotate(-24deg); } }
+
+/* ------------------------------------------------------------------ things */
+.shed-item { cursor: grab; }
+.shed-hit { fill: rgba(0, 0, 0, 0); stroke: rgba(0, 0, 0, 0); pointer-events: all; }
+.shed-shadow { fill: rgba(0, 0, 0, .22); }
+.shed-item-pop { transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), filter .15s; }
+.shed-item.is-fly { pointer-events: none; }
+.shed-item.is-fly .shed-shadow { opacity: 0; }
+.shed-item.is-sel .shed-item-pop { transform: scale(1.14); filter: drop-shadow(0 0 4px #ffd25e) drop-shadow(0 0 10px rgba(255, 210, 94, .9)); }
+.shed-item.is-held { cursor: grabbing; }
+.shed-item.is-held .shed-item-pop { filter: drop-shadow(0 12px 10px rgba(0, 0, 0, .45)); }
+.shed-item.is-held .shed-shadow { opacity: 0; }
+.shed-item.is-stale .shed-ico { animation: shedStale 1s ease-in-out infinite; }
+.shed-item.is-tangled .shed-item-pop { filter: drop-shadow(0 0 3px rgba(255, 255, 255, .8)); }
+.shed-item.is-coil .shed-item-pop { animation: shedCoil .3s ease; }
+.shed-item.is-bounce { transition: transform .38s cubic-bezier(.34, 1.56, .64, 1); }
+.shed-item.is-drop { transition: transform .22s ease-out; }
+.shed-item.is-snap { transition: transform .25s ease-in, opacity .25s ease-in; opacity: .2; pointer-events: none; }
+@keyframes shedStale { 0%, 100% { filter: drop-shadow(0 0 0 rgba(255, 77, 94, 0)); } 50% { filter: drop-shadow(0 0 5px #ff4d5e) drop-shadow(0 0 10px rgba(255, 77, 94, .8)); } }
+@keyframes shedCoil { 50% { transform: scale(1.18) rotate(12deg); } }
+
+/* a messy floor: a red glow creeps in from the edges; Peter yelling shakes the shed */
+.shed-root::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 rgba(255, 77, 94, 0); transition: box-shadow .5s; }
+.shed-root.is-messy::after { box-shadow: inset 0 0 70px rgba(255, 77, 94, .5); }
+.shed-root.is-shake .shed-svg { animation: shedShake .5s ease; }
+@keyframes shedShake { 15% { transform: translate(-6px, 2px); } 30% { transform: translate(6px, -2px); } 45% { transform: translate(-4px, 1px); } 60% { transform: translate(4px, 0); } 80% { transform: translate(-2px, 0); } }
+.shed-root.is-done .shed-item, .shed-root.is-failed .shed-item { pointer-events: none; }
+
+/* keyboard hint (desktop only) */
+.shed-keys { position: absolute; left: 50%; bottom: calc(var(--safe-b) + 6px); transform: translateX(-50%); padding: 3px 12px; border-radius: 10px; background: rgba(13, 19, 33, .6);
+  color: rgba(255, 255, 255, .78); font-size: .74rem; font-weight: 700; white-space: nowrap; pointer-events: none; }
+@media (hover: none), (max-width: 900px), (max-height: 560px) { .shed-keys { display: none; } }
+.shed-root.is-tall .shed-keys { display: none; }
+.shed-float { z-index: 36; }
+
+/* the coach bubble sits over the wall places: after a few seconds it ghosts out of the way (a yell stays loud) */
+@media (max-width: 600px), (max-height: 500px) {
+  #screen-play:has(.shed-root) .coach-top.in:not(.coach-tapclose):not(.coach-yell) { animation: coachDim .6s ease 3.4s forwards; }
+}
+@media (prefers-reduced-motion: reduce) { #screen-play:has(.shed-root) .coach-top.in { animation: none !important; } }
+
+/* Peter yelling (KOS.UI.coach with mood 'yell'): a shaking avatar and a bubble with a red edge (shared coach styles) */
+.coach.coach-yell .coach-bubble { background: #fff3e8; border: 3px solid var(--bad); }
+.coach.coach-yell .coach-bubble::before { border-right-color: var(--bad); }
+.coach.coach-yell .coach-text { font-weight: 900; font-size: 1.12rem; }
+.coach.coach-yell .coach-name { color: var(--bad); }
+.coach.coach-yell .coach-avatar { animation: coachYell .11s linear 8 alternate; }
+.coach.coach-yell.in .coach-bubble { animation: coachYellPop .35s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes coachYell { from { transform: translate(-2px, 1px) rotate(-5deg) scale(1.06); } to { transform: translate(2px, -1px) rotate(5deg) scale(1.06); } }
+@keyframes coachYellPop { 0% { transform: scale(.7); } 100% { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .shed-root.is-shake .shed-svg, .coach.coach-yell .coach-avatar, .coach.coach-yell.in .coach-bubble, .shed-item.is-stale .shed-ico, .hud-mess.alert, .shed-place.is-hint .shed-place-hit { animation: none; }
+  .shed-item.is-bounce, .shed-item.is-drop, .shed-item.is-snap { transition: none; }
+}

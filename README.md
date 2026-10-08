@@ -15,7 +15,7 @@ Svanemøllehavnen and the race area out on Øresund.
 
 The game is in **Danish** by default, with **English** under settings.
 
-> **Status:** all eight places are playable (about 110 activities). The game keeps being polished with feedback from the club's sailors and trainers.
+> **Status:** all eight places are playable (about 120 activities). The game keeps being polished with feedback from the club's sailors and trainers.
 
 ## The harbour map
 
@@ -32,7 +32,7 @@ Everything starts from an illustrated map of the area. Each place is a part of t
 | **Sejlrenden** (the channel) | Buoyage (red and green channel marks, cardinal marks), following the channel, yellow swim-zone buoys, night sailing by lights, compass courses |
 | **Broen** (the pier) | Docking and undocking under sail and with the RIB |
 | **RIB-pontonen** (RIB pontoon) | Drive the club's orange RIB: tow a line of Optimists, rescue a capsized dinghy, lay race marks, collect gear that has drifted off |
-| **Klubhuset** (clubhouse) | Rig and unrig every boat class, tie knots, capsize recovery, sailing quiz |
+| **Klubhuset** (clubhouse) | Rig and unrig every boat class, tie knots, capsize recovery, sailing quiz, and tidy the sailing shed before coach Peter loses his temper |
 
 ## Screenshots
 
@@ -63,7 +63,7 @@ On a phone:
 
 - **Real sailing physics.** True and apparent wind, gusts and shifts, heel and hiking, sail trim and stall, luffing, irons, tacks and gybes, planing, capsizing, a daggerboard you can raise (half up on a run is faster, up on a beat and you slide sideways) and a jib you can trim on its own. Sail power flattens in a strong breeze the way a crew would depower the rig, so more wind means more speed (and more risk), not less.
 - **Real racing rules.** Port/starboard, windward/leeward, overtaking, tacking and mark-room are judged by the same code that drives the computer opponents. A rule 44 penalty is one turn (a 360°).
-- **The real KØS coaches** (Jesper, Ida, Storm, Marius, Maria, Anton) explain things in short, kid-friendly Danish sentences, with English one tap away. Every lesson and race opens with a card that says in a line or two what to do.
+- **The real KØS coaches** (Jesper, Ida, Storm, Marius, Maria, Nicolas, Anton, Peter) explain things in short, kid-friendly Danish sentences, with English one tap away. Every lesson and race opens with a card that says in a line or two what to do.
 - **Made for thumbs.** Large touch targets, steering pads, a sheet slider, HUD that fits a phone in portrait and landscape, and keyboard control on desktop.
 - **Accessible.** Pinch-zoom works on menus, dialogs trap and restore keyboard focus, screens announce themselves to screen readers, and reduced-motion is respected.
 
@@ -155,7 +155,7 @@ css/                  style.css (menus), hub.css (map), game.css + controls.css 
 js/core/              boats, wind, physics, rules, AI helm, world (venues), activities  (pure, runs in Node too)
 js/render/            sprites (boats, buoys, avatars), water, scene (camera, canvas), effects
 js/ui/                app (screens, loop, results, PWA), hub (harbour map), ui (HUD, coach, dialogs), input, audio, storage
-js/modes/             one file per game mode: school, sail, race, rowschool, nav, dock, rib, rigging, knots, capsize, quiz
+js/modes/             one file per game mode: school, sail, race, rowschool, nav, dock, rib, rigging, knots, capsize, quiz, shed
 assets/               icons, painted backgrounds
 docs/                 ARCHITECTURE.md, MODE-AUTHORING.md, screenshots, reference charts
 tools/                dev server, headless test and screenshot tools

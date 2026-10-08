@@ -127,7 +127,7 @@
   if (KOS.I18n) {
     KOS.I18n.add('da', {
       area: {
-        club: { name: 'Klubhuset', desc: 'Rig til, slå knob, rejs en kæntret jolle og tag quizzen.' },
+        club: { name: 'Klubhuset', desc: 'Rig til, slå knob, rejs en kæntret jolle, tag quizzen og ryd op i skuret.' },
         school: { name: 'Sejlerskolen', desc: 'Lær at styre, krydse, slå og bomme i bugten.' },
         bay: { name: 'Fri sejlads', desc: 'Sejl frit i Svanemøllebugten og saml ting op.' },
         race: { name: 'Kapsejlads', desc: 'Start, kryds, læns og mål ude på Øresund.' },
@@ -139,7 +139,7 @@
     });
     KOS.I18n.add('en', {
       area: {
-        club: { name: 'Clubhouse', desc: 'Rig the boat, tie knots, right a capsized dinghy and take the quiz.' },
+        club: { name: 'Clubhouse', desc: 'Rig the boat, tie knots, right a capsized dinghy, take the quiz and tidy the shed.' },
         school: { name: 'Sailing School', desc: 'Learn to steer, beat upwind, tack and gybe in the bay.' },
         bay: { name: 'Free Sail', desc: 'Sail freely in Svanemøllebugten and collect things.' },
         race: { name: 'Racing', desc: 'Start, beat, run and finish out on the Øresund.' },
