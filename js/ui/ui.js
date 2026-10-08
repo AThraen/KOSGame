@@ -286,13 +286,14 @@
         '<path d="M37 24h26" stroke="#2b2b30" stroke-width="2"/><ellipse cx="43" cy="24" rx="6.5" ry="3.8" fill="#3b4250" stroke="#1b1d22" stroke-width="1.4"/>' +
         '<ellipse cx="57" cy="24" rx="6.5" ry="3.8" fill="#3b4250" stroke="#1b1d22" stroke-width="1.4"/><path d="M40 23l3-1.2M54 23l3-1.2" stroke="#8a93a6" stroke-width="1"/>' },
     // H-boat + rules coach: grey cap with the brim to the side, brown hair peeking out, black/orange buoyancy vest with a VHF over a paint-splatter tee
-    nicolas: { skin: '#f3c3a0', ear: '#e9ae89', brow: '#3a271a', eye: '#3a2a1e',
+    nicolas: { skin: '#f3c3a0', ear: '#e9ae89', brow: '#24180f', eye: '#3a2a1e',
       body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#f4f5f7"/>' +
         '<g><circle cx="20" cy="92" r="1.7" fill="#2f8ce0"/><circle cx="25" cy="85" r="1.3" fill="#e04a6a"/><circle cx="80" cy="91" r="1.7" fill="#e0b52f"/><circle cx="76" cy="84" r="1.3" fill="#3ec46a"/></g>' +
         '<path d="M25 100c0-13 4-21 10-25h5c2 6 6 9 10 9s8-3 10-9h5c6 4 10 12 10 25z" fill="#1b1d22"/>' +
         '<path d="M34 76l6-1 2 5-6 2zM66 76l-6-1-2 5 6 2z" fill="#ff6a2a"/><rect x="60" y="86" width="6" height="11" rx="1.5" fill="#2a2d33" stroke="#555a64" stroke-width="1"/>',
-      hair: '<path d="M29 50c-1-5 0-9 2-11l4 2c-1 3-1 6-1 9zM71 50c1-5 0-9-2-11l-4 2c1 3 1 6 1 9zM33 41q9 5 18 3q-7 4-16 3z" fill="#3d2a1c"/>' +
-        '<path d="M28 43c-1-14 9-23 22-23s23 9 22 23c-14-3-30-3-44 0z" fill="#73776c"/>' +
+      hair: '<path d="M28 43c-1-14 9-23 22-23s23 9 22 23c-14-3-30-3-44 0z" fill="#73776c"/>' +
+        '<path d="M27 43c-1 6 0 12 2 16l3-1c-1-5-1-9 1-13zM73 43c1 6 0 12-2 16l-3-1c1-5 1-9-1-13z' +
+        'M30 42c6-2 14-2 21-1l-2 4-3-2-2 5-3-4-3 5-2-4-3 4c-1-3-2-5-3-7z" fill="#2a1d14"/>' +
         '<path d="M50 41c10-2 21-1 31 3-1 3-4 4-8 4-7-2-15-3-23-3z" fill="#5d6157" stroke="#3e413a" stroke-width="1.2"/>' +
         '<path d="M43 30h14" stroke="#f2f2f2" stroke-width="2.2" stroke-linecap="round"/><circle cx="50" cy="21" r="1.6" fill="#5d6157"/>' },
     // family trainer + club president: light, thinning hair swept back (high forehead), blue eyes, navy fleece
