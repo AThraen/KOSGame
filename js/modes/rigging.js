@@ -27,8 +27,19 @@
     sail: ['Storsejl', 'Mainsail', 'Bådens motor! Vinden i sejlet skubber og suger båden frem.', 'The boat\'s engine! Wind in the sail pushes and pulls the boat along.'],
     ties: ['Sejlbånd', 'Sail ties', 'Små snore, der binder sejlet til mast og bom. Bind dem med et råbåndsknob – lige stramme hele vejen.', 'Little strings that tie the sail to the mast and boom. Use a reef knot – equally tight all the way.'],
     mainsheet: ['Storskøde', 'Mainsheet', 'Tovet du trimmer sejlet med: hal ind og fier ud. Slå et ottetalsknob i enden, så det ikke smutter ud af blokken.', 'The rope you trim the sail with: pull in and ease out. Tie a figure-eight knot in the end so it can\'t slip out of the block.'],
-    daggerboard: ['Sværd', 'Daggerboard', 'Pladen der stikker ned under båden, så den ikke driver sidelæns. Sæt det i sværdkassen ved slæbestedet, men hold det oppe – det skubbes først ned, når båden flyder. Træk det op igen, før du sejler ind på lavt vand.', 'The board under the boat that stops it sliding sideways. Put it in its case at the slipway but keep it up – push it down only once the boat floats. Pull it up again before you sail into shallow water.'],
-    rudder: ['Ror og rorpind', 'Rudder and tiller', 'Roret styrer båden, og rorpinden er håndtaget. Sæt roret på agterspejlet ved slæbestedet med bladet oppe – bladet sænkes først, når du er i vandet, og hives op igen, før du kommer ind. Husk rorlåsen, så roret ikke falder af.', 'The rudder steers the boat and the tiller is its handle. Hang it on the transom at the slipway with the blade up – lower the blade only once you\'re in the water, and raise it again before you come in. Remember the rudder clip so it can\'t fall off.'],
+    daggerboard: ['Sværd', 'Daggerboard', 'Pladen der stikker ned under båden, så den ikke driver sidelæns. På land ligger sværdet i båden – det stikkes ned i sværdkassen, når båden flyder, og hives op igen, før du kommer ind på lavt vand.', 'The board under the boat that stops it sliding sideways. On land it lies in the boat – push it down into its case once the boat floats, and pull it up again before you come into shallow water.'],
+    rudder: ['Ror og rorpind', 'Rudder and tiller', 'Roret styrer båden, og rorpinden er håndtaget. På land ligger roret i båden – det sættes på agterspejlet, når båden flyder, og tages af igen, før du kommer ind. Husk rorlåsen, så roret ikke falder af.', 'The rudder steers the boat and the tiller is its handle. On land it lies in the boat – hang it on the transom once the boat floats, and take it off again before you come in. Remember the rudder clip so it can\'t fall off.'],
+    mastSail: ['Mast med sejl', 'Mast with sail', 'Sejlet sidder på masten, så de sættes i mastefoden sammen i ét hug. Husk mastlåsen, så masten ikke falder ud, hvis du kæntrer.', 'The sail is on the mast, so they go into the mast step together in one go. Remember the mast clip so it can\'t fall out if you capsize.'],
+    mastJoin: ['Saml masten', 'Join the mast', 'ILCA-masten er i to dele. Stik den tynde topmast helt ned i den tykke undermast, mens masten ligger på jorden.', 'The ILCA mast comes in two parts. Push the thin top section all the way into the thick bottom section while the mast lies on the ground.'],
+    sleeve: ['Sejlet over masten', 'Sail onto the mast', 'Sejlet har en lomme langs forkanten. Træk den ned over masten, mens masten ligger på jorden – så rejses masten med sejlet på.', 'The sail has a sleeve along its front edge. Pull it down over the mast while it lies on the ground – then the mast goes up with the sail on.'],
+    zestJib: ['Fok på masten', 'Jib onto the mast', 'På Zesten bindes fokken fast på masten, mens masten ligger ned – før masten rejses.', 'On the Zest the jib is tied to the mast while the mast lies down – before it is raised.'],
+    optiSprit: ['Spryd og sprydstrammer', 'Sprit and sprit halyard', 'Sprydet spænder sejlets øverste hjørne (piken) ud. Sæt det i løkken på masten og stram sprydstrammeren, til sejlet er glat.', 'The sprit holds the top corner of the sail (the peak) out. Fit it in the loop on the mast and tighten the sprit halyard until the sail is smooth.'],
+    mastLock: ['Mastesikring', 'Mast lock', 'En lille lås ved mastefoden, så masten ikke falder ud, hvis du kæntrer.', 'A little clip at the foot of the mast so it can\'t fall out if you capsize.'],
+    optiKicker: ['Bomnedhal', 'Kicker (vang)', 'Taljen fra bommen ned til masten. Den holder bommen nede, så sejlet ikke vrider sig.', 'The line from the boom down to the mast. It holds the boom down so the sail doesn\'t twist.'],
+    stow: ['Ror og sværd i båden', 'Rudder and board in the boat', 'Læg roret og sværdet i båden på land. De kommer først i, når båden flyder – ellers knækker de på slæbestedet.', 'Put the rudder and daggerboard in the boat on land. They only go in once the boat floats – otherwise they break on the slipway.'],
+    jibSock: ['Fokkestrømpe', 'Jib sock', 'Fokken sidder rullet op på forstaget inde i en strømpe, der beskytter den mod sol og vejr. Strømpen skal af, før fokken rulles ud.', 'The jib sits furled on the forestay inside a sock that protects it from sun and weather. The sock comes off before you unfurl the jib.'],
+    jibFurl: ['Rullefok', 'Furled jib', 'Fokken bliver siddende rullet op om forstaget hele sæsonen. Den rulles ud, når du skal sejle.', 'The jib stays rolled up round the forestay all season. You unfurl it when you go sailing.'],
+    shed: ['Til skuret', 'To the shed', 'Rul sejlet stramt om masten og bær hele masten med sejlet ind i skuret. Så er den klar til næste gang.', 'Roll the sail tightly round the mast and carry the whole mast with its sail into the shed. Then it\'s ready for next time.'],
     bailer: ['Øsekar', 'Bailer', 'Til at øse vand ud af båden. Bind det fast, så det ikke flyder væk, hvis du kæntrer.', 'For scooping water out of the boat. Tie it on so it doesn\'t float away if you capsize.'],
     paddle: ['Pagaj', 'Paddle', 'Dør vinden, padler du hjem. Den skal også bindes fast i båden.', 'If the wind dies, you paddle home. Tie it into the boat too.'],
     painter: ['Fangline', 'Painter', 'Tovet i stævnen. Bruges til at fortøje båden – eller til at blive slæbt hjem af RIB\'en.', 'The rope at the bow. Use it to tie the boat up – or to get towed home by the RIB.'],
@@ -55,13 +66,27 @@
   };
   // job verbs per part when the generic "på / af" reads badly (keelboat jobs)
   const JOB = {
-    da: { on: { sail: 'Hejs storsejlet', jib: 'Hejs fokken', fenders: 'Fendere ud', lines: 'Fortøj båden', cover: 'Bomkapper på', hose: 'Skyl med ferskvand', roll: 'Rul sejlet', fold: 'Fold sejlet', halyard: 'Fald på' },
-      off: { sail: 'Storsejlet ned', jib: 'Fokken ned', fenders: 'Fendere ind', lines: 'Kast los', cover: 'Bomkapper af', halyard: 'Fald af' } },
-    en: { on: { sail: 'Hoist the main', jib: 'Hoist the jib', fenders: 'Fenders out', lines: 'Tie up', cover: 'Boom cover on', hose: 'Rinse with fresh water', roll: 'Roll the sail', fold: 'Fold the sail', halyard: 'Halyard on' },
-      off: { sail: 'Main down', jib: 'Jib down', fenders: 'Fenders in', lines: 'Cast off', cover: 'Boom cover off', halyard: 'Halyard off' } },
+    da: { on: { sail: 'Hejs storsejlet', jib: 'Hejs fokken', fenders: 'Fendere ud', lines: 'Fortøj båden', cover: 'Bomkapper på', hose: 'Skyl med ferskvand', roll: 'Rul sejlet', fold: 'Fold sejlet', halyard: 'Fald på',
+      stow: 'Læg ror og sværd i båden', gennaker: 'Gennaker klar', jibSock: 'Strømpen på fokken', mastJoin: 'Saml masten', sleeve: 'Sejlet over masten', shed: 'Rul sejlet om masten – i skuret' },
+      off: { sail: 'Storsejlet ned', jib: 'Fokken ned', fenders: 'Fendere ind', lines: 'Kast los', cover: 'Bomkapper af', halyard: 'Fald af',
+        stow: 'Ror og sværd ud af båden', jibSock: 'Tag strømpen af fokken', mastJoin: 'Skil masten ad', sleeve: 'Sejlet af masten', mastSail: 'Tag masten op', optiRig: 'Tag riggen op' } },
+    en: { on: { sail: 'Hoist the main', jib: 'Hoist the jib', fenders: 'Fenders out', lines: 'Tie up', cover: 'Boom cover on', hose: 'Rinse with fresh water', roll: 'Roll the sail', fold: 'Fold the sail', halyard: 'Halyard on',
+      stow: 'Rudder and board in the boat', gennaker: 'Gennaker ready', jibSock: 'Sock on the jib', mastJoin: 'Join the mast', sleeve: 'Sail onto the mast', shed: 'Roll the sail round the mast – to the shed' },
+      off: { sail: 'Main down', jib: 'Jib down', fenders: 'Fenders in', lines: 'Cast off', cover: 'Boom cover off', halyard: 'Halyard off',
+        stow: 'Rudder and board out', jibSock: 'Take the sock off the jib', mastJoin: 'Take the mast apart', sleeve: 'Sail off the mast', mastSail: 'Unstep the mast', optiRig: 'Lift the rig out' } },
+  };
+  // jobs done afloat (dinghies, after the launch)
+  const JOBW = {
+    da: { on: { mainsheet: 'Storskødet på bommen', daggerboard: 'Sænk sværdet', rudder: 'Sæt roret på' }, off: { mainsheet: 'Storskødet af bommen', daggerboard: 'Hiv sværdet op', rudder: 'Tag roret af' } },
+    en: { on: { mainsheet: 'Clip on the mainsheet', daggerboard: 'Lower the board', rudder: 'Fit the rudder' }, off: { mainsheet: 'Unclip the mainsheet', daggerboard: 'Raise the board', rudder: 'Take the rudder off' } },
+  };
+  // per-class wording (the J/70 jib lives furled on the forestay)
+  const JOBC = {
+    da: { j70: { on: { jib: 'Rul fokken ud' }, off: { jib: 'Rul fokken ind' } } },
+    en: { j70: { on: { jib: 'Unfurl the jib' }, off: { jib: 'Furl the jib' } } },
   };
 
-  const strDa = { p: {}, job: JOB.da }, strEn = { p: {}, job: JOB.en };
+  const strDa = { p: {}, job: JOB.da, jobw: JOBW.da, jobc: JOBC.da }, strEn = { p: {}, job: JOB.en, jobw: JOBW.en, jobc: JOBC.en };
   for (const k in PARTS) {
     const p = PARTS[k];
     strDa.p[k] = { da: p[0], en: p[1], desc: p[2] };
@@ -75,11 +100,11 @@
       keys: 'Træk en del op på båden · Tastatur: ←/→ vælg, Enter gør det',
       keysTouch: 'Træk op på båden ↑',
       demo: 'Træk!',
-      trayTitle: 'Delene på jorden', trayTitleUnrig: 'Opgaver',
+      trayTitle: 'Delene på jorden', trayTitleUnrig: 'Opgaver', trayTitleWater: 'Ude i vandet',
       intro: {
-        rig: 'Nu rigger vi {boat} til! Først tager du redningsvesten på. Træk delene hen på båden – eller tryk på en del og vælg \'Sæt på\'. Rig altid med stævnen mod vinden.',
-        rigKeel: 'Vi skal ud med {boat}! Først tager du redningsvesten på. Træk opgaverne hen på båden – eller tryk og vælg \'Gør det\' – i den rigtige rækkefølge.',
-        unrig: 'Godt sejlet! Nu rigger vi {boat} af i den rigtige rækkefølge – træk delene hen på båden, eller tryk og vælg \'Tag af\'.',
+        rig: 'Nu rigger vi {boat} til! Træk delene hen på båden – eller tryk på en del og vælg \'Sæt på\'. Noget gør du på land, resten når båden flyder. Rig altid med stævnen mod vinden.',
+        rigKeel: 'Vi skal ud med {boat}! Træk opgaverne hen på båden – eller tryk og vælg \'Gør det\' – i den rigtige rækkefølge.',
+        unrig: 'Godt sejlet! Nu rigger vi {boat} af i omvendt rækkefølge: først det, der skal af ude i vandet, så op ad slæbestedet. Træk delene hen på båden, eller tryk og vælg \'Tag af\'.',
         unrigKeel: 'Vi er tilbage ved broen med {boat}. Fortøj, tag sejlene ned i den rigtige rækkefølge og pak båden sammen. Træk opgaverne hen på båden.',
       },
       coach: {
@@ -92,7 +117,10 @@
         last: 'Sidste opgave!',
         doneRig: 'Klar til at sejle! Ud på vandet med dig!',
         doneRigKeel: 'Alt er klar – kast los og sejl ud!',
-        doneUnrig: 'Flot pakket! Båden er klar til næste tur.',
+        doneUnrig: 'Flot pakket! Vesten af og hæng den til tørre – båden er klar til næste tur.',
+        vestOn: 'Redningsvesten på – altid, før du går på vandet!',
+        water: 'Vesten er på, og båden flyder! Gør det sidste klar herude i vandet.',
+        retrieve: 'Nu hiver vi båden op ad slæbestedet.',
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
       },
       decoy: {
@@ -123,11 +151,11 @@
       keys: 'Drag a part onto the boat · Keyboard: ←/→ choose, Enter do it',
       keysTouch: 'Drag onto the boat ↑',
       demo: 'Drag!',
-      trayTitle: 'Parts on the ground', trayTitleUnrig: 'Jobs',
+      trayTitle: 'Parts on the ground', trayTitleUnrig: 'Jobs', trayTitleWater: 'Out in the water',
       intro: {
-        rig: 'Let\'s rig the {boat}! First, put your life jacket on. Drag the parts onto the boat – or tap a part and choose \'Fit it\'. Always rig with the bow into the wind.',
-        rigKeel: 'We\'re taking the {boat} out! First, put your life jacket on. Drag the jobs onto the boat – or tap and choose \'Do it\' – in the right order.',
-        unrig: 'Well sailed! Now unrig the {boat} in the right order – drag the parts onto the boat, or tap and choose \'Take off\'.',
+        rig: 'Let\'s rig the {boat}! Drag the parts onto the boat – or tap a part and choose \'Fit it\'. Some jobs are done on land, the rest once she floats. Always rig with the bow into the wind.',
+        rigKeel: 'We\'re taking the {boat} out! Drag the jobs onto the boat – or tap and choose \'Do it\' – in the right order.',
+        unrig: 'Well sailed! Now unrig the {boat} in reverse order: first what comes off out in the water, then up the slipway. Drag the parts onto the boat, or tap and choose \'Take off\'.',
         unrigKeel: 'We\'re back at the pontoon with the {boat}. Tie up, drop the sails in the right order and pack the boat away. Drag the jobs onto the boat.',
       },
       coach: {
@@ -140,7 +168,10 @@
         last: 'Last job!',
         doneRig: 'Ready to sail! Off you go!',
         doneRigKeel: 'All set – cast off and sail out!',
-        doneUnrig: 'Nicely packed! The boat is ready for next time.',
+        doneUnrig: 'Nicely packed! Life jacket off and hang it up to dry – the boat is ready for next time.',
+        vestOn: 'Life jacket on – always, before you go afloat!',
+        water: 'Life jacket on and she\'s floating! Do the last jobs out here in the water.',
+        retrieve: 'Now pull the boat up the slipway.',
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
       },
       decoy: {
@@ -164,35 +195,48 @@
     }),
   });
 
-  // ======================================================================== 2. rig sequences per class
-  // [part, group, type?]  group: all steps of a lower group must be done first; same group = any order.
-  // type 'off' = a removal job while rigging (sail cover off, cast off, fenders in).
+  // ======================================================================== 2. rig sequences per class (KØS club answers, 2026-10-08)
+  // [part, group, type?, where?]  group: all steps of a lower group must be done first; same group = any order.
+  // type 'off' = a removal job while rigging (sail cover off, cast off, fenders in). where 'w' = done afloat (dinghies:
+  // after the launch the boat floats at the foot of the slipway and the rest is done there).
+  // The life jacket is not a job: the sailor puts it on by itself just before launching / boarding.
   const RIG = {
-    // KØS Optis are stored with the sail tied to mast and boom: the whole rig goes in at once, then the sprit
-    // (no paddle: the club's Optis train with a RIB looking after them)
-    opti: [['vest', 0], ['optiRig', 1], ['sprit', 2], ['mainsheet', 3],
-      ['daggerboard', 4], ['rudder', 4], ['bailer', 4], ['painter', 4]],
-    tera: [['vest', 0], ['mast', 1], ['sail', 2], ['boom', 3], ['outhaul', 4], ['kicker', 4], ['mainsheet', 5],
-      ['daggerboard', 6], ['rudder', 6], ['painter', 6]],
-    // KØS Fevas and 29ers keep the mast up all season (mast, shrouds, forestay: see KEEP_ON)
-    feva: [['vest', 0], ['jib', 1], ['sail', 2], ['boom', 3], ['kicker', 4], ['mainsheet', 4],
-      ['jibsheets', 4], ['chute', 5], ['pole', 6], ['gennaker', 7], ['daggerboard', 8], ['rudder', 8]],
-    zest: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
-      ['jibsheets', 6], ['daggerboard', 7], ['rudder', 7], ['painter', 7]],
-    ilca: [['vest', 0], ['mastBottom', 1], ['mastTop', 2], ['sail', 3], ['boom', 4], ['outhaul', 5], ['kicker', 5], ['cunningham', 5],
-      ['mainsheet', 6], ['daggerboard', 7], ['rudder', 7]],
-    '29er': [['vest', 0], ['wings', 1], ['trapeze', 2], ['jib', 3], ['sail', 4], ['boom', 5],
-      ['kicker', 6], ['cunningham', 6], ['jibsheets', 6], ['pole', 7], ['gennaker', 8], ['daggerboard', 9], ['rudder', 9]],
-    // KØS H-boats keep rudder, tiller and halyards on in the harbour (see KEEP_ON): the jobs start with the cover
-    // jib sheets go on before the jib is hoisted, or it flogs out of control
-    hboat: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['lines', 4, 'off'], ['fenders', 5, 'off']],
-    // KØS J70s are also kept rigged in the harbour (rudder + halyards on, see KEEP_ON)
-    j70: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['pole', 4], ['gennaker', 5],
-      ['lines', 6, 'off'], ['fenders', 7, 'off']],
+    // KØS Optis are stored with the sail tied to mast and boom; mainsheet, painter and bailer live in the boat
+    opti: [['optiRig', 1], ['optiSprit', 2], ['mastLock', 3], ['optiKicker', 4], ['stow', 4],
+      ['mainsheet', 5, 'on', 'w'], ['daggerboard', 5, 'on', 'w'], ['rudder', 5, 'on', 'w']],
+    // Tera: mast and sail are one component
+    tera: [['mastSail', 1], ['boom', 2], ['outhaul', 3], ['kicker', 3], ['painter', 3], ['stow', 3],
+      ['mainsheet', 4, 'on', 'w'], ['daggerboard', 4, 'on', 'w'], ['rudder', 4, 'on', 'w']],
+    // Feva: mast, shrouds and bowsprit stay up all season (no forestay, no gennaker sock)
+    feva: [['sail', 1], ['jib', 1], ['cunningham', 2], ['boom', 2], ['kicker', 3], ['mainsheet', 3], ['jibsheets', 3], ['gennaker', 4], ['stow', 4],
+      ['daggerboard', 5, 'on', 'w'], ['rudder', 5, 'on', 'w']],
+    // Zest: the jib is tied to the mast before the mast (with its sail) is raised
+    zest: [['zestJib', 1], ['mastSail', 2], ['boom', 3], ['kicker', 4], ['outhaul', 4], ['stow', 4],
+      ['mainsheet', 5, 'on', 'w'], ['rudder', 5, 'on', 'w'], ['daggerboard', 5, 'on', 'w']],
+    // ILCA: join the mast, sail sleeve over it, then step mast + sail (order fixed)
+    ilca: [['mastJoin', 1], ['sleeve', 2], ['mastSail', 3], ['boom', 4], ['outhaul', 5], ['kicker', 5], ['cunningham', 5], ['mainsheet', 6], ['stow', 6],
+      ['daggerboard', 7, 'on', 'w'], ['rudder', 7, 'on', 'w']],
+    // 29er: wings, mast, shrouds, forestay, trapeze, boom and bowsprit are part of the boat
+    '29er': [['sail', 1], ['jib', 2], ['jibsheets', 3], ['gennaker', 4], ['stow', 4],
+      ['daggerboard', 5, 'on', 'w'], ['rudder', 5, 'on', 'w']],
+    // H-boat: the full rig stays on all season; jib sheets go on before the jib is hoisted, or it flogs out of control
+    hboat: [['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['lines', 4, 'off'], ['fenders', 5, 'off']],
+    // J/70: rudder, tiller, halyards and bowsprit stay on; the jib lives furled on the forestay inside a sock
+    j70: [['cover', 1, 'off'], ['jibSock', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['gennaker', 4],
+      ['lines', 5, 'off'], ['fenders', 6, 'off']],
   };
-  // parts that stay rigged on the club's boats all season (drawn in place, never a job)
-  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'], j70: ['rudder', 'tiller', 'halyard'], feva: ['mast', 'shrouds', 'forestay'], '29er': ['mast', 'shrouds', 'forestay'] };
+  // parts that stay rigged on the club's boats all season (drawn in place, never a job, not removed when unrigging)
+  const KEEP_ON = {
+    opti: ['painter', 'bailer'],
+    feva: ['mast', 'shrouds', 'pole'],
+    '29er': ['wings', 'mast', 'shrouds', 'forestay', 'trapeze', 'boom', 'pole'],
+    hboat: ['rudder', 'tiller', 'halyard'],
+    j70: ['rudder', 'tiller', 'halyard', 'pole', 'jibFurl'],
+  };
+  // Tera / Zest unrig: the sail is rolled round the mast and the whole mast with sail goes to the shed (last job)
+  const SHED = { tera: ['mastSail'], zest: ['mastSail', 'zestJib'] };
   const DECOY = { opti: 'paddle', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
+  const hasWater = id => RIG[id].some(s => s[3] === 'w');
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)
   const CFG = {
@@ -210,18 +254,18 @@
   const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 25, ilca: 40, '29er': 55, hboat: 70, j70: 90 };
   const LADDER = ['opti', 'tera', 'feva', 'zest', 'ilca', '29er', 'hboat', 'j70'];
   const bname = id => { const b = KOS.Boats && KOS.Boats.get(id); return b ? b.name : id; };
-  const UNRIG = ['opti', 'feva', 'ilca', 'j70'];
+  const UNRIG = ['opti', 'tera', 'feva', 'zest', 'ilca', 'j70'];
   const acts = [];
   LADDER.forEach((id, i) => {
-    const n = bname(id), keel = !!CFG[id].keel;
+    const n = bname(id), keel = !!CFG[id].keel, mastUp = (KEEP_ON[id] || []).indexOf('mast') >= 0;
     acts.push({
-      id: 'rigging.' + id, order: 20 + i * 2, boat: id, icon: 'wrench', minutes: 2 + (RIG[id].length > 11 ? 1 : 0),
+      id: 'rigging.' + id, order: 20 + i * 2, boat: id, icon: 'wrench', minutes: 2 + (RIG[id].length > 9 ? 1 : 0),
       difficulty: Math.min(5, 1 + Math.floor(i / 2)),
       unlock: i === 0 ? null : { stars: BOAT_STARS[id] || 0 },
       title: { da: 'Rig til · ' + n, en: 'Rig the ' + n },
-      desc: keel ? { da: 'Gør ' + n + ' klar ved broen: sejl op, skøder gennem blokkene, fendere ind og kast los.', en: 'Get the ' + n + ' ready at the pontoon: sails up, sheets through the blocks, fenders in and cast off.' }
-        : (KEEP_ON[id] || []).indexOf('mast') >= 0 ? { da: 'Masten står oppe hele sæsonen: sæt sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så bakker du den ud i vandet.', en: 'The mast stays up all season: fit the sails, rudder and board on the ' + n + ' in the right order – then back her into the water.' }
-        : { da: 'Sæt mast, sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så bakker du den ud i vandet.', en: 'Fit the mast, sail, rudder and board on the ' + n + ' in the right order – then back her into the water.' },
+      desc: keel ? { da: 'Gør ' + n + ' klar ved broen: bomkapper af, sejl op, skøder gennem blokkene, fendere ind og kast los.', en: 'Get the ' + n + ' ready at the pontoon: cover off, sails up, sheets through the blocks, fenders in and cast off.' }
+        : mastUp ? { da: 'Masten står oppe hele sæsonen: sejlene op på land, bak båden ud i vandet, og sæt ror og sværd i, når den flyder.', en: 'The mast stays up all season: sails up on land, back her into the water, and fit the rudder and board once she floats.' }
+        : { da: 'Rig ' + n + ' til på land i den rigtige rækkefølge, bak den ud i vandet, og sæt ror og sværd i, når den flyder.', en: 'Rig the ' + n + ' on land in the right order, back her into the water, and fit the rudder and board once she floats.' },
       params: { cls: id, unrig: false, seed: 11 + i * 7 },
     });
     if (UNRIG.indexOf(id) >= 0) {
@@ -229,7 +273,9 @@
         id: 'rigging.unrig.' + id, order: 21 + i * 2, boat: id, icon: 'wrench', minutes: 2, difficulty: Math.min(5, 1 + Math.floor(i / 2)),
         unlock: { after: 'rigging.' + id },
         title: { da: 'Rig af · ' + n, en: 'Unrig the ' + n },
-        desc: { da: 'Tag alt af i den rigtige rækkefølge, skyl med ferskvand og rul sejlet – aldrig fold!', en: 'Take everything off in the right order, rinse with fresh water and roll the sail – never fold!' },
+        desc: SHED[id] ? { da: 'Ror og sværd op i vandet, båden op ad slæbestedet, alt af i omvendt rækkefølge – og til sidst rulles sejlet om masten, som bæres i skuret.', en: 'Rudder and board up in the water, the boat up the slipway, everything off in reverse order – and finally roll the sail round the mast and carry it to the shed.' }
+          : keel ? { da: 'Fortøj, tag sejlene ned i omvendt rækkefølge, skyl med ferskvand og rul sejlet – aldrig fold!', en: 'Tie up, drop the sails in reverse order, rinse with fresh water and roll the sail – never fold!' }
+            : { da: 'Ror og sværd op i vandet, båden op ad slæbestedet, alt af i omvendt rækkefølge, skyl med ferskvand og rul sejlet – aldrig fold!', en: 'Rudder and board up in the water, the boat up the slipway, everything off in reverse order, rinse with fresh water and roll the sail – never fold!' },
         params: { cls: id, unrig: true, seed: 101 + i * 7 },
       });
     }
@@ -243,10 +289,14 @@
   const lang = () => (KOS.I18n && KOS.I18n.lang) || 'da';
   const pname = (k, l) => t('rigging.p.' + k + '.' + (l || (lang() === 'en' ? 'en' : 'da')));
   const pother = k => t('rigging.p.' + k + '.' + (lang() === 'en' ? 'da' : 'en'));
-  let keelJobs = false; // hoisting the sails is a keelboat job; on dinghies the card just shows the part
-  function jobLabel(k, type) {
-    const key = 'rigging.job.' + type + '.' + k;
-    if ((k === 'sail' || k === 'jib') && !keelJobs) return pname(k);
+  // hoisting the sails is a job on boats whose mast stays up (Feva, 29er, keelboats); otherwise the card just shows the part
+  const HOIST = { feva: 1, '29er': 1, hboat: 1, j70: 1 };
+  let curCls = 'opti';
+  function jobLabel(k, type, where) {
+    const kc = 'rigging.jobc.' + curCls + '.' + type + '.' + k, kw = 'rigging.jobw.' + type + '.' + k, key = 'rigging.job.' + type + '.' + k;
+    if (KOS.I18n.has(kc)) return t(kc);
+    if (where === 'w' && KOS.I18n.has(kw)) return t(kw);
+    if ((k === 'sail' || k === 'jib') && !HOIST[curCls]) return pname(k);
     return KOS.I18n.has(key) ? t(key) : pname(k);
   }
   function shade(hex, k) {
@@ -336,7 +386,7 @@
     g.spritLow = { x: g.mx, y: g.boomY - 30 };
     // sail centroid-ish
     g.sailC = { x: g.mx - c.boomL * 0.33, y: g.boomY - (g.boomY - g.top) * 0.36 };
-    g.ground = { x: g.keelboat ? g.xb - L * 0.3 : L * 0.05, y: g.keelboat ? g.dAt(g.xb - L * 0.3) - 6 : 52 };
+    g.ground = { x: g.keelboat ? g.xb - L * 0.3 : L * 0.05, y: g.keelboat ? g.dAt(g.xb - L * 0.3) - 6 : 26 }; // dinghies: on the apron just in front of the trolley
     // the sailor: on dinghies standing at the bow holding the trolley handle (grip at xb+62, y -70);
     // on keelboats on the pontoon by the stern, waving. Kid art is 100 units tall (feet at 0), scaled by k.
     const kh = KID_H[id] || 112, kk = kh / 100;
@@ -448,6 +498,61 @@
         '<rect x="' + f(g.mx - w / 2) + '" y="' + f(g.top) + '" width="' + w + '" height="' + f(g.mid - g.top + 10) + '" rx="2" fill="#cdd6df"/>' +
         '<path d="M' + f(g.mx) + ' ' + f(g.top) + 'v-14l-16 4z" fill="#e8323c" class="rig-flag"/>';
     },
+    // mast with its sail, stepped in one go (Tera, Zest, ILCA); sleeve sails are drawn over the mast
+    mastSail(g, col, o) {
+      const m = g.id === 'ilca' ? DRAW.mastBottom(g) + DRAW.mastTop(g) : DRAW.mast(g);
+      return g.sail === 'sleeve' ? m + DRAW.sail(g, col, o) : DRAW.sail(g, col, o) + m;
+    },
+    optiSprit(g) { return DRAW.sprit(g) + ln(g.spritLow.x - 2, g.spritLow.y + 2, g.mx - 3, g.spritLow.y + 14, '#ffd25e', 1.6) + block(g.mx - 3, g.spritLow.y + 14, 2.4); },
+    optiKicker(g) { return DRAW.kicker(g); },
+    mastLock(g) {
+      const y = g.mDeck - 9;
+      return '<rect x="' + f(g.mx - 7) + '" y="' + f(y) + '" width="14" height="8" rx="2.5" fill="#e8323c" stroke="#7a1a1f" stroke-width="1.2"/>' + circ(g.mx, y + 4, 1.8, '#ffd25e');
+    },
+    // rudder and daggerboard lying in the boat (only the bits not fitted yet; the hull hides the rest)
+    stow(g, col, o) {
+      let s = '';
+      if (!o.rudderOn) {
+        const x = g.xs + g.L * 0.2, y = g.dAt(x);
+        s += '<g transform="rotate(-24 ' + f(x) + ' ' + f(y) + ')"><rect x="' + f(x - 6) + '" y="' + f(y - 6) + '" width="12" height="40" rx="5" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.4"/></g>' +
+          ln(x - 2, y - 2, x + g.L * 0.2, y - 14, '#c58b4f', 4.5);
+      }
+      if (!o.boardOn) {
+        const x = g.mx - g.L * 0.2, y = g.dAt(x);
+        s += '<g transform="rotate(28 ' + f(x) + ' ' + f(y) + ')"><rect x="' + f(x - 7) + '" y="' + f(y - 14) + '" width="14" height="46" rx="5" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.4"/>' +
+          '<rect x="' + f(x - 3.5) + '" y="' + f(y - 10) + '" width="7" height="7" rx="2.5" fill="#7d8794"/></g>';
+      }
+      return s;
+    },
+    // ---- parts that lie on the ground before the mast goes up (ILCA, Zest)
+    mastJoin(g, col, o) {
+      if (o.mastUp) return '';
+      const { x, y } = g.ground, x0 = x - g.L * 0.55, xm = x - g.L * 0.05, x1 = x + g.L * 0.5;
+      return '<ellipse cx="' + f(x) + '" cy="' + f(y + 16) + '" rx="' + f(g.L * 0.55) + '" ry="6" fill="rgba(0,0,0,.18)"/>' + ln(x0, y + 6, xm + 12, y + 6, SPAR_D, 8.4) + ln(x0, y + 6, xm + 12, y + 6, '#a9b5c2', 6) + ln(xm, y + 6, x1, y + 6, SPAR_D, 6) + ln(xm, y + 6, x1, y + 6, '#cdd6df', 4) +
+        '<path d="M' + f(x1) + ' ' + f(y + 6) + 'l10 -3 0 6z" fill="#e8323c"/>';
+    },
+    sleeve(g, col, o) {
+      if (o.mastUp) return '';
+      const { x, y } = g.ground, x0 = x - g.L * 0.52, x1 = x + g.L * 0.46;
+      return '<path d="M' + f(x0) + ' ' + f(y + 3) + 'L' + f(x1) + ' ' + f(y + 3) + 'L' + f(x0 + g.L * 0.2) + ' ' + f(y + 22) + 'Z" fill="#fff" stroke="#8a95a3" stroke-width="1.5" stroke-linejoin="round"/>' +
+        '<rect x="' + f(x0) + '" y="' + f(y + 1) + '" width="' + f(x1 - x0) + '" height="10" rx="5" fill="#f2f4f7" stroke="#8a95a3" stroke-width="1.2"/>';
+    },
+    zestJib(g, col, o) {
+      if (o.mastUp) return DRAW.jib(g, col);
+      const { x, y } = g.ground, x0 = x - g.L * 0.5, x1 = x + g.L * 0.5;
+      return '<ellipse cx="' + f(x) + '" cy="' + f(y + 16) + '" rx="' + f(g.L * 0.55) + '" ry="6" fill="rgba(0,0,0,.18)"/>' + ln(x0, y + 6, x1, y + 6, SPAR_D, 7.4) + ln(x0, y + 6, x1, y + 6, SPAR, 5) +
+        '<path d="M' + f(x + g.L * 0.05) + ' ' + f(y + 5) + 'L' + f(x1 - 6) + ' ' + f(y + 5) + 'L' + f(x + g.L * 0.25) + ' ' + f(y + 22) + 'Z" fill="' + shade(col.sail || '#fff', -0.04) + '" stroke="#8a95a3" stroke-width="1.4" stroke-linejoin="round"/>';
+    },
+    // ---- J/70 headsail: furled on the forestay, inside a sock when stored
+    jibFurl(g, col, o) {
+      if (o.jibUp || !g.jx) return '';
+      return ln(g.jx, g.jDeck, g.mx - 2, g.jHead, '#e9edf2', 5.5) + ln(g.jx, g.jDeck, g.mx - 2, g.jHead, 'rgba(120,130,150,.6)', 1.2, ' stroke-dasharray="3 5"');
+    },
+    jibSock(g) {
+      if (!g.jx) return '';
+      const x1 = g.jx + (g.mx - g.jx) * 0.92, y1 = g.jDeck + (g.jHead - g.jDeck) * 0.92;
+      return ln(g.jx, g.jDeck - 2, x1, y1, '#1f3b73', 9) + ln(g.jx, g.jDeck - 2, x1, y1, 'rgba(255,255,255,.25)', 2);
+    },
     // KØS Opti: mast, sail and boom go in as one rig (the sail stays tied on with the sail ties)
     optiRig(g, col, o) { return DRAW.sail(g, col, o) + DRAW.ties(g) + DRAW.mast(g) + DRAW.boom(g); },
     boom(g) { return sparLine(g.mx - 2, g.boomY, g.boomX, g.boomY, g.mw - 1) + circ(g.mx - 3, g.boomY, 3.2, '#2a2f3a'); },
@@ -479,20 +584,19 @@
       return ln(bx - 3, g.boomY + 3, bx - 3, dy, '#24395c', 1.6) + ln(bx + 3, g.boomY + 3, bx + 3, dy, '#24395c', 1.6) +
         block(bx, g.boomY + 4) + block(bx, dy) + '<path d="M' + f(bx + 3) + ' ' + f(dy) + 'q14 2 22 -6t18 -2" stroke="#24395c" stroke-width="1.8" fill="none"/>';
     },
-    daggerboard(g, col, o) {
-      // raised in its case on land; pushed down (o.down 0..1) once the boat floats
-      const dy = g.dAt(g.dx) + (g.keelboat ? 0 : 44 * ((o && o.down) || 0));
+    daggerboard(g) {
+      // dinghies fit it afloat, pushed right down in its case
+      const dy = g.dAt(g.dx) + (g.keelboat ? 0 : 44);
       return '<rect x="' + f(g.dx - 8) + '" y="' + f(dy - 44) + '" width="16" height="70" rx="5" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5"/>' +
         '<rect x="' + f(g.dx - 4) + '" y="' + f(dy - 38) + '" width="8" height="9" rx="3" fill="#7d8794"/>';
     },
-    rudder(g, col, o) {
+    rudder(g) {
       const xs = g.xs, dS = g.dAt(xs), bladeBot = g.keelboat ? g.bot + g.L * 0.12 : Math.min(-8, g.bot + 34);
-      // dinghies: hung on the transom with the blade pulled up; lowered (o.down 0..1) once afloat
-      const up = g.keelboat ? 0 : 1 - ((o && o.down) || 0);
+      // dinghies hang it on the transom afloat, blade down
       let s = '';
       if (!g.keelboat) s += '<rect x="' + f(xs - 9) + '" y="' + f(dS - 10) + '" width="10" height="' + f(g.fb * 0.62) + '" rx="3" fill="#dfe4ea" stroke="#7d8794" stroke-width="1.3"/>';
       s += '<path d="M' + f(xs - 3) + ' ' + f(dS - 8) + 'L' + f(xs - 7) + ' ' + f(dS - 8) + 'L' + f(xs - 10) + ' ' + f(bladeBot - 20) + 'Q' + f(xs - 22) + ' ' + f(bladeBot) + ' ' + f(xs - 4) + ' ' + f(bladeBot) + 'L' + f(xs + 3) + ' ' + f(dS + 10) + 'Z" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5" stroke-linejoin="round"' +
-        (up ? ' transform="translate(0 ' + f(-(bladeBot - g.bot + 4) * up) + ')"' : '') + '/>';
+'/>';
       s += ln(xs - 4, dS - 8, xs + g.L * 0.3, dS - 14, '#c58b4f', 4.5) + ln(xs - 4, dS - 8, xs + g.L * 0.3, dS - 14, 'rgba(255,255,255,.35)', 1.2);
       if (g.id !== 'opti') s += ln(xs + g.L * 0.3, dS - 14, xs + g.L * 0.45, dS - 34, '#2a2f3a', 2.2) + circ(xs + g.L * 0.45, dS - 34, 3, '#2a2f3a');
       return s;
@@ -615,15 +719,22 @@
     },
   };
   // drawing order (back to front); HULL is the fixed hull group
-  const ORDER = ['gennakerFly', 'lines', 'sail', 'jib', 'ties', 'mastBottom', 'mastTop', 'mast', 'optiRig', 'sprit', 'boom', 'outhaul', 'kicker', 'cunningham',
-    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'cover', 'daggerboard', 'bailer', 'paddle', 'crew', 'HULL',
+  const ORDER = ['mastJoin', 'sleeve', 'gennakerFly', 'lines', 'sail', 'jib', 'zestJib', 'jibFurl', 'jibSock', 'ties', 'mastBottom', 'mastTop', 'mast', 'mastSail', 'optiRig', 'sprit', 'optiSprit', 'boom', 'outhaul', 'kicker', 'optiKicker', 'mastLock', 'cunningham',
+    'trapeze', 'forestay', 'shrouds', 'halyard', 'mainsheet', 'cover', 'daggerboard', 'bailer', 'paddle', 'stow', 'crew', 'HULL',
     'jibsheets', 'wings', 'rudder', 'tiller', 'painter', 'pole', 'chute', 'gennaker', 'fenders'];
   // where each job's snap target sits
   function zoneOf(g, k) {
     const L = g.L;
     switch (k) {
       case 'mast': return [g.mx, g.mDeck - g.mastH * 0.45];
-      case 'optiRig': return [g.mx - g.boomL * 0.2, g.boomY - (g.boomY - g.top) * 0.4];
+      case 'optiRig': case 'mastSail': return [g.mx - g.boomL * 0.2, g.boomY - (g.boomY - g.top) * 0.4];
+      case 'optiSprit': return [(g.spritLow.x + g.peak.x) / 2, (g.spritLow.y + g.peak.y) / 2];
+      case 'optiKicker': return [g.mx - g.boomL * 0.11, (g.boomY + g.mDeck) / 2];
+      case 'mastLock': return [g.mx, g.mDeck - 6];
+      case 'stow': return [g.xs + L * 0.3, g.dAt(g.xs + L * 0.3) - 8];
+      case 'mastJoin': case 'sleeve': case 'zestJib': return [g.ground.x, g.ground.y + 2];
+      case 'jibSock': return [(g.jx + g.mx) / 2, (g.jDeck + g.jHead) / 2];
+      case 'shed': return [g.mx, g.mDeck - g.mastH * 0.45];
       case 'mastBottom': return [g.mx, g.mDeck - g.mastH * 0.25];
       case 'mastTop': return [g.mx, g.mDeck - g.mastH * 0.78];
       case 'boom': return [g.mx - g.boomL * 0.5, g.boomY];
@@ -659,10 +770,10 @@
       default: return [0, g.deck];
     }
   }
-  const SOUND = { optiRig: 'rigClick', mast: 'rigClick', mastBottom: 'rigClick', mastTop: 'rigClick', boom: 'rigClick', sprit: 'rigClick', pole: 'rigClick', wings: 'rigClick',
+  const SOUND = { mastSail: 'rigClick', mastJoin: 'rigClick', sleeve: 'zip', zestJib: 'knot', optiSprit: 'rigClick', mastLock: 'rigClick', optiKicker: 'rope', stow: 'tap', jibSock: 'zip', shed: 'whoosh', optiRig: 'rigClick', mast: 'rigClick', mastBottom: 'rigClick', mastTop: 'rigClick', boom: 'rigClick', sprit: 'rigClick', pole: 'rigClick', wings: 'rigClick',
     tiller: 'rigClick', rudder: 'rigClick', daggerboard: 'rigClick', sail: 'zip', jib: 'zip', gennaker: 'zip', cover: 'zip', chute: 'zip',
     ties: 'knot', painter: 'knot', hose: 'splash', roll: 'whoosh', fenders: 'bump', bailer: 'tap', paddle: 'tap', vest: 'zip' };
-  const GROW = { optiRig: 1, mast: 1, mastBottom: 1, mastTop: 1, sail: 1, jib: 1, halyard: 1 }; // grow up from the bottom when fitted
+  const GROW = { mastSail: 1, optiRig: 1, mast: 1, mastBottom: 1, mastTop: 1, sail: 1, jib: 1, halyard: 1 }; // grow up from the bottom when fitted
 
   // ---------------------------------------------------------------- tray icons (64×64)
   function icon(k, col) {
@@ -672,6 +783,17 @@
     const I = {
       mast: '<rect x="29" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><path d="M32 4v-0l-12 3 12 3z" fill="#e8323c"/>',
       optiRig: '<path d="M16 8L50 12Q44 32 54 50H16z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="11" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><rect x="11" y="49" width="46" height="5" rx="2.5" fill="' + SPAR + '" ' + sp + '/><path d="M12 16h8M12 28h8M12 40h8" stroke="#e8323c" stroke-width="2.4" stroke-linecap="round"/><text x="33" y="36" font-size="11" font-weight="900" fill="' + (col.trim || '#1f6fb2') + '" text-anchor="middle" font-family="system-ui">' + (INS[col.id] || '') + '</text>',
+      mastSail: '<path d="M18 8Q46 30 54 54H18z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="12" y="4" width="7" height="56" rx="3.5" fill="#f2f4f7" stroke="#8a95a3" stroke-width="2"/><path d="M15.5 4l-10 3 10 3z" fill="#e8323c"/>',
+      mastJoin: '<path d="M4 40L34 26" stroke="' + SPAR_D + '" stroke-width="9" stroke-linecap="round"/><path d="M4 40L34 26" stroke="#a9b5c2" stroke-width="6" stroke-linecap="round"/><path d="M30 28L60 14" stroke="' + SPAR_D + '" stroke-width="6.5" stroke-linecap="round"/><path d="M30 28L60 14" stroke="#cdd6df" stroke-width="4" stroke-linecap="round"/><path d="M36 38l8-4M40 44l6-3" stroke="#ffd25e" stroke-width="2.4" stroke-linecap="round"/>',
+      sleeve: '<path d="M8 50L56 50L20 18z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><rect x="6" y="46" width="52" height="9" rx="4.5" fill="#f2f4f7" stroke="#8a95a3" stroke-width="2"/><path d="M44 38l10 6-10 6" stroke="#18a957" stroke-width="3" fill="none" stroke-linecap="round"/>',
+      zestJib: '<rect x="8" y="4" width="6" height="56" rx="3" fill="' + SPAR + '" ' + sp + '/><path d="M14 10L14 52L48 52z" fill="#fff" stroke="#8a95a3" stroke-width="2" stroke-linejoin="round"/><path d="M10 20h8M10 34h8M10 46h8" stroke="#e8323c" stroke-width="2.4" stroke-linecap="round"/>',
+      optiSprit: '<path d="M8 56L56 8" stroke="' + SPAR_D + '" stroke-width="6.5" stroke-linecap="round"/><path d="M8 56L56 8" stroke="' + SPAR + '" stroke-width="4" stroke-linecap="round"/><path d="M10 50q14 8 24 -2" stroke="#ffd25e" stroke-width="3" fill="none" stroke-linecap="round"/>',
+      optiKicker: '<path d="M14 12L50 52" stroke="#2a2f3a" stroke-width="3"/><path d="M18 12L54 50" stroke="#ff7a3d" stroke-width="2"/><circle cx="14" cy="12" r="6" fill="#2a2f3a" stroke="#9aa3b5" stroke-width="2"/><circle cx="50" cy="52" r="6" fill="#2a2f3a" stroke="#9aa3b5" stroke-width="2"/>',
+      mastLock: '<rect x="27" y="4" width="10" height="56" rx="5" fill="' + SPAR + '" ' + sp + '/><rect x="16" y="34" width="32" height="14" rx="4" fill="#e8323c" stroke="#7a1a1f" stroke-width="2"/><circle cx="32" cy="41" r="3" fill="#ffd25e"/>',
+      stow: '<rect x="8" y="10" width="14" height="44" rx="6" fill="#f4f6f8" stroke="#7d8794" stroke-width="2" transform="rotate(-20 15 32)"/><path d="M30 8h7l-2 26q-2 18-12 20-5-2 0-12l4-34z" fill="#f4f6f8" stroke="#7d8794" stroke-width="2" stroke-linejoin="round"/><path d="M36 10L58 20" stroke="#c58b4f" stroke-width="5" stroke-linecap="round"/><path d="M4 56h56" stroke="#a2825f" stroke-width="3" stroke-linecap="round"/>',
+      jibSock: '<path d="M14 58L48 6" stroke="#6b7684" stroke-width="2"/><path d="M18 52L44 12" stroke="#1f3b73" stroke-width="11" stroke-linecap="round"/><path d="M18 52L44 12" stroke="rgba(255,255,255,.3)" stroke-width="2.5"/>',
+      jibFurl: '<path d="M14 58L48 6" stroke="#e9edf2" stroke-width="7" stroke-linecap="round"/><path d="M14 58L48 6" stroke="#8a95a3" stroke-width="1.5" stroke-dasharray="3 5"/>',
+      shed: '<path d="M6 30L32 10L58 30V58H6z" fill="#b5523f" stroke="#6e2f24" stroke-width="2" stroke-linejoin="round"/><rect x="22" y="36" width="20" height="22" fill="#3a1f18"/><path d="M14 54L52 18" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round"/><path d="M14 54L52 18" stroke="#8a95a3" stroke-width="1.5" stroke-dasharray="4 4"/>',
       mastBottom: '<rect x="28" y="22" width="8" height="38" rx="3" fill="#a9b5c2" ' + sp + '/>',
       mastTop: '<rect x="29.5" y="4" width="5" height="40" rx="2.5" fill="#cdd6df" ' + sp + '/><path d="M32 4l-11 3 11 3z" fill="#e8323c"/>',
       boom: '<rect x="4" y="29" width="56" height="6" rx="3" fill="' + SPAR + '" ' + sp + '/><circle cx="8" cy="32" r="3.5" fill="#2a2f3a"/>',
@@ -800,7 +922,7 @@
     const assist = host.assist || 'easy';
     const unrig = !!Pm.unrig;
     const g = geo(clsId);
-    keelJobs = g.keelboat;
+    curCls = clsId;
     const def = (KOS.Boats && KOS.Boats.get(clsId)) || { name: clsId, colors: {} };
     const profile = host.profile || {};
     const col = Object.assign({ hull: '#fff', deck: '#eee', sail: '#fff', trim: '#ff7a3d' }, def.colors || {}, { id: clsId });
@@ -811,37 +933,48 @@
     const PEN = assist === 'easy' ? 2 : assist === 'pro' ? 8 : 5;
 
     // ---- the job list
+    // Dinghies: land jobs, then the launch (the sailor puts the life jacket on and backs the boat in stern first), then the
+    // water jobs with the boat afloat at the foot of the slipway, then she sails off. Unrigging is the exact reverse.
     const steps = [];
     const base = RIG[clsId];
+    const water = !g.keelboat && hasWater(clsId);
     const maxG = base.reduce((m, s) => Math.max(m, s[1]), 0);
-    if (!unrig) base.forEach(s => steps.push({ k: s[0], g: s[1], type: s[2] || 'on' }));
+    if (!unrig) base.forEach(s => steps.push({ k: s[0], g: s[1], type: s[2] || 'on', w: s[3] === 'w' ? 'water' : 'land' }));
     else {
-      base.slice().reverse().forEach(s => steps.push({ k: s[0], g: maxG + 1 - s[1], type: s[2] === 'off' ? 'on' : 'off' }));
-      steps.push({ k: 'hose', g: maxG + 1, type: 'on', pack: true });
-      steps.push({ k: 'roll', g: maxG + 2, type: 'on', pack: true });
+      const shed = SHED[clsId] || [];
+      base.slice().reverse().forEach(s => {
+        if (shed.indexOf(s[0]) >= 0) return; // goes to the shed with the mast at the end
+        steps.push({ k: s[0], g: maxG + 1 - s[1], type: s[2] === 'off' ? 'on' : 'off', w: s[3] === 'w' ? 'water' : 'land' });
+      });
+      steps.push({ k: 'hose', g: maxG + 1, type: 'on', pack: true, w: 'land' });
+      if (shed.length) steps.push({ k: 'shed', g: maxG + 2, type: 'on', pack: true, w: 'land' });
+      else steps.push({ k: 'roll', g: maxG + 2, type: 'on', pack: true, w: 'land' });
     }
     steps.forEach((s, i) => { s.i = i; s.done = false; });
     const decoys = [];
-    if (unrig) decoys.push({ k: 'fold', decoy: true, type: 'on', i: 100 });
-    if (!unrig && assist !== 'easy') decoys.push({ k: DECOY[clsId], decoy: true, type: 'on', i: 101 });
+    if (unrig) decoys.push({ k: 'fold', decoy: true, type: 'on', i: 100, w: 'land' });
+    if (!unrig && assist !== 'easy') decoys.push({ k: DECOY[clsId], decoy: true, type: 'on', i: 101, w: 'land' });
     // the tray shows jobs shuffled (seeded), so the order isn't given away
     const cards = steps.concat(decoys).map(s => s);
     for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const tmp = cards[i]; cards[i] = cards[j]; cards[j] = tmp; }
+
+    const lab = st => jobLabel(st.k, st.type, st.w === 'water' ? 'w' : '');
 
     // installed parts
     const inst = {};
     ORDER.forEach(k => { inst[k] = false; });
     if (unrig) base.forEach(s => { inst[s[0]] = s[2] !== 'off'; });
     else base.forEach(s => { inst[s[0]] = s[2] === 'off'; });
-    // keelboats keep their mast stepped and the boom and standing rigging on all season
-    // keelboats keep their mast stepped and the boom and standing rigging on all season (Feva / 29er: the mast, see KEEP_ON)
+    // keelboats keep their mast stepped and the boom and standing rigging on all season; KEEP_ON lists the rest per class
     (g.keelboat ? ['mast', 'boom', 'shrouds', 'forestay'] : []).concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
+    inst.vest = unrig; // the sailor puts it on by itself just before launching / boarding, and takes it off at the very end
     let groundSail = null; // null | 'flat' | 'rolled'
-    let foilsDown = 0; // dinghy rudder blade + daggerboard: 0 = raised (on land), 1 = lowered (afloat)
 
     const S = {
       phase: 'play', time: 0, started: false, penalty: 0, mistakes: 0, streak: 0, bestStreak: 0, doneN: 0,
       endT: 0, result: null, hudT: 0, ambT: 0, gullT: 6, botT: 0, tips: {}, sel: null, drag: null, finishing: false,
+      // stage: where the current jobs are done ('land' | 'water'); poseT: launch-timeline time while the boat is off the trolley
+      stage: unrig && water ? 'water' : 'land', poseT: null, launchT: 0, clk: 0,
     };
     let autopilot = false;
 
@@ -879,7 +1012,8 @@
     const zonesG = svg.querySelector('.rg-zones'), fxG = svg.querySelector('.rg-fx'), gsailG = svg.querySelector('.rg-gsail'), wakeG = svg.querySelector('.rg-wake');
     const infoEl = rootEl.querySelector('.rigging-info'), stampEl = rootEl.querySelector('.rigging-stamp');
     const cardsEl = rootEl.querySelector('.rigging-cards');
-    rootEl.querySelector('.rigging-tray-title').textContent = t(unrig || g.keelboat ? 'rigging.trayTitleUnrig' : 'rigging.trayTitle');
+    const trayTitle = () => { rootEl.querySelector('.rigging-tray-title').textContent = t(S.stage === 'water' ? 'rigging.trayTitleWater' : unrig || g.keelboat ? 'rigging.trayTitleUnrig' : 'rigging.trayTitle'); };
+    trayTitle();
     rootEl.querySelector('.rigging-keys').textContent = t('rigging.keys');
     rootEl.querySelector('.rigging-keys-touch').textContent = t('rigging.keysTouch');
     const kidG = svg.querySelector('.rg-kid'), kidIn = svg.querySelector('.rg-kid-in');
@@ -896,7 +1030,7 @@
     function drawPart(k, mode) {
       const e = partEl[k];
       if (!e || !DRAW[k]) return;
-      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib, down: foilsDown });
+      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib, mastUp: !!inst.mastSail, rudderOn: !!inst.rudder, boardOn: !!inst.daggerboard });
       e.setAttribute('class', 'rig-part' + (mode ? ' ' + mode : '') + (GROW[k] ? ' grow' : ''));
     }
     function clearPart(k) { const e = partEl[k]; if (e) { e.innerHTML = ''; e.setAttribute('class', 'rig-part'); } }
@@ -940,8 +1074,8 @@
       b.dataset.i = s.i;
       const badge = s.k === 'hose' || s.k === 'roll' || s.k === 'fold' ? '' : '<span class="rgc-badge ' + s.type + '">' + esc(t('rigging.' + (s.type === 'off' ? 'off' : 'on'))) + '</span>';
       b.innerHTML = '<span class="rgc-ico">' + icon(s.k, col) + '</span>' + badge +
-        '<span class="rgc-name">' + esc(jobLabel(s.k, s.type)) + '</span><span class="rgc-en">' + esc(pother(s.k)) + '</span>';
-      b.setAttribute('aria-label', jobLabel(s.k, s.type) + ' – ' + pother(s.k));
+        '<span class="rgc-name">' + esc(lab(s)) + '</span><span class="rgc-en">' + esc(pother(s.k)) + '</span>';
+      b.setAttribute('aria-label', lab(s) + ' – ' + pother(s.k));
       cardsEl.appendChild(b);
       cardEl[s.i] = b;
       b.addEventListener('pointerdown', e => onCardDown(e, s));
@@ -958,9 +1092,10 @@
 
     // ---- logic
     function available(s) {
-      if (s.done || s.decoy) return false;
+      if (s.done || s.decoy || s.w !== S.stage) return false;
       return !steps.some(o => !o.done && o.g < s.g);
     }
+    const stageLeft = () => steps.some(o => !o.done && o.w === S.stage);
     function blocking(s) { return steps.filter(o => !o.done && o.g < s.g).sort((a, b) => a.g - b.g || a.i - b.i)[0]; }
     function nextStep() { return steps.find(s => available(s)); }
     function remaining() { return steps.filter(s => !s.done).length; }
@@ -978,14 +1113,18 @@
         z.classList.toggle('rg-dim', !!show && !av && !dragging);
       });
       decoys.forEach(d => { const c = cardEl[d.i]; if (c) c.classList.toggle('is-sel', S.sel === d); });
+      // only the jobs for where the boat is now (on land / afloat) are in the tray
+      cards.forEach(c => { const e = cardEl[c.i]; if (e) e.classList.toggle('rg-later', c.w !== S.stage); });
+      rootEl.classList.toggle('is-busy', S.phase !== 'play');
+      trayTitle();
       // easy: faint ghost outline of parts that can be fitted now
-      if (!unrig) steps.forEach(s => {
-        if (s.done || s.type !== 'on' || !DRAW[s.k]) return;
+      steps.forEach(s => {
+        if (s.done || s.type !== 'on' || !DRAW[s.k] || inst[s.k]) return;
         const ghost = (easy && available(s)) || (S.drag && S.drag.s === s && assist !== 'pro') || (S.sel === s && assist !== 'pro');
         if (ghost && !partEl[s.k].classList.contains('rig-ghost')) drawPart(s.k, 'rig-ghost');
         else if (!ghost && partEl[s.k].classList.contains('rig-ghost')) clearPart(s.k);
       });
-      if (unrig) steps.forEach(s => {
+      steps.forEach(s => {
         if (s.done || s.type !== 'off' || !partEl[s.k]) return;
         partEl[s.k].classList.toggle('rig-avail', (easy && available(s)) || S.sel === s);
       });
@@ -1069,7 +1208,7 @@
           try { card.setPointerCapture(st.id); } catch (er) { /* ignore */ }
           st.ghost = doc.createElement('div');
           st.ghost.className = 'rigging-ghost';
-          st.ghost.innerHTML = icon(s.k, col) + '<span>' + esc(jobLabel(s.k, s.type)) + '</span>';
+          st.ghost.innerHTML = icon(s.k, col) + '<span>' + esc(lab(s)) + '</span>';
           host.layer.appendChild(st.ghost);
           card.classList.add('is-dragging');
           zoneScale();
@@ -1202,7 +1341,7 @@
         if (S.sel === s) { S.sel = null; hideInfo(); }
       } else if (need) {
         const key = need.type === 'off' && s.type === 'off' ? 'rigging.coach.orderOff' : (need.type === s.type ? 'rigging.coach.order' : 'rigging.coach.orderMix');
-        KOS.UI.coach(t(key, { part: jobLabel(s.k, s.type), need: jobLabel(need.k, need.type) }), { pos: 'top', mood: 'oops' });
+        KOS.UI.coach(t(key, { part: lab(s), need: lab(need) }), { pos: 'top', mood: 'oops' });
         if (assist !== 'pro') { const nc = cardEl[need.i]; if (nc) { nc.classList.remove('rg-hint'); void nc.offsetWidth; nc.classList.add('rg-hint'); scrollCard(nc); } }
       }
       bumpHud();
@@ -1219,15 +1358,13 @@
       // the part itself
       if (s.k === 'hose') rinse();
       else if (s.k === 'roll') { groundSail = 'rolled'; drawGroundSail(); popFx(s); }
-      else if (s.type === 'on') { inst[s.k] = true; drawPart(s.k, 'pop'); if (s.k === 'jib' && inst.jibsheets) drawPart('jibsheets'); }
+      else if (s.k === 'shed') { (SHED[clsId] || []).forEach(k => takeOff(k)); popFx(s); }
+      else if (s.type === 'on') { inst[s.k] = true; drawPart(s.k, 'pop'); redrawDeps(s.k, 0); }
       else {
-        inst[s.k] = false;
-        if (s.k === 'jib' && inst.jibsheets) setTimeout(() => drawPart('jibsheets'), 480);
-        const e = partEl[s.k];
-        if (e) { e.setAttribute('class', 'rig-part off'); setTimeout(() => { if (!inst[s.k]) clearPart(s.k); }, 480); }
-        if (unrig && (((s.k === 'sail' || s.k === 'optiRig') && !g.keelboat) || (s.k === 'jib' && g.keelboat))) { groundSail = 'flat'; setTimeout(() => { drawGroundSail(); }, 300); }
+        takeOff(s.k);
+        // the main comes off and lies flat on the ground, ready to be rolled
+        if (unrig && (g.keelboat ? s.k === 'sail' : (s.k === 'sail' || s.k === 'optiRig' || s.k === 'sleeve'))) { groundSail = 'flat'; setTimeout(() => { drawGroundSail(); }, 300); }
       }
-      if (s.k === 'boom' && partEl.cover && inst.cover) drawPart('cover');
       sfx(SOUND[s.k] || 'rope', { vol: 0.8 });
       setTimeout(() => sfx('coin', { vol: 0.35, pitch: 1 + Math.min(8, S.streak) * 0.06 }), 120);
       sparkle(s.zx, s.zy);
@@ -1237,10 +1374,26 @@
       else if (left === Math.floor(steps.length / 2) && steps.length >= 8) tip('half', 'rigging.coach.half');
       else if (left === 1) tip('last', 'rigging.coach.last');
       if (left === 0) finishRun();
+      else if (!stageLeft()) {
+        // all the jobs here are done: launch (land -> water) or bring her up the slipway (water -> land)
+        if (S.stage === 'land') startLaunch(); else startRetrieve();
+      }
       bumpHud();
       refresh();
       const n = nextStep();
       if (n && assist === 'easy' && cardEl[n.i]) scrollCard(cardEl[n.i]);
+    }
+    // parts whose drawing depends on another part
+    const DEPS = { jib: ['jibsheets', 'jibFurl'], mastSail: ['zestJib', 'mastJoin', 'sleeve'], rudder: ['stow'], daggerboard: ['stow'], boom: ['cover'] };
+    function redrawDeps(k, delay) {
+      const go = () => (DEPS[k] || []).forEach(d => { if (inst[d]) drawPart(d); });
+      if (delay) setTimeout(go, delay); else go();
+    }
+    function takeOff(k) {
+      inst[k] = false;
+      const e = partEl[k];
+      if (e) { e.setAttribute('class', 'rig-part off'); setTimeout(() => { if (!inst[k]) clearPart(k); }, 480); }
+      redrawDeps(k, 480);
     }
     function scrollCard(c) { try { c.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); } catch (e) { /* old browsers */ } }
     function tip(id, key, vars) {
@@ -1315,7 +1468,14 @@
       rootEl.classList.add('is-done');
       // decoys nobody fell for just slip away
       decoys.forEach(d => { const c = cardEl[d.i]; if (c) { c.classList.add('gone'); delete cardEl[d.i]; } });
-      KOS.UI.coach(t(unrig ? 'rigging.coach.doneUnrig' : g.keelboat ? 'rigging.coach.doneRigKeel' : 'rigging.coach.doneRig'), { pos: 'top', mood: 'wow' });
+      if (unrig) {
+        // the very last thing: the sailor takes the life jacket off
+        inst.vest = false;
+        partEl.vest.setAttribute('class', 'rig-part off');
+        setTimeout(() => clearPart('vest'), 480);
+      }
+      if (!unrig && g.keelboat) { S.poseT = 0; KOS.UI.coach(t('rigging.coach.vestOn'), { pos: 'top', mood: 'wow' }); }
+      else KOS.UI.coach(t(unrig ? 'rigging.coach.doneUnrig' : 'rigging.coach.doneRig'), { pos: 'top', mood: 'wow' });
       sfx('cheer', { vol: 0.55 });
       if (stars >= 3) { try { KOS.UI.confetti(); } catch (e) { /* ignore */ } }
       if (unrig) {
@@ -1326,60 +1486,49 @@
     }
     function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 
-    // sail-off animation (sim-time driven, see render)
-    // Dinghies are backed down the slipway STERN FIRST: the sailor (life jacket on) holds the trolley handle at the bow and
-    // pushes the boat backwards into the water until it floats off, hops in, the boat turns round and sails away.
-    // Keelboats: the sailor steps aboard and the boat motors/sails out from the pontoon.
+    // ---- the launch timeline (sim-time driven; pose(T) is pure, side effects happen in applyPose)
+    // Dinghies are backed down the slipway STERN FIRST: the sailor puts the life jacket on, holds the trolley handle at the
+    // bow and pushes the boat backwards into the water until it floats; hops in; the in-water jobs are done there (T held
+    // at LT.afloat); then the boat turns round and sails away. Unrigging plays the same film backwards up to the land jobs.
+    // Keelboats: the sailor puts the life jacket on, steps aboard and the boat leaves the pontoon.
     const slope = 0.18;
     const groundAt = x => (x >= g.xW ? 0 : (g.xW - x) * slope); // ramp runs down to the left
     let viewCx = 0; // world x at the centre of the view (set by layout)
-    const LT = { push0: 0.5, push1: 3.3, hop: 3.45, hopD: 0.4, foil0: 3.95, foil1: 4.55, float1: 4.65, turn1: 5.45, end: 7.9 };
-    let anim = { bx: 0, by: 0, ba: 0, sx: 1, cam: 0, camY: 0, fly: false };
-    // only ONE sailor at a time: the kid hops from where it stands into the cockpit (sim-time driven), and only when it
-    // lands is the standing kid hidden and the sitting crew drawn in the boat
-    function boardKid() {
-      if (anim.aboard) return;
-      anim.aboard = true;
-      kidG.classList.add('aboard');
-      drawPart('crew');
-    }
-    // where the crew sits, in world coords, for a boat at (bx, by) (rotation ignored: it is small while hopping)
+    const LT = g.keelboat ? { vest: 0.3, hop: 1.0, hopD: 0.4, leave: 1.8, end: 5.6 }
+      : { vest: 0.3, push0: 1.1, push1: 3.9, hop: 4.05, hopD: 0.4, afloat: 5.0, turn1: 5.8, end: 8.4 };
+    const reduceNow = () => reducedMotion();
     function crewAt(bx, by) {
       const x = g.xs + g.L * (g.keelboat ? 0.16 : 0.3);
       return { x: bx + x, y: by + g.dAt(x) + g.kid.h * 0.36 };
     }
-    // kid transform while hopping from (fx, fy) world feet to the cockpit; boards when done. Returns null when not hopping.
-    function hopKid(T, T0, fx, fy, bx, by) {
-      if (anim.aboard || T < T0) return null;
-      const u = (T - T0) / LT.hopD;
-      if (u >= 1) { boardKid(); return null; }
-      // jump in front of the sail, then drop in behind the hull so the gunwale hides the legs as the sailor sits down
-      const front = u < 0.75;
-      if (front !== (kidG.previousElementSibling === boatG)) { if (front) boatG.after(kidG); else boatG.before(kidG); }
-      const c = crewAt(bx, by), e = ease(u);
-      const x = fx + (c.x - fx) * e, y = fy + (c.y - fy) * e - Math.sin(Math.PI * u) * g.kid.h * 0.45;
-      return kidTf(g.kid, x - g.kid.x, y - g.kid.y);
-    }
-    function sailOff(T) {
-      if (unrig) return;
-      const a = anim;
+    function pose(T) {
+      const P = { aboard: T >= LT.hop + LT.hopD, vest: T >= LT.vest, kidFront: false };
+      const kd = g.kid, bob = Math.sin(S.clk * 3) * 2;
+      // the sailor hops from (fx, fy) into the cockpit of a boat at (bx, by)
+      const hop = (fx, fy, bx, by) => {
+        const u = (T - LT.hop) / LT.hopD;
+        if (u < 0 || u >= 1) return null;
+        const c = crewAt(bx, by), e = ease(u);
+        P.kidFront = u < 0.75; // jump in front of the sail, then drop in behind the gunwale
+        return kidTf(kd, fx + (c.x - fx) * e - kd.x, fy + (c.y - fy) * e - Math.sin(Math.PI * u) * kd.h * 0.45 - kd.y);
+      };
       if (g.keelboat) {
-        const hk = hopKid(T, 0.3, g.kid.x, g.kid.y, 0, 0);
-        if (hk) a.kidTf = hk;
-        const τ = Math.max(0, T - 0.8);
-        a.bx = 22 * τ * τ + 10 * τ; a.by = Math.sin(T * 2.2) * 1.5; a.ba = -Math.min(5, τ * 3); a.cam = Math.max(0, a.bx - 40);
-        a.boatTf = 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ')';
-        if (τ > 1.2 && !a.fly && inst.gennaker) { a.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
-        return;
+        const τ = Math.max(0, T - LT.leave);
+        P.bx = 22 * τ * τ + 10 * τ; P.by = Math.sin(T * 2.2) * 1.5; P.ba = -Math.min(5, τ * 3);
+        P.boatTf = 'translate(' + f(P.bx) + ' ' + f(P.by) + ') rotate(' + f(P.ba) + ')';
+        P.kidTf = hop(kd.x, kd.y, 0, 0) || kidTf(kd);
+        P.cam = Math.max(0, P.bx - 40); P.camY = 0;
+        P.fly = τ > 1.2;
+        return P;
       }
-      const kd = g.kid, k = kd.k;
+      const k = kd.k;
       // trolley: one wheel pair (axle A) + the handle the sailor holds (grip G). The sailor stays upright on the ramp, so the
       // trolley pivots on its axle to keep the handle at the sailor's hand height.
       const ax = -g.L * 0.06, ay = -18, Gx = g.xb + 62, Gy = -70, Dx = Gx - ax, Dy = Gy - ay;
-      const wheelDeep = (g.waterY + 6) + 22; // how far down the ramp the wheels go (well into the water)
-      const P = (g.xW - wheelDeep / slope) - ax; // trolley offset when fully pushed in (negative)
+      const wheelDeep = (g.waterY + 6) + 22;
+      const Pin = (g.xW - wheelDeep / slope) - ax; // trolley offset when fully pushed in (negative)
       const τ1 = U.clamp((T - LT.push0) / (LT.push1 - LT.push0), 0, 1);
-      const tx = P * ease(τ1), dw = groundAt(tx + ax);
+      const tx = Pin * ease(τ1), dw = groundAt(tx + ax);
       let φ = 0, kx = kd.x + tx, dk = 0;
       for (let it = 0; it < 3; it++) {
         dk = groundAt(kx);
@@ -1388,41 +1537,97 @@
         kx = ax + tx + Dx * Math.cos(φ) - Dy * Math.sin(φ) + 30 * k;
       }
       const φd = φ * 180 / Math.PI;
-      a.trolleyTf = 'translate(' + f(tx) + ' ' + f(dw) + ') rotate(' + f(φd) + ' ' + f(ax) + ' ' + f(ay) + ')';
+      P.trolleyTf = 'translate(' + f(tx) + ' ' + f(dw) + ') rotate(' + f(φd) + ' ' + f(ax) + ' ' + f(ay) + ')';
       const walking = τ1 > 0 && τ1 < 1;
-      a.kidTf = kidTf(kd, kx - kd.x, dk - (walking ? Math.abs(Math.sin(T * 9)) * 2 : 0));
+      P.kidTf = kidTf(kd, kx - kd.x, dk - (walking ? Math.abs(Math.sin(T * 9)) * 2 : 0));
       const floatDy = g.waterY + 62;
-      if (T < LT.push1) { a.bx = tx; a.by = dw; a.ba = φd; a.sx = 1; }
+      if (T < LT.push1) { P.bx = tx; P.by = dw; P.ba = φd; P.sx = 1; }
       else {
-        if (!a.splash) { a.splash = true; sfx('splash', { vol: 0.7 }); }
-        const τf = ease(U.clamp((T - LT.push1) / (LT.float1 - LT.push1), 0, 1));
-        const bob = Math.sin(T * 3) * 2 * τf;
-        a.bx = tx - 46 * τf; a.by = dw + (floatDy - dw) * τf + bob; a.ba = φd * (1 - τf);
-        if (T >= LT.hop) { const hk = hopKid(T, LT.hop, kx, kd.y + dk, a.bx, a.by); if (hk) a.kidTf = hk; }
-        // afloat with the sailor aboard: push the daggerboard down and lower the rudder blade
-        const fd = ease(U.clamp((T - LT.foil0) / (LT.foil1 - LT.foil0), 0, 1));
-        if (fd !== foilsDown) {
-          if (foilsDown === 0) { sfx('rigClick', { vol: 0.6 }); if (!reducedMotion()) floatText(t('rigging.fx.foils'), null, null, 'good'); }
-          foilsDown = fd;
-          if (inst.rudder) drawPart('rudder');
-          if (inst.daggerboard) drawPart('daggerboard');
-        }
-        // turn round (seen from the side: the boat flips to face the other way), then sail off to the left
-        const τt = U.clamp((T - LT.float1) / (LT.turn1 - LT.float1), 0, 1);
-        a.sx = Math.cos(Math.PI * ease(τt));
-        if (Math.abs(a.sx) < 0.08) a.sx = a.sx < 0 ? -0.08 : 0.08;
-        a.bx -= 14 * τt;
+        const τf = ease(U.clamp((T - LT.push1) / (LT.afloat - LT.push1), 0, 1));
+        P.bx = tx - 46 * τf; P.by = dw + (floatDy - dw) * τf + bob * τf; P.ba = φd * (1 - τf);
+        P.afloatTf = 'translate(' + f(P.bx) + ' ' + f(P.by) + ')';
+        const hk = hop(kx, kd.y + dk, P.bx, P.by);
+        if (hk) P.kidTf = hk;
+        // turn round (seen from the side the boat flips to face the other way), then sail off to the left
+        const τt = U.clamp((T - LT.afloat) / (LT.turn1 - LT.afloat), 0, 1);
+        P.sx = Math.cos(Math.PI * ease(τt));
+        if (Math.abs(P.sx) < 0.08) P.sx = P.sx < 0 ? -0.08 : 0.08;
+        P.bx -= 14 * τt;
         const τs = Math.max(0, T - LT.turn1);
-        a.bx -= 30 * τs * τs + 20 * τs;
-        a.ba += τs > 0 ? Math.min(6, τs * 3) : 0;
-        if (τs > 0.6 && !a.fly && inst.gennaker) { a.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
+        P.bx -= 30 * τs * τs + 20 * τs;
+        P.ba += τs > 0 ? Math.min(6, τs * 3) : 0;
+        P.fly = τs > 0.6;
       }
-      a.boatTf = 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ' ' + f(ax) + ' ' + f(ay) + ') scale(' + f(a.sx) + ' 1)';
+      P.boatTf = 'translate(' + f(P.bx) + ' ' + f(P.by) + ') rotate(' + f(P.ba) + ' ' + f(ax) + ' ' + f(ay) + ') scale(' + f(P.sx) + ' 1)';
       // camera: keep sailor + boat framed while pushing, then ease over to centre the boat once it floats
-      const λ = ease(U.clamp((T - LT.push1) / (LT.turn1 - LT.push1), 0, 1));
-      a.cam = a.bx - (viewCx - (g.xs + g.xb) / 2) * λ;
-      boatG.classList.toggle('flipped', a.sx < 0);
-      a.camY = Math.max(0, a.by - 16) * 0.8; // follow the boat down the ramp so it never hides behind the tray
+      const λ = ease(U.clamp((T - LT.push1) / (LT.afloat - LT.push1), 0, 1));
+      P.cam = P.bx - (viewCx - (g.xs + g.xb) / 2) * λ;
+      P.camY = Math.max(0, P.by - 16) * 0.8; // follow the boat down the ramp so it never hides behind the tray
+      P.sailing = T > LT.afloat;
+      return P;
+    }
+    const A = { aboard: false, fly: false };
+    function setAboard(on) {
+      if (A.aboard === on) return;
+      A.aboard = on;
+      kidG.classList.toggle('aboard', on);
+      if (on) drawPart('crew'); else clearPart('crew');
+    }
+    function applyPose(T) {
+      const P = pose(T);
+      // only ONE sailor at a time: the standing kid is hidden the frame the seated one is drawn
+      setAboard(P.aboard);
+      if (P.vest && !inst.vest) {
+        inst.vest = true; drawPart('vest', 'pop'); sfx('zip', { vol: 0.7 });
+        if (!unrig) KOS.UI.coach(t('rigging.coach.vestOn'), { pos: 'top', mood: 'wow' });
+      }
+      if (P.kidFront !== (kidG.previousElementSibling === boatG)) { if (P.kidFront) boatG.after(kidG); else boatG.before(kidG); }
+      if (P.fly && !A.fly && inst.gennaker && !unrig) { A.fly = true; drawPart('gennakerFly', 'pop'); clearPart('gennaker'); sfx('flap', { vol: 0.8 }); sfx('pop', { pitch: 0.7 }); }
+      if (P.trolleyTf) trolleyG.setAttribute('transform', P.trolleyTf);
+      kidIn.setAttribute('transform', P.kidTf);
+      boatG.setAttribute('transform', P.boatTf);
+      boatG.classList.toggle('flipped', (P.sx || 1) < 0);
+      // in the water stage the targets and sparkles ride on the floating boat
+      const tz = S.stage === 'water' && P.afloatTf ? P.afloatTf : '';
+      zonesG.setAttribute('transform', tz); fxG.setAttribute('transform', tz);
+      worldG.setAttribute('transform', 'translate(' + f(-P.cam) + ' ' + f(-P.camY) + ')');
+      skylineG.setAttribute('transform', 'translate(' + f(-P.cam * 0.25) + ' ' + f(-P.camY) + ')');
+      if (!g.keelboat && P.sx < 0 && P.sailing) {
+        const wy = g.waterY + 2, sx = P.bx - g.xs, bw = P.bx - g.xb;
+        wakeG.innerHTML = '<path d="M' + f(sx + 260) + ' ' + f(wy + 2) + 'Q' + f(sx + 20) + ' ' + f(wy + 6) + ' ' + f(sx - 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+          '<path d="M' + f(bw + 10) + ' ' + f(wy) + 'q-10 -8 -22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
+      } else if (g.keelboat && T > LT.leave + 0.2) {
+        const wy = 0, sx = P.bx + g.xs, wx0 = Math.max(-4000, sx - 320);
+        wakeG.innerHTML = '<path d="M' + f(Math.min(wx0, sx - 10)) + ' ' + f(wy + 2) + 'Q' + f(sx - 20) + ' ' + f(wy + 6) + ' ' + f(sx + 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+          '<path d="M' + f(P.bx + g.xb - 10) + ' ' + f(wy) + 'q10 -8 22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
+      } else wakeG.innerHTML = '';
+    }
+    // land jobs done: the sailor puts the life jacket on and backs the boat into the water
+    function startLaunch() {
+      S.phase = 'launch'; S.launchT = reduceNow() ? LT.afloat : 0; S.poseT = S.launchT;
+      hideInfo(); S.sel = null;
+    }
+    function launchDone() {
+      S.phase = 'play'; S.stage = 'water'; S.poseT = LT.afloat;
+      applyPose(S.poseT); // (reduced motion jumps here: the life jacket goes on first)
+      KOS.UI.coach(t('rigging.coach.water'), { pos: 'top' });
+      refresh();
+      setTimeout(zoneScale, 30);
+      const n = nextStep();
+      if (n && cardEl[n.i]) scrollCard(cardEl[n.i]);
+    }
+    // unrig: water jobs done, the sailor hops out and pulls the boat up the slipway
+    function startRetrieve() {
+      S.phase = 'retrieve'; S.launchT = reduceNow() ? LT.push0 : LT.afloat; S.poseT = S.launchT;
+      hideInfo(); S.sel = null;
+      KOS.UI.coach(t('rigging.coach.retrieve'), { pos: 'top' });
+    }
+    function retrieveDone() {
+      S.phase = 'play'; S.stage = 'land';
+      applyPose(0); S.poseT = null;
+      boatG.setAttribute('transform', ''); trolleyG.setAttribute('transform', ''); zonesG.setAttribute('transform', ''); fxG.setAttribute('transform', '');
+      refresh();
+      setTimeout(zoneScale, 30);
     }
 
     // ---- keyboard
@@ -1474,14 +1679,29 @@
 
     // ---- instance
     function update(dt) {
+      S.clk += dt;
+      const red = reduceNow();
       if (S.phase === 'play') {
         if (S.started) S.time += dt;
         if (autopilot && (S.botT -= dt) <= 0) { S.botT = 0.45; doNext(); }
+      } else if (S.phase === 'launch') {
+        S.launchT = red ? LT.afloat : S.launchT + dt;
+        S.poseT = Math.min(S.launchT, LT.afloat);
+        if (S.launchT >= LT.afloat) launchDone();
+      } else if (S.phase === 'retrieve') {
+        S.launchT = red ? LT.push0 : S.launchT - dt;
+        S.poseT = Math.max(S.launchT, LT.push0);
+        if (S.launchT <= LT.push0) retrieveDone();
       } else if (S.phase === 'end') {
         S.endT += dt;
-        // reduced motion: no launch film, just the boat afloat with the sailor aboard
-        sailOff(reducedMotion() && !unrig ? (g.keelboat ? 3 : LT.turn1 + 0.6) : S.endT);
-        if (!S.finishing && S.endT > (unrig ? 3.2 : reducedMotion() ? 2.6 : g.keelboat ? 5.2 : LT.end)) { S.finishing = true; host.finish(S.result); }
+        if (!unrig) {
+          // reduced motion: no film, just the boat leaving with the sailor aboard
+          if (g.keelboat) S.poseT = red ? LT.leave + 1.2 : S.endT;
+          else S.poseT = red ? LT.turn1 + 0.6 : LT.afloat + S.endT;
+          if (g.keelboat && !S.tips.leave && (red || S.endT > LT.leave)) { S.tips.leave = true; KOS.UI.coach(t('rigging.coach.doneRigKeel'), { pos: 'top', mood: 'wow' }); }
+        }
+        const endAt = unrig ? 3.2 : red ? 2.6 : g.keelboat ? LT.end : LT.end - LT.afloat;
+        if (!S.finishing && S.endT > endAt) { S.finishing = true; host.finish(S.result); }
       }
       if ((S.ambT -= dt) <= 0) { S.ambT = 0.5; try { KOS.Audio.ambient({ wind: 7, waves: 0.25, harbor: 0.9 }); } catch (e) { /* optional */ } }
       if ((S.gullT -= dt) <= 0) { S.gullT = 9 + rand() * 10; sfx('gull', { vol: 0.25, pitch: 0.9 + rand() * 0.3 }); }
@@ -1491,26 +1711,7 @@
       }
     }
     function render() {
-      if (S.phase !== 'end' || unrig) return;
-      const a = anim;
-      worldG.setAttribute('transform', 'translate(' + f(-a.cam) + ' ' + f(-(a.camY || 0)) + ')');
-      skylineG.setAttribute('transform', 'translate(' + f(-a.cam * 0.25) + ' ' + f(-(a.camY || 0)) + ')');
-      if (a.trolleyTf) trolleyG.setAttribute('transform', a.trolleyTf);
-      if (a.kidTf) kidIn.setAttribute('transform', a.kidTf);
-      if (a.boatTf) boatG.setAttribute('transform', a.boatTf);
-      if (g.keelboat ? S.endT > 1 : S.endT > LT.turn1) {
-        const wy = g.keelboat ? 0 : g.waterY + 2;
-        if (g.keelboat) {
-          const sx = a.bx + g.xs, wx0 = Math.max(-4000, sx - 320);
-          wakeG.innerHTML = '<path d="M' + f(Math.min(wx0, sx - 10)) + ' ' + f(wy + 2) + 'Q' + f(sx - 20) + ' ' + f(wy + 6) + ' ' + f(sx + 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
-            '<path d="M' + f(a.bx + g.xb - 10) + ' ' + f(wy) + 'q10 -8 22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
-        } else {
-          // turned round: the stern is now on the right (bx - xs), the bow on the left
-          const sx = a.bx - g.xs, bw = a.bx - g.xb;
-          wakeG.innerHTML = '<path d="M' + f(sx + 260) + ' ' + f(wy + 2) + 'Q' + f(sx + 20) + ' ' + f(wy + 6) + ' ' + f(sx - 30) + ' ' + f(wy) + '" stroke="rgba(255,255,255,.7)" stroke-width="5" fill="none" stroke-linecap="round"/>' +
-            '<path d="M' + f(bw + 10) + ' ' + f(wy) + 'q-10 -8 -22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
-        }
-      }
+      if (S.poseT != null) applyPose(S.poseT);
     }
     function destroy() {
       root.removeEventListener('keydown', onKey);
@@ -1540,6 +1741,8 @@
     const hudSync = () => hud.update({ timer: 0, custom: { steps: '0<small>/' + steps.length + '</small>', oops: '0' } });
     hudSync();
     if (unrig) boatG.classList.add('wet');
+    // unrigging a dinghy starts afloat at the foot of the slipway, the sailor aboard
+    if (unrig && S.stage === 'water') { S.poseT = LT.afloat; applyPose(S.poseT); refresh(); }
 
     return {
       start() { KOS.UI.coach(t(introKey, { boat: boatName }), { pos: 'top', ms: 9000 }); setTimeout(zoneScale, 50); setTimeout(() => { if (!S.demoDone) startDemo(); }, 900); },

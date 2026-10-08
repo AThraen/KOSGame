@@ -228,3 +228,7 @@
 /* the launched dinghy turns round (mirrored): keep the lettering readable */
 .rg-boat.flipped text { transform: scaleX(-1); transform-box: fill-box; transform-origin: 50% 50%; }
 .rigging-card.is-armed { transform: translateY(-8px) scale(1.06); border-color: #3ee08f; box-shadow: 0 4px 0 rgba(0,0,0,.25), 0 0 0 4px rgba(62,224,143,.45), 0 12px 22px rgba(0,0,0,.35); }
+/* jobs for later (afloat / back on land) wait off the tray; during the launch film the tray rests */
+.rigging-card.rg-later { display: none; }
+.rigging-root.is-busy .rigging-tray { pointer-events: none; }
+.rigging-root.is-busy .rigging-cards { opacity: .45; filter: grayscale(.5); transition: opacity .3s; }
