@@ -1222,7 +1222,7 @@
         const slider = assist === 'pro' || S.plan.pCls === 'rib';
         if (land) { left = 150; right = 150; bot = H - 20; } else { bot = H - (W < 700 ? 200 : 140); if (slider) right = W < 700 ? 96 : 120; }
       }
-      // keep the situation clear of Coach Søs while a tip is up (portrait / desktop: the bubble sits at the bottom)
+      // keep the situation clear of the coach bubble while a tip is up (portrait / desktop: the bubble sits at the bottom)
       const co = document.querySelector('.coach');
       if (co) { const r = co.getBoundingClientRect(); if (r.height && r.top > H * 0.45) bot = Math.min(bot, r.top - 10); else if (r.height && land && r.bottom < H * 0.5) top = Math.max(top, r.bottom + 6); }
       if (!land && W < 640) top += 70; // phones: the wind badge / replay badge / role pill row under the HUD

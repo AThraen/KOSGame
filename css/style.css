@@ -449,7 +449,7 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 .dialog-title { font-size: 1.45rem; font-weight: 900; margin-bottom: 8px; }
 .dialog-body { color: rgba(240,244,255,.85); font-weight: 600; text-align: left; }
 .dialog-body p + p { margin-top: 8px; }
-/* first-run welcome (Coach Søs → first school lesson) */
+/* first-run welcome (Jesper → first school lesson) */
 .onboard-dialog { width: min(100%, 460px); }
 .onboard-dialog .dialog-title { margin-top: 2px; }
 .ob-coach { width: 104px; height: 104px; margin: -8px auto 4px; animation: bob 3s ease-in-out infinite; }

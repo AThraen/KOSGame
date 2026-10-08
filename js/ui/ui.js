@@ -1,5 +1,5 @@
 // KØS SEJL — js/ui/ui.js
-// KOS.UI: toasts, dialogs, coach bubbles (Coach Søs), HUD, countdown, stars, confetti, line icons, results card,
+// KOS.UI: toasts, dialogs, coach bubbles (the real KØS coaches), HUD, countdown, stars, confetti, line icons, results card,
 // and the player avatar SVG. See SPEC.md.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -242,7 +242,7 @@
   function topDialog() { return dialogStack[dialogStack.length - 1] || null; }
 
   // ------------------------------------------------------------------ the club's coaches
-  // Søs is the game's own trainer; Anton, Storm and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07).
+  // Anton, Storm and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07); Jesper is the default.
   // setCoach(id) picks who talks during an activity (KOS.App does it per activity); coach()/coachSvg() take an
   // explicit opts.coach / who to override.
   const COACHES = {
@@ -268,8 +268,8 @@
       hair: '<path d="M30 45c-1-14 8-22 20-22s21 8 20 22c-2-6-4-9-7-10-1-4-5-6-9-4-3-2-7-2-10 0-4-1-7 1-8 4-3 1-5 4-6 10z" fill="#cfbd90"/>' +
         '<path d="M38 27c6-3 16-3 24 1M36 31c4-3 8-4 12-3M53 28c4 0 8 2 10 5" stroke="#e6d8b2" stroke-width="1.4" fill="none" stroke-linecap="round"/>' },
   };
-  let coachId = 'soes';
-  function setCoach(id) { coachId = COACHES[id] || id === 'soes' ? id : 'soes'; }
+  let coachId = 'jesper';
+  function setCoach(id) { coachId = COACHES[id] ? id : 'jesper'; }
   function currentCoach() { return coachId; }
   function coachName(id) { id = id || coachId; const n = t('ui.coach.who.' + id); return n && n.indexOf('ui.coach.who') < 0 ? n : t('ui.coach.name'); }
   function coachMouth(mood, k) {
@@ -290,34 +290,9 @@
       '<ellipse cx="35" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".45"/><ellipse cx="65" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".45"/>' +
       coachMouth(mood, id === 'storm' ? 12 : id === 'jesper' ? 8 : 10) + '</svg>';
   }
-  // Coach Søs: friendly club trainer: orange KØS cap, ponytail, orange jacket, whistle.
   function coachSvg(mood, who) {
-    const id = who || coachId;
-    if (COACHES[id]) return realCoachSvg(COACHES[id], mood, id);
-    const mouth = mood === 'wow' ? '<ellipse cx="50" cy="66" rx="5" ry="6" fill="#7a2d22"/>' :
-      mood === 'oops' ? '<path d="M42 68q8-5 16 0" stroke="#7a2d22" stroke-width="3" fill="none" stroke-linecap="round"/>' :
-        '<path d="M40 63q10 10 20 0" stroke="#7a2d22" stroke-width="3" fill="#fff" stroke-linecap="round" stroke-linejoin="round"/>';
-    return '<svg class="coach-svg" viewBox="0 0 100 100" aria-hidden="true">' +
-      '<circle cx="50" cy="50" r="48" fill="#1c2a47"/>' +
-      '<path d="M73 38c10 6 12 20 6 30-3-9-6-14-12-17z" fill="#8a4b2a"/>' + // ponytail
-      '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#ff7a3d"/>' + // jacket
-      '<path d="M38 74l12 10 12-10" fill="none" stroke="#c94f1c" stroke-width="3"/>' +
-      '<path d="M50 84v16" stroke="#c94f1c" stroke-width="3"/>' +
-      '<path d="M42 76q8 10 16 0" fill="none" stroke="#e8e8f0" stroke-width="1.6"/>' +
-      '<circle cx="57" cy="87" r="3.4" fill="#d9dde6" stroke="#9aa3b5" stroke-width="1"/>' + // whistle
-      '<rect x="43" y="62" width="14" height="14" rx="6" fill="#f1b38c"/>' +
-      '<ellipse cx="50" cy="52" rx="21" ry="22" fill="#f6c39f"/>' +
-      '<ellipse cx="29.5" cy="54" rx="4" ry="5" fill="#f1b38c"/><ellipse cx="70.5" cy="54" rx="4" ry="5" fill="#f1b38c"/>' +
-      '<path d="M29 46c0-14 9-22 21-22s21 8 21 22c-6-6-14-8-21-8s-15 2-21 8z" fill="#8a4b2a"/>' + // hair
-      '<path d="M26 40c2-14 12-21 24-21s22 7 24 21z" fill="#ff8a3d"/>' + // cap
-      '<path d="M24 40h40c8 0 14 2 16 5H24z" fill="#e8642a"/>' + // brim
-      '<rect x="40" y="25" width="20" height="10" rx="4" fill="#0f1729"/><text x="50" y="33" font-size="7.5" font-weight="900" text-anchor="middle" fill="#fff" font-family="system-ui,Segoe UI,sans-serif">KØS</text>' +
-      '<ellipse cx="41.5" cy="53" rx="3" ry="3.6" fill="#1b2335"/><ellipse cx="58.5" cy="53" rx="3" ry="3.6" fill="#1b2335"/>' +
-      '<circle cx="42.6" cy="51.8" r="1.1" fill="#fff"/><circle cx="59.6" cy="51.8" r="1.1" fill="#fff"/>' +
-      '<path d="M36.5 47q5-3 9 0M54.5 47q5-3 9 0" stroke="#6b3a20" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-      '<ellipse cx="35" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".55"/><ellipse cx="65" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".55"/>' +
-      '<circle cx="45" cy="58" r=".9" fill="#c98a66"/><circle cx="56" cy="59" r=".8" fill="#c98a66"/><circle cx="51" cy="57" r=".7" fill="#c98a66"/>' +
-      mouth + '</svg>';
+    const id = COACHES[who] ? who : coachId;
+    return realCoachSvg(COACHES[id], mood, id);
   }
   let coachCur = null;
   function coach(text, opts) {
@@ -654,7 +629,7 @@
   if (KOS.I18n) {
     KOS.I18n.add('da', {
       ui: {
-        coach: { name: 'Coach Søs', tap: 'Tryk for at lukke', who: { soes: 'Coach Søs', anton: 'Cheftræner Anton', storm: 'Ungdomstræner Storm', jesper: 'Jesper, formand' } },
+        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Cheftræner Anton', storm: 'Ungdomstræner Storm', jesper: 'Jesper, formand' } },
         countdown: { go: 'Sejl!' },
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
         pos: { irons: 'I vindøjet', closehauled: 'Bidevind', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
@@ -668,7 +643,7 @@
     });
     KOS.I18n.add('en', {
       ui: {
-        coach: { name: 'Coach Søs', tap: 'Tap to close', who: { soes: 'Coach Søs', anton: 'Head coach Anton', storm: 'Youth coach Storm', jesper: 'Jesper, club president' } },
+        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Head coach Anton', storm: 'Youth coach Storm', jesper: 'Jesper, club president' } },
         countdown: { go: 'Sail!' },
         hud: { wind: 'Wind', speed: 'Speed', pos: 'Course', timer: 'Time', place: 'Place', lap: 'Lap', score: 'Score', heel: 'Heel', tack: 'Tack', penalty: 'Penalty' },
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },

@@ -9,7 +9,7 @@
 //   race      windward-leeward ('wl') or triangle ('tri') course, 1–2 laps, laylines toggle, 3–11 AI boats of the same
 //             class (KOS.AI with varied skill), live positions, legs, gust patches & wind shifts (rummer/skralder),
 //             mark rounding by winding number (string rule → correct side), 3-length zone, KOS.Rules.monitor fouls →
-//             360° penalty turns (easy assist only warns) explained by Coach Søs.
+//             360° penalty turns (easy assist only warns) explained by the coach.
 //   finish    finish horn per boat, live finish board, results table (times, points, stars by place) on the results
 //             screen, low-point series score per championship (KOS.Storage).
 //
@@ -655,7 +655,7 @@
       const a = f.offender, v = f.victim;
       if (!a || !v || a.rc.finT != null || v.rc.finT != null) return;
       const gap = KOS.Rules.hullGap ? KOS.Rules.hullGap(a, v) : 0;
-      if (!f.contact) { // close call, no contact: Coach Søs warns the player once in a while, no penalty
+      if (!f.contact) { // close call, no contact: the coach warns the player once in a while, no penalty
         if (a === me && gap < 0.4 * L && now > (S.closeT || 0)) { S.closeT = now + 25; say(t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); sfx('whistle', { vol: 0.4 }); }
         return;
       }

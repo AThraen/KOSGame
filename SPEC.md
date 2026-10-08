@@ -259,7 +259,7 @@ landscape), a vertical sheet slider, a HIKE hold button, SPI button; optional vi
 
 ### KOS.UI (ui/ui.js)
 `toast(text, {kind, ms})`, `dialog({titleKey|title, body (html), buttons: [{labelKey, kind, onClick}]})`,
-`coach(text, {avatar, ms, pos})` (speech bubble from a friendly coach character "Coach Søs" / the club's trainer),
+`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Storm (Sailing School, racing, RIB, youth dinghies) and Anton (keelboats)),
 `hud(layer, items)` → `{update(data), el}` with items `wind speed pos timer place lap score heel tack penalty`,
 `countdown(layer, seconds, onDone)`, `stars(n)` (svg html), `confetti()`, `iconSvg(name)`, `results(result, activity)`.
 Implemented: `coachClose()` closes the current coach bubble (the app calls it on pause and finish). During play a coach bubble
@@ -291,7 +291,7 @@ Implemented: `KOS.App.suggest()` → the activity a player should do next (curat
 unfinished unlocked activity) — used by the hub's "Næste udfordring" card. `KOS.App.rankOf(xp)` → `{level, key, frac, toNext}`
 (shared by the hub top bar and the Sejlerpas). `KOS.App.BADGES` / `addBadges(defs)`: badge definitions; milestones are checked
 after every finished activity, and badges a mode awards with `KOS.Storage.award(id)` during play are shown on the results
-screen (medal strip + sound). First run: profile → hub → Coach Søs welcome dialog → `school.steer`.
+screen (medal strip + sound). First run: profile → hub → Jesper welcome dialog → `school.steer`.
 `KOS.Perf.level` (2 full, 1 lighter, 0 slow device) is set by the app's frame-time governor; the scene lowers its DPR cap and
 the effects thin out cosmetic particles at lower levels.
 
@@ -392,7 +392,7 @@ Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesso
 - **Hiking everywhere + crew commands (user 2026-10-06):** the HIKE button is hidden on Let (free sail/race/nav), for
   keelboats always, in dock and rowschool, and in most school lessons. Plan: show it for every dinghy and keelboat in
   all sea modes; on Let auto-hike stays but pressing adds a bonus; keelboats "Ud på kanten!" (rail weight, small heel
-  reduction), 29er "Trapez ud!". Advanced levels add crew commands, unlocked along the boat ladder with a Coach Søs
+  reduction), 29er "Trapez ud!". Advanced levels add crew commands, unlocked along the boat ladder with a coach
   intro the first time: "Klar til at vende?" → "Ro fra!" (2-person boats: good timing = smoother tack), "Klar til at
   bomme?" → "Bom!" (+ chicken gybe in strong wind), "Sæt gennaker!" / "Tag den ned!", "Træk kickeren!" / "Cunningham!"
   (depower: ILCA, 29er, J70), "Reb!" (H-boat, Zest if confirmed), "Mand over bord!" (keelboats, RIB). Beginners only see

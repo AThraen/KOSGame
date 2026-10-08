@@ -2,7 +2,7 @@
 // The 'rigging' mode (kind 'dom', hub area 'club'): rig and unrig every boat in the club ladder.
 // A big side-view SVG of the boat (on its trolley at the slipway, or alongside the pontoon for keelboats) and the
 // parts laid out on the ground (the "tray"). Drag a part onto its glowing spot on the boat (or tap it and press
-// "Sæt på"/Enter). Order matters: wrong order = friendly Coach Søs hint + small time penalty. Tap any part (in the
+// "Sæt på"/Enter). Order matters: wrong order = friendly coach hint + small time penalty. Tap any part (in the
 // tray or on the boat) to learn its Danish and English name. When the boat is rigged it rolls down the slipway and
 // sails off; when unrigged it is rinsed with fresh water and the sail is rolled (never folded!).
 //

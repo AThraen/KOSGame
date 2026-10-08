@@ -2,7 +2,7 @@
 // The 'quiz' mode (kind 'dom', hub area 'club'): sailing quiz with 70+ illustrated questions in Danish + English.
 // Categories: vigeregler, bådens dele, knob, vejr & vind, sikkerhed, navigation/afmærkning, KØS & havnen.
 // Each round draws N questions (deterministic per play count), has a per-question timer, a streak bonus,
-// a "Spørg Søs" 50/50 lifeline (easy/normal) and an explanation after every answer.
+// a "Spørg Jesper" 50/50 lifeline (easy/normal) and an explanation after every answer.
 // Test hooks: inst.setAutopilot(on) answers correctly by itself, inst.skipIntro() jumps to the first question.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -287,7 +287,7 @@
         coach: 'Svar hurtigt for bonuspoint – og jo flere rigtige i træk, jo større bonus!',
       },
       hud: { q: 'Spørgsmål', score: 'Point', streak: 'I træk' },
-      lifeline: 'Spørg Søs', lifelineLeft: '{n} tilbage',
+      lifeline: 'Spørg Jesper', lifelineLeft: '{n} tilbage',
       next: 'Næste', finish: 'Se resultat',
       right: { r0: 'Rigtigt!', r1: 'Sådan!', r2: 'Flot!', r3: 'Korrekt!', r4: 'Yes!' },
       wrong: 'Ikke helt…', timeout: 'Tiden løb ud!',
@@ -298,7 +298,7 @@
         streak3: 'Tre rigtige i træk – du er varm!',
         streak5: 'Fem i træk! Du er en ægte sømand!',
         wrong2: 'Bare rolig – læs forklaringen, så husker du den næste gang.',
-        lifeline: 'Søs fjerner to forkerte svar for dig.',
+        lifeline: 'Jesper fjerner to forkerte svar for dig.',
       },
       res: { msg: '{n} af {of} rigtige · flest i træk: {streak}' },
       stat: { correct: 'Rigtige svar', streak: 'Flest i træk', avg: 'Gns. svartid' },
@@ -314,7 +314,7 @@
         coach: 'Answer fast for bonus points – and the more right in a row, the bigger the streak bonus!',
       },
       hud: { q: 'Question', score: 'Score', streak: 'Streak' },
-      lifeline: 'Ask Søs', lifelineLeft: '{n} left',
+      lifeline: 'Ask Jesper', lifelineLeft: '{n} left',
       next: 'Next', finish: 'See result',
       right: { r0: 'Correct!', r1: 'Nice!', r2: 'Great!', r3: 'Right!', r4: 'Yes!' },
       wrong: 'Not quite…', timeout: 'Time’s up!',
@@ -325,7 +325,7 @@
         streak3: 'Three in a row – you’re on fire!',
         streak5: 'Five in a row! You’re a real sailor!',
         wrong2: 'Don’t worry – read the explanation and you’ll remember it next time.',
-        lifeline: 'Søs removes two wrong answers for you.',
+        lifeline: 'Jesper removes two wrong answers for you.',
       },
       res: { msg: '{n} of {of} correct · best streak {streak}' },
       stat: { correct: 'Correct answers', streak: 'Best streak', avg: 'Avg. answer time' },
@@ -679,7 +679,7 @@
       ex.innerHTML = '<div class="quiz-ex-head ' + (ok ? 'ok' : 'bad') + '">' + KOS.UI.iconSvg(ok ? 'check' : 'close') + '<b>' + esc(head) + '</b>' +
         (!ok ? '<span>' + esc(t('quiz.correctWas', { a: rightText })) + '</span>' : '') + '</div>' +
         '<p class="quiz-ex-txt"><em>' + esc(t('quiz.didYouKnow')) + '</em> ' + esc(t('quiz.q.' + it.id + '.ex')) + '</p>' +
-        (coachLine ? '<div class="quiz-coachline"><span class="quiz-coach-av">' + KOS.UI.coachSvg(ok ? 'wow' : 'oops') + '</span><span><b>' + esc(t('ui.coach.name')) + '</b> ' + esc(coachLine) + '</span></div>' : '') +
+        (coachLine ? '<div class="quiz-coachline"><span class="quiz-coach-av">' + KOS.UI.coachSvg(ok ? 'wow' : 'oops') + '</span><span><b>' + esc(KOS.UI.coachName ? KOS.UI.coachName() : t('ui.coach.name')) + '</b> ' + esc(coachLine) + '</span></div>' : '') +
         '<button type="button" class="btn btn-primary quiz-next">' + esc(S.idx + 1 >= N ? t('quiz.finish') : t('quiz.next')) + KOS.UI.iconSvg('next') + '</button>';
       ex.hidden = false;
       card.classList.add('answered');

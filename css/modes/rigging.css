@@ -174,7 +174,7 @@
   .rig-part.pop, .rig-part.grow.pop, .rig-flag, .rg-waves, .rigging-card.is-next, .rig-zone .rgz-ring, .rig-zone .rgz-glow { animation: none; }
 }
 
-/* landscape phones: keep Coach Søs over the boat scene, not over the side tray */
+/* landscape phones: keep the coach bubble over the boat scene, not over the side tray */
 #screen-play:has(.rigging-root.tray-side) .coach { left: calc((100% - 228px) / 2); width: min(calc(100% - 252px), 460px); min-width: 0; top: calc(var(--safe-t) + 62px); bottom: auto; }
 #screen-play:has(.rigging-root.tray-side) .coach-avatar { width: 46px; height: 46px; }
 #screen-play:has(.rigging-root.tray-side) .coach-bubble { margin-bottom: 4px; padding: 6px 10px 7px; }

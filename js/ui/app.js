@@ -177,15 +177,15 @@
   }
 
   // ------------------------------------------------------------------ who coaches what (the real KØS coaches)
-  // Søs keeps the Sailing School and the quiz (her name is in their scripts). Anton (head coach, J70 trainer) takes the
+  // Storm runs the Sailing School (the lesson script introduces Storm), Jesper is the default (quiz, map, menus). Anton (head coach, J70 trainer) takes the
   // keelboats, Storm (youth coach) racing, the rules school, the RIB and the youth dinghies, Jesper (family trainer
   // and club president) free sailing.
   function coachFor(a, boat) {
-    if (a.mode === 'school' || a.mode === 'quiz') return 'soes';
+    if (a.mode === 'school') return 'storm';
     if (boat === 'j70' || boat === 'hboat') return 'anton';
     if (a.mode === 'race' || a.mode === 'rowschool' || a.mode === 'rib' || ['feva', 'zest', 'ilca', '29er'].includes(boat)) return 'storm';
     if (a.mode === 'sail') return 'jesper';
-    return 'soes';
+    return 'jesper';
   }
 
   // ------------------------------------------------------------------ first run: profile → hub → first school lesson
@@ -195,7 +195,7 @@
     const step = (n, icon, key) => '<li><span class="ob-n">' + n + '</span>' + ico(icon) + '<span>' + esc(t(key)) + '</span></li>';
     UI().dialog({
       title: t('app.onboard.title', { name }), cls: 'onboard-dialog',
-      body: '<div class="ob-coach">' + UI().coachSvg('happy') + '</div><p class="ob-lead">' + esc(t('app.onboard.body')) + '</p>' +
+      body: '<div class="ob-coach">' + UI().coachSvg('happy', 'jesper') + '</div><p class="ob-lead">' + esc(t('app.onboard.body')) + '</p>' +
         '<ol class="ob-steps">' + step(1, 'school', 'app.onboard.s1') + step(2, 'star', 'app.onboard.s2') + step(3, 'boat', 'app.onboard.s3') + '</ol>',
       buttons: [{ labelKey: 'app.onboard.later' }, { labelKey: 'app.onboard.go', kind: 'primary', icon: 'play', onClick: () => { track('Onboarding', 'start-first-lesson'); App.play(first.id); } }],
     });
@@ -677,7 +677,7 @@
     run.raf = requestAnimationFrame(frame);
     emit('play:start', { id: a.id, boat: a.boat || S().get('boat', 'opti') });
   };
-  leave.play = function () { stopRun(); if (UI().setCoach) UI().setCoach('soes'); };
+  leave.play = function () { stopRun(); if (UI().setCoach) UI().setCoach('jesper'); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
 
   // frame-time governor: on a slow device drop to fewer pixels / particles (KOS.Perf.level 2 → 1 → 0), and climb back
@@ -1356,7 +1356,7 @@
       },
       assist: {
         easy: 'Let', normal: 'Normal', pro: 'Pro',
-        easyHelp: 'Sejlene trimmer sig selv, du kan ikke kæntre, og Coach Søs viser vejen.',
+        easyHelp: 'Sejlene trimmer sig selv, du kan ikke kæntre, og træneren viser vejen.',
         normalHelp: 'Du trimmer selv, men får lidt hjælp. Pas på krængningen!',
         proHelp: 'Som i virkeligheden: manuelt trim, kæntring og strafrunder. Kun for hajer!',
       },
@@ -1370,7 +1370,7 @@
       },
       coach: { welcome: 'Hej {name}! Jeg er Jesper, formand i KØS. Velkommen i klubben – vælg et sted på kortet, så sejler vi!' },
       onboard: {
-        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Coach Søs, din træner. Vi starter i Sejlerskolen ude i bugten – der lærer du at styre og stoppe båden.',
+        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Jesper, formand og familietræner i KØS. Vi starter i Sejlerskolen ude i bugten – der lærer Storm dig at styre og stoppe båden.',
         s1: 'Tag din første lektion i Sejlerskolen', s2: 'Saml stjerner – op til tre i hver opgave', s3: 'Stjernerne låser nye både og steder op',
         go: 'Første lektion!', later: 'Se kortet først',
       },
@@ -1426,7 +1426,7 @@
       },
       assist: {
         easy: 'Easy', normal: 'Normal', pro: 'Pro',
-        easyHelp: 'Sails trim themselves, you can’t capsize, and Coach Søs shows the way.',
+        easyHelp: 'Sails trim themselves, you can’t capsize, and your coach shows the way.',
         normalHelp: 'You trim yourself with a little help. Watch the heel!',
         proHelp: 'Like the real thing: manual trim, capsizing and penalty turns. Sharks only!',
       },
@@ -1440,7 +1440,7 @@
       },
       coach: { welcome: 'Hi {name}! I’m Jesper, president of KØS. Welcome to the club – pick a spot on the map and let’s sail!' },
       onboard: {
-        title: 'Welcome to KØS, {name}!', body: 'I’m Coach Søs, your coach. We start at the Sailing School out in the bay – that’s where you learn to steer and stop the boat.',
+        title: 'Welcome to KØS, {name}!', body: 'I’m Jesper, president and family coach at KØS. We start at the Sailing School out in the bay – that’s where Storm teaches you to steer and stop the boat.',
         s1: 'Take your first Sailing School lesson', s2: 'Collect stars – up to three per challenge', s3: 'Stars unlock new boats and places',
         go: 'First lesson!', later: 'Look at the map first',
       },
