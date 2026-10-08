@@ -1,5 +1,5 @@
 // KØS SEJL — js/modes/school.js
-// The 'school' mode: Sejlerskolen. Guided lessons in Svanemøllebugten (venue 'bay', hub area 'school') with coach Storm,
+// The 'school' mode: Sejlerskolen. Guided lessons in Svanemøllebugten (venue 'bay', hub area 'school') with coach Ida,
 // ghost hints (heading zones, turn arrows, target rings, edge arrows) and success checks per step.
 //
 // A lesson = a start position + marks + a list of steps. Every step has:
@@ -57,7 +57,7 @@
         spiGennaker: 'Tip: hejs gennakeren (E) for endnu mere fart!',
       },
       res: {
-        great: 'Perfekt lektion på {time}! Træner Storm giver dig en high five.',
+        great: 'Perfekt lektion på {time}! Træner Ida giver dig en high five.',
         good: 'Godt sejlet – lektionen er klaret på {time}. Prøv igen for alle tre stjerner!',
         ok: 'Lektionen er klaret! Øv dig lidt mere, så bliver det endnu bedre.',
       },
@@ -65,7 +65,7 @@
       l: {
         steer: {
           intro: 'Du lærer at styre båden og at stoppe den. Det smarte trick: drej op mod vinden – så blafrer sejlet, og båden bremser helt af sig selv.',
-          buoy: { say: 'Hej, jeg er Storm, træner i KØS! Styr hen til den orange bøje – tryk til venstre og højre for at dreje.', task: 'Sejl hen til bøje 1' },
+          buoy: { say: 'Hej, jeg er Ida, træner i KØS! Styr hen til den orange bøje – tryk til venstre og højre for at dreje.', task: 'Sejl hen til bøje 1' },
           stop: { say: 'Stop inde i ringen! Luf op: drej snuden op mod vinden, så blafrer sejlet, og båden bremser.', task: 'Luf op og stop i ringen' },
           go: { say: 'Flot stop! Fald af igen – drej væk fra vinden, til sejlet fylder – og sejl hen til bøje 2.', task: 'Fald af og sejl til bøje 2' },
         },
@@ -199,7 +199,7 @@
         spiGennaker: 'Tip: hoist the gennaker (E) for even more speed!',
       },
       res: {
-        great: 'Perfect lesson in {time}! Coach Storm gives you a high five.',
+        great: 'Perfect lesson in {time}! Coach Ida gives you a high five.',
         good: 'Well sailed – lesson done in {time}. Try again for all three stars!',
         ok: 'Lesson done! Practise a bit more and it will get even better.',
       },
@@ -207,7 +207,7 @@
       l: {
         steer: {
           intro: 'Learn to steer the boat and to stop it. The clever trick: turn up into the wind – the sail flaps and the boat brakes all by itself.',
-          buoy: { say: 'Hi, I\'m Storm, coach at KØS! Steer to the orange buoy – press left and right to turn.', task: 'Sail to buoy 1' },
+          buoy: { say: 'Hi, I\'m Ida, coach at KØS! Steer to the orange buoy – press left and right to turn.', task: 'Sail to buoy 1' },
           stop: { say: 'Stop inside the ring! Luff up: turn the bow into the wind, the sail flaps and the boat slows down.', task: 'Luff up and stop in the ring' },
           go: { say: 'Great stop! Bear away again – turn away from the wind until the sail fills – and sail to buoy 2.', task: 'Bear away and sail to buoy 2' },
         },

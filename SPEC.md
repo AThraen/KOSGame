@@ -259,7 +259,7 @@ landscape), a vertical sheet slider, a HIKE hold button, SPI button; optional vi
 
 ### KOS.UI (ui/ui.js)
 `toast(text, {kind, ms})`, `dialog({titleKey|title, body (html), buttons: [{labelKey, kind, onClick}]})`,
-`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Storm (Sailing School, racing, rules), Marius (RIB, youth dinghies) and Anton (keelboats)),
+`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Ida (Sailing School, Opti and Tera activities), Storm (racing, rules), Marius (RIB, youth dinghies) and Anton (keelboats)),
 `hud(layer, items)` → `{update(data), el}` with items `wind speed pos timer place lap score heel tack penalty`,
 `countdown(layer, seconds, onDone)`, `stars(n)` (svg html), `confetti()`, `iconSvg(name)`, `results(result, activity)`.
 Implemented: `coachClose()` closes the current coach bubble (the app calls it on pause and finish). During play a coach bubble

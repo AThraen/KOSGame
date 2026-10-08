@@ -25,7 +25,7 @@ Everything starts from an illustrated map of the area. Each place is a part of t
 
 | Place | What you do there |
 |---|---|
-| **Sejlerskolen** (sailing school) | Coached lessons with Storm (youth coach): steering and stopping, points of sail, tacking, gybing, getting out of irons, trimming, hiking in gusts, man overboard |
+| **Sejlerskolen** (sailing school) | Coached lessons with coach Ida: steering and stopping, points of sail, tacking, gybing, getting out of irons, trimming, hiking in gusts, man overboard |
 | **Bugten** (the bay) | Free sailing in any unlocked boat, collect rings, clean up floating rubbish, time trials |
 | **Kapsejladsbanen** (race course) | Races with a real 5-4-1-0 start (flags and horns), computer opponents, mark roundings, penalty turns and a championship for each boat class |
 | **Vigeregelskolen** (right-of-way school) | "Who must give way?" situations that you then sail out yourself: the racing rules (port/starboard, windward/leeward, overtaking, tacking, mark-room) and the ordinary collision rules for motorboats, ferries and ships |
@@ -63,7 +63,7 @@ On a phone:
 
 - **Real sailing physics.** True and apparent wind, gusts and shifts, heel and hiking, sail trim and stall, luffing, irons, tacks and gybes, planing, capsizing. Sail power flattens in a strong breeze the way a crew would depower the rig, so more wind means more speed (and more risk), not less.
 - **Real racing rules.** Port/starboard, windward/leeward, overtaking, tacking and mark-room are judged by the same code that drives the computer opponents. A rule 44 penalty is one turn (a 360°).
-- **The real KØS coaches** (Jesper, Storm, Marius, Anton) explain things in short, kid-friendly Danish sentences, with English one tap away. Every lesson and race opens with a card that says in a line or two what to do.
+- **The real KØS coaches** (Jesper, Ida, Storm, Marius, Anton) explain things in short, kid-friendly Danish sentences, with English one tap away. Every lesson and race opens with a card that says in a line or two what to do.
 - **Made for thumbs.** Large touch targets, steering pads, a sheet slider, HUD that fits a phone in portrait and landscape, and keyboard control on desktop.
 - **Accessible.** Pinch-zoom works on menus, dialogs trap and restore keyboard focus, screens announce themselves to screen readers, and reduced-motion is respected.
 

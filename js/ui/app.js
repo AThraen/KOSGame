@@ -177,13 +177,14 @@
   }
 
   // ------------------------------------------------------------------ who coaches what (the real KØS coaches)
-  // Jesper (family trainer, club president) is the default: quiz, map, menus, free sailing. Storm (youth coach) runs the
-  // Sailing School (the lesson script introduces Storm), racing and the rules school; Marius (youth coach) the RIB and the
-  // youth dinghies; Anton (head coach, J70 trainer) the keelboats.
+  // Jesper (family trainer, club president) is the default: quiz, map, menus, free sailing. Ida runs the Sailing School
+  // (the lesson script introduces Ida) and the Opti/Tera activities; Storm (youth coach) racing and the rules school;
+  // Marius (youth coach) the RIB and the youth dinghies; Anton (head coach, J70 trainer) the keelboats.
   function coachFor(a, boat) {
-    if (a.mode === 'school') return 'storm';
+    if (a.mode === 'school') return 'ida';
     if (boat === 'j70' || boat === 'hboat') return 'anton';
     if (a.mode === 'race' || a.mode === 'rowschool') return 'storm';
+    if (a.boat === 'opti' || a.boat === 'tera') return 'ida'; // the activity's own boat, not the player's default Opti
     if (a.mode === 'rib' || ['feva', 'zest', 'ilca', '29er'].includes(boat)) return 'marius';
     return 'jesper';
   }
@@ -1370,7 +1371,7 @@
       },
       coach: { welcome: 'Hej {name}! Jeg er Jesper, træner i KØS. Velkommen i klubben – vælg et sted på kortet, så sejler vi!' },
       onboard: {
-        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Jesper, træner i KØS. Vi starter i Sejlerskolen ude i bugten – der lærer Storm dig at styre og stoppe båden.',
+        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Jesper, træner i KØS. Vi starter i Sejlerskolen ude i bugten – der lærer Ida dig at styre og stoppe båden.',
         s1: 'Tag din første lektion i Sejlerskolen', s2: 'Saml stjerner – op til tre i hver opgave', s3: 'Stjernerne låser nye både og steder op',
         go: 'Første lektion!', later: 'Se kortet først',
       },
@@ -1440,7 +1441,7 @@
       },
       coach: { welcome: 'Hi {name}! I’m Jesper, a coach at KØS. Welcome to the club – pick a spot on the map and let’s sail!' },
       onboard: {
-        title: 'Welcome to KØS, {name}!', body: 'I’m Jesper, coach at KØS. We start at the Sailing School out in the bay – that’s where Storm teaches you to steer and stop the boat.',
+        title: 'Welcome to KØS, {name}!', body: 'I’m Jesper, coach at KØS. We start at the Sailing School out in the bay – that’s where Ida teaches you to steer and stop the boat.',
         s1: 'Take your first Sailing School lesson', s2: 'Collect stars – up to three per challenge', s3: 'Stars unlock new boats and places',
         go: 'First lesson!', later: 'Look at the map first',
       },

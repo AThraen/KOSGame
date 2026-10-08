@@ -242,7 +242,7 @@
   function topDialog() { return dialogStack[dialogStack.length - 1] || null; }
 
   // ------------------------------------------------------------------ the club's coaches
-  // Anton, Storm, Marius and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07); Jesper is the default.
+  // Anton, Storm, Marius, Ida and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07); Jesper is the default.
   // setCoach(id) picks who talks during an activity (KOS.App does it per activity); coach()/coachSvg() take an
   // explicit opts.coach / who to override.
   const COACHES = {
@@ -269,6 +269,12 @@
       hair: '<path d="M29 46c-3-14 5-25 21-26 15-1 24 8 21 25-2-5-4-8-7-9-7 2-15 2-22 0-5 1-10 4-13 10z" fill="#e4c47c"/>' +
         '<path d="M31 34q-2-9 5-11q1-6 8-6q4-4 9-1q6-2 9 3q7 1 7 9q2 4 0 8z" fill="#e4c47c"/>' +
         '<path d="M37 27q3-5 8-5M47 23q4-3 8 0M57 25q5-1 7 4M35 33c6-4 14-6 22-5" stroke="#f3dfaa" stroke-width="1.8" fill="none" stroke-linecap="round"/>' },
+    // beginner coach: long straight light-brown hair with a middle part, falling over the shoulders; black top
+    ida: { skin: '#f4c8ab', ear: '#ebb595', brow: '#9a7048', eye: '#5b7f9e',
+      body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#15171d"/><path d="M42 73q8 5 16 0" fill="none" stroke="#2a2d36" stroke-width="2.4"/>',
+      back: '<path d="M27 50c-2-20 8-31 23-31s25 11 23 31c1 16 3 28 7 40-9 4-17 4-24 1l-3-26h-6l-3 26c-7 3-15 3-24-1 4-12 6-24 7-40z" fill="#b48558"/>',
+      hair: '<path d="M29 50c-1-19 8-28 21-28s22 9 21 28c-2-10-6-17-11-20-3 3-6 5-10 6l0-6c-4 4-10 7-17 9-2 3-3 7-4 11z" fill="#c29466"/>' +
+        '<path d="M50 23v8M40 26c-4 4-7 10-8 18M60 26c4 4 7 10 8 18" stroke="#dcb487" stroke-width="1.6" fill="none" stroke-linecap="round"/>' },
     // family trainer + club president: light, thinning hair swept back (high forehead), blue eyes, navy fleece
     jesper: { skin: '#f1c19c', ear: '#e7ad87', brow: '#bca36e', eye: '#2f5d9a',
       body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#283f86"/><path d="M38 72l12 7 12-7v6l-12 6-12-6z" fill="#334c99"/>' +
@@ -287,7 +293,7 @@
   }
   function realCoachSvg(c, mood, id) {
     return '<svg class="coach-svg coach-' + id + '" viewBox="0 0 100 100" aria-hidden="true">' +
-      '<circle cx="50" cy="50" r="48" fill="#1c2a47"/>' + c.body +
+      '<circle cx="50" cy="50" r="48" fill="#1c2a47"/>' + c.body + (c.back || '') +
       '<rect x="43" y="62" width="14" height="14" rx="6" fill="' + c.ear + '"/>' +
       '<ellipse cx="50" cy="52" rx="21" ry="22" fill="' + c.skin + '"/>' +
       '<ellipse cx="29.5" cy="54" rx="4" ry="5" fill="' + c.ear + '"/><ellipse cx="70.5" cy="54" rx="4" ry="5" fill="' + c.ear + '"/>' +
@@ -637,7 +643,7 @@
   if (KOS.I18n) {
     KOS.I18n.add('da', {
       ui: {
-        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Træner Anton', storm: 'Træner Storm', marius: 'Træner Marius', jesper: 'Træner Jesper' } },
+        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Træner Anton', storm: 'Træner Storm', ida: 'Træner Ida', marius: 'Træner Marius', jesper: 'Træner Jesper' } },
         countdown: { go: 'Sejl!' },
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
         pos: { irons: 'I vindøjet', closehauled: 'Bidevind', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
@@ -651,7 +657,7 @@
     });
     KOS.I18n.add('en', {
       ui: {
-        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Coach Anton', storm: 'Coach Storm', marius: 'Coach Marius', jesper: 'Coach Jesper' } },
+        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Coach Anton', storm: 'Coach Storm', ida: 'Coach Ida', marius: 'Coach Marius', jesper: 'Coach Jesper' } },
         countdown: { go: 'Sail!' },
         hud: { wind: 'Wind', speed: 'Speed', pos: 'Course', timer: 'Time', place: 'Place', lap: 'Lap', score: 'Score', heel: 'Heel', tack: 'Tack', penalty: 'Penalty' },
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },
