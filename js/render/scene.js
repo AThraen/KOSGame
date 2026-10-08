@@ -627,9 +627,9 @@
     const mpp = this.mpp, rot = this.camera.rot;
     if (m.round === 'port' || m.round === 'starboard') {
       const ccw = m.round === 'port', R = Math.max(4.5, 26 * mpp);
-      const a0 = (t * 0.8) % TAU, col = ccw ? 'rgba(232,50,60,0.85)' : 'rgba(24,169,87,0.9)';
+      const dir = ccw ? -1 : 1; // canvas angles grow clockwise on screen
+      const a0 = (dir * t * 0.8) % TAU, col = ccw ? 'rgba(232,50,60,0.85)' : 'rgba(24,169,87,0.9)'; // spin the way the arrow points
       ctx.save(); ctx.translate(m.x, m.y); ctx.strokeStyle = col; ctx.lineWidth = Math.max(0.3, 2.6 * mpp); ctx.lineCap = 'round';
-      const dir = ccw ? -1 : 1;
       ctx.beginPath(); ctx.arc(0, 0, R, a0, a0 + dir * 4.2, ccw); ctx.stroke();
       const ae = a0 + dir * 4.2, hx = Math.cos(ae) * R, hy = Math.sin(ae) * R, tx = -Math.sin(ae) * dir, ty = Math.cos(ae) * dir, hs = Math.max(0.8, 7 * mpp);
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(hx + tx * hs, hy + ty * hs); ctx.lineTo(hx - ty * hs * 0.6, hy + tx * hs * 0.6); ctx.lineTo(hx + ty * hs * 0.6, hy - tx * hs * 0.6); ctx.closePath(); ctx.fill();
