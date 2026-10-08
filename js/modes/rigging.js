@@ -1320,19 +1320,39 @@
     const slope = 0.18;
     const groundAt = x => (x >= g.xW ? 0 : (g.xW - x) * slope); // ramp runs down to the left
     let viewCx = 0; // world x at the centre of the view (set by layout)
-    const LT = { push0: 0.5, push1: 3.3, hop: 3.5, float1: 4.1, turn1: 4.9, end: 7.4 };
+    const LT = { push0: 0.5, push1: 3.3, hop: 3.45, hopD: 0.4, float1: 4.1, turn1: 4.9, end: 7.4 };
     let anim = { bx: 0, by: 0, ba: 0, sx: 1, cam: 0, camY: 0, fly: false };
+    // only ONE sailor at a time: the kid hops from where it stands into the cockpit (sim-time driven), and only when it
+    // lands is the standing kid hidden and the sitting crew drawn in the boat
     function boardKid() {
       if (anim.aboard) return;
       anim.aboard = true;
       kidG.classList.add('aboard');
-      drawPart('crew', 'pop');
+      drawPart('crew');
+    }
+    // where the crew sits, in world coords, for a boat at (bx, by) (rotation ignored: it is small while hopping)
+    function crewAt(bx, by) {
+      const x = g.xs + g.L * (g.keelboat ? 0.16 : 0.3);
+      return { x: bx + x, y: by + g.dAt(x) + g.kid.h * 0.36 };
+    }
+    // kid transform while hopping from (fx, fy) world feet to the cockpit; boards when done. Returns null when not hopping.
+    function hopKid(T, T0, fx, fy, bx, by) {
+      if (anim.aboard || T < T0) return null;
+      const u = (T - T0) / LT.hopD;
+      if (u >= 1) { boardKid(); return null; }
+      // jump in front of the sail, then drop in behind the hull so the gunwale hides the legs as the sailor sits down
+      const front = u < 0.75;
+      if (front !== (kidG.previousElementSibling === boatG)) { if (front) boatG.after(kidG); else boatG.before(kidG); }
+      const c = crewAt(bx, by), e = ease(u);
+      const x = fx + (c.x - fx) * e, y = fy + (c.y - fy) * e - Math.sin(Math.PI * u) * g.kid.h * 0.45;
+      return kidTf(g.kid, x - g.kid.x, y - g.kid.y);
     }
     function sailOff(T) {
       if (unrig) return;
       const a = anim;
       if (g.keelboat) {
-        if (T > 0.4) boardKid();
+        const hk = hopKid(T, 0.3, g.kid.x, g.kid.y, 0, 0);
+        if (hk) a.kidTf = hk;
         const τ = Math.max(0, T - 0.8);
         a.bx = 22 * τ * τ + 10 * τ; a.by = Math.sin(T * 2.2) * 1.5; a.ba = -Math.min(5, τ * 3); a.cam = Math.max(0, a.bx - 40);
         a.boatTf = 'translate(' + f(a.bx) + ' ' + f(a.by) + ') rotate(' + f(a.ba) + ')';
@@ -1362,10 +1382,10 @@
       if (T < LT.push1) { a.bx = tx; a.by = dw; a.ba = φd; a.sx = 1; }
       else {
         if (!a.splash) { a.splash = true; sfx('splash', { vol: 0.7 }); }
-        if (T > LT.hop) boardKid();
         const τf = ease(U.clamp((T - LT.push1) / (LT.float1 - LT.push1), 0, 1));
         const bob = Math.sin(T * 3) * 2 * τf;
         a.bx = tx - 46 * τf; a.by = dw + (floatDy - dw) * τf + bob; a.ba = φd * (1 - τf);
+        if (T >= LT.hop) { const hk = hopKid(T, LT.hop, kx, kd.y + dk, a.bx, a.by); if (hk) a.kidTf = hk; }
         // turn round (seen from the side: the boat flips to face the other way), then sail off to the left
         const τt = U.clamp((T - LT.float1) / (LT.turn1 - LT.float1), 0, 1);
         a.sx = Math.cos(Math.PI * ease(τt));

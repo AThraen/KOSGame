@@ -181,8 +181,8 @@
 #screen-play:has(.rigging-root.tray-side) .coach-text { font-size: .84rem; }
 
 /* ------------------------------------------------------------------ the sailor next to the boat (wears the life jacket) */
-.rg-kid { transition: opacity .45s ease-in, transform .45s cubic-bezier(.34, 1.4, .64, 1); transform-box: fill-box; transform-origin: 50% 100%; }
-.rg-kid.aboard { opacity: 0; transform: translate(-30px, -26px) scale(.8); pointer-events: none; }
+/* hidden the moment the sailor lands in the cockpit (only one sailor at a time; the hop itself is drawn in JS) */
+.rg-kid.aboard { display: none; }
 .rg-kid .rig-part.pop { transform-origin: 50% 0; }
 
 /* drop target: very clear when a dragged part is over it */
@@ -223,7 +223,6 @@
 .rigging-demo.still .rgd-item { opacity: .6; }
 @media (prefers-reduced-motion: reduce) {
   .rgd-mover { animation: none; }
-  .rg-kid { transition: none; }
   .rig-zone.hot .rgz-glow { animation: none; transform: scale(1.45); }
 }
 /* the launched dinghy turns round (mirrored): keep the lettering readable */
