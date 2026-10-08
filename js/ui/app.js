@@ -14,6 +14,7 @@
 
   function sfx(name, opts) { try { if (KOS.Audio && KOS.Audio.play) KOS.Audio.play(name, opts); } catch (e) { /* optional */ } }
   function audio(fn) { try { if (KOS.Audio && typeof KOS.Audio[fn] === 'function') return KOS.Audio[fn].apply(KOS.Audio, [].slice.call(arguments, 1)); } catch (e) { /* optional */ } }
+  function track(c, a, n, v) { try { if (KOS.Track) KOS.Track.event(c, a, n, v); } catch (e) { /* analytics never breaks the game */ } }
   function on(name, fn) { if (KOS.Events && KOS.Events.on) KOS.Events.on(name, fn); }
   function emit(name, p) { if (KOS.Events && KOS.Events.emit) KOS.Events.emit(name, p); }
 
@@ -184,7 +185,7 @@
       title: t('app.onboard.title', { name }), cls: 'onboard-dialog',
       body: '<div class="ob-coach">' + UI().coachSvg('happy') + '</div><p class="ob-lead">' + esc(t('app.onboard.body')) + '</p>' +
         '<ol class="ob-steps">' + step(1, 'school', 'app.onboard.s1') + step(2, 'star', 'app.onboard.s2') + step(3, 'boat', 'app.onboard.s3') + '</ol>',
-      buttons: [{ labelKey: 'app.onboard.later' }, { labelKey: 'app.onboard.go', kind: 'primary', icon: 'play', onClick: () => { App.play(first.id); } }],
+      buttons: [{ labelKey: 'app.onboard.later' }, { labelKey: 'app.onboard.go', kind: 'primary', icon: 'play', onClick: () => { track('Onboarding', 'start-first-lesson'); App.play(first.id); } }],
     });
   }
 
@@ -378,10 +379,10 @@
     btn.setAttribute('aria-label', t('app.view.overview')); btn.title = t('app.view.overview') + ' (M)';
     btn.innerHTML = ico('map');
     const sync = () => { sec.classList.toggle('view-overview', V.overview); btn.classList.toggle('on', V.overview); btn.setAttribute('aria-pressed', V.overview ? 'true' : 'false'); };
-    const toggle = () => { sfx('click'); V.overview = !V.overview; if (!V.overview && V.mul < 1) V.mul = 1; sync(); };
+    const toggle = () => { sfx('click'); V.overview = !V.overview; if (V.overview) track('View', 'overview', run.act && run.act.id); if (!V.overview && V.mul < 1) V.mul = 1; sync(); };
     btn.addEventListener('click', toggle);
     chrome.appendChild(btn); sync();
-    const zoomBy = k => { V.overview = false; V.mul = Math.max(0.05, Math.min(3, V.mul * k)); sync(); };
+    const zoomBy = k => { if (!V.zt) { V.zt = 1; track('View', 'zoom', run.act && run.act.id); } V.overview = false; V.mul = Math.max(0.05, Math.min(3, V.mul * k)); sync(); };
     const inControls = el => !!(el && el.closest && el.closest('.kc, .pause-overlay, button, .dialog'));
     let pinch = null;
     const dist = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
@@ -661,7 +662,7 @@
     run.startT = run.last; Perf.ema = 16.7; Perf.slowT = 0;
     cancelAnimationFrame(run.raf);
     run.raf = requestAnimationFrame(frame);
-    emit('play:start', { id: a.id });
+    emit('play:start', { id: a.id, boat: a.boat || S().get('boat', 'opti') });
   };
   leave.play = function () { stopRun(); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
@@ -1060,7 +1061,7 @@
         if (!name) { sfx('bump'); nameIn.focus(); nameIn.classList.remove('shake'); void nameIn.offsetWidth; nameIn.classList.add('shake'); UI().toast(t('app.profile.needName'), { kind: 'warn', icon: 'edit' }); return; }
         const isNew = !S().profile();
         S().saveProfile({ name, age: draft.age || '', avatar: draft.avatar, sailNo: draft.sailNo || '', boatColor: draft.boatColor });
-        if (isNew) S().saveSettings({ assist: 'easy' });
+        if (isNew) { S().saveSettings({ assist: 'easy' }); track('Onboarding', 'profile-created'); }
         sfx('coin');
         draft = null;
         if (params.first || isNew) {
@@ -1144,7 +1145,7 @@
       (un ? '' : '<p class="lock-txt">' + ico('lock') + ' ' + esc(t('app.garage.needStars', { n: need, have: S().totalStars() })) + '</p>');
     UI().dialog({
       title: b.name, body, cls: 'boat-dialog',
-      buttons: un ? [{ labelKey: 'common.close' }, { labelKey: 'app.garage.choose', kind: 'primary', icon: 'heart', onClick: () => { S().set('boat', id); sfx('coin'); UI().toast(t('app.garage.chosen', { name: b.name }), { kind: 'good', icon: 'boat' }); App.refresh(); } }]
+      buttons: un ? [{ labelKey: 'common.close' }, { labelKey: 'app.garage.choose', kind: 'primary', icon: 'heart', onClick: () => { S().set('boat', id); track('Boat', 'chosen', id); sfx('coin'); UI().toast(t('app.garage.chosen', { name: b.name }), { kind: 'good', icon: 'boat' }); App.refresh(); } }]
         : [{ labelKey: 'common.close', kind: 'primary' }],
     });
   }
@@ -1183,7 +1184,7 @@
     App.installPrompt = null;
     try {
       ev.prompt();
-      if (ev.userChoice) ev.userChoice.then(c => { if (c && c.outcome === 'accepted') UI().toast(t('app.installed'), { kind: 'good', icon: 'download' }); }).catch(() => {});
+      if (ev.userChoice) ev.userChoice.then(c => { track('Install', c && c.outcome === 'accepted' ? 'accepted' : 'dismissed'); if (c && c.outcome === 'accepted') UI().toast(t('app.installed'), { kind: 'good', icon: 'download' }); }).catch(() => {});
     } catch (e) { /* ignore */ }
     App.refresh();
   };
@@ -1191,6 +1192,7 @@
     root.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
       App.installPrompt = e;
+      track('Install', 'offered');
       // add the install button in place: a full refresh would replay the title's logo animation
       if (doc.querySelector('[data-act="install"]')) return;
       const lbl = esc(t('app.install'));
