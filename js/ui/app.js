@@ -178,15 +178,16 @@
 
   // ------------------------------------------------------------------ who coaches what (the real KØS coaches)
   // Jesper (family trainer, club president) is the default: quiz, map, menus, free sailing. Ida runs the Sailing School
-  // (the lesson script introduces Ida) and the Opti/Tera activities; Storm (youth coach) racing and the rules school;
-  // Marius (youth coach) the RIB and the youth dinghies; Maria J70 sailing/racing and navigation; Anton (head coach)
-  // the other keelboat activities (H-boat, J70 docking and rigging).
+  // (the lesson script introduces Ida) and the Opti/Tera activities; Storm (youth coach) racing; Nicolas the H-boat and the
+  // rules school; Marius (youth coach) the RIB and the youth dinghies; Maria J70 sailing/racing and navigation; Anton
+  // (head coach) the other J70 activities (docking and rigging).
   function coachFor(a, boat) {
     if (a.mode === 'school') return 'ida';
     if (boat === 'j70' && (a.mode === 'sail' || a.mode === 'race')) return 'maria';
-    if (boat === 'j70' || boat === 'hboat') return 'anton';
+    if (boat === 'hboat' || a.mode === 'rowschool') return 'nicolas';
+    if (boat === 'j70') return 'anton';
     if (a.mode === 'nav') return 'maria';
-    if (a.mode === 'race' || a.mode === 'rowschool') return 'storm';
+    if (a.mode === 'race') return 'storm';
     if (a.boat === 'opti' || a.boat === 'tera') return 'ida'; // the activity's own boat, not the player's default Opti
     if (a.mode === 'rib' || ['feva', 'zest', 'ilca', '29er'].includes(boat)) return 'marius';
     return 'jesper';

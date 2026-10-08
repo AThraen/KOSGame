@@ -287,7 +287,7 @@ jib by hand near `idealJib` (Easy: auto), so races stay fair.
 
 ### KOS.UI (ui/ui.js)
 `toast(text, {kind, ms})`, `dialog({titleKey|title, body (html), buttons: [{labelKey, kind, onClick}]})`,
-`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Ida (Sailing School, Opti and Tera activities), Storm (racing, rules), Marius (RIB, youth dinghies), Maria (J70 sailing and racing, navigation) and Anton (H-boat, J70 docking and rigging)),
+`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Ida (Sailing School, Opti and Tera activities), Storm (racing), Nicolas (H-boat, rules school), Marius (RIB, youth dinghies), Maria (J70 sailing and racing, navigation) and Anton (J70 docking and rigging)),
 `hud(layer, items)` → `{update(data), el}` with items `wind speed pos timer place lap score heel tack penalty`,
 `countdown(layer, seconds, onDone)`, `stars(n)` (svg html), `confetti()`, `iconSvg(name)`, `results(result, activity)`.
 Implemented: `coachClose()` closes the current coach bubble (the app calls it on pause and finish). During play a coach bubble
