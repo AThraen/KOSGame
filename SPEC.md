@@ -323,7 +323,12 @@ the effects thin out cosmetic particles at lower levels.
 - `rib` — RIB missions: tow a line of Optimists home, rescue a capsized dinghy, lay out race marks at GPS spots,
   follow the fleet as coach, "keep the wake low near the jetties" speed limits.
 - `club` — Clubhouse mini-games: **rigging/unrigging** each class (drag parts in the right order: mast, boom, sprit,
-  sail ties, daggerboard, rudder, bailer, painter, trapeze, gennaker...), **knots** (trace the rope: pælestik/bowline,
+  sail ties, daggerboard, rudder, bailer, painter, trapeze, gennaker...; KØS Optis are stored with the sail tied to mast and
+  boom, so after the life jacket the Opti gets one "Mast med sejl og bom" part, then the sprit). Step 0 for every boat is the
+  life jacket, worn by a kid sailor standing next to the boat (dinghies: holding the trolley handle; keelboats: on the
+  pontoon). A ghost-finger demo shows the drag at the start (static hint with reduced motion); tap + "Sæt på", a held card
+  (drag in any direction) and the keyboard also work. Dinghies are launched stern first: the sailor backs the trolley down
+  the slipway until the boat floats, hops in, and the boat turns and sails off. **knots** (trace the rope: pælestik/bowline,
   ottetalsknob/figure-8, råbåndsknob/reef knot, dobbelt halvstik/clove hitch, klampe/cleat), **capsize recovery**
   (timing mini-game on the centreboard), **quiz** (rules, parts of the boat, weather, safety, knots).
 
