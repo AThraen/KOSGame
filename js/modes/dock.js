@@ -277,7 +277,7 @@
     let moored = [], poles = [];
 
     // ---- controls: sail or RIB layout. Our own big action button sits bottom-centre.
-    const ctrl = KOS.Input.attach(host.layer, { layout: isRib ? 'rib' : 'sail', spinnaker: false, hike: false, autoTrim: controls.autoTrim, pauseButton: false });
+    const ctrl = KOS.Input.attach(host.layer, { layout: isRib ? 'rib' : 'sail', spinnaker: false, hike: false, autoTrim: controls.autoTrim, pauseButton: false, letFly: !isRib });
     const hud = KOS.UI.hud(host.layer, ['wind', 'speed', 'timer'].concat(P.stages.length > 1 ? [{ id: 'stage', icon: 'anchor', labelKey: 'dock.hud.stage' }] : []));
     const ui = buildUi();
 

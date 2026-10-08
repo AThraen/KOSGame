@@ -19,6 +19,7 @@
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const NBAND = 0.18; // throttle neutral band each side of the middle, as a fraction of the lever's half travel (css .kc-nband)
 
   // ---------------------------------------------------------------- strings
   const STR = {
@@ -32,6 +33,7 @@
       'input.camera': 'Kamera', 'input.help': 'Hjælp', 'input.look': 'Kig', 'input.turn': 'Strafrunde', 'input.tow': 'Slæb',
       'input.board': 'Sværd', 'input.boardDown': 'Ned', 'input.boardHalf': 'Halvt', 'input.boardUp': 'Op', 'input.boardHint': 'Sværdet ned, halvt op eller op (B)',
       'input.jib': 'Fok', 'input.jibHint': 'Fokkeskøde: hal ind / fier ud (Q / Z)',
+      'input.neutralHint': 'Frigear – stop motoren (N)', 'input.letFly': 'Slip', 'input.letFlyHint': 'Slip skødet helt, så sejlet blafrer og båden bremser (N)',
     },
     en: {
       'input.left': 'Port', 'input.right': 'Starboard', 'input.leftHint': 'Turn left', 'input.rightHint': 'Turn right',
@@ -43,6 +45,7 @@
       'input.camera': 'Camera', 'input.help': 'Help', 'input.look': 'Look', 'input.turn': 'Penalty turn', 'input.tow': 'Tow',
       'input.board': 'Board', 'input.boardDown': 'Down', 'input.boardHalf': 'Half', 'input.boardUp': 'Up', 'input.boardHint': 'Daggerboard down, half up or up (B)',
       'input.jib': 'Jib', 'input.jibHint': 'Jib sheet: in / out (Q / Z)',
+      'input.neutralHint': 'Neutral – stop the engine (N)', 'input.letFly': 'Let go', 'input.letFlyHint': 'Let the sheet fly so the sail flaps and the boat slows down (N)',
     },
   };
   if (KOS.I18n && KOS.I18n.add) { try { KOS.I18n.add('da', STR.da); KOS.I18n.add('en', STR.en); } catch (e) {} }
@@ -215,7 +218,8 @@
           '<button class="kc-auto" type="button">' + tr('input.auto') + '</button>' +
           '<span class="kc-sl-lbl kc-top">' + ICON.sheetIn + '<b>' + tr('input.sheetIn') + '</b></span>' +
           '<div class="kc-track"><div class="kc-fill"></div><div class="kc-zone"></div><div class="kc-thumb"><i></i><i></i><i></i></div></div>' +
-          '<span class="kc-sl-lbl kc-bot">' + ICON.sheetOut + '<b>' + tr('input.sheetOut') + '</b></span>' + keycap('↑ ↓') + '</div>';
+          '<span class="kc-sl-lbl kc-bot">' + ICON.sheetOut + '<b>' + tr('input.sheetOut') + '</b></span>' + keycap('↑ ↓') +
+          (opts.letFly ? '<button class="kc-snap kc-letfly" type="button" aria-label="' + tr('input.letFlyHint') + '" title="' + tr('input.letFlyHint') + '">' + tr('input.letFly') + '</button>' : '') + '</div>';
         if (opts.hike !== false) h += '<button class="kc-btn kc-round kc-hike" type="button" aria-label="' + tr('input.hike') + '">' + ICON.hike + '<b>' + tr('input.hike') + '</b>' + keycap('Space') + '</button>';
         if (opts.spinnaker) h += '<button class="kc-btn kc-round kc-spi" type="button" aria-pressed="false" aria-label="' + tr(opts.spinnakerKind === 'asym' ? 'input.gennaker' : 'input.spi') + '">' + ICON.spi + '<b>' + (opts.spinnakerKind === 'asym' ? 'GEN' : 'SPI') + '</b>' + keycap('E') + '</button>';
         if (opts.jib) {
@@ -229,8 +233,9 @@
       if (L === 'rib') {
         h += '<div class="kc-slider kc-throttle" role="slider" aria-label="' + tr('input.throttle') + '">' +
           '<span class="kc-sl-lbl kc-top"><b>' + tr('input.ahead') + '</b></span>' +
-          '<div class="kc-track"><div class="kc-fill"></div><div class="kc-notch"><span>' + tr('input.neutral') + '</span></div><div class="kc-thumb kc-lever"><i></i><i></i><i></i></div></div>' +
-          '<span class="kc-sl-lbl kc-bot"><b>' + tr('input.astern') + '</b></span>' + keycap('↑ ↓') + '</div>';
+          '<div class="kc-track"><div class="kc-fill"></div><div class="kc-nband"></div><div class="kc-notch"></div><div class="kc-thumb kc-lever"><i></i><i></i><i></i></div></div>' +
+          '<span class="kc-sl-lbl kc-bot"><b>' + tr('input.astern') + '</b></span>' + keycap('↑ ↓') +
+          '<button class="kc-snap kc-neutral" type="button" aria-label="' + tr('input.neutralHint') + '" title="' + tr('input.neutralHint') + '">' + tr('input.neutral') + '</button></div>';
       }
       if ((opts.extraButtons && opts.extraButtons.length) || boardBtn) {
         h += '<div class="kc-extras">';
@@ -318,7 +323,8 @@
       const sh = q('.kc-sheet');
       if (sh) {
         const track = sh.querySelector('.kc-track');
-        const val = e => { const r = track.getBoundingClientRect(), th = 40; return clamp((e.clientY - r.top - th / 2) / Math.max(1, r.height - th), 0, 1); };
+        const val = e => { const r = track.getBoundingClientRect(), th = 40; const v = clamp((e.clientY - r.top - th / 2) / Math.max(1, r.height - th), 0, 1); return v > 0.93 ? 1 : v; }; // sticky 'all out' end
+        press(sh.querySelector('.kc-letfly'), { down: () => { if (isOn('sheet')) letFly(); } });
         press(sh.querySelector('.kc-auto'), { down: () => { state.autoTrim = !state.autoTrim; haptic(15); sfx('rigClick'); paintSheet(); ctrl.emit('autotrim', state.autoTrim); } });
         press(track, {
           down: e => {
@@ -355,7 +361,11 @@
       const th = q('.kc-throttle');
       if (th) {
         const track = th.querySelector('.kc-track');
-        const val = e => { const r = track.getBoundingClientRect(), tt = 44; const u = clamp((e.clientY - r.top - tt / 2) / Math.max(1, r.height - tt), 0, 1); let v = 1 - 2 * u; if (Math.abs(v) < 0.1) v = 0; return v; };
+        // a wide neutral band (NBAND each side of the middle) so a finger finds N easily on a phone; past it the
+        // throttle starts from 0, so there is no jump
+        const val = e => { const r = track.getBoundingClientRect(), tt = 44; const u = clamp((e.clientY - r.top - tt / 2) / Math.max(1, r.height - tt), 0, 1); const v = 1 - 2 * u;
+          return Math.abs(v) <= NBAND ? 0 : Math.sign(v) * (Math.abs(v) - NBAND) / (1 - NBAND); };
+        press(th.querySelector('.kc-neutral'), { down: () => { if (isOn('throttle')) toNeutral(); } });
         press(track, {
           down: e => { if (!isOn('throttle')) return; src.thrDrag = e.pointerId; th.classList.add('kc-on'); haptic(8); setThrottle(val(e)); },
           move: e => { if (src.thrDrag === e.pointerId) setThrottle(val(e)); },
@@ -415,6 +425,13 @@
       if (s0 !== s1) { haptic(s1 === 0 ? [10, 30, 10] : 20); ctrl.emit('gear', s1); }
       paintThrottle();
     }
+    // one tap to neutral / to 'sheet all out': the quick stop when docking
+    function toNeutral() { setThrottle(0); flashSnap('.kc-neutral'); }
+    function letFly() {
+      if (state.autoTrim) { state.autoTrim = false; ctrl.emit('autotrim', false); }
+      haptic([10, 30, 10]); setSheetFrom(1); flashSnap('.kc-letfly');
+    }
+    function flashSnap(sel) { const b = rootEl.querySelector(sel); if (b) { b.classList.remove('kc-hit'); void b.offsetWidth; b.classList.add('kc-hit'); } }
     function hikeChanged() {
       const on = src.hikeHeld.size > 0 || src.keyHike;
       const el = rootEl.querySelector('.kc-hike'); if (el) el.classList.toggle('kc-on', on);
@@ -434,7 +451,7 @@
       if (ideal) { z.style.display = 'block'; sh.style.setProperty('--z0', clamp(ideal.c - ideal.h, 0, 1).toFixed(4)); sh.style.setProperty('--z1', clamp(ideal.c + ideal.h, 0, 1).toFixed(4)); }
       else z.style.display = 'none';
       sh.classList.toggle('kc-good', !!ideal && Math.abs(v - ideal.c) <= ideal.h);
-      sh.classList.toggle('kc-autoon', !!state.autoTrim);
+      sh.classList.toggle('kc-autoon', !!state.autoTrim); sh.classList.toggle('kc-out', !state.autoTrim && v >= 1);
       const a = sh.querySelector('.kc-auto'); if (a) a.setAttribute('aria-pressed', state.autoTrim ? 'true' : 'false');
     }
     function paintJib() {
@@ -457,7 +474,7 @@
     function paintThrottle() {
       const th = rootEl.querySelector('.kc-throttle'); if (!th) return;
       th.style.setProperty('--v', ((1 - state.throttle) / 2).toFixed(4));
-      th.classList.toggle('kc-fwd', state.throttle > 0); th.classList.toggle('kc-rev', state.throttle < 0);
+      th.classList.toggle('kc-fwd', state.throttle > 0); th.classList.toggle('kc-rev', state.throttle < 0); th.classList.toggle('kc-n', state.throttle === 0);
     }
     function paintToggles() {
       const sp = rootEl.querySelector('.kc-spi');
@@ -489,7 +506,7 @@
 
     // ------------------------------------------------ keyboard
     const KEYMAP = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', ArrowUp: 'U', KeyW: 'U', ArrowDown: 'D', KeyS: 'D', Space: 'H',
-      KeyE: 'SPI', Enter: 'ACT', NumpadEnter: 'ACT', KeyF: 'ACT', KeyP: 'PAUSE', Escape: 'PAUSE', KeyB: 'BOARD', KeyQ: 'JU', KeyZ: 'JD' };
+      KeyE: 'SPI', Enter: 'ACT', NumpadEnter: 'ACT', KeyF: 'ACT', KeyP: 'PAUSE', Escape: 'PAUSE', KeyB: 'BOARD', KeyQ: 'JU', KeyZ: 'JD', KeyN: 'NEUT' };
     const jibKeys = () => opts.layout === 'sail' && opts.jib && isOn('jib');
     function keySheetDelta() { return (keys.has('D') ? 1 : 0) - (keys.has('U') ? 1 : 0); }
     function onKey(e) {
@@ -515,6 +532,7 @@
       else if (k === 'SPI') { if (down && opts.spinnaker && isOn('spi') && opts.layout === 'sail') toggleSpi(); }
       else if (k === 'ACT') { src.keyAction = down; state.action = down || !!state.buttons.action; if (down) { ctrl.emit('action'); flashBtn('action'); } }
       else if (k === 'PAUSE') { if (down) ctrl.emit('pause'); }
+      else if (k === 'NEUT') { if (down) { if (opts.layout === 'rib' && isOn('throttle')) toNeutral(); else if (opts.layout === 'sail' && opts.letFly && isOn('sheet')) letFly(); } }
       else if (k === 'BOARD') { if (down && isOn('board')) { flashBtn('board'); cycleBoard(); } }
       else if (k === 'JU' || k === 'JD') { if (down) jibManual(); }
       else if (k.indexOf('X:') === 0) {
