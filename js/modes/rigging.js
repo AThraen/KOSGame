@@ -27,8 +27,8 @@
     sail: ['Storsejl', 'Mainsail', 'Bådens motor! Vinden i sejlet skubber og suger båden frem.', 'The boat\'s engine! Wind in the sail pushes and pulls the boat along.'],
     ties: ['Sejlbånd', 'Sail ties', 'Små snore, der binder sejlet til mast og bom. Bind dem med et råbåndsknob – lige stramme hele vejen.', 'Little strings that tie the sail to the mast and boom. Use a reef knot – equally tight all the way.'],
     mainsheet: ['Storskøde', 'Mainsheet', 'Tovet du trimmer sejlet med: hal ind og fier ud. Slå et ottetalsknob i enden, så det ikke smutter ud af blokken.', 'The rope you trim the sail with: pull in and ease out. Tie a figure-eight knot in the end so it can\'t slip out of the block.'],
-    daggerboard: ['Sværd', 'Daggerboard', 'Pladen der stikker ned under båden, så den ikke driver sidelæns. På vognen er det oppe – det sænkes, når vandet er dybt nok.', 'The board under the boat that stops it sliding sideways. On the trolley it stays up – lower it when the water is deep enough.'],
-    rudder: ['Ror og rorpind', 'Rudder and tiller', 'Roret styrer båden, og rorpinden er håndtaget. Husk rorlåsen, så roret ikke falder af.', 'The rudder steers the boat and the tiller is its handle. Remember the rudder clip so it can\'t fall off.'],
+    daggerboard: ['Sværd', 'Daggerboard', 'Pladen der stikker ned under båden, så den ikke driver sidelæns. Sæt det i sværdkassen ved slæbestedet, men hold det oppe – det skubbes først ned, når båden flyder. Træk det op igen, før du sejler ind på lavt vand.', 'The board under the boat that stops it sliding sideways. Put it in its case at the slipway but keep it up – push it down only once the boat floats. Pull it up again before you sail into shallow water.'],
+    rudder: ['Ror og rorpind', 'Rudder and tiller', 'Roret styrer båden, og rorpinden er håndtaget. Sæt roret på agterspejlet ved slæbestedet med bladet oppe – bladet sænkes først, når du er i vandet, og hives op igen, før du kommer ind. Husk rorlåsen, så roret ikke falder af.', 'The rudder steers the boat and the tiller is its handle. Hang it on the transom at the slipway with the blade up – lower the blade only once you\'re in the water, and raise it again before you come in. Remember the rudder clip so it can\'t fall off.'],
     bailer: ['Øsekar', 'Bailer', 'Til at øse vand ud af båden. Bind det fast, så det ikke flyder væk, hvis du kæntrer.', 'For scooping water out of the boat. Tie it on so it doesn\'t float away if you capsize.'],
     paddle: ['Pagaj', 'Paddle', 'Dør vinden, padler du hjem. Den skal også bindes fast i båden.', 'If the wind dies, you paddle home. Tie it into the boat too.'],
     painter: ['Fangline', 'Painter', 'Tovet i stævnen. Bruges til at fortøje båden – eller til at blive slæbt hjem af RIB\'en.', 'The rope at the bow. Use it to tie the boat up – or to get towed home by the RIB.'],
@@ -96,7 +96,7 @@
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
       },
       decoy: {
-        opti: 'En optimist har ingen gennaker – den har kun ét sejl. Den lægger vi tilbage!',
+        opti: 'Vores optimister har ingen pagaj med – træneren i RIB\'en passer på jer derude. Den bliver på land!',
         tera: 'En Tera har ikke trapez – den er alt for lille til at stå ude på kanten.',
         feva: 'Spryd hører til optimisten. En Feva har en almindelig bom.',
         zest: 'En Zest har ingen trapez. Den er en rolig træningsbåd.',
@@ -105,7 +105,8 @@
         hboat: 'En H-båd har intet sværd – den har en tung køl, der altid sidder fast.',
         j70: 'En J/70 har intet sværd – den har en køl med en tung bombe i bunden.',
       },
-      fx: { ok: 'Sådan!', oops: 'Ups! +{s} sek', streak: 'Combo x{n}!', rinse: 'Skyllet!', roll: 'Rullet!' },
+      fx: { ok: 'Sådan!', oops: 'Ups! +{s} sek', streak: 'Combo x{n}!', rinse: 'Skyllet!', roll: 'Rullet!', foils: 'Sværd og ror ned!' },
+      keelRudder: 'Roret styrer båden, og rorpinden er håndtaget. På klubbens kølbåde bliver roret siddende hele sæsonen.',
       done: { packed: 'PAKKET' },
       res: {
         rig: '{boat} rigget til på {time} med {oops} fejl.',
@@ -143,7 +144,7 @@
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
       },
       decoy: {
-        opti: 'An Optimist has no gennaker – it only has one sail. Let\'s put that back!',
+        opti: 'Our Optis don\'t carry a paddle – the coach in the RIB looks after you out there. It stays ashore!',
         tera: 'A Tera has no trapeze – it\'s far too small to stand out on the edge.',
         feva: 'A sprit belongs on the Optimist. A Feva has a normal boom.',
         zest: 'A Zest has no trapeze. It\'s a calm training boat.',
@@ -152,7 +153,8 @@
         hboat: 'An H-boat has no daggerboard – it has a heavy keel that is always there.',
         j70: 'A J/70 has no daggerboard – it has a keel with a heavy bulb at the bottom.',
       },
-      fx: { ok: 'Nice!', oops: 'Oops! +{s} sec', streak: 'Combo x{n}!', rinse: 'Rinsed!', roll: 'Rolled!' },
+      fx: { ok: 'Nice!', oops: 'Oops! +{s} sec', streak: 'Combo x{n}!', rinse: 'Rinsed!', roll: 'Rolled!', foils: 'Board and rudder down!' },
+      keelRudder: 'The rudder steers the boat and the tiller is its handle. On the club\'s keelboats the rudder stays on all season.',
       done: { packed: 'PACKED' },
       res: {
         rig: '{boat} rigged in {time} with {oops} mistakes.',
@@ -167,18 +169,20 @@
   // type 'off' = a removal job while rigging (sail cover off, cast off, fenders in).
   const RIG = {
     // KØS Optis are stored with the sail tied to mast and boom: the whole rig goes in at once, then the sprit
+    // (no paddle: the club's Optis train with a RIB looking after them)
     opti: [['vest', 0], ['optiRig', 1], ['sprit', 2], ['mainsheet', 3],
-      ['daggerboard', 4], ['rudder', 4], ['bailer', 4], ['paddle', 4], ['painter', 4]],
+      ['daggerboard', 4], ['rudder', 4], ['bailer', 4], ['painter', 4]],
     tera: [['vest', 0], ['mast', 1], ['sail', 2], ['boom', 3], ['outhaul', 4], ['kicker', 4], ['mainsheet', 5],
       ['daggerboard', 6], ['rudder', 6], ['painter', 6]],
-    feva: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
-      ['jibsheets', 6], ['chute', 7], ['pole', 8], ['gennaker', 9], ['daggerboard', 10], ['rudder', 10]],
+    // KØS Fevas and 29ers keep the mast up all season (mast, shrouds, forestay: see KEEP_ON)
+    feva: [['vest', 0], ['jib', 1], ['sail', 2], ['boom', 3], ['kicker', 4], ['mainsheet', 4],
+      ['jibsheets', 4], ['chute', 5], ['pole', 6], ['gennaker', 7], ['daggerboard', 8], ['rudder', 8]],
     zest: [['vest', 0], ['mast', 1], ['shrouds', 2], ['forestay', 2], ['jib', 3], ['sail', 4], ['boom', 5], ['kicker', 6], ['mainsheet', 6],
       ['jibsheets', 6], ['daggerboard', 7], ['rudder', 7], ['painter', 7]],
     ilca: [['vest', 0], ['mastBottom', 1], ['mastTop', 2], ['sail', 3], ['boom', 4], ['outhaul', 5], ['kicker', 5], ['cunningham', 5],
       ['mainsheet', 6], ['daggerboard', 7], ['rudder', 7]],
-    '29er': [['vest', 0], ['wings', 1], ['mast', 2], ['shrouds', 3], ['forestay', 3], ['trapeze', 4], ['jib', 5], ['sail', 6], ['boom', 7],
-      ['kicker', 8], ['cunningham', 8], ['jibsheets', 8], ['pole', 9], ['gennaker', 10], ['daggerboard', 11], ['rudder', 11]],
+    '29er': [['vest', 0], ['wings', 1], ['trapeze', 2], ['jib', 3], ['sail', 4], ['boom', 5],
+      ['kicker', 6], ['cunningham', 6], ['jibsheets', 6], ['pole', 7], ['gennaker', 8], ['daggerboard', 9], ['rudder', 9]],
     // KØS H-boats keep rudder, tiller and halyards on in the harbour (see KEEP_ON): the jobs start with the cover
     // jib sheets go on before the jib is hoisted, or it flogs out of control
     hboat: [['vest', 0], ['cover', 1, 'off'], ['jibsheets', 2], ['sail', 2], ['jib', 3], ['lines', 4, 'off'], ['fenders', 5, 'off']],
@@ -187,8 +191,8 @@
       ['lines', 6, 'off'], ['fenders', 7, 'off']],
   };
   // parts that stay rigged on the club's boats all season (drawn in place, never a job)
-  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'], j70: ['rudder', 'halyard'] };
-  const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
+  const KEEP_ON = { hboat: ['rudder', 'tiller', 'halyard'], j70: ['rudder', 'tiller', 'halyard'], feva: ['mast', 'shrouds', 'forestay'], '29er': ['mast', 'shrouds', 'forestay'] };
+  const DECOY = { opti: 'paddle', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)
   const CFG = {
@@ -216,7 +220,8 @@
       unlock: i === 0 ? null : { stars: BOAT_STARS[id] || 0 },
       title: { da: 'Rig til · ' + n, en: 'Rig the ' + n },
       desc: keel ? { da: 'Gør ' + n + ' klar ved broen: sejl op, skøder gennem blokkene, fendere ind og kast los.', en: 'Get the ' + n + ' ready at the pontoon: sails up, sheets through the blocks, fenders in and cast off.' }
-        : { da: 'Sæt mast, sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så triller den ud på vandet.', en: 'Fit the mast, sail, rudder and board on the ' + n + ' in the right order – then roll her into the water.' },
+        : (KEEP_ON[id] || []).indexOf('mast') >= 0 ? { da: 'Masten står oppe hele sæsonen: sæt sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så bakker du den ud i vandet.', en: 'The mast stays up all season: fit the sails, rudder and board on the ' + n + ' in the right order – then back her into the water.' }
+        : { da: 'Sæt mast, sejl, ror og sværd på ' + n + ' i den rigtige rækkefølge – så bakker du den ud i vandet.', en: 'Fit the mast, sail, rudder and board on the ' + n + ' in the right order – then back her into the water.' },
       params: { cls: id, unrig: false, seed: 11 + i * 7 },
     });
     if (UNRIG.indexOf(id) >= 0) {
@@ -474,14 +479,20 @@
       return ln(bx - 3, g.boomY + 3, bx - 3, dy, '#24395c', 1.6) + ln(bx + 3, g.boomY + 3, bx + 3, dy, '#24395c', 1.6) +
         block(bx, g.boomY + 4) + block(bx, dy) + '<path d="M' + f(bx + 3) + ' ' + f(dy) + 'q14 2 22 -6t18 -2" stroke="#24395c" stroke-width="1.8" fill="none"/>';
     },
-    daggerboard(g) {
-      const dy = g.dAt(g.dx);
+    daggerboard(g, col, o) {
+      // raised in its case on land; pushed down (o.down 0..1) once the boat floats
+      const dy = g.dAt(g.dx) + (g.keelboat ? 0 : 44 * ((o && o.down) || 0));
       return '<rect x="' + f(g.dx - 8) + '" y="' + f(dy - 44) + '" width="16" height="70" rx="5" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5"/>' +
         '<rect x="' + f(g.dx - 4) + '" y="' + f(dy - 38) + '" width="8" height="9" rx="3" fill="#7d8794"/>';
     },
-    rudder(g) {
+    rudder(g, col, o) {
       const xs = g.xs, dS = g.dAt(xs), bladeBot = g.keelboat ? g.bot + g.L * 0.12 : Math.min(-8, g.bot + 34);
-      let s = '<path d="M' + f(xs - 3) + ' ' + f(dS - 8) + 'L' + f(xs - 7) + ' ' + f(dS - 8) + 'L' + f(xs - 10) + ' ' + f(bladeBot - 20) + 'Q' + f(xs - 22) + ' ' + f(bladeBot) + ' ' + f(xs - 4) + ' ' + f(bladeBot) + 'L' + f(xs + 3) + ' ' + f(dS + 10) + 'Z" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5" stroke-linejoin="round"/>';
+      // dinghies: hung on the transom with the blade pulled up; lowered (o.down 0..1) once afloat
+      const up = g.keelboat ? 0 : 1 - ((o && o.down) || 0);
+      let s = '';
+      if (!g.keelboat) s += '<rect x="' + f(xs - 9) + '" y="' + f(dS - 10) + '" width="10" height="' + f(g.fb * 0.62) + '" rx="3" fill="#dfe4ea" stroke="#7d8794" stroke-width="1.3"/>';
+      s += '<path d="M' + f(xs - 3) + ' ' + f(dS - 8) + 'L' + f(xs - 7) + ' ' + f(dS - 8) + 'L' + f(xs - 10) + ' ' + f(bladeBot - 20) + 'Q' + f(xs - 22) + ' ' + f(bladeBot) + ' ' + f(xs - 4) + ' ' + f(bladeBot) + 'L' + f(xs + 3) + ' ' + f(dS + 10) + 'Z" fill="#f4f6f8" stroke="#7d8794" stroke-width="1.5" stroke-linejoin="round"' +
+        (up ? ' transform="translate(0 ' + f(-(bladeBot - g.bot + 4) * up) + ')"' : '') + '/>';
       s += ln(xs - 4, dS - 8, xs + g.L * 0.3, dS - 14, '#c58b4f', 4.5) + ln(xs - 4, dS - 8, xs + g.L * 0.3, dS - 14, 'rgba(255,255,255,.35)', 1.2);
       if (g.id !== 'opti') s += ln(xs + g.L * 0.3, dS - 14, xs + g.L * 0.45, dS - 34, '#2a2f3a', 2.2) + circ(xs + g.L * 0.45, dS - 34, 3, '#2a2f3a');
       return s;
@@ -823,8 +834,10 @@
     if (unrig) base.forEach(s => { inst[s[0]] = s[2] !== 'off'; });
     else base.forEach(s => { inst[s[0]] = s[2] === 'off'; });
     // keelboats keep their mast stepped and the boom and standing rigging on all season
-    if (g.keelboat) ['mast', 'boom', 'shrouds', 'forestay'].concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
+    // keelboats keep their mast stepped and the boom and standing rigging on all season (Feva / 29er: the mast, see KEEP_ON)
+    (g.keelboat ? ['mast', 'boom', 'shrouds', 'forestay'] : []).concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
     let groundSail = null; // null | 'flat' | 'rolled'
+    let foilsDown = 0; // dinghy rudder blade + daggerboard: 0 = raised (on land), 1 = lowered (afloat)
 
     const S = {
       phase: 'play', time: 0, started: false, penalty: 0, mistakes: 0, streak: 0, bestStreak: 0, doneN: 0,
@@ -883,7 +896,7 @@
     function drawPart(k, mode) {
       const e = partEl[k];
       if (!e || !DRAW[k]) return;
-      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib });
+      e.innerHTML = DRAW[k](g, col, { sailNo, jibUp: !!inst.jib, down: foilsDown });
       e.setAttribute('class', 'rig-part' + (mode ? ' ' + mode : '') + (GROW[k] ? ' grow' : ''));
     }
     function clearPart(k) { const e = partEl[k]; if (e) { e.innerHTML = ''; e.setAttribute('class', 'rig-part'); } }
@@ -994,7 +1007,7 @@
       const bk = s && (s.decoy ? 'do' : s.k === 'vest' ? (s.type === 'off' ? 'unwear' : 'wear') : s.type === 'off' ? 'off' : s.pack ? 'do' : 'on');
       const btn = s ? '<button type="button" class="btn btn-primary rigging-do">' + esc(t('rigging.btn.' + bk)) + '</button>' : '';
       infoEl.innerHTML = '<div class="rgi-ico">' + icon(k, col) + '</div><div class="rgi-txt"><div class="rgi-name">' + esc(pname(k)) + ' <small>· ' + esc(pother(k)) + '</small></div>' +
-        '<div class="rgi-desc">' + esc(t('rigging.p.' + k + '.desc')) + '</div></div>' + btn +
+        '<div class="rgi-desc">' + esc(k === 'rudder' && g.keelboat ? t('rigging.keelRudder') : t('rigging.p.' + k + '.desc')) + '</div></div>' + btn +
         '<button type="button" class="icon-btn rgi-close" aria-label="' + esc(t('rigging.btn.close')) + '">' + KOS.UI.iconSvg('close') + '</button>';
       infoEl.hidden = false;
       infoEl.classList.remove('in'); void infoEl.offsetWidth; infoEl.classList.add('in');
@@ -1320,7 +1333,7 @@
     const slope = 0.18;
     const groundAt = x => (x >= g.xW ? 0 : (g.xW - x) * slope); // ramp runs down to the left
     let viewCx = 0; // world x at the centre of the view (set by layout)
-    const LT = { push0: 0.5, push1: 3.3, hop: 3.45, hopD: 0.4, float1: 4.1, turn1: 4.9, end: 7.4 };
+    const LT = { push0: 0.5, push1: 3.3, hop: 3.45, hopD: 0.4, foil0: 3.95, foil1: 4.55, float1: 4.65, turn1: 5.45, end: 7.9 };
     let anim = { bx: 0, by: 0, ba: 0, sx: 1, cam: 0, camY: 0, fly: false };
     // only ONE sailor at a time: the kid hops from where it stands into the cockpit (sim-time driven), and only when it
     // lands is the standing kid hidden and the sitting crew drawn in the boat
@@ -1386,6 +1399,14 @@
         const bob = Math.sin(T * 3) * 2 * τf;
         a.bx = tx - 46 * τf; a.by = dw + (floatDy - dw) * τf + bob; a.ba = φd * (1 - τf);
         if (T >= LT.hop) { const hk = hopKid(T, LT.hop, kx, kd.y + dk, a.bx, a.by); if (hk) a.kidTf = hk; }
+        // afloat with the sailor aboard: push the daggerboard down and lower the rudder blade
+        const fd = ease(U.clamp((T - LT.foil0) / (LT.foil1 - LT.foil0), 0, 1));
+        if (fd !== foilsDown) {
+          if (foilsDown === 0) { sfx('rigClick', { vol: 0.6 }); if (!reducedMotion()) floatText(t('rigging.fx.foils'), null, null, 'good'); }
+          foilsDown = fd;
+          if (inst.rudder) drawPart('rudder');
+          if (inst.daggerboard) drawPart('daggerboard');
+        }
         // turn round (seen from the side: the boat flips to face the other way), then sail off to the left
         const τt = U.clamp((T - LT.float1) / (LT.turn1 - LT.float1), 0, 1);
         a.sx = Math.cos(Math.PI * ease(τt));

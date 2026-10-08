@@ -418,6 +418,11 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
 - **Club facts (user 2026-10-07):** KØS J70s are kept rigged (rudder + halyards on) and lie **inside Svanemøllehavnen,
   south of the clubhouse**, not at the club pier: J70 docking/undocking and race departures should start there
   (world venue 'harbor'). H-boats: red topsides with "KØS Sejlsport", white deck, rudder/tiller/halyards kept on.
+- **Club facts (user 2026-10-08, rigging):** J70s also keep the tiller on and normally lie in the water. Fevas and 29ers
+  keep the mast up all season with shrouds/forestay (rigging starts with the sails; 29er wings still a job until we know).
+  Dinghy rudders are hung on the transom and daggerboards put in their case at the slipway with blade/board UP; both
+  go down only once the boat floats (shown in the launch) and come up again before coming ashore. The club's Optis carry
+  no paddle (a RIB looks after them) - the paddle is the Opti decoy. Unrigging is the rigging order reversed.
 - **Club boat photos (user 2026-10-07, described, not on disk).** What the real KØS boats look like:
   - **29er:** white hull, clear/white mylar main + jib with **red-orange leech tape and batten pockets**, red "29er"
     logo at the head, sail number **DEN 63**; **purple asymmetric spinnaker** (game today: pink/navy/white). Crew of two
