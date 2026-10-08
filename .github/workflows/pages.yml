@@ -1,7 +1,8 @@
-# Deploy KØS SEJL when a release tag (v*) is pushed, or on demand, to two places:
-#   - GitHub Pages (https://athraen.github.io/KOSGame/)
-#   - our own server (https://spil.kossejlsport.dk) via rsync over SSH
-# Release: git tag v0.2.0 && git push origin v0.2.0
+# Deploy KØS SEJL:
+#   - every push to main          -> GitHub Pages (https://athraen.github.io/KOSGame/), the test site
+#   - every release tag (v*)      -> production, our own server (https://spil.kossejlsport.dk) via rsync over SSH
+#   - on demand (Run workflow)    -> pick pages, production or both
+# Release: git tag v0.3.2 && git push origin v0.3.2
 # Pages source must be "GitHub Actions" (Settings > Pages); set once via the API.
 # Server deploy needs repo secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
 # (and optionally DEPLOY_PATH, default /var/www/spil.kossejlsport.dk); it is skipped if DEPLOY_HOST is unset.
@@ -10,15 +11,23 @@ name: Deploy
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      target:
+        description: Where to deploy
+        type: choice
+        options: [pages, production, both]
+        default: pages
 
 permissions:
   contents: read
 
+# one deploy per target at a time; a newer main push replaces a Pages deploy still in flight, releases queue
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'pages' }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   build:
@@ -53,6 +62,7 @@ jobs:
 
   pages:
     needs: build
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target != 'production')
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -66,6 +76,7 @@ jobs:
 
   server:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target != 'pages')
     runs-on: ubuntu-latest
     environment:
       name: kossejlsport

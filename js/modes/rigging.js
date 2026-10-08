@@ -124,7 +124,7 @@
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
       },
       decoy: {
-        opti: 'Vores optimister har ingen pagaj med – træneren i RIB\'en passer på jer derude. Den bliver på land!',
+        opti: 'En optimist har ingen gennaker – den har kun ét sejl. Lad den ligge!',
         tera: 'En Tera har ikke trapez – den er alt for lille til at stå ude på kanten.',
         feva: 'Spryd hører til optimisten. En Feva har en almindelig bom.',
         zest: 'En Zest har ingen trapez. Den er en rolig træningsbåd.',
@@ -175,7 +175,7 @@
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
       },
       decoy: {
-        opti: 'Our Optis don\'t carry a paddle – the coach in the RIB looks after you out there. It stays ashore!',
+        opti: 'An Optimist has no gennaker – it only has one sail. Leave it on the ground!',
         tera: 'A Tera has no trapeze – it\'s far too small to stand out on the edge.',
         feva: 'A sprit belongs on the Optimist. A Feva has a normal boom.',
         zest: 'A Zest has no trapeze. It\'s a calm training boat.',
@@ -235,7 +235,7 @@
   };
   // Tera / Zest unrig: the sail is rolled round the mast and the whole mast with sail goes to the shed (last job)
   const SHED = { tera: ['mastSail'], zest: ['mastSail', 'zestJib'] };
-  const DECOY = { opti: 'paddle', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
+  const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
   const hasWater = id => RIG[id].some(s => s[3] === 'w');
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)

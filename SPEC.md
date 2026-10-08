@@ -457,8 +457,8 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
     the mast and the whole mast with sail goes to the shed (their last job).
   - Optimist: land: mast with sail and boom (one part) → sprit + sprit halyard → mast lock → kicker ("bomnedhal"), rudder +
     board in the boat. Water: clip the mainsheet to the boom, lower the board, fit the rudder. Mainsheet rope, painter
-    and bailer live in the boat (not jobs). No paddle on the club's Optis (unanswered whether one is carried; it is the
-    Opti decoy part).
+    and bailer live in the boat (not jobs). No paddle at all in the game's Opti (user 2026-10-08); the Opti decoy part
+    is a gennaker.
   - RS Tera: mast and sail are one component (stepped together) → boom → outhaul, kicker, painter, rudder + board in the
     boat. Water: mainsheet, board, rudder.
   - RS Feva: mast, shrouds and bowsprit stay up all season; NO forestay, NO gennaker sock. Land: hoist the main (locked at
