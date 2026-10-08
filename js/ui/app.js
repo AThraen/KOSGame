@@ -180,8 +180,9 @@
   // Jesper (family trainer, club president) is the default: quiz, map, menus, free sailing. Ida runs the Sailing School
   // (the lesson script introduces Ida) and the Opti/Tera activities; Storm (youth coach) racing; Nicolas the H-boat and the
   // rules school; Marius (youth coach) the RIB and the youth dinghies; Maria J70 sailing/racing and navigation; Anton
-  // (head coach) the other J70 activities (docking and rigging).
+  // (head coach) the other J70 activities (docking and rigging); Peter keeps the club's shed tidy (shed mode).
   function coachFor(a, boat) {
+    if (a.mode === 'shed') return 'peter';
     if (a.mode === 'school') return 'ida';
     if (boat === 'j70' && (a.mode === 'sail' || a.mode === 'race')) return 'maria';
     if (boat === 'hboat' || a.mode === 'rowschool') return 'nicolas';

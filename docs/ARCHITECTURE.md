@@ -66,6 +66,7 @@ modes   js/modes/sail.js        free sail (reference mode)
         js/modes/knots.js       knot tying mini-game
         js/modes/capsize.js     capsize recovery mini-game
         js/modes/quiz.js        sailing quiz
+        js/modes/shed.js        tidy-the-shed mini-game
 main    js/main.js              boot (applies settings, starts on the title screen)
 ```
 
@@ -100,6 +101,7 @@ results), `css/controls.css`, `css/hub.css`, and one `css/modes/<mode>.css` per 
 | `js/modes/rowschool.js` | `KOS.RowSchool` | Right-of-way school: scenario data, sim helpers, speed tables |
 | `js/modes/knots.js` | `KOS.KnotsData` | Knot path data (rope points, over/under flags) for the knot mini-game |
 | `js/modes/quiz.js` | `KOS.QuizBank` | The illustrated question bank (70+ questions, 7 categories) |
+| `js/modes/rigging.js` | `KOS.RigKit` | The ghost-finger drag demo (`demoEl`) and the kid sailor art (`kidSvg`), shared with the shed mini-game |
 
 `js/main.js` defines no global; it boots the app (applies settings, shows the title screen,
 handles `#screen=` / `#area=` / `#play=` deep links used by the test tools).
@@ -115,12 +117,13 @@ handles `#screen=` / `#area=` / `#play=` deep links used by the test tools).
 | `nav` | `js/modes/nav.js` | `nav` | Navigation & buoyage: lateral marks, channel, swim zone, cardinal marks, compass, night lights, depth sounder, ferry route | 8 |
 | `dock` | `js/modes/dock.js` | `pier` | Docking/undocking at the club pier in stages: alongside, box berth, mooring buoy, backing out, RIB pontoon/reverse/coach pickup | 11 |
 | `rib` | `js/modes/rib.js` | `rib` | Coach-boat missions in the club RIB: learn, tow, rescue, lay marks, coach the fleet, gear overboard, storm | 7 |
-| `rigging` | `js/modes/rigging.js` | `club` | Rig and unrig every boat in the ladder (side-view drag mini-game, order matters) | 12 |
+| `rigging` | `js/modes/rigging.js` | `club` | Rig and unrig every boat in the ladder (side-view drag mini-game, order matters) | 14 |
 | `knots` | `js/modes/knots.js` | `club` | Tie real sailing knots by dragging the rope along a path, plus a speed round | 7 |
 | `capsize` | `js/modes/capsize.js` | `club` | Capsize recovery seen from astern: swim, climb, lean, let go, scramble, bail (per boat, 29er turtle) | 4 |
 | `quiz` | `js/modes/quiz.js` | `club` | Illustrated sailing quiz: beginner, rules & buoyage, weather & safety, master quiz | 4 |
+| `shed` | `js/modes/shed.js` | `club` | Tidy the sailing shed against the clock with Træner Peter: drag gear to its place before the floor overflows (calm, rush hour, after-regatta chaos) | 3 |
 
-Total: 113 activities.
+Total: 118 activities.
 
 ## 6. Coordinates & units
 

@@ -359,6 +359,26 @@
       '<path d="M0 -58V-33" stroke="#4a2408" stroke-width="1.8"/>' + '<rect x="-1.6" y="-59.5" width="3.2" height="4.6" rx="1" fill="#c9d0db" stroke="#4a2408" stroke-width=".6"/>' +
       '<path d="M-16.5 -39.5H16.5" stroke="#2a2f3a" stroke-width="2.8"/><rect x="-3" y="-41.8" width="6" height="4.6" rx="1" fill="#111"/>';
   }
+  // the ghost-finger drag demo (CSS in css/modes/rigging.css): a hand carries `itemSvg` from (x0, y0) to (x1, y1), in
+  // layer pixels, along an arc; `still` (reduced motion) leaves it at the start with the dotted path to follow
+  function demoEl(x0, y0, x1, y1, itemSvg, label, still) {
+    const cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - Math.max(30, Math.abs(x1 - x0) * 0.25);
+    const xm = (x0 + 2 * cx + x1) / 4, ym = (y0 + 2 * cy + y1) / 4;
+    const el = doc.createElement('div');
+    el.className = 'rigging-demo' + (still ? ' still' : '');
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText = '--x0:' + f(x0) + 'px;--y0:' + f(y0) + 'px;--xm:' + f(xm) + 'px;--ym:' + f(ym) + 'px;--x1:' + f(x1) + 'px;--y1:' + f(y1) + 'px';
+    el.innerHTML = '<svg class="rgd-path" width="100%" height="100%"><path d="M' + f(x0) + ' ' + f(y0) + 'Q' + f(cx) + ' ' + f(cy) + ' ' + f(x1) + ' ' + f(y1) + '"/>' +
+      '<circle cx="' + f(x1) + '" cy="' + f(y1) + '" r="7"/></svg>' +
+      '<div class="rgd-mover"><div class="rgd-item">' + itemSvg + '</div><div class="rgd-hand">' + HAND_SVG + '</div><div class="rgd-label">' + esc(label) + '</div></div>';
+    return el;
+  }
+  // shared with the other drag-and-drop mini-game (js/modes/shed.js): the demo finger and the kid sailor
+  KOS.RigKit = {
+    HAND_SVG, demoEl,
+    // the kid (100 units tall, feet at 0,0); hand = where the -x arm reaches (local coords); vest = life jacket on
+    kidSvg(hand, vest) { return kidUnder() + (vest ? kidVest() : '') + kidOver(hand); },
+  };
   function kidTf(kd, dx, dy) { return 'translate(' + f(kd.x + (dx || 0)) + ' ' + f(kd.y + (dy || 0)) + ') scale(' + f(kd.flip ? -kd.k : kd.k) + ' ' + f(kd.k) + ')'; }
 
   // ---------------------------------------------------------------- geometry
@@ -1313,17 +1333,9 @@
       try { card.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* old browsers */ }
       const lr = host.layer.getBoundingClientRect(), cr = card.getBoundingClientRect(), z = zoneScreen(s);
       if (!z || !cr.width) return;
-      const x0 = cr.left + cr.width / 2 - lr.left, y0 = cr.top + cr.height * 0.42 - lr.top, x1 = z.x, y1 = z.y;
-      const cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - Math.max(30, Math.abs(x1 - x0) * 0.25);
-      const xm = (x0 + 2 * cx + x1) / 4, ym = (y0 + 2 * cy + y1) / 4;
+      const x0 = cr.left + cr.width / 2 - lr.left, y0 = cr.top + cr.height * 0.42 - lr.top;
       const still = reducedMotion();
-      const el = doc.createElement('div');
-      el.className = 'rigging-demo' + (still ? ' still' : '');
-      el.setAttribute('aria-hidden', 'true');
-      el.style.cssText = '--x0:' + f(x0) + 'px;--y0:' + f(y0) + 'px;--xm:' + f(xm) + 'px;--ym:' + f(ym) + 'px;--x1:' + f(x1) + 'px;--y1:' + f(y1) + 'px';
-      el.innerHTML = '<svg class="rgd-path" width="100%" height="100%"><path d="M' + f(x0) + ' ' + f(y0) + 'Q' + f(cx) + ' ' + f(cy) + ' ' + f(x1) + ' ' + f(y1) + '"/>' +
-        '<circle cx="' + f(x1) + '" cy="' + f(y1) + '" r="7"/></svg>' +
-        '<div class="rgd-mover"><div class="rgd-item">' + icon(s.k, col) + '</div><div class="rgd-hand">' + HAND_SVG + '</div><div class="rgd-label">' + esc(t('rigging.demo')) + '</div></div>';
+      const el = demoEl(x0, y0, z.x, z.y, icon(s.k, col), t('rigging.demo'), still);
       host.layer.appendChild(el);
       demo = { el, s };
       const mover = el.querySelector('.rgd-mover');

@@ -108,6 +108,7 @@ js/modes/rigging.js   rig / unrig mini-game
 js/modes/knots.js     knot tying mini-game
 js/modes/capsize.js   capsize recovery mini-game
 js/modes/quiz.js      sailing quiz
+js/modes/shed.js      tidy-the-shed mini-game (Træner Peter)
 js/main.js            boot
 ```
 CSS: `css/style.css` (tokens, shell, buttons, screens), `css/game.css` (HUD, touch controls, results),
@@ -245,7 +246,7 @@ Helpers: `KOS.World.isLand(v, x, y)`, `KOS.World.depthAt(v, x, y)`, `KOS.World.h
 - `KOS.Activities.add(defOrArray)`: `{id, mode, area, boat, order, title: {da,en}, desc: {da,en}, icon, params,
   unlock: {stars: n} | {after: id} | null, minutes, difficulty: 1..5}`. `area` ∈ hub areas below.
 - `KOS.Activities.list(filter)`, `.get(id)`, `.isUnlocked(id)`, `.next(id)`, `.byArea(area)`.
-- Hub areas (`area`): `club` (clubhouse: rigging, knots, quiz, capsize), `school` (sailing school in the bay),
+- Hub areas (`area`): `club` (clubhouse: rigging, knots, quiz, capsize, shed), `school` (sailing school in the bay),
   `bay` (free sail), `race` (race course out in the Sound), `rules` (right-of-way school), `nav` (harbor channel /
   navigation), `pier` (docking), `rib` (RIB pontoon / coach missions).
 
@@ -287,12 +288,14 @@ jib by hand near `idealJib` (Easy: auto), so races stay fair.
 
 ### KOS.UI (ui/ui.js)
 `toast(text, {kind, ms})`, `dialog({titleKey|title, body (html), buttons: [{labelKey, kind, onClick}]})`,
-`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Ida (Sailing School, Opti and Tera activities), Storm (racing), Nicolas (H-boat, rules school), Marius (RIB, youth dinghies), Maria (J70 sailing and racing, navigation) and Anton (J70 docking and rigging)),
+`coach(text, {avatar, ms, pos})` (speech bubble from cartoons of the real KØS coaches Jesper (default), Ida (Sailing School, Opti and Tera activities), Storm (racing), Nicolas (H-boat, rules school), Marius (RIB, youth dinghies), Maria (J70 sailing and racing, navigation), Anton (J70 docking and rigging) and Peter (the shed: he keeps it tidy and yells, funny-grumpy, when it gets messy)),
 `hud(layer, items)` → `{update(data), el}` with items `wind speed pos timer place lap score heel tack penalty`,
 `countdown(layer, seconds, onDone)`, `stars(n)` (svg html), `confetti()`, `iconSvg(name)`, `results(result, activity)`.
 Implemented: `coachClose()` closes the current coach bubble (the app calls it on pause and finish). During play a coach bubble
 ignores touches (it closes by itself) unless it was opened with `ms: 0` / `tapToClose`; on sea modes it sits under the touch
 controls and, on portrait phones, left of the sheet slider and above HIKE. Modes don't need their own coach workarounds.
+`opts.mood`: `happy` (default) `wow` `oops` `yell` (shouting mouth, angry brows, red cheeks; the bubble gets `coach-yell`: a red
+edge and a shaking avatar, styled in css/modes/shed.css; no shaking with reduced motion). `opts.coach` picks a coach for one bubble.
 
 ### KOS.SailScene (render/scene.js)
 `new KOS.SailScene(canvas, {venue, wind, boats, marks, follow, zoom, showWindArrow, showLaylines, showNoGo})`:
@@ -365,6 +368,15 @@ the effects thin out cosmetic particles at lower levels.
   jacket comes off at the very end). **knots** (trace the rope: pælestik/bowline,
   ottetalsknob/figure-8, råbåndsknob/reef knot, dobbelt halvstik/clove hitch, klampe/cleat), **capsize recovery**
   (timing mini-game on the centreboard), **quiz** (rules, parts of the boat, weather, safety, knots).
+  **shed** ("Ryd op i skuret", Træner Peter): the inside of the club's shed with labelled places (Redningsveste, Våddragter,
+  Sejl, Master (Tera / Zest masts with the sail rolled round them), Bomme, Ror og sværd, Tovværk, a crate for Sjækler og
+  blokke, Glemt-kassen, Skrald). A kid in the doorway tosses gear onto the floor at a rising pace; the player drags each thing
+  to its place (or taps it, then the place; or ←/→ + Enter twice). Wrong place = it bounces back, a mistake and penalty
+  seconds; a tangled rope is coiled with two taps first. The mess meter (HUD "Rod") counts things on the floor: at 75 % or when
+  one thing has lain too long Peter pops in and yells (`mood: 'yell'`, a whistle, the shed shakes; a "Skæld ud" each), and
+  more than the limit = fail. Stars by mistakes and scoldings. Activities `shed.tidy` (14 things), `shed.rush` (22, masts,
+  booms and tangled ropes), `shed.regatta` (30, starts messy, the whole team comes in at once now and then). It reuses
+  `KOS.RigKit` (rigging.js: the ghost-finger demo and the kid) and rigging's float/sparkle CSS.
 
 ## Analytics (Matomo)
 

@@ -242,7 +242,8 @@
   function topDialog() { return dialogStack[dialogStack.length - 1] || null; }
 
   // ------------------------------------------------------------------ the club's coaches
-  // Anton, Maria, Storm, Marius, Ida, Nicolas and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07); Jesper is the default.
+  // Anton, Maria, Storm, Marius, Ida, Nicolas, Peter and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07/08); Jesper is the default.
+  // Optional fields: back (drawn behind the head), front (drawn over the face: collars), smile (mouth width).
   // setCoach(id) picks who talks during an activity (KOS.App does it per activity); coach()/coachSvg() take an
   // explicit opts.coach / who to override.
   const COACHES = {
@@ -295,6 +296,20 @@
         '<path d="M28 43c-1-14 9-23 22-23s23 9 22 23c-14-3-30-3-44 0z" fill="#73776c"/>' +
         '<path d="M50 41c10-2 21-1 31 3-1 3-4 4-8 4-7-2-15-3-23-3z" fill="#5d6157" stroke="#3e413a" stroke-width="1.2"/>' +
         '<path d="M43 30h14" stroke="#f2f2f2" stroke-width="2.2" stroke-linecap="round"/><circle cx="50" cy="21" r="1.6" fill="#5d6157"/>' },
+    // shed coach: wild, spiky, windswept light grey-blond hair sticking up and out (receding at the temples, high
+    // forehead), blue eyes with smile crinkles, navy fleece half-zip with a stand-up collar over a white roll-neck
+    peter: { skin: '#f0bf9c', ear: '#e6a986', brow: '#b9ae92', eye: '#3a78c0', smile: 11,
+      body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#1f2c55"/><path d="M50 84v16" stroke="#121b3a" stroke-width="2"/>' +
+        '<path d="M20 100c2-12 7-19 15-23M80 100c-2-12-7-19-15-23" stroke="#2a3a6c" stroke-width="2" fill="none"/>',
+      hair: '<path d="M37 37L31 23l8 4-1-15 8 10 4-14 4 13 8-11-1 14 9-6-6 15c-6-3-11-4-14-4h-8c-5 0-9 1-14 4z" fill="#d6cfb9"/>' +
+        '<path d="M31 52l-9-5 6-3-8-7 9 1-1-8 7 7c-2 4-3 9-4 15zM69 52l9-5-6-3 8-7-9 1 1-8-7 7c2 4 3 9 4 15z" fill="#d6cfb9"/>' +
+        '<path d="M40 14l5 11M51 10l1 13M60 13l-4 11M33 25l6 7M67 23l-6 8M24 39l6 3M76 39l-6 3" stroke="#f1ecdd" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
+        '<path d="M42 30c4-2 12-2 16 0" stroke="#b5ad96" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+        '<path d="M33.5 51.5l-3.5-1.5M33.5 55l-3.8 .5M66.5 51.5l3.5-1.5M66.5 55l3.8 .5" stroke="#c98d6c" stroke-width="1.1" stroke-linecap="round"/>',
+      // the white roll-neck and the fleece's stand-up collar (half-zip a little open), drawn over the chin line
+      front: '<path d="M39 71q11 6 22 0l1 7q-12 6-24 0z" fill="#f4f5f7" stroke="#d3d7de" stroke-width="1"/>' +
+        '<path d="M33 76l5-8 12 13 12-13 5 8-8 10h-18z" fill="#22305e" stroke="#121b3a" stroke-width="1.4" stroke-linejoin="round"/>' +
+        '<path d="M50 81v7" stroke="#c9d0db" stroke-width="1.6"/><rect x="48.6" y="85" width="2.8" height="4.4" rx="1" fill="#c9d0db"/>' },
     // family trainer + club president: light, thinning hair swept back (high forehead), blue eyes, navy fleece
     jesper: { skin: '#f1c19c', ear: '#e7ad87', brow: '#bca36e', eye: '#2f5d9a',
       body: '<path d="M14 100c2-20 16-28 36-28s34 8 36 28z" fill="#283f86"/><path d="M38 72l12 7 12-7v6l-12 6-12-6z" fill="#334c99"/>' +
@@ -307,7 +322,9 @@
   function currentCoach() { return coachId; }
   function coachName(id) { id = id || coachId; const n = t('ui.coach.who.' + id); return n && n.indexOf('ui.coach.who') < 0 ? n : t('ui.coach.name'); }
   function coachMouth(mood, k) {
-    return mood === 'wow' ? '<ellipse cx="50" cy="66" rx="5" ry="6" fill="#7a2d22"/>' :
+    // 'yell': wide open, shouting (Træner Peter in the shed)
+    if (mood === 'yell') return '<path d="M40 63q10-5 20 0q-1 12-10 12t-10-12z" fill="#7a2d22" stroke="#5a1d16" stroke-width="1.2"/><path d="M41.5 64q8.5-3.5 17 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><ellipse cx="50" cy="71.5" rx="4.5" ry="2" fill="#e0646a"/>';
+    return mood === 'wow' ?'<ellipse cx="50" cy="66" rx="5" ry="6" fill="#7a2d22"/>' :
       mood === 'oops' ? '<path d="M42 68q8-5 16 0" stroke="#7a2d22" stroke-width="3" fill="none" stroke-linecap="round"/>' :
         '<path d="M' + (50 - k) + ' 63q' + k + ' ' + k + ' ' + 2 * k + ' 0" stroke="#7a2d22" stroke-width="3" fill="#fff" stroke-linecap="round" stroke-linejoin="round"/>';
   }
@@ -320,9 +337,10 @@
       c.hair +
       '<ellipse cx="41.5" cy="53" rx="3" ry="3.6" fill="' + c.eye + '"/><ellipse cx="58.5" cy="53" rx="3" ry="3.6" fill="' + c.eye + '"/>' +
       '<circle cx="42.6" cy="51.8" r="1.1" fill="#fff"/><circle cx="59.6" cy="51.8" r="1.1" fill="#fff"/>' +
-      '<path d="M36.5 47q5-3 9 0M54.5 47q5-3 9 0" stroke="' + c.brow + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-      '<ellipse cx="35" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".45"/><ellipse cx="65" cy="61" rx="4.5" ry="2.6" fill="#ff9a8a" opacity=".45"/>' +
-      coachMouth(mood, id === 'storm' || id === 'marius' || id === 'maria' || id === 'nicolas' ? 12 : id === 'jesper' ? 8 : 10) + '</svg>';
+      (mood === 'yell' ? '<path d="M36 44.5l9.5 3.5M64 44.5l-9.5 3.5" stroke="' + c.brow + '" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+        : '<path d="M36.5 47q5-3 9 0M54.5 47q5-3 9 0" stroke="' + c.brow + '" stroke-width="2" fill="none" stroke-linecap="round"/>') +
+      '<ellipse cx="35" cy="61" rx="4.5" ry="2.6" fill="' + (mood === 'yell' ? '#ff6a5a' : '#ff9a8a') + '" opacity="' + (mood === 'yell' ? '.7' : '.45') + '"/><ellipse cx="65" cy="61" rx="4.5" ry="2.6" fill="' + (mood === 'yell' ? '#ff6a5a' : '#ff9a8a') + '" opacity="' + (mood === 'yell' ? '.7' : '.45') + '"/>' +
+      coachMouth(mood, c.smile || (id === 'storm' || id === 'marius' || id === 'maria' || id === 'nicolas' ? 12 : id === 'jesper' ? 8 : 10)) + (c.front || '') + '</svg>';
   }
   function coachSvg(mood, who) {
     const id = COACHES[who] ? who : coachId;
@@ -334,7 +352,7 @@
     if (coachCur) coachCur.close(true);
     const host = opts.host || (doc.getElementById('screen-play') && !doc.getElementById('screen-play').hidden ? doc.getElementById('screen-play') : doc.body);
     const pos = opts.pos || 'bottom';
-    const node = el('div', 'coach coach-' + pos + (opts.ms === 0 || opts.tapToClose ? ' coach-tapclose' : ''));
+    const node = el('div', 'coach coach-' + pos + (opts.ms === 0 || opts.tapToClose ? ' coach-tapclose' : '') + (opts.mood === 'yell' ? ' coach-yell' : ''));
     node.setAttribute('role', 'status');
     node.innerHTML = '<div class="coach-avatar">' + (opts.avatar && opts.avatar !== 'coach' ? opts.avatar : coachSvg(opts.mood, opts.coach)) + '</div>' +
       '<div class="coach-bubble"><div class="coach-name">' + esc(opts.name || coachName(opts.coach)) + '</div><div class="coach-text">' + esc(text) + '</div>' +
@@ -663,7 +681,7 @@
   if (KOS.I18n) {
     KOS.I18n.add('da', {
       ui: {
-        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Træner Anton', storm: 'Træner Storm', maria: 'Træner Maria', ida: 'Træner Ida', marius: 'Træner Marius', nicolas: 'Træner Nicolas', jesper: 'Træner Jesper' } },
+        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Træner Anton', storm: 'Træner Storm', maria: 'Træner Maria', ida: 'Træner Ida', marius: 'Træner Marius', nicolas: 'Træner Nicolas', peter: 'Træner Peter', jesper: 'Træner Jesper' } },
         countdown: { go: 'Sejl!' },
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
         pos: { irons: 'I vindøjet', closehauled: 'Bidevind', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
@@ -677,7 +695,7 @@
     });
     KOS.I18n.add('en', {
       ui: {
-        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Coach Anton', storm: 'Coach Storm', maria: 'Coach Maria', ida: 'Coach Ida', marius: 'Coach Marius', nicolas: 'Coach Nicolas', jesper: 'Coach Jesper' } },
+        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Coach Anton', storm: 'Coach Storm', maria: 'Coach Maria', ida: 'Coach Ida', marius: 'Coach Marius', nicolas: 'Coach Nicolas', peter: 'Coach Peter', jesper: 'Coach Jesper' } },
         countdown: { go: 'Sail!' },
         hud: { wind: 'Wind', speed: 'Speed', pos: 'Course', timer: 'Time', place: 'Place', lap: 'Lap', score: 'Score', heel: 'Heel', tack: 'Tack', penalty: 'Penalty' },
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },
