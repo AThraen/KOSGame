@@ -65,7 +65,7 @@
       l: {
         steer: {
           intro: 'Du lærer at styre båden og at stoppe den. Det smarte trick: drej op mod vinden – så blafrer sejlet, og båden bremser helt af sig selv.',
-          buoy: { say: 'Hej, jeg er Storm, ungdomstræner i KØS! Styr hen til den orange bøje – tryk til venstre og højre for at dreje.', task: 'Sejl hen til bøje 1' },
+          buoy: { say: 'Hej, jeg er Storm, træner i KØS! Styr hen til den orange bøje – tryk til venstre og højre for at dreje.', task: 'Sejl hen til bøje 1' },
           stop: { say: 'Stop inde i ringen! Luf op: drej snuden op mod vinden, så blafrer sejlet, og båden bremser.', task: 'Luf op og stop i ringen' },
           go: { say: 'Flot stop! Fald af igen – drej væk fra vinden, til sejlet fylder – og sejl hen til bøje 2.', task: 'Fald af og sejl til bøje 2' },
         },
@@ -207,7 +207,7 @@
       l: {
         steer: {
           intro: 'Learn to steer the boat and to stop it. The clever trick: turn up into the wind – the sail flaps and the boat brakes all by itself.',
-          buoy: { say: 'Hi, I\'m Storm, youth coach at KØS! Steer to the orange buoy – press left and right to turn.', task: 'Sail to buoy 1' },
+          buoy: { say: 'Hi, I\'m Storm, coach at KØS! Steer to the orange buoy – press left and right to turn.', task: 'Sail to buoy 1' },
           stop: { say: 'Stop inside the ring! Luff up: turn the bow into the wind, the sail flaps and the boat slows down.', task: 'Luff up and stop in the ring' },
           go: { say: 'Great stop! Bear away again – turn away from the wind until the sail fills – and sail to buoy 2.', task: 'Bear away and sail to buoy 2' },
         },

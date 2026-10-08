@@ -637,7 +637,7 @@
   if (KOS.I18n) {
     KOS.I18n.add('da', {
       ui: {
-        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Cheftræner Anton', storm: 'Ungdomstræner Storm', marius: 'Ungdomstræner Marius', jesper: 'Jesper, formand' } },
+        coach: { name: 'Træner', tap: 'Tryk for at lukke', who: { anton: 'Træner Anton', storm: 'Træner Storm', marius: 'Træner Marius', jesper: 'Træner Jesper' } },
         countdown: { go: 'Sejl!' },
         hud: { wind: 'Vind', speed: 'Fart', pos: 'Kurs', timer: 'Tid', place: 'Plads', lap: 'Omgang', score: 'Point', heel: 'Krængning', tack: 'Halse', penalty: 'Straf' },
         pos: { irons: 'I vindøjet', closehauled: 'Bidevind', closereach: 'Skarp halvvind', beamreach: 'Halvvind', broadreach: 'Slør', run: 'Læns' },
@@ -651,7 +651,7 @@
     });
     KOS.I18n.add('en', {
       ui: {
-        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Head coach Anton', storm: 'Youth coach Storm', marius: 'Youth coach Marius', jesper: 'Jesper, club president' } },
+        coach: { name: 'Coach', tap: 'Tap to close', who: { anton: 'Coach Anton', storm: 'Coach Storm', marius: 'Coach Marius', jesper: 'Coach Jesper' } },
         countdown: { go: 'Sail!' },
         hud: { wind: 'Wind', speed: 'Speed', pos: 'Course', timer: 'Time', place: 'Place', lap: 'Lap', score: 'Score', heel: 'Heel', tack: 'Tack', penalty: 'Penalty' },
         pos: { irons: 'In irons', closehauled: 'Close-hauled', closereach: 'Close reach', beamreach: 'Beam reach', broadreach: 'Broad reach', run: 'Run' },

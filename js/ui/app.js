@@ -1368,9 +1368,9 @@
         boat: 'Din båd', sailNo: 'Sejlnummer', boatColor: 'Bådens farve', random: 'Overrask mig',
         saveFirst: 'Gem og sejl ud!', saved: 'Profil gemt!', needName: 'Skriv dit navn først.',
       },
-      coach: { welcome: 'Hej {name}! Jeg er Jesper, formand i KØS. Velkommen i klubben – vælg et sted på kortet, så sejler vi!' },
+      coach: { welcome: 'Hej {name}! Jeg er Jesper, træner i KØS. Velkommen i klubben – vælg et sted på kortet, så sejler vi!' },
       onboard: {
-        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Jesper, formand og familietræner i KØS. Vi starter i Sejlerskolen ude i bugten – der lærer Storm dig at styre og stoppe båden.',
+        title: 'Velkommen i KØS, {name}!', body: 'Jeg er Jesper, træner i KØS. Vi starter i Sejlerskolen ude i bugten – der lærer Storm dig at styre og stoppe båden.',
         s1: 'Tag din første lektion i Sejlerskolen', s2: 'Saml stjerner – op til tre i hver opgave', s3: 'Stjernerne låser nye både og steder op',
         go: 'Første lektion!', later: 'Se kortet først',
       },
@@ -1438,9 +1438,9 @@
         boat: 'Your boat', sailNo: 'Sail number', boatColor: 'Boat colour', random: 'Surprise me',
         saveFirst: 'Save and sail out!', saved: 'Profile saved!', needName: 'Type your name first.',
       },
-      coach: { welcome: 'Hi {name}! I’m Jesper, president of KØS. Welcome to the club – pick a spot on the map and let’s sail!' },
+      coach: { welcome: 'Hi {name}! I’m Jesper, a coach at KØS. Welcome to the club – pick a spot on the map and let’s sail!' },
       onboard: {
-        title: 'Welcome to KØS, {name}!', body: 'I’m Jesper, president and family coach at KØS. We start at the Sailing School out in the bay – that’s where Storm teaches you to steer and stop the boat.',
+        title: 'Welcome to KØS, {name}!', body: 'I’m Jesper, coach at KØS. We start at the Sailing School out in the bay – that’s where Storm teaches you to steer and stop the boat.',
         s1: 'Take your first Sailing School lesson', s2: 'Collect stars – up to three per challenge', s3: 'Stars unlock new boats and places',
         go: 'First lesson!', later: 'Look at the map first',
       },
