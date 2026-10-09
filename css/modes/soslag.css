@@ -7,15 +7,31 @@
   background: rgba(13, 19, 33, .7); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.28);
 }
-.sp-head { display: flex; align-items: center; gap: 6px; font-size: .68rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; color: var(--primary, #ffb547); }
-.sp-head .ico { width: 16px; height: 16px; flex: none; }
-.sp-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; }
-.sp-row b { font-size: 1.25rem; font-weight: 900; font-variant-numeric: tabular-nums; }
-.sp-row em { font-style: normal; font-size: .74rem; font-weight: 900; padding: 1px 8px; border-radius: 8px; background: rgba(255,255,255,.1); }
-.sp-row em.luv { background: rgba(255,154,61,.25); color: #ffb38a; } /* he is windward of you */
-.sp-row em.lae { background: rgba(62,224,143,.22); color: #7dffb5; } /* you are windward of him */
-.sp-out { margin-top: 6px; font-size: .74rem; font-weight: 900; color: #ffb38a; }
+/* wet bars (you, the opponent), the tank gauge, distance + windward/leeward, one hint line */
+.sl-bar { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 6px; margin-bottom: 5px; }
+.sl-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; color: rgba(255,255,255,.82); }
+.sl-bar.op .sl-n { color: var(--primary, #ffb547); }
+.sl-p { font-size: .9rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sl-track { grid-column: 1 / -1; height: 7px; margin-top: 2px; border-radius: 6px; background: rgba(255,255,255,.14); overflow: hidden; }
+.sl-track i { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #3aa0ff, #7fd0ff); transition: width .18s linear; }
+.sl-bar.hot .sl-track i { background: linear-gradient(90deg, #2d7bff, #b46bff); }
+.sl-tank { display: grid; grid-template-columns: 16px 1fr; align-items: center; gap: 0 6px; margin: 6px 0 2px; }
+.sl-tank .sl-ico svg, .sl-tank .ico { width: 16px; height: 16px; color: #7fd0ff; }
+.sl-tank .sl-track { grid-column: 1 / -1; height: 6px; }
+.sl-tank .sl-track i { background: #49c6f2; }
+.sl-tank.low .sl-track i { background: #ff9a3d; }
+.sl-tank.dip .sl-track i { background: #3ee08f; }
+.sl-tank.pulse { animation: sl-pulse 1s ease-in-out infinite; }
+.sl-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.sl-row b { font-size: 1.05rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sl-hint { display: none; margin-top: 5px; font-size: .74rem; font-weight: 900; line-height: 1.2; }
+.sl-hint.on { display: block; }
+.sl-hint.far, .sl-hint.out { color: #ffb38a; } .sl-hint.dip { color: #7dffb5; }
+.sl-hint.pulse { animation: sl-pulse 1s ease-in-out infinite; }
+@keyframes sl-pulse { 50% { opacity: .55; } }
+.sl-row em { font-style: normal; font-size: .74rem; font-weight: 900; padding: 1px 8px; border-radius: 8px; background: rgba(255,255,255,.1); }
+.sl-row em.luv { background: rgba(255,154,61,.25); color: #ffb38a; } /* he is windward of you */
+.sl-row em.lae { background: rgba(62,224,143,.22); color: #7dffb5; } /* you are windward of him */
 .has-intro-card .soslag-panel { opacity: .15; pointer-events: none; transition: opacity .25s; }
 
 /* ---- intro card lines */
@@ -31,14 +47,40 @@
 .soslag-count.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .soslag-count.go { color: #7dffb5; font-size: 3.6rem; }
 
+/* ---- results: the two wet bars before the stats */
+.soslag-rbars { width: 100%; box-sizing: border-box; margin: 10px 0 6px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.07); text-align: left; }
+.srb-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: .78rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; }
+.srb-head .ico { width: 18px; height: 18px; color: #7fd0ff; }
+.srb-row { display: grid; grid-template-columns: minmax(70px, 34%) 1fr 3.4em; align-items: center; gap: 8px; margin: 5px 0; font-weight: 800; }
+.srb-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.srb-track { height: 10px; border-radius: 8px; background: rgba(255,255,255,.16); overflow: hidden; }
+.srb-track i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, #3aa0ff, #7fd0ff); }
+.srb-row.op .srb-track i { background: linear-gradient(90deg, #ffb547, #ff9a3d); }
+
+/* ---- gun / turn buttons: top-left under the pause button (like race's extras), SKYD larger than the rest; panel is top-right */
+.soslag-layer .kc .kc-extras, .soslag-layer .kc.kc-landscape .kc-extras { right: auto; left: calc(var(--safe-l, 0px) + 12px); top: calc(var(--safe-t) + 66px); flex-direction: row; align-items: flex-start; }
+.soslag-layer .kc .kc-extra b { display: none; }
+.soslag-layer .kc .kc-extra { padding: 0 10px; min-width: 52px; height: 52px; }
+.soslag-layer .kc .kc-extra[data-btn="fire"] { min-width: 76px; height: 60px; padding: 0 12px; gap: 6px; border-color: rgba(127, 208, 255, .75); }
+.soslag-layer .kc .kc-extra[data-btn="fire"] b { display: block; font-size: 13px; letter-spacing: .02em; }
+.soslag-layer .kc .kc-extra[data-btn="fire"] svg { width: 26px; height: 26px; }
+@media (min-width: 900px) and (min-height: 600px) {
+  .soslag-layer .kc .kc-extras { left: calc(var(--safe-l, 0px) + 12px); top: calc(var(--safe-t) + 66px); }
+}
+@media (max-width: 560px) and (orientation: portrait) {
+  .soslag-layer .kc .kc-extras, .soslag-layer .kc.kc-landscape .kc-extras { top: calc(var(--safe-t) + 128px); left: calc(var(--safe-l, 0px) + 8px); }
+  .soslag-layer .race-card { top: calc(var(--safe-t) + 190px); }
+}
+
 @media (max-width: 560px) {
-  .soslag-panel { top: calc(var(--safe-t) + 128px); right: calc(var(--safe-r, 0px) + 8px); width: 128px; padding: 6px 9px; border-radius: 14px; }
-  .sp-row b { font-size: 1rem; }
+  .soslag-panel { top: calc(var(--safe-t) + 128px); right: calc(var(--safe-r, 0px) + 8px); width: 132px; padding: 6px 9px; border-radius: 14px; }
+  .sl-row b { font-size: 1rem; }
   .soslag-count { font-size: 4rem; } .soslag-count.go { font-size: 2.6rem; }
 }
 @media (orientation: landscape) and (max-height: 520px) {
-  .soslag-panel { top: calc(var(--safe-t) + 8px); width: 140px; padding: 5px 9px; }
+  .soslag-panel { top: calc(var(--safe-t) + 8px); width: 150px; padding: 5px 9px; }
+  .sl-bar { margin-bottom: 3px; } .sl-tank { margin-top: 4px; }
   .soslag-count { font-size: 3.6rem; top: 42%; } .soslag-count.go { font-size: 2.4rem; }
   .race-layer .race-card, .soslag-layer .race-card { top: calc(var(--safe-t) + 64px); }
 }
-@media (prefers-reduced-motion: reduce) { .soslag-count { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .soslag-count, .sl-track i { transition: none; } .sl-tank.pulse, .sl-hint.pulse { animation: none; } }

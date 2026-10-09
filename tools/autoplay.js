@@ -1,11 +1,12 @@
 // Play one activity to the end, headless and fast-forwarded, and print the result (stars, time, stats).
 // Use it to tune star thresholds and to prove a level can be finished. NEVER opens a visible window.
 //
-//   node tools/autoplay.js <activityId> [boat] [assist] [--max=900] [--shot]
+//   node tools/autoplay.js <activityId> [boat] [assist] [--max=900] [--shot] [--idle]
 //     boat    player's chosen boat for activities without a fixed boat (default opti)
 //     assist  easy | normal | pro (default easy)
 //     --max   give up after this many simulated seconds (default 900)
 //     --shot  save shot-auto-<id>.png of the results screen
+//     --idle  do not call setAutopilot: the player does nothing (e.g. soslag.duel1: the idle player must lose)
 //
 // The mode instance may expose two optional test hooks (see js/modes/sail.js):
 //   inst.setAutopilot(true)  let KOS.AI (or your own bot) drive the player's boat
@@ -20,7 +21,7 @@ const url = require('url');
   const opt = (n, d) => { const a = process.argv.find(x => x.startsWith('--' + n + '=')); return a ? a.split('=')[1] : d; };
   const [id, boat = 'opti', assist = 'easy'] = args;
   if (!id) { console.log('usage: node tools/autoplay.js <activityId> [boat] [assist] [--max=900] [--shot]'); process.exit(2); }
-  const max = +opt('max', 900);
+  const max = +opt('max', 900), idle = process.argv.includes('--idle');
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
   const errs = [];
@@ -28,7 +29,7 @@ const url = require('url');
   page.on('console', m => { if (m.type() === 'error') errs.push('console.error: ' + m.text()); });
   await page.goto(url.pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href);
   await page.waitForFunction(() => window.KOS && KOS.App, null, { timeout: 15000 });
-  const r = await page.evaluate(([id, boat, assist, max]) => {
+  const r = await page.evaluate(([id, boat, assist, max, idle]) => {
     KOS.Storage.saveProfile({ name: 'Auto', sailNo: '1' });
     KOS.Storage.set('boat', boat);
     KOS.Storage.saveSettings({ assist, sound: false, unlockAll: true });
@@ -37,14 +38,14 @@ const url = require('url');
     let res = null;
     const onFin = e => { res = e && e.result; };
     KOS.Events.on('play:finish', onFin);
-    if (inst.setAutopilot) inst.setAutopilot(true);
+    if (inst.setAutopilot && !idle) inst.setAutopilot(true);
     if (inst.skipIntro) inst.skipIntro();
     const t0 = performance.now();
     let steps = 0;
     for (; steps < 60 * max && !res; steps++) inst.update(KOS.DT);
     KOS.Events.off('play:finish', onFin);
-    return { res, simS: steps / 60, wallMs: Math.round(performance.now() - t0), autopilot: !!inst.setAutopilot };
-  }, [id, boat, assist, max]);
+    return { res, simS: steps / 60, wallMs: Math.round(performance.now() - t0), autopilot: !!inst.setAutopilot && !idle };
+  }, [id, boat, assist, max, idle]);
   await page.waitForTimeout(1500);
   if (r.err) console.log(r.err);
   else {
