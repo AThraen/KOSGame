@@ -123,6 +123,14 @@ body.mode-sea[data-screen="play"] .coach:not(.coach-tapclose) { z-index: 25; }
   body.mode-sea[data-screen="play"] .coach-bubble { margin-bottom: 6px; padding: 8px 12px 9px; }
   body.mode-sea[data-screen="play"] .coach-text { font-size: .92rem; }
 }
+/* boats with a spinnaker have a second round button stacked above HIKE on the left, so lift the bubble clear of that stack:
+   tall phones park it under the HUD / goals panel (above the boat), short ones sit just above the stack */
+@media (max-width: 600px) and (orientation: portrait) {
+  body.mode-sea[data-screen="play"]:has(.kc-spi) .coach-bottom { bottom: calc(var(--safe-b) + 268px); }
+}
+@media (max-width: 600px) and (orientation: portrait) and (min-height: 700px) {
+  body.mode-sea[data-screen="play"]:has(.kc-spi) .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 262px); }
+}
 /* on phones the bubble sits over the sea where the boat is: after a few seconds it ghosts out of the way */
 @media (max-width: 600px), (max-height: 500px) {
   body[data-screen="play"] .coach-bottom.in:not(.coach-tapclose) { animation: coachDim .6s ease 3.2s forwards; }
