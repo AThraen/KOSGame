@@ -1171,7 +1171,7 @@
           g.addColorStop(0, 'rgba(62,224,143,0.05)'); g.addColorStop(1, 'rgba(62,224,143,0.32)');
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
           ctx.strokeStyle = 'rgba(62,224,143,0.95)'; ctx.lineWidth = Math.max(0.2, 3 * mpp); ctx.stroke();
-          if (!S.dummy) { ctx.scale(mpp, mpp); ctx.font = '900 15px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(t('school.fx.stop').replace('!', ''), 0, 0); }
+          if (!S.dummy) { if (scene._tilt) scene.upright(ctx, tg.x, tg.y, 0); else ctx.scale(mpp, mpp); ctx.font = '900 15px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(t('school.fx.stop').replace('!', ''), 0, 0); } // tilted: upright at the ring centre
         } else {
           ctx.strokeStyle = tg.ring === 'round' ? 'rgba(255,224,102,0.55)' : 'rgba(255,181,71,0.9)';
           ctx.lineWidth = Math.max(0.2, 3 * mpp); ctx.setLineDash([7 * mpp, 6 * mpp]); ctx.lineDashOffset = -tm * 12 * mpp;
@@ -1211,7 +1211,8 @@
       // label (which point of sail)
       const key = z.lo >= 155 ? 'run' : z.lo >= 110 ? 'broad' : z.lo >= 70 ? 'beam' : 'close';
       const lv = U.vec(hm), lr = Rz * 1.12 + 22 * mpp;
-      ctx.translate(lv.x * lr, lv.y * lr); ctx.scale(mpp, mpp);
+      if (scene._tilt) scene.upright(ctx, boat.x + lv.x * lr, boat.y + lv.y * lr, 0); // tilted: the point-of-sail label stands upright at its world anchor
+      else { ctx.translate(lv.x * lr, lv.y * lr); ctx.scale(mpp, mpp); }
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(13,19,33,0.75)'; ctx.strokeText(t('school.dia.' + key), 0, 0);
       ctx.fillStyle = inside ? '#3ee08f' : '#fff'; ctx.fillText(t('school.dia.' + key), 0, 0);

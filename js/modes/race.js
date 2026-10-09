@@ -1198,7 +1198,7 @@
     function autoPlan() { return me.rc.finT != null ? parkPlan : me.plan; }
     function skipIntro() { closeIntroCard(); S.introT = Math.max(S.introT, 3.21); scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = true; } }
     const debug = {
-      get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line,
+      get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line, cb, fitCourse,
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
       foul(rule) { penalize(me, rule === 'R31' ? 1 : 2, rule || 'R10', { reasonKey: 'rules.reason.R10', reasonVars: { give: t('rules.you'), stand: ai[0] && ai[0].short } }); },
       penAll() { boats.forEach(b => addPen(b, 1)); },

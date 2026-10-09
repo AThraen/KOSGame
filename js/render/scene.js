@@ -126,6 +126,8 @@
     let z = Math.sqrt(this.w * this.h) / span * (small ? 1.3 : 1);
     return z * this.zoomMul;
   };
+  // masthead height in metres for the tilted tag anchor (RIB / motor boats: console height)
+  function boatMastH(b) { const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g && g.mastH ? g.mastH : 1.4; }
   function boatLen(b) { if (b.cls && typeof b.cls === 'object' && b.cls.length) return b.cls.length; const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g ? g.L : 4; }
 
   // zoom that fits the whole venue on screen (the "overview")
@@ -160,7 +162,13 @@
     this._shake = Math.max(0, this._shake - dt * 1.8);
   };
   // frame the given world rect (e.g. a whole race course)
-  S.fit = function (r, pad) { pad = pad == null ? 40 : pad; this.camera.x = (r.x0 + r.x1) / 2; this.camera.y = (r.y0 + r.y1) / 2; this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / (r.y1 - r.y0)); this.camera.zoom = this.fixedZoom; this.target = null; };
+  // Tilted (_tiltWant, set in the constructor): the Y span shrinks by k, so use kWant = cos(P0) (conservative: the real pitch is P0*zf <= P0), spec §5.
+  S.fit = function (r, pad) {
+    pad = pad == null ? 40 : pad; this.camera.x = (r.x0 + r.x1) / 2; this.camera.y = (r.y0 + r.y1) / 2;
+    if (this._tiltWant) this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / ((r.y1 - r.y0) * Math.cos(KOS.Tilt.basePitch(this.w, this.h))));
+    else this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / (r.y1 - r.y0));
+    this.camera.zoom = this.fixedZoom; this.target = null;
+  };
   S.unfit = function () { this.fixedZoom = null; };
   // world (x, y, height z) → screen CSS px (no shake). Flat: z is ignored (= worldToScreen).
   S.project = function (x, y, z) { return this._tilt ? KOS.Tilt.project(this._tilt, x, y, z || 0, {}) : this.worldToScreen(x, y); };
@@ -629,6 +637,7 @@
       const txt = tt(lb.text); if (!txt) continue;
       const size = lb.size || 14;
       let px = size * z;
+      if (this._tilt) px *= this._tilt.k; // squashed lettering: size gate on the projected height
       if (px < 9) continue;
       const scale = px > 64 ? 64 / px : 1;
       const halfW = (txt.length * size * 0.32 * scale) + size;
@@ -709,12 +718,16 @@
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(hx + tx * hs, hy + ty * hs); ctx.lineTo(hx - ty * hs * 0.6, hy + tx * hs * 0.6); ctx.lineTo(hx + ty * hs * 0.6, hy - tx * hs * 0.6); ctx.closePath(); ctx.fill();
       ctx.restore();
     }
-    if (m.label) this.pill(ctx, m.x, m.y, tt(m.label), { dy: -44, bg: 'rgba(13,19,33,0.72)' });
+    if (m.label) this.pill(ctx, m.x, m.y, tt(m.label), { dy: this._tilt ? -(this.markTopPx(m) + 14) : -44, bg: 'rgba(13,19,33,0.72)' }); // tilted: just above the sprite top
   };
+  // css-px height of a mark's upright sprite (tilted pill anchor)
+  S.markTopPx = function (m) { const TL = KOS.Tilt; return (KOS.Sprites && KOS.Sprites.markTop ? KOS.Sprites.markTop(m, m.scale || 1.6) : 2) * this.camera.zoom * (TL.BUOY_SCALE || 1); };
   // screen-aligned pill label anchored at a world point (dy in css px)
   S.pill = function (ctx, x, y, text, o) {
     o = o || {}; const mpp = this.mpp;
-    ctx.save(); ctx.translate(x, y); if (this.camera.rot) ctx.rotate(-this.camera.rot); ctx.scale(mpp, mpp); ctx.translate(0, o.dy || -30);
+    ctx.save();
+    if (this._tilt) { this.upright(ctx, x, y, o.z || 0); ctx.translate(0, o.dy || -30); } // tilted: screen-aligned CSS px at the projected anchor (dy in px, size as flat)
+    else { ctx.translate(x, y); if (this.camera.rot) ctx.rotate(-this.camera.rot); ctx.scale(mpp, mpp); ctx.translate(0, o.dy || -30); }
     ctx.font = '800 ' + (o.size || 12) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(text).width + 14, h = (o.size || 12) + 9;
     ctx.fillStyle = o.bg || 'rgba(13,19,33,0.7)'; rrect(ctx, -w / 2, -h / 2, w, h, h / 2); ctx.fill();
@@ -727,10 +740,11 @@
     const z = this.camera.zoom;
     for (const b of this.boats) {
       if (!b || b.hidden || b === this.target || b.noTag) continue;
-      const v = this.view; if (b.x < v.x0 || b.x > v.x1 || b.y < v.y0 || b.y > v.y1) continue;
+      const v = this._tilt ? this.viewItems : this.view; if (b.x < v.x0 || b.x > v.x1 || b.y < v.y0 || b.y > v.y1) continue;
       const label = b.tag || b.name || b.sailNo; if (!label) continue;
-      const L = boatLen(b);
-      this.pill(ctx, b.x, b.y, String(label), { dy: -(L * z * 0.6 + 26), size: 11, bg: b.tagColor || 'rgba(13,19,33,0.55)' });
+      const L = boatLen(b), T = this._tilt;
+      // tilted: above the projected mast top (mastH*Z*s) plus a bit of the hull's projected length (spec §5)
+      this.pill(ctx, b.x, b.y, String(label), { dy: T ? -(boatMastH(b) * z * T.s + L * z * T.k * 0.3 + 18) : -(L * z * 0.6 + 26), size: 11, bg: b.tagColor || 'rgba(13,19,33,0.55)' });
     }
   };
 

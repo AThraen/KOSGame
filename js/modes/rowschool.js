@@ -1230,7 +1230,7 @@
       let z = Math.min(aw / Math.max(4, x1 - x0), ah / Math.max(4, y1 - y0));
       z = U.clamp(z, 1.1, Math.min(W, H) * 0.16 / Lp);
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, sx = (left + W - right) / 2, sy = (top + bot) / 2;
-      camT.x = cx - (sx - W / 2) / z; camT.y = cy - (sy - H / 2) / z;
+      camT.x = cx - (sx - W / 2) / z; camT.y = cy - (sy - H / 2) / (z * scene.kY); // screen-Y px → metres divides by Z*kY (kY is exactly 1 when flat)
       scene.fixedZoom = z;
       if (S.snapCam) { S.snapCam = false; scene.follow(camT); }
     }

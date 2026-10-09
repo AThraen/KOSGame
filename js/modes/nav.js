@@ -1115,7 +1115,7 @@
         const R = w.r * (1 + 0.06 * Math.sin(tm * 4));
         ctx.strokeStyle = w.hidden ? 'rgba(255,255,255,.55)' : 'rgba(255,181,71,.9)'; ctx.lineWidth = Math.max(0.3, 2.5 * mpp); ctx.setLineDash([5 * mpp, 6 * mpp]); ctx.lineDashOffset = -tm * 12 * mpp;
         ctx.beginPath(); ctx.arc(w.x, w.y, R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-        if (w.hidden) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '900 ' + Math.max(3, 18 * mpp) + 'px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', w.x, w.y); }
+        if (w.hidden) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '900 ' + Math.max(3, 18 * mpp) + 'px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; if (scene._tilt) { ctx.save(); scene.upright(ctx, w.x, w.y, 0); ctx.font = '900 18px ui-rounded,system-ui'; ctx.fillText('?', 0, 0); ctx.restore(); } else ctx.fillText('?', w.x, w.y); }
       }
       // cardinal hint (easy): green chevrons pointing to the safe side
       if (easy && st && st.card && S.phase === 'go') {

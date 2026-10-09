@@ -1,6 +1,8 @@
 // Headless in-page checks for "Skrå visning" (tilted camera, docs/specs/tilt-camera.md). NEVER opens a visible window.
 //
 //   node tools/tilt-check.js [id] [--vp=390x844]
+//   node tools/tilt-check.js --fit       course fit under tilt (step 5): race.opti.1 and race.j70.1 with tilt on, right after the intro fit(), every corner of
+//                                        the course box maps through worldToScreen to inside [0,w]x[0,h], at 390x844 and 844x390
 //   node tools/tilt-check.js --auto      the Skrå visning setting (auto/on/off), quick toggle V, overview M and the perf rule (step 4)
 //     id    activity to play (default sail.free.zest)
 //
@@ -75,6 +77,27 @@ const url = require('url');
     await start('race.opti.1', 'auto'); const pa = await want(); await start('race.opti.1', 'on'); const pn = await want();
     console.log('perf level 0: auto race.opti.1 = ' + pa + ', on = ' + pn);
     if (pa !== 0) fails.push('perf level 0: auto _tiltWant ' + pa); if (pn !== 1) fails.push('perf level 0: explicit on _tiltWant ' + pn);
+    if (errs.length) fails.push('console: ' + errs.join(' | '));
+    await browser.close();
+    console.log(fails.length ? 'FAIL\n  ' + fails.join('\n  ') : 'OK');
+    process.exit(fails.length ? 1 : 0);
+  }
+  if (process.argv.includes('--fit')) {
+    for (const rid of ['race.opti.1', 'race.j70.1']) for (const [vw, vh] of [[390, 844], [844, 390]]) {
+      await page.setViewportSize({ width: vw, height: vh });
+      await page.evaluate(([id]) => { if (KOS.App.run && KOS.App.run.host) KOS.App.run.host.quit(); KOS.Tilt.force = true; KOS.App.play(id, { force: true }); }, [rid]); // no skipIntro: the intro card shows the fitted course
+      await page.waitForTimeout(900);
+      const r = await page.evaluate(() => {
+        const inst = KOS.App.run.inst, sc = KOS.SailScene.current, cb = inst.debug.cb;
+        sc.resize(); inst.debug.fitCourse(); sc.render(1); // the intro fit() at this viewport, then rebuild the projection
+        let min = Infinity, n = 0;
+        for (const [x, y] of [[cb.x0, cb.y0], [cb.x1, cb.y0], [cb.x0, cb.y1], [cb.x1, cb.y1]]) { const p = sc.worldToScreen(x, y); min = Math.min(min, p.x, sc.w - p.x, p.y, sc.h - p.y); if (p.x >= 0 && p.x <= sc.w && p.y >= 0 && p.y <= sc.h) n++; }
+        return { w: sc.w, h: sc.h, want: sc._tiltWant, tilted: !!sc._tilt, kY: sc.kY, zoom: sc.camera.zoom, inside: n, margin: min };
+      });
+      console.log(rid + ' ' + vw + 'x' + vh + '  tilted ' + r.tilted + '  kY ' + r.kY.toFixed(3) + '  zoom ' + r.zoom.toFixed(3) + '  corners inside ' + r.inside + '/4  min margin ' + r.margin.toFixed(1) + ' px');
+      if (r.want !== 1) fails.push(rid + ' ' + vw + 'x' + vh + ': _tiltWant ' + r.want); // the course zoom can fade the pitch to 0 (zoom < 1.5 px/m): then the flat fit applies and the corners must still be inside
+      if (r.inside !== 4) fails.push(rid + ' ' + vw + 'x' + vh + ': ' + (4 - r.inside) + ' course corner(s) outside the screen');
+    }
     if (errs.length) fails.push('console: ' + errs.join(' | '));
     await browser.close();
     console.log(fails.length ? 'FAIL\n  ' + fails.join('\n  ') : 'OK');

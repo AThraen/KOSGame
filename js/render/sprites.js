@@ -1325,6 +1325,12 @@
   }
   // sprite height in sprite units (metres = this * the draw scale): scene.drawNight puts glows at light height with it
   function buoyTop(kind) { return -buoyDef(kind).top; }
+  // height (m) of a scene mark's sprite in the tilted view: mirrors drawMark's kind map and scale (scene.markTopPx puts the label pill above it)
+  function markTop(m, scale) {
+    if (m.kind === 'committee') return 4;
+    const kind = { orange: 'mark-orange', yellow: 'mark-yellow', gate: 'mark-orange', pin: 'pin', finish: 'finish' }[m.kind] || m.kind || 'mark-orange';
+    return buoyTop(kind) * (scale || 1.5) * (kind === 'pin' || kind === 'finish' ? 1 : 1.1);
+  }
 
   // An upright flag hanging from (X0, Y0) (screen CSS px, shake included), streaming along the world direction
   // (-sin dir, cos dir): `dir` is the wind-from heading, so the flag points downwind. The cloth is a vertical plane: length
@@ -1603,7 +1609,7 @@
   KOS.Sprites = {
     GEO, CLASS_IDS, geo, halfW, colorsOf, outlineD,
     boat: boatSvg, rib: ribSvg, buoy: buoySvg, mark: markSvg, sail, boatCard, avatar, icon,
-    drawBoat, drawBoatTilted, drawBuoy, drawMark, drawCommittee, drawFlag, drawSailor, buoyTop, drawFlagUp, drawFlagpoleTilted,
+    drawBoat, drawBoatTilted, drawBuoy, drawMark, drawCommittee, drawFlag, drawSailor, buoyTop, markTop, drawFlagUp, drawFlagpoleTilted,
     hullSprite, buoySprite, parseLight, lightLevel, buoyKinds: Object.keys(BUOYS),
     shapesToSvg, paintShapes, shade, rgba, palettes: { JACKETS, HAIR, SKIN, HELMETS },
     clearCache() { hullCache.clear(); buoySpriteCache.clear(); },
