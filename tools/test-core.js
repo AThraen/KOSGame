@@ -795,6 +795,96 @@ test('AI: give-way boat keeps clear (port/starboard crossing)', () => {
   ok(minGap > 0.5, 'no contact, min gap ' + minGap.toFixed(1));
   ok(fouls === 0, 'no fouls');
 });
+// A fleet race like js/modes/race.js 'race.ilca.2' (triangle, 12 kn, shifts and gusts, 9 boats of mixed skill), without
+// the DOM. Regression for "AI boats turned round to the opposite direction mid race": ducks / dodges / roundings may
+// turn the boat, but no ≥150° turnarounds away from the marks, few collisions, and every boat gets round the course.
+function fleetRace(cls, seed, opts) {
+  opts = opts || {};
+  const wind = KOS.Wind.create({ dir: 0, speed: opts.kn || 12, gust: 0.55, shift: 0.4, seed });
+  const L = KOS.Boats.get(cls).length, n = opts.n || 9, B = opts.B || 160, half = (1.9 * L * (n + 1) + 14) / 2;
+  const at = (u, r) => ({ x: r, y: -u }); // wind from north: u = upwind, r = to the right
+  const pin = at(0, -half), com = at(0, half);
+  const m1 = Object.assign(at(B, 0), { r: 1.2, id: 'm1' }), m2 = Object.assign(at(0.5 * B, -0.75 * B), { r: 1.2, id: 'm2' });
+  const m3 = Object.assign(at(0.1 * B, -half - Math.max(10, 3 * L) - 0.08 * B), { r: 1.2, id: 'm3' });
+  const marks = [m1, m2, m3], T0 = 40;
+  const boats = [];
+  for (let i = 0; i < n; i++) {
+    const b = P.createBoat(cls, { x: U.lerp(-half * 1.1, half * 1.1, (i + 0.5) / n), y: Math.max(22, 7 * L) + (i % 2) * 8, heading: R(i % 2 ? 110 : -110), speed: 1, name: 'b' + i });
+    const sk = opts.fs ? U.lerp(opts.fs.lo, opts.fs.hi, i / (n - 1)) : U.lerp(0.4, 0.85, i / (n - 1));
+    b.helm = KOS.AI.createHelm(b, { skill: sk, aggression: 0.3 + 0.5 * ((i * 0.37) % 1), seed: seed * 31 + i });
+    if (opts.fs) b.pace = KOS.AI.paceFor(sk, opts.fs);
+    const f = 0.2 + 0.6 * ((i * 0.618 + 0.3) % 1), lp = g => ({ x: U.lerp(pin.x, com.x, g), y: U.lerp(pin.y, com.y, g) });
+    b.plan = { course: [{ line: [pin, com] }, { x: m1.x, y: m1.y, round: 'port' }, { x: m2.x, y: m2.y, round: 'port' }, { x: m3.x, y: m3.y, round: 'port' },
+      { line: [lp(f - 0.12), lp(f + 0.12)] }], start: { line: [pin, com], t0: T0 }, marks, mode: 'race' };
+    b.tr = { prevH: b.heading, uh: 0, hist: [], turns: 0 };
+    boats.push(b);
+  }
+  const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 8 });
+  let t = 0, contacts = 0;
+  const end = T0 + (opts.secs || 420);
+  for (let k = 0; t < end && !boats.every(b => b.helm.finished); k++) {
+    const env = { wind, t, assist: 'normal' };
+    for (const b of boats) P.step(b, b.helm.think(env, b.plan, boats), env, KOS.DT);
+    P.collide(boats, null, marks);
+    // collisions that would cost a penalty turn in race.js (a gentle rub alongside does not)
+    for (const f of mon.update(boats, wind, null, KOS.DT)) if (f.contact && t > T0 && Math.hypot(f.offender.vx - f.victim.vx, f.offender.vy - f.victim.vy) > 0.35) contacts++;
+    wind.update(KOS.DT); t += KOS.DT;
+    if (k % 15) continue; // 4 Hz turnaround check: ≥150° net heading change within 12 s that leaves the boat sailing
+    // away from where it is going (a tack plus a dodge is fine), away from the marks and the start
+    for (const b of boats) {
+      const tr = b.tr;
+      tr.uh += U.wrapPi(b.heading - tr.prevH); tr.prevH = b.heading;
+      const nearMark = marks.some(m => U.dist(b, m) < Math.max(30, 7 * L)) || b.helm.finished || t < T0 + 15 || b.capsized;
+      tr.hist.push({ t, uh: tr.uh, ok: nearMark });
+      while (tr.hist.length && tr.hist[0].t < t - 12) tr.hist.shift();
+      if (tr.hist.some(h => h.ok)) continue;
+      const tg = b.helm.target, away = tg && Math.abs(U.angDiff(b.heading, U.bearing(b, tg))) > R(100);
+      if (away && tr.hist.some(h => Math.abs(tr.uh - h.uh) >= R(150))) { tr.turns++; tr.hist.length = 0; }
+    }
+  }
+  return { boats, contacts, t: t - T0 };
+}
+test('AI: fleet race — no mid-race turnarounds, few collisions, all boats get round (ILCA triangle)', () => {
+  let turns = 0, contacts = 0, boatRaces = 0;
+  for (const seed of [1, 2, 3]) {
+    const r = fleetRace('ilca', seed);
+    for (const b of r.boats) {
+      boatRaces++; turns += b.tr.turns;
+      ok(b.helm.leg >= 3, `seed ${seed} ${b.name} (skill ${b.helm.skill.toFixed(2)}) got round marks 1 and 2 (leg ${b.helm.leg}, state ${b.helm.state})`);
+    }
+    ok(r.boats.filter(b => b.helm.finished).length >= r.boats.length - 1, `seed ${seed}: the fleet finishes (${r.boats.filter(b => b.helm.finished).length}/${r.boats.length})`);
+    contacts += r.contacts;
+  }
+  ok(turns / boatRaces <= 0.05, `turnarounds per boat per race ${(turns / boatRaces).toFixed(2)} (${turns}/${boatRaces})`);
+  ok(contacts / boatRaces <= 0.6, `boat-boat contacts per boat per race ${(contacts / boatRaces).toFixed(2)} (${contacts}/${boatRaces})`);
+});
+test('AI: fleetSkill follows the player level (monotonic) and a weak fleet still sails properly', () => {
+  const F = KOS.AI.fleetSkill, ages = ['8-10', '11-13', '14-17', '18+'], assists = ['easy', 'normal', 'pro'];
+  for (const as of assists) for (let i = 1; i < ages.length; i++) ok(F({ age: ages[i - 1] }, as).offset < F({ age: ages[i] }, as).offset, `older is stronger (${ages[i - 1]} < ${ages[i]}, ${as})`);
+  for (const ag of ages) for (let i = 1; i < assists.length; i++) ok(F({ age: ag }, assists[i - 1]).offset < F({ age: ag }, assists[i]).offset, `Pro > Normal > Let (${ag})`);
+  ok(F({}, 'normal', 0).offset === 0 && F(null, 'normal').offset === 0 && F({ age: '' }, 'normal').offset === 0, 'unknown profile + Normal = base range');
+  ok(F({}, 'normal', 60).offset > F({}, 'normal', 0).offset, 'more stars = a little stronger');
+  const weak = F({ age: '8-10' }, 'easy'), strong = F({ age: '18+' }, 'pro', 60);
+  ok(weak.lo < strong.lo && weak.hi < strong.hi && weak.lo >= 0.05 && strong.hi <= 0.98, 'range ordered and inside 0.05..0.98');
+  ok(KOS.AI.paceFor(weak.lo, weak) < KOS.AI.paceFor(strong.hi, strong), 'weak fleet slower than strong fleet');
+  ok(KOS.AI.paceFor(0.4, weak) < KOS.AI.paceFor(0.8, weak), 'a better helm is a little faster inside a fleet');
+  for (const [cls, fs] of [['ilca', weak], ['ilca', strong]]) {
+    let turns = 0, boatRaces = 0;
+    for (const seed of [1, 2, 3]) {
+      const r = fleetRace(cls, seed, { fs });
+      for (const b of r.boats) { boatRaces++; turns += b.tr.turns; ok(b.helm.leg >= 3, `seed ${seed} ${b.name} (skill ${b.helm.skill.toFixed(2)}) got round the marks`); }
+    }
+    ok(turns / boatRaces <= 0.05, `${fs === weak ? 'weak' : 'strong'} fleet: turnarounds per boat per race ${(turns / boatRaces).toFixed(2)}`);
+  }
+});
+test('AI: fleet race in other classes stays sane too (29er in a breeze, J/70)', () => {
+  for (const [cls, kn] of [['29er', 16], ['j70', 13]]) {
+    const r = fleetRace(cls, 4, { kn, n: 8 });
+    const turns = r.boats.reduce((s, b) => s + b.tr.turns, 0);
+    ok(turns <= 1, `${cls}: turnarounds ${turns}`);
+    ok(r.boats.every(b => b.helm.leg >= 3), `${cls}: all got round marks 1 and 2`);
+  }
+});
 test('AI: RIB motors to waypoints and keeps clear of sail', () => {
   const r = raceCourse('rib', 0.7, 8);
   ok(r.helm.finished && r.helm.state === 'finished');

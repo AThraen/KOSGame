@@ -217,6 +217,12 @@ Racing Rules of Sailing Part 2 (simplified) and the basic collision rules (COLRE
 `plan` is `{target: {x, y}}` or `{course: [{x, y, round: 'port'|'starboard'}], leg}`; sails to waypoints, tacks
 on laylines when upwind, gybes downwind, keeps clear when it is the give-way boat (uses `KOS.Rules`), does start
 sequences when `plan.start = {line: [p1, p2], t0}` (holds back, accelerates at the gun). Deterministic per seed.
+Race fleet strength follows the player level: `KOS.AI.fleetSkill(profile, assist, stars)` returns `{offset, lo, hi}`, the skill range
+of the fleet (base 0.37-0.79 shifted by `offset`; boat i of n gets the i-th step plus a little noise, so a fleet always has weak and
+strong boats). `offset` = age group (8-10 -0.14, 11-13 -0.05, 14-17 0, 18+ +0.03, unknown 0) + assist (Let -0.10, Normal 0, Pro +0.05)
++ progression (total stars, 0..+0.02 at 60 stars). Lower skill means sloppier trim, pinching, later tacks and slower reactions, and
+`KOS.AI.paceFor(skill, fleet)` sets `boat.pace`, a speed factor (physics multiplies target speed by it) of about 0.94 for the
+youngest/Let fleet up to about 1.05 for the oldest/Pro fleet. Never broken navigation: no turnarounds at any level.
 Implemented: course items may also be `{line: [p1, p2]}` (finish/gate, must be crossed) or `{x, y, r?}` without `round`
 (pass within r). `env.t` drives the start clock. Helm state: `helm.leg, helm.finished, helm.finishT, helm.target, helm.avoiding`
 (rule id), `helm.ocs` (over early at the gun → dips back; `plan.start.recall = false` disables), `helm.state`
