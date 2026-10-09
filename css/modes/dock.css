@@ -102,3 +102,7 @@
 @media (max-width: 520px) and (orientation: portrait) {
   .dock-act.dock-act-rib { bottom: calc(var(--safe-b, 0px) + 206px); width: 84px; height: 84px; }
 }
+/* two-thumb controls (phones, portrait): the tiller takes the bottom-left, so the action button floats above it */
+@media (max-width: 520px) and (orientation: portrait) {
+  body.phone-ui:has(.kc-tillermode) .dock-act:not(.dock-act-rib) { bottom: calc(var(--safe-b, 0px) + 128px); }
+}

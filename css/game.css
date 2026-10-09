@@ -247,3 +247,77 @@ html.in-play, html.in-play body { touch-action: pan-x pan-y; } /* pan-x pan-y = 
 
 /* quality tier < 3 (KOS.Perf): no frosted-glass blur over the live sea canvas - WebKit re-blurs the moving canvas behind every HUD pill/control each frame */
 html:not([data-tier="3"]) body.mode-sea * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+/* ------------------------------------------------------------------ phone UI (body.phone-ui: touch device, short side < 500 px or a landscape screen < 900 px wide)
+   • pause / overview / tilt collapse into one small ⋯ button (top-left) with a slide-out menu
+   • the goals / lesson panel collapses to a chip under it (js: KOS.UI.panelChip) so it never covers the sailing area */
+body.phone-ui { --pc-top: calc(var(--safe-t) + 128px); }
+.play-chrome .dots-btn { display: none; }
+body.phone-ui.mode-sea .play-chrome .pause-btn, body.phone-ui.mode-sea .play-chrome .view-btn, body.phone-ui.mode-sea .play-chrome .tilt-btn { display: none; }
+body.phone-ui.mode-sea .play-chrome .dots-btn { display: grid; }
+body.phone-ui.mode-sea .play-chrome .dots-btn.on { background: linear-gradient(180deg, #ffc65c, #ff7a3d); color: #2b1300; }
+
+.play-menu-scrim { position: absolute; inset: 0; z-index: 38; background: rgba(5, 9, 20, .18); touch-action: none; }
+.play-menu {
+  position: absolute; z-index: 39; left: calc(var(--safe-l) + 10px); top: calc(var(--safe-t) + 62px); width: min(268px, calc(100vw - 20px - var(--safe-l) - var(--safe-r)));
+  padding: 8px; display: flex; flex-direction: column; gap: 6px; border-radius: 18px; color: #fff; background: rgba(16, 24, 42, .94);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45); transform-origin: top left; animation: pmIn .22s var(--ease-pop, ease-out) both; touch-action: manipulation;
+}
+@keyframes pmIn { from { opacity: 0; transform: translateX(-14px) scale(.94); } to { opacity: 1; transform: none; } }
+.pm-row, .pm-hint {
+  display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border: 0; border-radius: 13px; cursor: pointer;
+  background: rgba(255, 255, 255, .07); color: inherit; font-family: inherit; font-weight: 800; font-size: .95rem; line-height: 1.1; text-align: left;
+}
+.pm-row .ico, .pm-hint .ico, .pm-lbl .ico { width: 22px; height: 22px; flex: none; color: var(--primary, #ffc65c); }
+.pm-row span:not(.ico), .pm-hint span { flex: 1; }
+.pm-row:active, .pm-hint:active { background: rgba(255, 255, 255, .18); }
+.pm-row.on { background: rgba(255, 198, 92, .2); }
+.pm-state { font-style: normal; font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim, rgba(255,255,255,.65)); }
+.pm-row.on .pm-state { color: var(--primary, #ffc65c); }
+.pm-tilt { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; border-radius: 13px; background: rgba(255, 255, 255, .07); }
+.pm-lbl { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: .95rem; }
+.pm-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; border-radius: 11px; background: rgba(0, 0, 0, .3); }
+.pm-seg button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: rgba(255, 255, 255, .75); font-family: inherit; font-weight: 800; font-size: .82rem; cursor: pointer; }
+.pm-seg button.on { background: linear-gradient(180deg, #ffc65c, #ff7a3d); color: #2b1300; }
+.pm-hint { min-height: 40px; background: rgba(73, 198, 242, .14); font-size: .8rem; font-weight: 700; }
+.pm-hint .ico { color: var(--blue, #49c6f2); }
+
+/* the collapsed goals / lesson chip: icon · text · progress, top-left under the ⋯ button (landscape) or under the HUD (portrait) */
+.pc-chip { display: none; }
+body.phone-ui.mode-sea .pc-chip {
+  display: flex; align-items: center; gap: 7px; position: absolute; z-index: 22; left: calc(var(--safe-l) + 10px); top: var(--pc-top);
+  max-width: min(210px, 48vw); height: 34px; padding: 0 12px 0 8px; border-radius: 17px; color: #fff; cursor: pointer; pointer-events: auto; touch-action: manipulation;
+  background: rgba(13, 19, 33, .68); border: 1px solid var(--glass-border, rgba(255, 255, 255, .14)); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .28); font-family: inherit; font-weight: 800; font-size: .78rem; line-height: 1; overflow: hidden;
+}
+.pc-chip::before { content: ""; position: absolute; inset: -6px; } /* a bigger touch target than the pill */
+.pc-chip .pc-ico { display: grid; width: 18px; height: 18px; flex: none; color: var(--primary, #ffb547); }
+.pc-chip .pc-ico svg { width: 100%; height: 100%; }
+.pc-chip .pc-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-chip .pc-bar { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .16); overflow: hidden; }
+.pc-chip .pc-bar b { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #ffd25e, var(--primary-2, #ff7a3d)); transition: width .3s; }
+.pc-chip.pc-done .pc-ico, .pc-chip.pc-done .pc-txt { color: var(--good, #3ee08f); }
+.pc-chip.pc-done .pc-bar b { background: var(--good, #3ee08f); }
+.pc-chip.pc-on { border-color: var(--primary, #ffb547); }
+body.phone-ui.mode-sea .pc-panel:not(.pc-open) { display: none !important; }
+body.phone-ui.mode-sea .pc-panel.pc-open { top: calc(var(--pc-top) + 42px) !important; }
+.has-intro-card .pc-chip { opacity: .15; pointer-events: none; transition: opacity .25s; }
+@media (orientation: landscape) {
+  body.phone-ui { --pc-top: calc(var(--safe-t) + 64px); }
+  body.phone-ui.mode-sea .play-chrome .dots-btn { width: 44px; height: 44px; }
+  body.phone-ui.mode-sea .play-chrome .dots-btn .ico { width: 24px; height: 24px; }
+  /* the HUD slides right of the single ⋯ button (right edge 54) and leaves the top-right corner for the extras row */
+  body.phone-ui.mode-sea .hud { transform: translateX(max(-50%, calc(var(--safe-l) + 62px - 50vw))); max-width: calc(100% - 72px - var(--safe-l) - var(--safe-r) - 150px); gap: 4px; padding: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .play-menu { animation: none; } }
+body.phone-ui.mode-sea .pc-chip.pc-none { display: none; }
+.pc-chip.pc-warn { border-color: var(--bad, #ff4d5e); }
+.pc-chip.pc-warn .pc-ico { color: var(--bad, #ff4d5e); }
+
+/* coach bubble with the two-thumb layout, portrait: tall phones park it above the tiller (left of the sheet column); short ones under the chip */
+@media (max-width: 600px) and (orientation: portrait) {
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { left: 10px; width: calc(100vw - 20px - 150px); bottom: calc(var(--safe-b) + 128px); top: auto; }
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode.kc-hasjib) .coach-bottom { width: calc(100vw - 20px - 150px); }
+}
+@media (max-width: 600px) and (orientation: portrait) and (max-height: 699px) {
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 262px); width: calc(100vw - 20px); }
+}

@@ -676,8 +676,46 @@
     return card;
   }
 
+  // ---------------------------------------------------------------- phone panel chip
+  // On phones (body.phone-ui) a goals / lesson panel would cover the sailing area, so it shows for a few seconds when it
+  // changes and then collapses to a small chip in the top-left corner; tap the chip to expand it again (tap again or wait to collapse).
+  //   const chip = UI.panelChip(layer, panelEl, {icon})   chip.set({text, frac}) every paint, chip.expand(ms), chip.destroy()
+  function panelChip(layer, panel, o) {
+    o = o || {};
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'pc-chip';
+    btn.innerHTML = '<span class="pc-ico">' + iconSvg(o.icon || 'flag') + '</span><span class="pc-txt"></span><i class="pc-bar"><b></b></i>';
+    layer.appendChild(btn);
+    panel.classList.add('pc-panel');
+    let timer = 0, open = false, last = '', dead = false;
+    const apply = () => { panel.classList.toggle('pc-open', open); btn.classList.toggle('pc-on', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+    function collapse() { clearTimeout(timer); open = false; apply(); }
+    function expand(ms) {
+      if (dead) return;
+      clearTimeout(timer); open = true; apply();
+      timer = setTimeout(collapse, ms || 4000);
+    }
+    btn.addEventListener('pointerdown', e => e.stopPropagation());
+    btn.addEventListener('click', e => { e.stopPropagation(); sfx('tap'); if (open) collapse(); else expand(6000); });
+    apply();
+    return {
+      el: btn,
+      set(v) {
+        v = v || {};
+        const k = (v.text || '') + '|' + Math.round((v.frac || 0) * 100);
+        if (k === last) return; last = k;
+        btn.classList.toggle('pc-none', !v.text);
+        btn.querySelector('.pc-txt').textContent = v.text || '';
+        btn.querySelector('.pc-bar b').style.width = Math.round(Math.max(0, Math.min(1, v.frac || 0)) * 100) + '%';
+        btn.classList.toggle('pc-done', !!v.done);
+      },
+      expand, collapse,
+      destroy() { dead = true; clearTimeout(timer); btn.remove(); panel.classList.remove('pc-panel', 'pc-open'); },
+    };
+  }
+
   KOS.UI = {
-    toast, dialog, topDialog, trapFocus, coach, coachClose, coachSvg, setCoach, currentCoach, coachName, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS,
+    toast, dialog, topDialog, trapFocus, coach, coachClose, coachSvg, setCoach, currentCoach, coachName, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS, panelChip,
     results, avatarSvg, AVATAR, shade, esc, el, fmtTime, reduced, sfx,
   };
 

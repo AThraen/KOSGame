@@ -1,7 +1,7 @@
 // Node tests for the simulation core: node tools/test-core.js
 // Covers KOS.U, KOS.Events, KOS.Boats, KOS.Wind, KOS.Physics, KOS.Rules, KOS.AI (and KOS.World helpers if present),
-// plus the tilted-camera math in js/render/tilt.js (tests named 'tilt:', run alone with: node tools/test-core.js tilt).
-const KOS = require('./harness').load(['js/render/tilt.js']);
+// plus the mobile controls maths in js/ui/input.js (tests named 'mobile:'), the tilted-camera math in js/render/tilt.js (tests named 'tilt:', run alone with: node tools/test-core.js tilt).
+const KOS = require('./harness').load(['js/render/tilt.js', 'js/ui/input.js']);
 const U = KOS.U, P = KOS.Physics;
 const R = d => d * Math.PI / 180;
 
@@ -1008,6 +1008,48 @@ test('Physics: keelboats "Ud på kanten" - rail weight (hike=1) cuts heel and ad
     const auto = settle(cls, 45, 16, { controls: { autoHike: true } }); // Let: crew handle it
     ok(auto.speed > noRail.speed * 1.02 && auto.hike > 0.3, cls + ': autoHike works for keelboats');
   }
+});
+
+
+// ---- mobile controls: phone detection, the controls setting -> layout, the Normal-assist sheet nudge
+test('mobile: isPhone - touch devices with a short side under 500 px, or a landscape screen under 900 px', () => {
+  const I = KOS.Input, ph = (w, h, touch = true) => I.isPhone({ w, h, touch });
+  for (const [w, h] of [[393, 852], [852, 393], [667, 375], [852, 300], [320, 568], [568, 320], [932, 430], [430, 932], [360, 640]]) ok(ph(w, h), w + 'x' + h + ' is a phone');
+  for (const [w, h] of [[768, 1024], [1024, 768], [1024, 1366], [1366, 1024], [820, 1180], [1440, 900], [1280, 720]]) ok(!ph(w, h), w + 'x' + h + ' (tablet / laptop) is not');
+  ok(!ph(393, 852, false) && !ph(852, 393, false), 'no touch = never a phone (desktop browser in a small window)');
+});
+test('mobile: resolveControls - auto = tiller on phones, buttons elsewhere; explicit choices are kept', () => {
+  const I = KOS.Input, phone = { w: 393, h: 852, touch: true }, tablet = { w: 1024, h: 1366, touch: true }, desk = { w: 1440, h: 900, touch: false };
+  ok(I.resolveControls('auto', phone) === 'tiller' && I.resolveControls(undefined, phone) === 'tiller', 'phone auto');
+  ok(I.resolveControls('auto', tablet) === 'buttons' && I.resolveControls('auto', desk) === 'buttons', 'tablet / desktop auto keep the buttons');
+  for (const c of ['tiller', 'buttons', 'joystick']) ok(I.resolveControls(c, phone) === c && I.resolveControls(c, desk) === c, c + ' explicit');
+  ok(I.resolveControls('nonsense', phone) === 'tiller', 'unknown value falls back to auto');
+});
+test('mobile: nudge mapping - relative drag, clamped, springs back slowly after release', () => {
+  const I = KOS.Input;
+  near(I.nudgeBias(0, 0.5, 0.5), 0, 1e-9, 'no movement = no nudge');
+  near(I.nudgeBias(0, 0.5, 0.65), 0.15, 1e-9, 'drag down 0.15 = ease out 0.15'); near(I.nudgeBias(0, 0.5, 0.3), -0.2, 1e-9, 'drag up = pull in');
+  near(I.nudgeBias(0.2, 0.5, 0.6), 0.3, 1e-9, 'adds to the bias already there'); near(I.nudgeBias(0, 0, 1), I.NUDGE_MAX, 1e-9, 'clamped'); near(I.nudgeBias(0, 1, 0), -I.NUDGE_MAX, 1e-9, 'clamped (in)');
+  let b = 0.4, t = 0; while (b && t < 60) { b = I.nudgeDecay(b, 1 / 60); t += 1 / 60; }
+  between(t, 8, 30, 'springs back to auto in several seconds (slowly)');
+  ok(I.nudgeDecay(0.2, 1) < 0.2 && I.nudgeDecay(0.2, 1) > 0.1, 'one second only eases a little'); ok(I.nudgeDecay(-0.2, 1) > -0.2, 'negative too');
+});
+test('mobile: toControls hands the nudge to physics as trimBias only while auto-trim is on', () => {
+  const I = KOS.Input, st = { steer: 0, sheet: 0.5, hike: 0, spinnaker: false, throttle: 0, autoTrim: true, trimBias: 0.25 };
+  let c = I.toControls(st, null, null, 1 / 60);
+  ok(c.autoTrim === true && Math.abs(c.trimBias - 0.25) < 1e-9, 'auto + nudge -> trimBias 0.25');
+  c = I.toControls(Object.assign({}, st, { autoTrim: false }), null, c, 1 / 60);
+  ok(c.autoTrim === false && c.trimBias === 0, 'manual (Pro) -> trimBias 0, the slider is the sheet');
+  c = I.toControls(Object.assign({}, st, { trimBias: 3 }), null, c, 1 / 60);
+  near(c.trimBias, I.NUDGE_MAX, 1e-9, 'clamped to the nudge range');
+});
+test('mobile: physics - trimBias eases (+) or tightens (-) the auto-trimmed sheet relative to the ideal one', () => {
+  const base = settle('opti', 70, 10, { secs: 20, controls: { autoTrim: true, trimBias: 0 } });
+  const out = settle('opti', 70, 10, { secs: 20, controls: { autoTrim: true, trimBias: 0.3 } });
+  const tight = settle('opti', 70, 10, { secs: 20, controls: { autoTrim: true, trimBias: -0.3 } });
+  ok(out.sheet > base.sheet + 0.15, 'eased out: ' + out.sheet.toFixed(2) + ' vs ' + base.sheet.toFixed(2));
+  ok(tight.sheet < base.sheet - 0.1, 'pulled in: ' + tight.sheet.toFixed(2) + ' vs ' + base.sheet.toFixed(2));
+  ok(base.speed > tight.speed * 1.02, 'the auto trim is faster than being sheeted in hard (so the stall tip in nudge mode is warranted)');
 });
 
 // ====================================================================== summary

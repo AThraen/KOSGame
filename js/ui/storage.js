@@ -61,7 +61,7 @@
       if (Storage.god()) s.unlockAll = true;
       if (s.lang !== 'da' && s.lang !== 'en') s.lang = 'da';
       if (['easy', 'normal', 'pro'].indexOf(s.assist) < 0) s.assist = 'easy';
-      if (['auto', 'buttons', 'joystick'].indexOf(s.controls) < 0) s.controls = 'auto';
+      if (['auto', 'tiller', 'buttons', 'joystick'].indexOf(s.controls) < 0) s.controls = 'auto';
       if (s.windUnit !== 'ms' && s.windUnit !== 'kn') s.windUnit = 'ms';
       if (['off', 'on', 'auto'].indexOf(s.tilt) < 0) s.tilt = 'auto';
       s.volume = Math.max(0, Math.min(1, +s.volume || 0));

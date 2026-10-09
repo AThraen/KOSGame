@@ -335,6 +335,7 @@
     const card = document.createElement('div');
     card.className = 'rib-card';
     host.layer.appendChild(card);
+    const cardChip = KOS.UI.panelChip(host.layer, card, { icon: 'flag' }); // phones: the mission card collapses to a chip
     const badge = document.createElement('div');
     badge.className = 'rib-zone';
     badge.innerHTML = '<span class="rz-sign"><b>' + AS.zoneKn + '</b></span><span class="rz-txt"><b>' + KOS.UI.esc(t('rib.zone.title')) + '</b><small>' +
@@ -1463,14 +1464,16 @@
     let cardLast = '';
     function paintCard() {
       const c = M.card ? M.card() : null;
-      if (!c) { if (cardLast) { card.innerHTML = ''; card.classList.add('rib-hidden'); cardLast = ''; } return; }
+      if (!c) { if (cardLast) { card.innerHTML = ''; card.classList.add('rib-hidden'); cardLast = ''; cardChip.set({ text: '' }); } return; }
       let h = '<div class="rc-head">' + KOS.UI.iconSvg(ACTS.find(a => a.params.kind === P.kind).icon) + '<span>' + KOS.UI.esc(c.head) + '</span></div>' +
         '<div class="rc-text">' + KOS.UI.esc(c.text) + '</div>';
       if (c.dots) { h += '<div class="rc-dots">'; for (let k = 0; k < c.dots.n; k++) h += '<i class="' + (k < c.dots.i ? 'on' : k === c.dots.i ? 'cur' : '') + '"></i>'; h += '</div>'; }
       if (c.bar != null) h += '<i class="rc-bar' + (c.barGood != null && c.bar >= c.barGood ? ' good' : '') + '"><b style="width:' + Math.round(U.clamp(c.bar, 0, 1) * 100) + '%"></b>' +
         (c.barGood != null ? '<u style="left:' + Math.round(c.barGood * 100) + '%"></u>' : '') + '</i>';
-      if (h !== cardLast) { card.innerHTML = h; cardLast = h; card.classList.remove('rib-hidden'); }
+      if (h !== cardLast) { card.innerHTML = h; if (!cardLast || cardLast.split('rc-dots')[0].split('rc-bar')[0] !== h.split('rc-dots')[0].split('rc-bar')[0]) cardChip.expand(4000); cardLast = h; card.classList.remove('rib-hidden'); }
+      if (!!c.warn !== card.classList.contains('warn')) { if (c.warn) cardChip.expand(3000); cardChip.el.classList.toggle('pc-warn', !!c.warn); }
       card.classList.toggle('warn', !!c.warn);
+      cardChip.set({ text: c.head, frac: c.dots ? c.dots.i / Math.max(1, c.dots.n) : c.bar != null ? U.clamp(c.bar, 0, 1) : 0 });
     }
     let badgeOn = null, badgeBad = null;
     function paintBadge() {
