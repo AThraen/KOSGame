@@ -428,6 +428,12 @@
   App.show = function (screen, params, opts) {
     opts = opts || {};
     if (!renderers[screen]) screen = 'title';
+    // startup phase 2 (see js/main.js): the mode scripts register the activities every other screen needs
+    if (screen !== 'title' && !KOS.modesReady) {
+      App._held = [screen, params, opts];
+      doc.body.classList.add('modes-wait');
+      return screenEl(App.cur || 'title');
+    }
     const prev = App.cur;
     if (prev && prev !== screen && leave[prev]) { try { leave[prev](); } catch (e) { console.error(e); } }
     if (prev && !opts.isBack && !opts.replace && prev !== screen && prev !== 'play' && prev !== 'results') {
@@ -458,6 +464,21 @@
     if (screen !== 'play') announceScreen(sec);
     emit('screen', screen);
     return sec;
+  };
+  // called once by main.js when all mode scripts have run: play a held screen request, or fill the title in place
+  App.modesReady = function () {
+    doc.body.classList.remove('modes-wait');
+    const held = App._held;
+    App._held = null;
+    if (held) { App.show(held[0], held[1], held[2]); return; }
+    const sec = screenEl('title');
+    if (App.cur !== 'title' || !sec) return;
+    // the title was rendered before the activities existed: patch the star total and the quick-start button in place
+    // (a full re-render would replay the logo animation)
+    const pill = sec.querySelector('.topbar-left .pill');
+    if (pill) pill.outerHTML = starPill();
+    const quick = sec.querySelector('[data-act="quick"]');
+    if (quick && KOS.Activities && KOS.Activities.byArea('bay')[0]) quick.disabled = false;
   };
   App.back = function () {
     const prev = App.stack.pop();
@@ -504,7 +525,7 @@
     bind(sec, {
       play: () => { sfx('click'); if (!S().profile()) App.show('profile', { first: true }); else App.show('hub'); },
       garage: () => { sfx('click'); App.show('garage'); },
-      quick: () => { sfx('click'); if (bay) App.play(bay.id); },
+      quick: () => { sfx('click'); const b = KOS.Activities ? KOS.Activities.byArea('bay')[0] : null; if (b) App.play(b.id); },
       settings: () => { sfx('click'); App.show('settings'); },
       profile: () => { sfx('click'); App.show('profile', {}); },
       credits: () => { sfx('click'); App.show('credits'); },

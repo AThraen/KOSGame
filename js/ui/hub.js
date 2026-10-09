@@ -602,6 +602,16 @@
       }
     }
 
+    if (!reduce) {
+      // the 180 SMIL animations stay parked until the map has had its first frames: they invalidate the map every
+      // frame, which competes with the first layout/raster of the 3500-node SVG
+      const svgEl = rootEl.querySelector('svg.hub-map');
+      try { svgEl.pauseAnimations(); } catch (e) { /* ignore */ }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!state || state.root !== rootEl || rootEl.classList.contains('hub-lite') || rootEl.classList.contains('is-dragging')) return;
+        try { svgEl.unpauseAnimations(); } catch (e) { /* ignore */ }
+      }));
+    }
     bindInput();
     rootEl.addEventListener('click', onClick);
     const on = (ev, fn) => { if (KOS.Events && KOS.Events.on) { KOS.Events.on(ev, fn); state.unsub.push(() => KOS.Events.off && KOS.Events.off(ev, fn)); } };
@@ -779,17 +789,27 @@
         const nextI = nextEl ? pins.indexOf(nextEl) : -1;
         const vw_ = s.vp.clientWidth, vh_ = s.vp.clientHeight, w_ = PROJ.W * s.s, h_ = PROJ.H * s.s;
         const loX = w_ <= vw_ ? s.tx : vw_ - w_, hiX = w_ <= vw_ ? s.tx : 0, loY = h_ <= vh_ ? s.ty : vh_ - h_, hiY = h_ <= vh_ ? s.ty : 0;
+        // same search as before, as plain loops over flat arrays (6561 shifts x pins x obstacles: the closure version cost ~250 ms on a phone)
+        const np = rects.length, no = obst.length;
+        const pl = new Float64Array(np), pr = new Float64Array(np), pt = new Float64Array(np), pb = new Float64Array(np);
+        for (let i = 0; i < np; i++) { pl[i] = rects[i].left; pr[i] = rects[i].right; pt[i] = rects[i].top; pb[i] = rects[i].bottom; }
         let best = null;
-        for (let dy = -320; dy <= 320; dy += 8) for (let dx = -320; dx <= 320; dx += 8) {
-          const ax = Math.max(loX, Math.min(hiX, s.tx + dx)) - s.tx, ay = Math.max(loY, Math.min(hiY, s.ty + dy)) - s.ty;
-          let n = 0, nextIn = false;
-          rects.forEach((r, i) => {
-            const L_ = r.left + ax, R2 = r.right + ax, T_ = r.top + ay, B_ = r.bottom + ay;
-            const inside = L_ >= left && R2 <= right && T_ >= top && B_ <= bot && !obst.some(o => L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t);
-            if (inside) { n++; if (i === nextI) nextIn = true; }
-          });
-          const score = n * 100 + (nextIn ? 150 : 0) - (Math.abs(ax) + Math.abs(ay)) * 0.05;
-          if (!best || score > best.score) best = { score, ax, ay };
+        for (let dy = -320; dy <= 320; dy += 8) {
+          const ay = Math.max(loY, Math.min(hiY, s.ty + dy)) - s.ty;
+          for (let dx = -320; dx <= 320; dx += 8) {
+            const ax = Math.max(loX, Math.min(hiX, s.tx + dx)) - s.tx;
+            let n = 0, nextIn = false;
+            for (let i = 0; i < np; i++) {
+              const L_ = pl[i] + ax, R2 = pr[i] + ax, T_ = pt[i] + ay, B_ = pb[i] + ay;
+              if (L_ < left || R2 > right || T_ < top || B_ > bot) continue;
+              let hit = false;
+              for (let k = 0; k < no; k++) { const o = obst[k]; if (L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t) { hit = true; break; } }
+              if (hit) continue;
+              n++; if (i === nextI) nextIn = true;
+            }
+            const score = n * 100 + (nextIn ? 150 : 0) - (Math.abs(ax) + Math.abs(ay)) * 0.05;
+            if (!best || score > best.score) best = { score, ax, ay };
+          }
         }
         if (best && (best.ax || best.ay)) { s.tx += best.ax; s.ty += best.ay; clamp(); apply(); }
       }

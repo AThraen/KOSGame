@@ -110,8 +110,13 @@ js/modes/knots.js     knot tying mini-game
 js/modes/capsize.js   capsize recovery mini-game
 js/modes/quiz.js      sailing quiz
 js/modes/shed.js      tidy-the-shed mini-game (Træner Peter)
-js/main.js            boot
+js/main.js            boot (runs right after the scripts above: init + title screen; sets KOS.Boot)
+js/modes-ready.js     last script: every mode ran -> KOS.Boot.modesReady()
 ```
+The 12 `js/modes/*.js` scripts are `defer`red (they download in parallel with the core scripts but run after `main.js`),
+so the title is interactive without waiting for the ~1 MB of mode code. Until `KOS.modesReady`, `App.show()` holds back
+every screen except the title (a tap on Spil waits for it); `<html class="booted">` is set when the modes are ready
+(`title-ready` earlier). Mode stylesheets are linked `media="print" onload="this.media='all'"` so they do not block render.
 CSS: `css/style.css` (tokens, shell, buttons, screens), `css/game.css` (HUD, touch controls, results),
 `css/hub.css`, and one `css/modes/<mode>.css` per mode (only if needed). `index.html` already links them all.
 
