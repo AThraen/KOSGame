@@ -1,6 +1,7 @@
 // Node tests for the simulation core: node tools/test-core.js
-// Covers KOS.U, KOS.Events, KOS.Boats, KOS.Wind, KOS.Physics, KOS.Rules, KOS.AI (and KOS.World helpers if present).
-const KOS = require('./harness').load();
+// Covers KOS.U, KOS.Events, KOS.Boats, KOS.Wind, KOS.Physics, KOS.Rules, KOS.AI (and KOS.World helpers if present),
+// plus the tilted-camera math in js/render/tilt.js (tests named 'tilt:', run alone with: node tools/test-core.js tilt).
+const KOS = require('./harness').load(['js/render/tilt.js']);
 const U = KOS.U, P = KOS.Physics;
 const R = d => d * Math.PI / 180;
 
@@ -889,6 +890,111 @@ test('AI: RIB motors to waypoints and keeps clear of sail', () => {
   const r = raceCourse('rib', 0.7, 8);
   ok(r.helm.finished && r.helm.state === 'finished');
 });
+
+// ====================================================================== tilt (js/render/tilt.js, docs/specs/tilt-camera.md §9.1)
+{
+  const TL = KOS.Tilt;
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  // a tilt-like object for any pitch (makeTilt returns null below PITCH_MIN, so the tests build it directly)
+  const mk = (o) => {
+    const c = o.cam, p = o.pitch || 0;
+    return { T: 1, pitch: p, k: Math.cos(p), s: Math.sin(p), cr: Math.cos(-c.rot), sr: Math.sin(-c.rot), Z: c.zoom, camX: c.x, camY: c.y,
+      w: o.w, h: o.h, cx: o.w / 2, cy: o.h / 2 + (o.biasY || 0), shx: 0, shy: 0, ox: o.w / 2, oy: o.h / 2 + (o.biasY || 0), dpr: 1, perf: 2 };
+  };
+  // the legacy SailScene.worldToScreen formula (scene.js at 847860f), verbatim
+  const legacy = (cam, w, h, biasY, x, y) => { const cs = Math.cos(-cam.rot), sn = Math.sin(-cam.rot), dx = x - cam.x, dy = y - cam.y; return { x: w / 2 + (dx * cs - dy * sn) * cam.zoom, y: h / 2 + (biasY || 0) + (dx * sn + dy * cs) * cam.zoom }; };
+  const chain = (b, x, y, z) => { // heel -> heading, step by step (§3.4)
+    const H = b.heading, hx = x * Math.cos(b.heel) + z * Math.sin(b.heel), hz = -x * Math.sin(b.heel) + z * Math.cos(b.heel), hy = y;
+    return { wx: b.x + hx * Math.cos(H) - hy * Math.sin(H), wy: b.y + hx * Math.sin(H) + hy * Math.cos(H), wz: hz };
+  };
+  const inBox = (p, v) => p.x >= v.x0 - 1e-9 && p.x <= v.x1 + 1e-9 && p.y >= v.y0 - 1e-9 && p.y <= v.y1 + 1e-9;
+  test('tilt: pitch 0 project equals legacy worldToScreen exactly', () => {
+    for (let i = 0; i < 200; i++) {
+      const cam = { x: (rnd() - 0.5) * 400, y: (rnd() - 0.5) * 400, zoom: 1 + rnd() * 40, rot: i % 3 ? (rnd() - 0.5) * 6 : 0 };
+      const biasY = i % 2 ? 0 : 37, t = mk({ cam, w: 390, h: 844, biasY, pitch: 0 });
+      const x = cam.x + (rnd() - 0.5) * 100, y = cam.y + (rnd() - 0.5) * 100, a = TL.project(t, x, y, 0), b = legacy(cam, 390, 844, biasY, x, y);
+      ok(a.x === b.x && a.y === b.y, 'mismatch ' + JSON.stringify([a, b]));
+    }
+  });
+  test('tilt: unproject(project(p)) round trip', () => {
+    for (const pd of [20, 32, 38, 45, 55]) for (const rot of [0, 0.7, -2.1]) for (const zoom of [2, 20]) for (const biasY of [0, 84]) {
+      const cam = { x: 120, y: -40, zoom, rot }, t = mk({ cam, w: 844, h: 390, biasY, pitch: pd * Math.PI / 180 });
+      for (let i = 0; i < 10; i++) { const x = cam.x + (rnd() - 0.5) * 80, y = cam.y + (rnd() - 0.5) * 80, s = TL.project(t, x, y, 0), u = TL.unproject(t, s.x, s.y); near(u.x, x, 1e-9, 'x'); near(u.y, y, 1e-9, 'y'); }
+    }
+  });
+  test('tilt: unproject with height z inverts project at z', () => {
+    const t = mk({ cam: { x: 5, y: 9, zoom: 14, rot: 0.9 }, w: 390, h: 844, biasY: 20, pitch: 0.6 });
+    for (let i = 0; i < 20; i++) { const x = rnd() * 50, y = rnd() * 50, z = rnd() * 10, s = TL.project(t, x, y, z), u = TL.unproject(t, s.x, s.y, z); near(u.x, x, 1e-9); near(u.y, y, 1e-9); }
+  });
+  test('tilt: height lifts straight up on screen', () => {
+    const t = mk({ cam: { x: 0, y: 0, zoom: 17, rot: -1.3 }, w: 390, h: 844, pitch: 0.66 });
+    for (let i = 0; i < 20; i++) { const x = rnd() * 40 - 20, y = rnd() * 40 - 20, z = rnd() * 9, a = TL.project(t, x, y, 0), b = TL.project(t, x, y, z); ok(a.x === b.x, 'x moved'); near(b.y - a.y, -z * t.Z * t.s, 1e-9, 'dY'); }
+  });
+  test('tilt: boatMatrix matches heel -> heading -> project; mast leans to the heeled side', () => {
+    const t = mk({ cam: { x: 3, y: -4, zoom: 22, rot: 0.3 }, w: 390, h: 844, biasY: 10, pitch: 0.62 });
+    const b = { x: 7, y: 2, heading: 1.1, heel: 0.4 }, M = TL.boatMatrix(null, t, b, b.heel);
+    for (let i = 0; i < 20; i++) {
+      const bx = rnd() * 2 - 1, by = rnd() * 4 - 2, bz = rnd() * 6, w = chain(b, bx, by, bz), p = TL.project(t, w.wx, w.wy, w.wz), q = TL.apply(M, bx, by, bz);
+      near(q.x, p.x, 1e-9, 'X'); near(q.y, p.y, 1e-9, 'Y');
+    }
+    const t0 = mk({ cam: { x: 0, y: 0, zoom: 20, rot: 0 }, w: 390, h: 844, pitch: 0.6 });
+    for (const h of [0.3, -0.3]) {
+      const M0 = TL.boatMatrix(null, t0, { x: 0, y: 0, heading: 0 }, h), top = TL.apply(M0, 0, -0.5, 5.5), foot = TL.apply(M0, 0, -0.5, 0.3);
+      ok(h > 0 ? top.x - foot.x > 0 : top.x - foot.x < 0, 'mast lean sign for heel ' + h);
+    }
+  });
+  test('tilt: shadowMatrix = project(world + wz*SUN, 0) with heel and heading; mast foot shadow attached', () => {
+    const t = mk({ cam: { x: -2, y: 6, zoom: 18, rot: 0.3 }, w: 844, h: 390, pitch: 0.55 });
+    const b = { x: 4, y: 1, heading: 1.1, heel: 0.4 }, Sm = TL.shadowMatrix(null, t, b, b.heel), M = TL.boatMatrix(null, t, b, b.heel);
+    for (let i = 0; i < 20; i++) {
+      const bx = rnd() * 2 - 1, by = rnd() * 4 - 2, bz = rnd() * 6, w = chain(b, bx, by, bz);
+      const p = TL.project(t, w.wx + w.wz * TL.SUN.x, w.wy + w.wz * TL.SUN.y, 0), q = TL.apply(Sm, bx, by, bz);
+      near(q.x, p.x, 1e-9, 'X'); near(q.y, p.y, 1e-9, 'Y');
+    }
+    const a = TL.apply(Sm, 0, -0.4, 0), m = TL.apply(M, 0, -0.4, 0); near(a.x, m.x, 1e-9, 'foot X'); near(a.y, m.y, 1e-9, 'foot Y');
+  });
+  test('tilt: viewAABB holds the screen footprint, viewItemsAABB also the ground point of a tall item below', () => {
+    const t = mk({ cam: { x: 50, y: 50, zoom: 12, rot: 0.8 }, w: 390, h: 844, pitch: 0.66 });
+    const v = TL.viewAABB(t, 390, 844), vi = TL.viewItemsAABB(t, 390, 844);
+    for (const [X, Y] of [[0, 0], [390, 0], [0, 844], [390, 844], [195, 422]]) ok(inBox(TL.unproject(t, X, Y), v), 'corner ' + X + ',' + Y);
+    ok(vi.x0 <= v.x0 && vi.y0 <= v.y0 && vi.x1 >= v.x1 && vi.y1 >= v.y1, 'items box contains view');
+    for (const X of [0, 195, 390]) { const g = TL.unproject(t, X, 844, TL.HMAX); ok(inBox(g, vi), 'HMAX top on the bottom edge at X ' + X); } // project(g, HMAX) lands on the bottom edge
+  });
+  test('tilt: depth v orders like y at rot 0 and like the rotated axis at rot pi/2', () => {
+    const t0 = mk({ cam: { x: 0, y: 0, zoom: 10, rot: 0 }, w: 390, h: 844, pitch: 0.6 });
+    const pts = [[1, -5], [3, 2], [-4, 7], [0, 0.5]], ord = (t) => pts.slice().sort((a, b) => TL.depth(t, a[0], a[1]) - TL.depth(t, b[0], b[1]));
+    ok(JSON.stringify(pts.slice().sort((a, b) => a[1] - b[1])) === JSON.stringify(ord(t0)), 'rot 0');
+    const t1 = mk({ cam: { x: 0, y: 0, zoom: 10, rot: Math.PI / 2 }, w: 390, h: 844, pitch: 0.6 }); // v = dx*sin(-rot) + dy*cos(-rot) = -x
+    ok(JSON.stringify(pts.slice().sort((a, b) => b[0] - a[0])) === JSON.stringify(ord(t1)), 'rot pi/2');
+    for (const p of pts) { const s = TL.project(t1, p[0], p[1], 0); near(s.y, t1.cy + TL.depth(t1, p[0], p[1]) * t1.Z * t1.k, 1e-9, 'v is screen-down'); }
+  });
+  test('tilt: ease snaps by direction only', () => {
+    let T = 0; for (let i = 0; i < 50; i++) { const n = TL.ease(T, 1, 1e-4); ok(n > T, 'T rises from 0 with a tiny dt (step ' + i + ')'); T = n; }
+    ok(TL.ease(0.0019, 0, 1e-4) === 0, 'want 0 snaps to exactly 0 below 0.002');
+    ok(TL.ease(0.0019, 1, 1e-4) > 0.0019, 'want 1 never snaps a small T to 0');
+    ok(TL.ease(0.9985, 1, 1e-4) === 1, 'want 1 snaps to exactly 1 above 0.998');
+    const d = TL.ease(0.9985, 0, 1e-4); ok(d < 0.9985 && d > 0.9, 'want 0 eases down from near 1, no snap to 1');
+    let U = 1; for (let i = 0; i < 400; i++) U = TL.ease(U, 0, 1 / 60); ok(U === 0, 'reaches exactly 0');
+    let V = 0; for (let i = 0; i < 400; i++) V = TL.ease(V, 1, 1 / 60); ok(V === 1, 'reaches exactly 1');
+    ok(TL.ease(0.3, 1, 0.016, true) === 1, 'snap flag');
+  });
+  test('tilt: resolve table (setting x activity x perf level)', () => {
+    const R = TL.resolve, on = ['race.opti.1', 'sail.free.zest', 'sail.rings', 'rib.learn'], off = ['rowschool.r10', 'nav.buoys', 'dock.zest.jetty', 'school.steer', 'quiz.basics', 'knots.eight'];
+    for (const id of on) { ok(R('auto', id, 2) === true && R('auto', { mode: id.split('.')[0] }, 1) === true, 'auto on ' + id); ok(R('auto', id, 0) === false, 'auto level 0 off ' + id); }
+    for (const id of off) ok(R('auto', id, 2) === false, 'auto off ' + id);
+    for (const id of on.concat(off)) { ok(R('on', id, 0) === true && R('on', id, 2) === true, 'on ' + id); ok(R('off', id, 2) === false, 'off ' + id); }
+    ok(R('bogus', 'race.opti.1', 2) === false && R('auto', null, 2) === false, 'unknown setting / activity is off');
+  });
+  test('tilt: makeTilt is null below PITCH_MIN and built at or above it', () => {
+    const base = { cam: { x: 0, y: 0, zoom: 20, rot: 0 }, w: 390, h: 844 }, P0 = TL.basePitch(390, 844);
+    ok(TL.makeTilt(Object.assign({ T: 0 }, base)) === null, 'T 0');
+    ok(TL.makeTilt(Object.assign({ T: TL.PITCH_MIN / P0 * 0.999 }, base)) === null, 'just under 2 deg');
+    const t = TL.makeTilt(Object.assign({ T: TL.PITCH_MIN / P0 * 1.0001 }, base)); ok(t && t.pitch >= TL.PITCH_MIN, 'at 2 deg');
+    const f = TL.makeTilt(Object.assign({ T: 1 }, base)); near(f.pitch, 42 * Math.PI / 180, 1e-12, 'portrait P0'); ok(f.k === Math.cos(f.pitch), 'k');
+    ok(TL.makeTilt({ T: 1, cam: { x: 0, y: 0, zoom: 1.2, rot: 0 }, w: 390, h: 844 }) === null, 'overview zoom fades to flat');
+    near(TL.basePitch(844, 390), 45 * Math.PI / 180, 1e-12, 'landscape phone'); near(TL.basePitch(1440, 900), 50 * Math.PI / 180, 1e-12, 'desktop');
+  });
+}
 
 // ====================================================================== summary
 console.log('\n');

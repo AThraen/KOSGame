@@ -5,6 +5,7 @@
 //   node tools/smoke.js --file          file:// pass only          --http   http pass only
 //   node tools/smoke.js --full          every activity in both passes
 //   node tools/smoke.js --no-shots      skip the screenshots       --secs=3  seconds per activity (default 3)
+//   node tools/smoke.js --no-tilt       skip the light "file-tilt" pass (Skrå visning on: 8 activities, see tiltPass)
 //
 // For every pass: boots index.html with a fresh profile, visits every screen and every hub area, starts each
 // activity for a few seconds with simulated keyboard input (steer, sheet, hike, action, pause/resume), finishes one
@@ -169,6 +170,45 @@ async function pass(browser, base, label, opts) {
   await ctx.close();
 }
 
+// Light Skrå visning pass (docs/specs/tilt-camera.md §9.2): boots once, sets {tilt:'on'} and plays a fixed handful of activities
+// (--only filters it by id prefix like pass()). Per activity: no console errors, still on the play screen, the scene has eased
+// in (_tiltT > 0.9 after 2 s) and screenToWorld(worldToScreen(p)) round-trips. Resets tilt to 'auto' afterwards.
+const TILT_IDS = ['sail.free.zest', 'race.j70.1', 'race.29er.1', 'rib.tow', 'dock.opti.jetty', 'nav.night', 'rowschool.r10', 'school.steer'];
+async function tiltPass(browser, base) {
+  const label = 'file-tilt';
+  log('\n== ' + label + ' ' + base);
+  const { ctx, page } = await newPage(browser, { w: 1440, h: 900 }, label);
+  await boot(page, base);
+  check(page, label + ' boot');
+  await page.evaluate(() => { KOS.Storage.saveSettings({ tilt: 'on' }); });
+  const ids = ONLY ? TILT_IDS.filter(id => id.startsWith(ONLY)) : TILT_IDS;
+  let ok = 0;
+  for (const id of ids) {
+    const started = await page.evaluate(id => !!KOS.Activities.get(id) && KOS.App.play(id, { force: true }), id);
+    if (!started) { problems.push('[' + label + '] ' + id + ': could not start'); log('  FAIL', id, 'could not start'); continue; }
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { const g = document.querySelector('.sc-go'); if (g) g.click(); }); // dismiss the lesson / race intro card
+    await page.waitForTimeout(2000);
+    const r = await page.evaluate(() => {
+      const sc = KOS.SailScene.current; if (!sc) return { err: 'no scene' };
+      const b = sc.target || (sc.boats && sc.boats[0]) || sc.camera, q = sc.screenToWorld(sc.worldToScreen(b));
+      return { T: sc._tiltT, err: Math.hypot(q.x - b.x, q.y - b.y), cur: KOS.App.cur, failed: KOS.App.run.failed };
+    });
+    let bad = '';
+    if (r.err === 'no scene') bad = 'no scene';
+    else if (r.failed) bad = 'mode crashed';
+    else if (r.cur !== 'play') bad = 'left the play screen (' + r.cur + ')';
+    else if (!(r.T > 0.9)) bad = '_tiltT ' + r.T + ' after 2 s';
+    else if (!(r.err < 1e-6)) bad = 'screenToWorld(worldToScreen(p)) error ' + r.err;
+    if (bad) { problems.push('[' + label + '] ' + id + ': ' + bad); log('  FAIL', id, bad); } else ok++;
+    await quitPlay(page);
+    if (check(page, label + ' play ' + id) && !bad) process.stdout.write('  ✓ ' + id + '\n');
+  }
+  await page.evaluate(() => { KOS.Storage.saveSettings({ tilt: 'auto' }); });
+  log('  played', ok + '/' + ids.length);
+  await ctx.close();
+}
+
 async function screenshots(browser, base) {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
   for (const f of fs.readdirSync(SHOT_DIR)) if (/\.(jpg|png)$/.test(f)) fs.unlinkSync(path.join(SHOT_DIR, f));
@@ -214,6 +254,7 @@ async function screenshots(browser, base) {
   let srv = null;
   try {
     if (!flag('http')) await pass(browser, fileUrl, 'file', { all: true });
+    if (!flag('http') && !flag('no-tilt')) await tiltPass(browser, fileUrl);
     if (!flag('file')) {
       srv = await serve({ port: 0, root: ROOT });
       await pass(browser, srv.url, 'http', { all: flag('full'), pwa: true });

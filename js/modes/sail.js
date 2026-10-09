@@ -228,7 +228,7 @@
     else buildFree();
 
     // ---- scene (renderer). Overlays draw our items, the target arrow and the course hints.
-    const scene = new KOS.SailScene(host.canvas, {
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto,
       venue, wind, boats: [boat], follow: boat, marks: S.marks.filter(m => m.show !== false),
       lines: S.lines || [], showNoGo: false, showWindArrow: true,
     });

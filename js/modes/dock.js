@@ -270,7 +270,7 @@
 
     // ---- scene + camera proxy (frames boat and target together)
     const cam = { x: boat.x, y: boat.y, vx: 0, vy: 0, speed: 0, heading: 0, cls };
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats: [boat], marks: [], lines: [], showNoGo: false, showWindArrow: true, showTags: false, highlightPlayer: false });
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats: [boat], marks: [], lines: [], showNoGo: false, showWindArrow: true, showTags: false, highlightPlayer: false });
     scene.follow(cam);
     scene.addOverlay(drawUnder);
     scene.addOverlay(drawScreen, { screen: true });
@@ -1091,7 +1091,7 @@
       let k = 0.5;
       if (need > span) k = U.clamp((span * 0.36) / Math.max(1, d), 0, 0.5);
       const fx = U.lerp(boat.x, tg.x, k), fy = U.lerp(boat.y, tg.y, k);
-      cam.x = fx; cam.y = fy + ((padB - padT) / 2) / z;
+      cam.x = fx; cam.y = fy + ((padB - padT) / 2) / (z * scene.kY); // px → metres: Z*kY (kY is exactly 1 when flat)
       scene.fixedZoom = z;
       if (snap) { scene.camera.x = cam.x; scene.camera.y = cam.y; scene.camera.zoom = z; }
     }

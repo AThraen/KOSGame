@@ -150,9 +150,13 @@
         } else if (o.type === 'text') {
           const s = mpp * o.px * (0.6 + 0.4 * easeBack(o.pop));
           const a = f > 0.7 ? (1 - f) / 0.3 : 1;
-          ctx.save(); ctx.globalAlpha = a; ctx.translate(o.x, o.y - o.z);
+          ctx.save(); ctx.globalAlpha = a;
+          if (scene && scene._tilt) { scene.upright(ctx, o.x, o.y, o.z); ctx.scale(s / mpp / 20, s / mpp / 20); } // tilted: upright at the projected height (o.z keeps the float-up), size in css px
+          else {
+          ctx.translate(o.x, o.y - o.z);
           if (scene && scene.camera && scene.camera.rot) ctx.rotate(-scene.camera.rot);
           ctx.scale(s / 20, s / 20);
+          }
           ctx.font = '900 20px ui-rounded,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
           ctx.lineWidth = 5; ctx.strokeStyle = o.stroke; ctx.strokeText(o.str, 0, 0);
