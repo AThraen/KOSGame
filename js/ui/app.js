@@ -586,7 +586,7 @@
     return '<button type="button" class="card act-card' + (unlocked ? '' : ' locked') + (pr.stars === 3 ? ' perfect' : '') + '" data-act="act" data-id="' + esc(a.id) + '" style="--i:' + i + '">' +
       '<span class="act-num">' + (i + 1) + '</span>' +
       '<span class="act-ico">' + ico(unlocked ? (a.icon || 'sail') : 'lock') + '</span>' +
-      '<span class="act-txt"><b>' + esc(tt(a.title)) + '</b><small>' + esc(tt(a.desc)) + '</small>' +
+      '<span class="act-txt"><b>' + esc(tt(a.title)) + '</b><small>' + esc(tt(a.desc, a.params && a.params.windKn ? { wind: KOS.U.windTxt(a.params.windKn, true) } : undefined)) + '</small>' +
       '<span class="act-meta">' + difficultyDots(a.difficulty || 1) +
       '<span class="meta-chip">' + ico('clock') + (a.minutes || 3) + ' ' + esc(t('common.min')) + '</span>' +
       (boat ? '<span class="meta-chip">' + ico('boat') + esc(boat.name) + '</span>' : '') +
@@ -925,6 +925,8 @@
       sw('sound', t('app.settings.sound'), 'sound') + sw('music', t('app.settings.music'), 'music') +
       '<div class="set-row"><span class="set-ico">' + ico('gauge') + '</span><span class="set-label">' + esc(t('app.settings.volume')) + '</span>' +
       '<input type="range" class="range" min="0" max="100" step="5" value="' + Math.round(s.volume * 100) + '" data-k="volume" aria-label="' + esc(t('app.settings.volume')) + '"></div></section>' +
+      '<section class="panel glass"><h2>' + ico('wind') + esc(t('app.settings.windUnit')) + '</h2>' +
+      seg('windUnit', [{ v: 'ms', label: t('app.windUnit.ms') }, { v: 'kn', label: t('app.windUnit.kn') }]) + '</section>' +
       '<section class="panel glass"><h2>' + ico('sail') + esc(t('app.settings.assist')) + '</h2>' +
       seg('assist', [{ v: 'easy', label: t('app.assist.easy') }, { v: 'normal', label: t('app.assist.normal') }, { v: 'pro', label: t('app.assist.pro') }]) +
       '<p class="set-help">' + esc(t('app.assist.' + s.assist + 'Help')) + '</p></section>' +
@@ -1189,6 +1191,7 @@
   function applySettings(s) {
     s = s || settings();
     if (KOS.I18n && KOS.I18n.lang !== s.lang) KOS.I18n.setLang(s.lang);
+    if (KOS.U && KOS.U.setWindUnit) KOS.U.setWindUnit(s.windUnit);
     doc.documentElement.classList.toggle('reduce-motion', !!s.reducedMotion);
     audio('setVolume', s.volume);
     audio('mute', !s.sound);
@@ -1379,13 +1382,14 @@
       crash: { title: 'Ups – en bølge for meget!', body: 'Noget gik galt i denne aktivitet. Prøv en anden, mens vi retter det.' },
       settings: {
         title: 'Indstillinger', lang: 'Sprog', audio: 'Lyd', sound: 'Lydeffekter', music: 'Musik', volume: 'Lydstyrke',
-        assist: 'Hjælpeniveau', controls: 'Styring', reducedMotion: 'Færre animationer',
+        assist: 'Hjælpeniveau', windUnit: 'Vindstyrke i', controls: 'Styring', reducedMotion: 'Færre animationer',
         coach: 'Træner og forældre', coachHelp: 'Kun for voksne: hold knappen nede i 3 sekunder for at låse alt op (eller låse igen).',
         unlockAll: 'Lås alt op', hold: 'Hold i 3 sekunder', holdHint: 'Hold knappen nede i 3 sekunder.',
         unlockedAll: 'Alt er låst op!', lockedAll: 'Låst igen – sejl dig til stjernerne.',
         reset: 'Nulstil fremskridt', resetTitle: 'Nulstil alt?', resetBody: 'Alle stjerner, mærker, XP og din profil bliver slettet. Det kan ikke fortrydes.',
         resetYes: 'Ja, nulstil', resetDone: 'Fremskridt nulstillet.',
       },
+      windUnit: { ms: 'm/s', kn: 'knob' },
       assist: {
         easy: 'Let', normal: 'Normal', pro: 'Pro',
         easyHelp: 'Sejlene trimmer sig selv, du kan ikke kæntre, og træneren viser vejen.',
@@ -1452,13 +1456,14 @@
       crash: { title: 'Oops – one wave too many!', body: 'Something went wrong in this activity. Try another one while we fix it.' },
       settings: {
         title: 'Settings', lang: 'Language', audio: 'Sound', sound: 'Sound effects', music: 'Music', volume: 'Volume',
-        assist: 'Assist level', controls: 'Controls', reducedMotion: 'Reduce motion',
+        assist: 'Assist level', windUnit: 'Wind speed in', controls: 'Controls', reducedMotion: 'Reduce motion',
         coach: 'Coaches and parents', coachHelp: 'Grown-ups only: hold the button for 3 seconds to unlock everything (or lock again).',
         unlockAll: 'Unlock everything', hold: 'Hold for 3 seconds', holdHint: 'Hold the button down for 3 seconds.',
         unlockedAll: 'Everything unlocked!', lockedAll: 'Locked again – sail for those stars.',
         reset: 'Reset progress', resetTitle: 'Reset everything?', resetBody: 'All stars, badges, XP and your profile will be deleted. This cannot be undone.',
         resetYes: 'Yes, reset', resetDone: 'Progress reset.',
       },
+      windUnit: { ms: 'm/s', kn: 'knots' },
       assist: {
         easy: 'Easy', normal: 'Normal', pro: 'Pro',
         easyHelp: 'Sails trim themselves, you can’t capsize, and your coach shows the way.',

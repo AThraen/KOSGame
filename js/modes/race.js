@@ -195,8 +195,8 @@
         unlock: ri === 0 ? (si === 0 ? null : { stars: BOAT_STARS[s.cls] || 0 }) : { after: 'race.' + s.cls + '.' + ri },
         title: { da: s.name.da + ' · Sejlads ' + (ri + 1), en: s.name.en + ' · Race ' + (ri + 1) },
         desc: {
-          da: bn + ' mod ' + fleet + ' andre både på en ' + ct.da + (laps > 1 ? ', ' + laps + ' omgange' : '') + '. ' + kn + ' knob vind.',
-          en: bn + ' against ' + fleet + ' other boats on a ' + ct.en + (laps > 1 ? ', ' + laps + ' laps' : '') + '. ' + kn + ' knots of wind.',
+          da: bn + ' mod ' + fleet + ' andre både på en ' + ct.da + (laps > 1 ? ', ' + laps + ' omgange' : '') + '. {wind} vind.',
+          en: bn + ' against ' + fleet + ' other boats on a ' + ct.en + (laps > 1 ? ', ' + laps + ' laps' : '') + '. {wind} of wind.',
         },
         params: {
           series: s.cls, race: ri + 1, races: s.races.length, venue: s.venue, course, laps, fleet,

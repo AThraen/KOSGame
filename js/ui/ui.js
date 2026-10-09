@@ -403,7 +403,7 @@
         c.innerHTML = '<div class="hud-wind-dial"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.25)"/>' +
           '<text x="20" y="9" font-size="6" text-anchor="middle" fill="rgba(255,255,255,.6)" font-weight="800">N</text>' +
           '<g class="hud-wind-arrow"><path d="M20 7v22" stroke="var(--blue)" stroke-width="3" stroke-linecap="round"/><path d="M13.5 24l6.5 8 6.5-8z" fill="var(--blue)"/></g></svg></div>' +
-          '<div class="hud-txt"><span class="hud-label">' + esc(label) + '</span><span class="hud-val"><b>–</b><small> ' + esc(t('common.kn')) + '</small></span></div>';
+          '<div class="hud-txt"><span class="hud-label">' + esc(label) + '</span><span class="hud-val"><b>–</b><small class="hud-wind-unit"> ' + esc(KOS.U.windUnitLabel()) + '</small></span></div>';
       } else if (it.id === 'heel') {
         c.innerHTML = '<span class="hud-ico">' + iconSvg('heel') + '</span><div class="hud-txt"><span class="hud-label">' + esc(label) + '</span>' +
           '<span class="hud-heel-bar"><i></i></span></div>';
@@ -437,7 +437,9 @@
           const deg = (((dir * 180 / Math.PI) % 360) + 360) % 360; // arrow points where the wind blows TO (glyph points down at 0°)
           const key = Math.round(deg);
           if (last.windDeg !== key) { last.windDeg = key; cells.wind.querySelector('.hud-wind-arrow').setAttribute('transform', 'rotate(' + key + ' 20 20)'); }
-          setVal('wind', Math.round(d.wind.speed || 0));
+          setVal('wind', KOS.U.windVal(d.wind.speed || 0));
+          const wu = cells.wind.querySelector('.hud-wind-unit'), wut = ' ' + KOS.U.windUnitLabel();
+          if (wu && wu.textContent !== wut) wu.textContent = wut;
         }
         if (cells.speed && d.speed !== undefined) setVal('speed', (+d.speed || 0).toFixed(1));
         if (cells.pos && d.pos !== undefined) setVal('pos', esc(POS_KEYS[d.pos] ? t(POS_KEYS[d.pos]) : d.pos));

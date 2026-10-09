@@ -69,6 +69,7 @@ Reference material in `docs/reference/`:
 - Wind direction is where the wind comes **FROM** (meteorological), radians, same convention. Data/authoring may use
   degrees (`windDeg: 225`); convert with `KOS.U.rad()`.
 - Speeds inside physics are m/s; display knots (`KOS.U.kn(ms)`, 1 kn = 0.5144 m/s).
+- Wind speed is shown in **m/s by default** (setting `windUnit`: 'ms'|'kn'); internal wind stays knots. Use `KOS.U.windTxt(kn[, long])` / `windVal(kn[, dec])` for every user-visible wind speed (HUD wind, scene pill, race cards). Boat speed and RIB zone limits always stay in knots.
 - `twa` (true wind angle) on a boat is signed in radians, range (−π, π]: **positive = wind over the starboard side =
   starboard tack**, negative = port tack.
 - Fixed simulation step `KOS.DT = 1/60` s.
@@ -252,7 +253,7 @@ Helpers: `KOS.World.isLand(v, x, y)`, `KOS.World.depthAt(v, x, y)`, `KOS.World.h
 
 ### KOS.Storage (ui/storage.js)
 localStorage behind try/catch, key prefix `kos.`. `get(k, def)`, `set(k, v)`, `settings()` / `saveSettings(s)`
-(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion}`),
+(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion, windUnit: 'ms'|'kn'}`),
 `profile()` / `saveProfile(p)` (`{name, avatar: {skin, hair, jacket}, sailNo, boatColor, createdAt}`),
 `progress(id)` → `{stars, best, plays, done}`, `record(id, result)` → `{newBest, starsGained}`, `totalStars()`, `xp()`,
 `badges()` / `award(badgeId)`.

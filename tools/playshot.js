@@ -24,11 +24,13 @@ const url = require('url');
   const logs = [];
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ' ' + m.text()); });
   page.on('pageerror', e => logs.push('pageerror ' + e.message));
+  if (process.env.SHOT_SETTINGS) await page.addInitScript(s => { window.__shotSettings = JSON.parse(s); }, process.env.SHOT_SETTINGS); // e.g. SHOT_SETTINGS='{"windUnit":"kn"}'
   await page.goto(url.pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href);
   await page.waitForFunction(() => window.KOS && KOS.App, null, { timeout: 15000 });
   await page.evaluate(() => {
     KOS.Storage.saveProfile({ name: 'Ida', age: '10-12', sailNo: '123', boatColor: '#ff7a3d' });
-    KOS.Storage.saveSettings({ unlockAll: true });
+    KOS.Storage.saveSettings(Object.assign({ unlockAll: true }, window.__shotSettings || {}));
+    KOS.U.setWindUnit(KOS.Storage.settings().windUnit);
   });
   if (id.startsWith('screen:')) await page.evaluate(s => KOS.App.show(s.split(':')[1], { area: s.split(':')[2] || 'bay' }), id);
   else {
