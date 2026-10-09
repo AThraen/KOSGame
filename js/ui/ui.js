@@ -36,6 +36,7 @@
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     home: '<path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
     house: '<path d="M3 11.5L12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-5h5v5"/><path d="M15.5 6V3.5h2.5v4.5"/>',
+    tilt: '<path d="M6.5 11.5h12L21 18H3.5z"/><path d="M12.5 11.5V4.2"/><path d="M12.5 4.8l4.2 5.2h-4.2z" fill="currentColor" stroke-linejoin="round"/>',
     map: '<path d="M9 4L3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4z"/><path d="M9 4v14M15 6v14"/>',
     star: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 17l-5.38 2.85 1.03-6L3.3 9.6l6-.9L12 3.2z" fill="currentColor" stroke-linejoin="round"/>',
     starOutline: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 17l-5.38 2.85 1.03-6L3.3 9.6l6-.9L12 3.2z" stroke-linejoin="round"/>',

@@ -315,7 +315,7 @@
     for (let i = 0; i < 200; i++) wind.update(0.5);
 
     // ---- scene
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats: [boat].concat(optis, fleet), follow: boat, marks, lines: [], showWindArrow: true });
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats: [boat].concat(optis, fleet), follow: boat, marks, lines: [], showWindArrow: true });
     scene.addOverlay(drawWorld);
     scene.addOverlay(drawScreen, { screen: true });
     let userZoom = 1;

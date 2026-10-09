@@ -252,7 +252,7 @@ Helpers: `KOS.World.isLand(v, x, y)`, `KOS.World.depthAt(v, x, y)`, `KOS.World.h
 
 ### KOS.Storage (ui/storage.js)
 localStorage behind try/catch, key prefix `kos.`. `get(k, def)`, `set(k, v)`, `settings()` / `saveSettings(s)`
-(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion}`),
+(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion, tilt: 'auto'|'on'|'off'}`; `tilt` = Skrå visning, the tilted camera, default `auto`: on for race, free sail and RIB, off for school, rowschool, nav and dock; the in-game button or key `V` overrides it for one run, `M` (overview) forces flat; see docs/specs/tilt-camera.md),
 `profile()` / `saveProfile(p)` (`{name, avatar: {skin, hair, jacket}, sailNo, boatColor, createdAt}`),
 `progress(id)` → `{stars, best, plays, done}`, `record(id, result)` → `{newBest, starsGained}`, `totalStars()`, `xp()`,
 `badges()` / `award(badgeId)`.
@@ -387,7 +387,7 @@ or offline changes nothing. Screen changes are virtual page views on real-lookin
 `/indstillinger`, `/om-spillet`, `/start`, one per area (`/sejlerskolen`, `/klubhuset`, `/fri-sejlads`, `/kapsejlads`, `/vigeregler`, `/navigation`,
 `/havnemanoevrer`, `/rib-missioner`), activities as `/<area>/<activity id>` and `/<area>/<activity id>/resultat`; titles are fixed Danish
 (`KØS SEJL / Sejlerskolen / Styr og stop`), with `setReferrerUrl` to the previous screen. No cookies: `disableCookies` is set before any hit. Events (category / action / name [value]):
-Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|unlockAll, View overview|zoom,
+Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|tilt|unlockAll, View overview|zoom|tilt,
 Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson, Controls board|jib <activity id> (first use per
 activity, from the `controls:use` bus event that KOS.SailAids emits). Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
 `play:finish`, `settings`) plus a few direct `KOS.Track.event` calls in app.js.

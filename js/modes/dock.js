@@ -270,7 +270,7 @@
 
     // ---- scene + camera proxy (frames boat and target together)
     const cam = { x: boat.x, y: boat.y, vx: 0, vy: 0, speed: 0, heading: 0, cls };
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats: [boat], marks: [], lines: [], showNoGo: false, showWindArrow: true, showTags: false, highlightPlayer: false });
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats: [boat], marks: [], lines: [], showNoGo: false, showWindArrow: true, showTags: false, highlightPlayer: false });
     scene.follow(cam);
     scene.addOverlay(drawUnder);
     scene.addOverlay(drawScreen, { screen: true });

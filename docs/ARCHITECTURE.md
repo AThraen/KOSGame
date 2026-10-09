@@ -48,6 +48,7 @@ render  js/render/sprites.js    KOS.Sprites
         js/render/effects.js    KOS.Effects
         js/render/water.js      KOS.Water
         js/render/scene.js      KOS.SailScene
+        js/render/tilt.js       KOS.Tilt
 ui      js/ui/storage.js        KOS.Storage
         js/ui/audio.js          KOS.Audio
         js/ui/input.js          KOS.Input
@@ -89,7 +90,8 @@ results), `css/controls.css`, `css/hub.css`, and one `css/modes/<mode>.css` per 
 | `js/render/sprites.js` | `KOS.Sprites` | SVG/canvas boat sprites (sails, crew, spinnaker), IALA-A buoys, marks, side-view cards, icons |
 | `js/render/effects.js` | `KOS.Effects` | World-space particles: wakes, spray, splashes, ripples, confetti, floating text |
 | `js/render/water.js` | `KOS.Water` | Top-down water: depth shading, wave crests, gust patches, shore foam |
-| `js/render/scene.js` | `KOS.SailScene` | The top-down renderer used by every 'sea' mode: camera, culling, overlays, night mode |
+| `js/render/scene.js` | `KOS.SailScene` | The top-down renderer used by every 'sea' mode: camera, culling, overlays, night mode, the tilted view (Skrå visning: `_tiltWant` = overview 0, else `SailScene.view.tilt` quick toggle, else setting; auto drops to flat at perf level 0; reduced motion snaps) |
+| `js/render/tilt.js` | `KOS.Tilt` | Pure math for the tilted camera (projection, boat matrices, easing) and `resolve(setting, activity, perfLevel)`; dev flags `#tilt=on` / `#tilt=off`, `#chase=1` |
 | `js/ui/storage.js` | `KOS.Storage` | localStorage (prefix `kos.`, in-memory fallback): settings, profile, progress, stars, XP, badges |
 | `js/ui/audio.js` | `KOS.Audio` | Web Audio synthesis: one-shots, ambient wind/waves, RIB engine, generative music |
 | `js/ui/input.js` | `KOS.Input` | Keyboard/mouse/multi-touch controls for sea modes (tiller pads, sheet slider, hike, spinnaker) |
@@ -150,8 +152,9 @@ All venues share one global frame: origin (0, 0) is the root of KØS's main jett
 2. **Start.** `KOS.App.play(activityId)` looks up the activity (`KOS.Activities.get`), the mode
    (`KOS.Modes.get`), shows the play screen, builds the **host** object and calls
    `mode.create(host, activity)`, then `instance.start()`.
-   - `host = { canvas, ctx2d, layer, activity, params, assist, settings, profile, boat,
-     finish(result), quit(), setPaused(bool), isPaused() }`.
+   - `host = { canvas, ctx2d, layer, activity, params, assist, settings, profile, boat, tilt, tiltAuto,
+     finish(result), quit(), setPaused(bool), isPaused() }`. `tilt` is the Skrå visning setting resolved for this
+     activity (`KOS.Tilt.resolve(settings.tilt, activity, KOS.Perf.level)`); sea modes pass `tilt: host.tilt, tiltAuto: host.tiltAuto` to `SailScene`.
    - `'sea'` modes get `canvas` + `ctx2d` (the shared `#game-canvas`) plus a DOM `layer` for
      HUD/overlays; `'dom'` modes get the `layer` only (canvas hidden).
 3. **Loop.** The app's `requestAnimationFrame` loop accumulates real time and calls

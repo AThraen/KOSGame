@@ -38,6 +38,17 @@
     return t;
   };
 
+  // auto mapping (§7.2): the activity modes that get the tilted view by default (race, free sailing, RIB); school, rowschool, nav, dock and DOM modes stay top-down
+  const AUTO_ON = { race: 1, sail: 1, rib: 1 };
+  // resolve the user setting ('off'|'on'|'auto') for an activity ({mode} or an id like 'race.opti.1') to a boolean; auto is off at perf level 0
+  T.resolve = function (setting, activity, perfLevel) {
+    if (setting === 'on') return true;
+    if (setting !== 'auto') return false;
+    if (perfLevel === 0) return false;
+    const m = activity && typeof activity === 'object' ? activity.mode : String(activity || '').split('.')[0];
+    return !!AUTO_ON[m];
+  };
+
   // build (or refill `out`) the per-frame tilt object; null when the effective pitch < PITCH_MIN (incl. T === 0)
   // o: { T, cam:{x,y,zoom,rot}, w, h, biasY, dpr, shx, shy, perf }
   T.makeTilt = function (o, out) {

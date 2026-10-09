@@ -439,7 +439,7 @@
     const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
 
     // ---------------------------------------------------------------- scene, input, HUD
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats, follow: me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
       showWindArrow: true, showNoGo: false, showLaylines: false });
     const pathLine = { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, kind: 'path' };
     scene.addOverlay(drawWorld);

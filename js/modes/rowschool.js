@@ -837,7 +837,7 @@
     // ---- scene. The camera follows a dummy target that we glide between framings of the situation.
     const first = planFor(ids[0]);
     const camT = { x: first.F.C0.x, y: first.F.C0.y, heading: 0, speed: 0, vx: 0, vy: 0, cls: 'opti' };
-    const scene = new KOS.SailScene(host.canvas, { venue: first.venue, wind: KOS.Wind.steady(first.F.windW, first.kn), boats: [], marks: [], lines: [],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue: first.venue, wind: KOS.Wind.steady(first.F.windW, first.kn), boats: [], marks: [], lines: [],
       follow: camT, showWindArrow: false, showNoGo: false, highlightPlayer: false, showLanes: false });
     scene.addOverlay(drawWorld);
     scene.addOverlay(drawScreen, { screen: true });

@@ -911,7 +911,7 @@
     controls.autoHike = easy && !L.hike;
 
     // ---- scene
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats: [boat], follow: boat, marks: S.marks, lines: S.lines || [],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats: [boat], follow: boat, marks: S.marks, lines: S.lines || [],
       showNoGo: !!L.noGo, showWindArrow: true });
     if (L.lines) scene.lines = L.lines;
     scene.addOverlay(drawWorld);

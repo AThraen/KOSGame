@@ -27,7 +27,7 @@
   }
 
   const DEFAULT_SETTINGS = {
-    lang: 'da', sound: true, music: false, volume: 0.8, assist: 'easy', controls: 'auto', unlockAll: false, reducedMotion: false,
+    lang: 'da', sound: true, music: false, volume: 0.8, assist: 'easy', controls: 'auto', unlockAll: false, reducedMotion: false, tilt: 'auto',
   };
 
   function emit(name, payload) { if (KOS.Events && KOS.Events.emit) KOS.Events.emit(name, payload); }
@@ -62,6 +62,7 @@
       if (s.lang !== 'da' && s.lang !== 'en') s.lang = 'da';
       if (['easy', 'normal', 'pro'].indexOf(s.assist) < 0) s.assist = 'easy';
       if (['auto', 'buttons', 'joystick'].indexOf(s.controls) < 0) s.controls = 'auto';
+      if (['off', 'on', 'auto'].indexOf(s.tilt) < 0) s.tilt = 'auto';
       s.volume = Math.max(0, Math.min(1, +s.volume || 0));
       return s;
     },

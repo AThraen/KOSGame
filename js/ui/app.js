@@ -391,7 +391,7 @@
     const SS = KOS.SailScene;
     if (!SS || !SS.view) return;
     const V = SS.view;
-    V.mul = 1; V.overview = false;
+    V.mul = 1; V.overview = false; V.tilt = null; // the tilt quick toggle (Skrå visning) lasts for this run only
     const btn = doc.createElement('button');
     btn.type = 'button'; btn.className = 'icon-btn view-btn';
     btn.setAttribute('aria-label', t('app.view.overview')); btn.title = t('app.view.overview') + ' (M)';
@@ -400,6 +400,20 @@
     const toggle = () => { sfx('click'); V.overview = !V.overview; if (V.overview) track('View', 'overview', run.act && run.act.id); if (!V.overview && V.mul < 1) V.mul = 1; sync(); };
     btn.addEventListener('click', toggle);
     chrome.appendChild(btn); sync();
+    // Skrå visning quick toggle: flips the effective state for this run (not persisted); dimmed while the overview forces flat
+    const tbtn = doc.createElement('button');
+    tbtn.type = 'button'; tbtn.className = 'icon-btn tilt-btn';
+    tbtn.setAttribute('aria-label', t('app.view.tilt')); tbtn.title = t('app.view.tilt');
+    tbtn.innerHTML = ico('tilt');
+    let tLast = '';
+    const tsync = () => {
+      const sc = SS.current, on = V.tilt != null ? !!V.tilt : !!(sc && sc._tiltWant), dis = !!V.overview, k = (on ? 1 : 0) + '' + (dis ? 1 : 0);
+      if (k === tLast) return; tLast = k;
+      tbtn.classList.toggle('on', on && !dis); tbtn.setAttribute('aria-pressed', on && !dis ? 'true' : 'false'); tbtn.setAttribute('aria-disabled', dis ? 'true' : 'false');
+    };
+    const tiltToggle = () => { if (V.overview) return; sfx('click'); const sc = SS.current; V.tilt = !(V.tilt != null ? V.tilt : !!(sc && sc._tiltWant)); track('View', 'tilt', run.act && run.act.id); tLast = ''; tsync(); };
+    tbtn.addEventListener('click', tiltToggle);
+    chrome.appendChild(tbtn); tsync(); run.tiltSync = tsync;
     const zoomBy = k => { if (!V.zt) { V.zt = 1; track('View', 'zoom', run.act && run.act.id); } V.overview = false; V.mul = Math.max(0.05, Math.min(3, V.mul * k)); sync(); };
     const inControls = el => !!(el && el.closest && el.closest('.kc, .pause-overlay, button, .dialog'));
     let pinch = null;
@@ -420,10 +434,11 @@
     listen(root, 'keydown', e => {
       if (run.paused || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'm' || e.key === 'M') toggle();
+      else if (e.key === 'v' || e.key === 'V') tiltToggle();
       else if (e.key === '-' || e.key === '_') zoomBy(0.8);
       else if (e.key === '+' || e.key === '=') zoomBy(1.25);
     });
-    run.viewOff = () => { offs.forEach(f => f()); V.mul = 1; V.overview = false; sec.classList.remove('view-overview'); };
+    run.viewOff = () => { offs.forEach(f => f()); run.tiltSync = null; V.mul = 1; V.overview = false; V.tilt = null; sec.classList.remove('view-overview'); };
   }
   App.show = function (screen, params, opts) {
     opts = opts || {};
@@ -657,6 +672,7 @@
       params: a.params || {},
       assist: st.assist,
       settings: st,
+      tilt: !!(KOS.Tilt && KOS.Tilt.resolve(st.tilt, a, Perf.level)), tiltAuto: st.tilt === 'auto', // Skrå visning: resolved once at play start (scene applies the override, overview and perf-drop rules)
       profile: S().profile() || {},
       boat: a.boat || S().get('boat', 'opti'),
       finish: result => finish(result),
@@ -716,6 +732,7 @@
         if (!run.running || run.paused) break;
       }
       if (run.running && run.inst && run.inst.render) run.inst.render(Math.min(1, run.acc / step));
+      if (run.tiltSync) run.tiltSync();
     } catch (e) { crash(e); }
   }
 
@@ -932,6 +949,9 @@
       seg('controls', [{ v: 'auto', label: t('app.controls.auto'), icon: 'sparkle' }, { v: 'buttons', label: t('app.controls.buttons'), icon: 'buttons' }, { v: 'joystick', label: t('app.controls.joystick'), icon: 'joystick' }]) +
       '<p class="set-help">' + esc(t('app.controls.help')) + '</p>' +
       sw('reducedMotion', t('app.settings.reducedMotion'), 'motion') + '</section>' +
+      '<section class="panel glass"><h2>' + ico('tilt') + esc(t('app.settings.tilt')) + '</h2>' +
+      seg('tilt', [{ v: 'auto', label: t('app.tilt.auto'), icon: 'sparkle' }, { v: 'on', label: t('app.tilt.on'), icon: 'tilt' }, { v: 'off', label: t('app.tilt.off'), icon: 'map' }]) +
+      '<p class="set-help">' + esc(t('app.tilt.help')) + '</p></section>' +
       '<section class="panel glass panel-coach"><h2>' + ico('whistle') + esc(t('app.settings.coach')) + '</h2>' +
       '<p class="set-help">' + esc(t('app.settings.coachHelp')) + '</p>' +
       '<div class="set-row"><span class="set-ico">' + ico(s.unlockAll ? 'unlock' : 'lock') + '</span><span class="set-label">' + esc(t('app.settings.unlockAll')) + '</span>' +
@@ -1369,7 +1389,8 @@
         difficulty: 'Sværhed', empty: 'Her kommer snart nye opgaver. Kig forbi igen!',
         needStars: 'Du skal bruge {n} ★ for at låse op (du har {have}).', needAfter: 'Klar først: {name}',
       },
-      view: { overview: 'Oversigt – se hele farvandet' },
+      view: { overview: 'Oversigt – se hele farvandet', tilt: 'Skrå visning (V)' },
+      tilt: { auto: 'Automatisk', on: 'Til', off: 'Fra', help: 'Se bådene skråt fra siden, så du kan se dem krænge. Automatisk: til i kapsejlads, fri sejlads og RIB, fra i sejlerskolen, regelskolen, navigation og havnemanøvrer.' },
       pause: {
         title: 'Pause', quit: 'Til kortet',
         tip1: 'Husk: bagbord vige for styrbord!', tip2: 'Kan du ikke sejle direkte mod vinden? Så kryds!',
@@ -1379,7 +1400,7 @@
       crash: { title: 'Ups – en bølge for meget!', body: 'Noget gik galt i denne aktivitet. Prøv en anden, mens vi retter det.' },
       settings: {
         title: 'Indstillinger', lang: 'Sprog', audio: 'Lyd', sound: 'Lydeffekter', music: 'Musik', volume: 'Lydstyrke',
-        assist: 'Hjælpeniveau', controls: 'Styring', reducedMotion: 'Færre animationer',
+        assist: 'Hjælpeniveau', controls: 'Styring', reducedMotion: 'Færre animationer', tilt: 'Skrå visning',
         coach: 'Træner og forældre', coachHelp: 'Kun for voksne: hold knappen nede i 3 sekunder for at låse alt op (eller låse igen).',
         unlockAll: 'Lås alt op', hold: 'Hold i 3 sekunder', holdHint: 'Hold knappen nede i 3 sekunder.',
         unlockedAll: 'Alt er låst op!', lockedAll: 'Låst igen – sejl dig til stjernerne.',
@@ -1442,7 +1463,8 @@
         difficulty: 'Difficulty', empty: 'New challenges are coming soon. Check back later!',
         needStars: 'You need {n} ★ to unlock this (you have {have}).', needAfter: 'Finish first: {name}',
       },
-      view: { overview: 'Overview – see the whole area' },
+      view: { overview: 'Overview – see the whole area', tilt: 'Tilted view (V)' },
+      tilt: { auto: 'Automatic', on: 'On', off: 'Off', help: 'See the boats at an angle, so you can watch them heel. Automatic: on for racing, free sailing and the RIB, off in the sailing school, the rules school, navigation and docking.' },
       pause: {
         title: 'Paused', quit: 'To the map',
         tip1: 'Remember: port gives way to starboard!', tip2: 'Can’t sail straight into the wind? Beat upwind!',
@@ -1452,7 +1474,7 @@
       crash: { title: 'Oops – one wave too many!', body: 'Something went wrong in this activity. Try another one while we fix it.' },
       settings: {
         title: 'Settings', lang: 'Language', audio: 'Sound', sound: 'Sound effects', music: 'Music', volume: 'Volume',
-        assist: 'Assist level', controls: 'Controls', reducedMotion: 'Reduce motion',
+        assist: 'Assist level', controls: 'Controls', reducedMotion: 'Reduce motion', tilt: 'Tilted view',
         coach: 'Coaches and parents', coachHelp: 'Grown-ups only: hold the button for 3 seconds to unlock everything (or lock again).',
         unlockAll: 'Unlock everything', hold: 'Hold for 3 seconds', holdHint: 'Hold the button down for 3 seconds.',
         unlockedAll: 'Everything unlocked!', lockedAll: 'Locked again – sail for those stars.',

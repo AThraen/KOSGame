@@ -872,6 +872,13 @@ test('AI: RIB motors to waypoints and keeps clear of sail', () => {
     let V = 0; for (let i = 0; i < 400; i++) V = TL.ease(V, 1, 1 / 60); ok(V === 1, 'reaches exactly 1');
     ok(TL.ease(0.3, 1, 0.016, true) === 1, 'snap flag');
   });
+  test('tilt: resolve table (setting x activity x perf level)', () => {
+    const R = TL.resolve, on = ['race.opti.1', 'sail.free.zest', 'sail.rings', 'rib.learn'], off = ['rowschool.r10', 'nav.buoys', 'dock.zest.jetty', 'school.steer', 'quiz.basics', 'knots.eight'];
+    for (const id of on) { ok(R('auto', id, 2) === true && R('auto', { mode: id.split('.')[0] }, 1) === true, 'auto on ' + id); ok(R('auto', id, 0) === false, 'auto level 0 off ' + id); }
+    for (const id of off) ok(R('auto', id, 2) === false, 'auto off ' + id);
+    for (const id of on.concat(off)) { ok(R('on', id, 0) === true && R('on', id, 2) === true, 'on ' + id); ok(R('off', id, 2) === false, 'off ' + id); }
+    ok(R('bogus', 'race.opti.1', 2) === false && R('auto', null, 2) === false, 'unknown setting / activity is off');
+  });
   test('tilt: makeTilt is null below PITCH_MIN and built at or above it', () => {
     const base = { cam: { x: 0, y: 0, zoom: 20, rot: 0 }, w: 390, h: 844 }, P0 = TL.basePitch(390, 844);
     ok(TL.makeTilt(Object.assign({ T: 0 }, base)) === null, 'T 0');

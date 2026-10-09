@@ -70,6 +70,7 @@
     this._tiltWant = TL && TL.force != null ? (TL.force ? 1 : 0) : opts.tilt ? 1 : 0;
     this._tiltT = this._tiltWant; this._tilt = null; this._tiltBuf = {};
     this.props = []; // depth-sorted extras from modes: { x, y, draw(ctx, scene, tilt) }; iterated only under tilt (§4.6)
+    this._tiltAuto = !!opts.tiltAuto; this._tiltDrop = false; this._reduced = !!(KOS.UI && KOS.UI.reduced && KOS.UI.reduced()); this._rot0 = opts.rot || 0; // auto-sourced tilt (perf drop rule, §7.2); cached reduced motion, refreshed on 'settings'
     this.kY = 1; this.viewItems = this.view; this.chase = !!(TL && TL.chase);
     if (opts.follow) this.follow(opts.follow);
     else if (this.venue && this.venue.spawn) { this.camera.x = this.venue.spawn.x; this.camera.y = this.venue.spawn.y; }
@@ -82,6 +83,7 @@
     const E = KOS.Events; if (!E || !E.on) return;
     const self = this, fx = () => self.effects;
     this._handlers = {
+      'settings': () => { self._reduced = !!(KOS.UI && KOS.UI.reduced && KOS.UI.reduced()); },
       'boat:ground': (e) => { if (!fx() || !e) return; const b = e.boat || e; fx().splash(e.x != null ? e.x : b.x, e.y != null ? e.y : b.y, clamp((e.speed || 1) / 2, 0.4, 1.5)); if (b && (b === self.target || b.isPlayer)) self.shake(clamp((e.speed || 1) / 2, 0.3, 1)); },
       'boat:collide': (e) => { if (!fx() || !e) return; fx().splash(e.x, e.y, clamp((e.speed || 1) / 2, 0.3, 1.2)); if (e.a === self.target || e.b === self.target) self.shake(0.6); },
       'boat:capsize': (e) => { const b = e && (e.boat || e); if (fx() && b) { fx().splash(b.x, b.y, 1.5); if (b === self.target) self.shake(0.8); } },
@@ -151,6 +153,10 @@
       else { const k = 1 - Math.exp(-dt * 3.2); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; }
     } else if (this._snap) { cam.zoom = zt; this._snap = false; }
     cam.zoom += (zt - cam.zoom) * (1 - Math.exp(-dt * 2));
+    if (this.chase) { // dev flag #chase=1 (§3.6): the camera turns with the target; off (rot back to start) when reduced motion or the tilt is off
+      if (!this._reduced && this._tiltT > 0 && tgt) cam.rot += KOS.U.angDiff(cam.rot, tgt.heading || 0) * (1 - Math.exp(-dt * 1.5));
+      else cam.rot = this._rot0;
+    }
     this._shake = Math.max(0, this._shake - dt * 1.8);
   };
   // frame the given world rect (e.g. a whole race course)
@@ -165,9 +171,15 @@
   };
   // per-frame tilt: ease T toward the target, then rebuild the projection cache (null below PITCH_MIN → flat path)
   S._updateTilt = function (dt) {
-    const want = SailScene.view.overview ? 0 : this._tiltWant; // the map button forces flat (§3.2)
-    if (this._tiltT !== want) this._tiltT = KOS.Tilt.ease(this._tiltT, want, dt, false);
-    const c = this.camera;
+    const TL = KOS.Tilt, V = SailScene.view, c = this.camera;
+    // _tiltWant precedence (§7.2): overview → 0; else the quick-toggle override; else the dev force or the resolved setting; then the auto perf-drop rule
+    let want = TL.force != null ? +!!TL.force : this.opts.tilt ? 1 : 0;
+    if (V.tilt != null) want = +!!V.tilt;
+    else if (this._tiltAuto && TL.force == null) { if (KOS.Perf && KOS.Perf.level === 0) this._tiltDrop = true; if (this._tiltDrop) want = 0; } // governor hit level 0: ease out, never back this run
+    if (V.overview) want = 0;
+    this._tiltWant = want;
+    if (this._tiltT !== want) this._tiltT = TL.ease(this._tiltT, want, dt, this._reduced); // reduced motion snaps
+    if (this.chase) this.biasY = this.target && !this.fixedZoom && !this._reduced ? this._tiltT * TL.zoomFade(c.zoom) * TL.BIAS * this.h : 0; // only with the chase cam (§3.3)
     this._tilt = this._tiltT ? KOS.Tilt.makeTilt({ T: this._tiltT, cam: c, w: this.w, h: this.h, biasY: this.biasY || 0, dpr: this.dpr, shx: this._shx, shy: this._shy, perf: KOS.Perf ? KOS.Perf.level : 2 }, this._tiltBuf) : null;
     c.pitch = this._tilt ? this._tilt.pitch : 0;
     this.kY = this._tilt ? this._tilt.k : 1;
@@ -206,7 +218,7 @@
     const t = this.t, ctx = this.ctx;
     if (this.canvas.clientWidth && (Math.round(this.canvas.clientWidth * this.dpr) !== this.canvas.width || Math.round(this.canvas.clientHeight * this.dpr) !== this.canvas.height || (KOS.Perf && KOS.Perf.level !== this._perfLvl))) this.resize();
     this.updateCamera(dt);
-    if (KOS.Tilt && (this._tiltT || this._tiltWant)) this._updateTilt(dt);
+    if (KOS.Tilt) this._updateTilt(dt);
     const fx = this.effects;
     if (fx) { fx.update(dt); for (const b of this.boats) if (b && !b.hidden) fx.trackBoat(b, dt); }
     this._soundHooks();
@@ -825,7 +837,7 @@
 
   // Viewer zoom shared by every sea mode: mul = pinch / wheel multiplier on the mode's own zoom (never further out than
   // the whole venue), overview = show the whole venue. Driven by the play screen (app.js).
-  SailScene.view = { mul: 1, overview: false };
+  SailScene.view = { mul: 1, overview: false, tilt: null }; // tilt: null = follow the setting, true/false = the quick toggle (V) for this run
   SailScene.current = null;
   KOS.SailScene = SailScene;
 })(typeof window !== 'undefined' ? window : globalThis);
