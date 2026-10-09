@@ -933,6 +933,8 @@
   // ================================================================== SETTINGS
   renderers.settings = function (sec) {
     const s = settings();
+    // lowFx is null = automatic; show what the hub will actually do
+    try { if (s.lowFx !== true && s.lowFx !== false) s.lowFx = !!(KOS.Hub && KOS.Hub.lite && KOS.Hub.lite.effective()); } catch (e) { s.lowFx = false; }
     const seg = (key, opts) => '<div class="seg" role="radiogroup">' + opts.map(o =>
       '<button type="button" role="radio" aria-checked="' + (s[key] === o.v) + '" class="' + (s[key] === o.v ? 'on' : '') + '" data-act="set" data-k="' + key + '" data-v="' + o.v + '">' +
       (o.icon ? ico(o.icon) : '') + '<span>' + esc(o.label) + '</span></button>').join('') + '</div>';
@@ -954,7 +956,7 @@
       '<section class="panel glass"><h2>' + ico('joystick') + esc(t('app.settings.controls')) + '</h2>' +
       seg('controls', [{ v: 'auto', label: t('app.controls.auto'), icon: 'sparkle' }, { v: 'buttons', label: t('app.controls.buttons'), icon: 'buttons' }, { v: 'joystick', label: t('app.controls.joystick'), icon: 'joystick' }]) +
       '<p class="set-help">' + esc(t('app.controls.help')) + '</p>' +
-      sw('reducedMotion', t('app.settings.reducedMotion'), 'motion') + '</section>' +
+      sw('reducedMotion', t('app.settings.reducedMotion'), 'motion') + sw('lowFx', t('app.settings.lowFx'), 'gauge') + '</section>' +
       '<section class="panel glass panel-coach"><h2>' + ico('whistle') + esc(t('app.settings.coach')) + '</h2>' +
       '<p class="set-help">' + esc(t('app.settings.coachHelp')) + '</p>' +
       '<div class="set-row"><span class="set-ico">' + ico(s.unlockAll ? 'unlock' : 'lock') + '</span><span class="set-label">' + esc(t('app.settings.unlockAll')) + '</span>' +
@@ -977,7 +979,9 @@
       },
       toggle: b => {
         const k = b.getAttribute('data-k');
-        const ns = save({ [k]: !settings()[k] });
+        let cur = !!settings()[k];
+        if (k === 'lowFx') { try { cur = !!KOS.Hub.lite.effective(); if (cur) KOS.Hub.lite.forget(); } catch (e) { /* ignore */ } } // automatic -> what it does now
+        const ns = save({ [k]: !cur });
         sfx('tap');
         b.classList.toggle('on', !!ns[k]);
         b.setAttribute('aria-checked', String(!!ns[k]));
@@ -1403,7 +1407,7 @@
       crash: { title: 'Ups – en bølge for meget!', body: 'Noget gik galt i denne aktivitet. Prøv en anden, mens vi retter det.' },
       settings: {
         title: 'Indstillinger', lang: 'Sprog', audio: 'Lyd', sound: 'Lydeffekter', music: 'Musik', volume: 'Lydstyrke',
-        assist: 'Hjælpeniveau', windUnit: 'Vindstyrke i', controls: 'Styring', reducedMotion: 'Færre animationer',
+        assist: 'Hjælpeniveau', windUnit: 'Vindstyrke i', controls: 'Styring', reducedMotion: 'Færre animationer', lowFx: 'Spar på telefonen (stille kort)',
         coach: 'Træner og forældre', coachHelp: 'Kun for voksne: hold knappen nede i 3 sekunder for at låse alt op (eller låse igen).',
         unlockAll: 'Lås alt op', hold: 'Hold i 3 sekunder', holdHint: 'Hold knappen nede i 3 sekunder.',
         unlockedAll: 'Alt er låst op!', lockedAll: 'Låst igen – sejl dig til stjernerne.',
@@ -1477,7 +1481,7 @@
       crash: { title: 'Oops – one wave too many!', body: 'Something went wrong in this activity. Try another one while we fix it.' },
       settings: {
         title: 'Settings', lang: 'Language', audio: 'Sound', sound: 'Sound effects', music: 'Music', volume: 'Volume',
-        assist: 'Assist level', windUnit: 'Wind speed in', controls: 'Controls', reducedMotion: 'Reduce motion',
+        assist: 'Assist level', windUnit: 'Wind speed in', controls: 'Controls', reducedMotion: 'Reduce motion', lowFx: 'Save battery (still map)',
         coach: 'Coaches and parents', coachHelp: 'Grown-ups only: hold the button for 3 seconds to unlock everything (or lock again).',
         unlockAll: 'Unlock everything', hold: 'Hold for 3 seconds', holdHint: 'Hold the button down for 3 seconds.',
         unlockedAll: 'Everything unlocked!', lockedAll: 'Locked again – sail for those stars.',

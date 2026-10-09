@@ -25,6 +25,8 @@
 .hub-viewport.is-dragging { cursor: grabbing; }
 .hub-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; --inv: 1; }
 .hub-stage.is-easing { transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
+.hub-base { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.hub-stage { background: #2f78c0; }
 .hub-map { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: hidden; }
 .hub-fx { pointer-events: none; }
 .hub-cloud { animation: hub-cloud 90s linear infinite alternate; }
@@ -35,19 +37,10 @@
 /* water life. Looping motion inside the map SVG is SMIL (see buildMap in hub.js): CSS transform/opacity/filter
    animations there each become a GPU layer and the map flashes black on phones when a drag starts/ends */
 .hub-sparkles path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; opacity: 0; }
-.hub-foam { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 8; stroke-linejoin: round; }
-.hub-foam2 { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 16; stroke-linejoin: round; stroke-dasharray: 10 14; }
-/* the marching foam repaints the entire map every frame: desktop only (phones flashed black after a zoom) */
+/* (the static map art rules - foam, lanes, zones, roads, rocks, piers - live in STATIC_CSS in hub.js, so the pre-rendered image has a hash that covers them)
+   the marching foam repaints the entire map every frame: desktop only (phones flashed black after a zoom) */
 @media (hover: hover) and (pointer: fine) { .hub-foam2 { animation: hub-foam 5s linear infinite; } }
 @keyframes hub-foam { to { stroke-dashoffset: -48; } }
-.hub-lane-chan { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 2; stroke-dasharray: 9 7; }
-.hub-lane-ferry { fill: none; stroke: rgba(238, 90, 170, .55); stroke-width: 2.4; stroke-dasharray: 2 6; stroke-linecap: round; }
-.hub-zone-swim { fill: rgba(255, 216, 74, .14); stroke: rgba(255, 216, 74, .85); stroke-width: 1.6; stroke-dasharray: 5 4; }
-.hub-zone-course { fill: rgba(255, 200, 69, .06); stroke: rgba(255, 220, 140, .5); stroke-width: 2; stroke-dasharray: 10 8; }
-.hub-road { fill: none; stroke: rgba(255, 255, 255, .45); stroke-width: 3; stroke-linecap: round; }
-.hub-rock { fill: #8f897c; stroke: #59544a; stroke-width: 1.2; stroke-dasharray: 2.5 1.5; }
-.hub-pier { fill: #c79a62; stroke: #6b4a28; stroke-width: .8; }
-.hub-pontoon { fill: #e8ebef; stroke: #6c7686; stroke-width: .8; }
 .hub-smoke circle { fill: rgba(255, 255, 255, .5); }
 .hub-labels { position: absolute; inset: 0; pointer-events: none; }
 .hub-label { position: absolute; white-space: nowrap; line-height: 1; transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(var(--inv)); letter-spacing: .02em; }
@@ -216,6 +209,7 @@
 }
 /* slow devices (see KOS.Hub mount): the map stops moving, the place pins keep their bounce */
 .hub-lite svg.hub-map * { animation: none !important; }
+.hub-lite .hub-fx { display: none; }
 /* the painted menu background is fully covered by the harbour map: don't keep animating it underneath */
 body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
 
@@ -250,3 +244,5 @@ body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
 /* while dragging/pinching, freeze every map animation (see freeze() in hub.js: SMIL is paused there) so the moving
    layer is not repainted */
 .hub-viewport.is-dragging, .hub-viewport.is-dragging * { animation-play-state: paused !important; }
+/* slow devices: only the pins that matter (next challenge, first-run start) keep moving */
+.hub-lite .hub-pin:not(.is-next):not(.is-start) .hub-pin-ring, .hub-lite .hub-pin:not(.is-next) .hub-pin-badge { animation: none; }

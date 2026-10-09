@@ -234,20 +234,41 @@
   // Map animations are SMIL, not CSS: Chrome promotes every CSS transform/opacity/filter animation inside the SVG to its
   // own GPU layer and splits the map around each one (~160 layers, ~20M px), which phones can't hold in tile memory -
   // the map flashed black whenever a drag started or ended. SMIL repaints in place, and pauseAnimations() freezes it.
+  // style of the static art, embedded in the static svg so its hash (tools/render-hub.js) covers it
+  const STATIC_CSS =
+  ".hub-foam { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 8; stroke-linejoin: round; }" +
+  ".hub-foam2 { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 16; stroke-linejoin: round; stroke-dasharray: 10 14; }" +
+  ".hub-lane-chan { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 2; stroke-dasharray: 9 7; }" +
+  ".hub-lane-ferry { fill: none; stroke: rgba(238, 90, 170, .55); stroke-width: 2.4; stroke-dasharray: 2 6; stroke-linecap: round; }" +
+  ".hub-zone-swim { fill: rgba(255, 216, 74, .14); stroke: rgba(255, 216, 74, .85); stroke-width: 1.6; stroke-dasharray: 5 4; }" +
+  ".hub-zone-course { fill: rgba(255, 200, 69, .06); stroke: rgba(255, 220, 140, .5); stroke-width: 2; stroke-dasharray: 10 8; }" +
+  ".hub-road { fill: none; stroke: rgba(255, 255, 255, .45); stroke-width: 3; stroke-linecap: round; }" +
+  ".hub-rock { fill: #8f897c; stroke: #59544a; stroke-width: 1.2; stroke-dasharray: 2.5 1.5; }" +
+  ".hub-pier { fill: #c79a62; stroke: #6b4a28; stroke-width: .8; }" +
+  ".hub-pontoon { fill: #e8ebef; stroke: #6c7686; stroke-width: .8; }";
   const EASE = '.42 0 .58 1';
+  // iPhone/iPad (and Safari on Mac): WebKit rasterises and composites the animated map far slower than Chromium (15-20 s to
+  // show the old full-SVG hub on a current iPhone), so there the live layer only gets the boats' motion - no wobble, gull
+  // flap, smoke or blinking lights. Elsewhere those stay.
+  const IOS = (() => { try { const n = root.navigator; return /iPhone|iPad|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1) || 'GestureEvent' in root; } catch (e) { return false; } })();
+  const RICH = !IOS;
   // mouse/trackpad = desktop-class GPU: whole-map effects (wave drift, marching coast foam) run there, not on phones
   const FINE_POINTER = (() => { try { return root.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return false; } })();
-  const BOB = `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="2.6s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
-  const FLAP = `<animate attributeName="d" values="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0;M-7 1.2Q-3.5 -.4 0 1.2Q3.5 -.4 7 1.2;M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" dur="1s" begin="0s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  const BOB = !RICH ? '' : `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="2.6s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  const FLAP = !RICH ? '' : `<animate attributeName="d" values="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0;M-7 1.2Q-3.5 -.4 0 1.2Q3.5 -.4 7 1.2;M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" dur="1s" begin="0s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
   const GLOW = `dur="3s" repeatCount="indefinite" keyTimes="0;.7;.8;1" calcMode="spline" keySplines="${EASE};${EASE};${EASE}"`;
-  const flash = (t) => `<animate attributeName="filter" values="none;url(#hubFlash);none" keyTimes="0;.9;.94" calcMode="discrete" dur="3s" begin="${t}s" repeatCount="indefinite"/>`;
-  function buildMap() {
+  const flashDot = (q, t) => `<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="4.5" fill="#fff" opacity="0" pointer-events="none"><animate attributeName="opacity" values="0;.8;0" keyTimes="0;.9;.94" calcMode="discrete" dur="3s" begin="${t}s" repeatCount="indefinite"/></circle>`;
+  function buildMap(mode) {
+    mode = mode || 'full'; // 'static' = the pre-rendered base art, 'live' = the moving/interactive overlay, 'full' = both in one svg (#hubsvg=1)
+    const S = mode !== 'live', L = mode !== 'static', FULL = mode === 'full';
     const W = KOS.World, G = W.global;
     PROJ = PROJ || makeProj();
     const P = PROJ;
     const out = [];
-    const push = (s) => out.push(s);
-    push(`<svg class="hub-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${P.W} ${P.H}" width="${P.W}" height="${P.H}" preserveAspectRatio="none">`);
+    let on = true; // sections below switch this so one pass builds either layer
+    const push = (s) => { if (on) out.push(s); };
+    push(`<svg class="hub-map${mode === 'live' ? ' hub-live' : ''}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${P.W} ${P.H}" width="${P.W}" height="${P.H}" preserveAspectRatio="none">`);
+    if (S) push('<style>' + STATIC_CSS + '</style>');
     push(`<defs>
       <linearGradient id="hubSea" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3d8fd0"/><stop offset="1" stop-color="#1b3f80"/></linearGradient>
       <linearGradient id="hubLand" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#f6ecc4"/><stop offset="1" stop-color="#e9d9a2"/></linearGradient>
@@ -255,8 +276,7 @@
       <radialGradient id="hubCloud"><stop offset="0" stop-color="#0b1a3a" stop-opacity=".22"/><stop offset="1" stop-color="#0b1a3a" stop-opacity="0"/></radialGradient>
       <radialGradient id="hubGlow"><stop offset="0" stop-color="#fff6c8" stop-opacity=".95"/><stop offset=".4" stop-color="#ffe680" stop-opacity=".45"/><stop offset="1" stop-color="#ffe680" stop-opacity="0"/></radialGradient>
       <radialGradient id="hubSun" cx=".85" cy=".1" r=".9"><stop offset="0" stop-color="#ffd59a" stop-opacity=".35"/><stop offset=".5" stop-color="#ffb07a" stop-opacity=".08"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
-      <filter id="hubSoft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="9"/></filter>
-      <filter id="hubShadow" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0a2550" flood-opacity=".38"/></filter>
+      ${S ? '<filter id="hubSoft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="9"/></filter><filter id="hubShadow" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0a2550" flood-opacity=".38"/></filter>' : ''}
       <pattern id="hubWaves" width="130" height="90" patternUnits="userSpaceOnUse">
         <path d="M6 14q7-6 14 0t14 0" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="2" stroke-linecap="round"/>
         <path d="M80 62q6-5 12 0t12 0" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="1.8" stroke-linecap="round"/>
@@ -294,7 +314,6 @@
         <rect x="-30" y="-5" width="10" height="10" fill="#e8b84a"/><rect x="-18" y="-5" width="10" height="10" fill="#4a8be8"/><rect x="-6" y="-5" width="10" height="10" fill="#4ae8a0"/><rect x="6" y="-5" width="10" height="10" fill="#e8e8e8"/>
         <rect x="-37" y="-4" width="6" height="8" rx="1" fill="#f6f6f6"/>
       </symbol>
-      <filter id="hubFlash" x="-150%" y="-150%" width="400%" height="400%"><feComponentTransfer><feFuncR type="linear" slope="1.8"/><feFuncG type="linear" slope="1.8"/><feFuncB type="linear" slope="1.8"/></feComponentTransfer><feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#fff"/></filter>
       <symbol id="hubGull" viewBox="-8 -5 16 10" overflow="visible">
         <path d="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${FLAP}</path>
       </symbol>
@@ -302,6 +321,7 @@
         <path d="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${FLAP.replace('begin="0s"', 'begin="-.25s"')}</path>
       </symbol>
     </defs>`);
+    on = S;
     push(`<rect width="${P.W}" height="${P.H}" fill="url(#hubSea)"/>`);
     // depth (soft painterly gradient)
     push('<g filter="url(#hubSoft)">');
@@ -309,8 +329,8 @@
     push('</g>');
     // wave pattern, drifting on desktop only: anything that moves over the whole sea repaints the whole map every
     // frame, and after a zoom a phone can't re-raster that fast enough (the bottom of the screen flashed black)
-    push(`<g class="hub-waves"><rect x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/>${FINE_POINTER ? '<animateTransform attributeName="transform" type="translate" from="0 0" to="130 90" dur="14s" repeatCount="indefinite"/>' : ''}</g>`);
-    // sparkles
+    push(`<g class="hub-waves"><rect x="-90" y="-56" width="${P.W + 180}" height="${P.H + 112}" fill="url(#hubWaves)"/>${FULL && FINE_POINTER ? '<animateTransform attributeName="transform" type="translate" from="0 0" to="130 90" dur="14s" repeatCount="indefinite"/>' : ''}</g>`);
+    on = FULL; // sparkles: 92 SMIL animations, only in the dev svg
     {
       let s = 7;
       const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -324,6 +344,7 @@
       }
       push('</g>');
     }
+    on = S;
     // lanes & zones
     for (const l of G.lanes) {
       const d = pathOf(l.points, false, 50);
@@ -332,7 +353,7 @@
     }
     for (const z of G.zones) {
       if (z.kind === 'swim') push(`<path d="${pathOf(z.poly, true, 30)}" class="hub-zone-swim"/>`);
-      if (z.kind === 'course') { const q = P.p(z.x, z.y), c = `${f1(q[0])} ${f1(q[1])}`; push(`<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="${f1(z.r * P.local(z.x, z.y))}" class="hub-zone-course"><animateTransform attributeName="transform" type="rotate" from="0 ${c}" to="360 ${c}" dur="60s" repeatCount="indefinite"/></circle>`); }
+      if (z.kind === 'course') { const q = P.p(z.x, z.y), c = `${f1(q[0])} ${f1(q[1])}`; push(`<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="${f1(z.r * P.local(z.x, z.y))}" class="hub-zone-course">${FULL ? `<animateTransform attributeName="transform" type="rotate" from="0 ${c}" to="360 ${c}" dur="60s" repeatCount="indefinite"/>` : ''}</circle>`); }
     }
     // land: foam line, shadowed fill
     const coastD = pathOf(G.coast, true, 30);
@@ -398,10 +419,10 @@
           (l.kind === 'tower' ? `<path d="M${f1(-w / 2 + 2)} ${f1(-h / 2 - tall + 3)}h${f1(w - 4)}" stroke="#fff" stroke-opacity=".5" stroke-width="1"/>` : '') +
           (l.kind === 'powerstation' ? `<rect x="${f1(w / 2 - 6)}" y="${f1(-h / 2 - tall - 22)}" width="4.5" height="24" fill="#a9452f"/>` : '') +
           '</g>');
-        if (l.kind === 'powerstation') push(`<g class="hub-smoke" transform="translate(${f1(q[0] + w / 2 - 4)} ${f1(q[1] - h / 2 - tall - 24)})">${[[4, 0, 0, 0], [5, 4, -6, -1.6], [6, 9, -13, -3.2]].map(([r, x, y, t]) => {
+        if (l.kind === 'powerstation' && RICH) { on = L; push(`<g class="hub-smoke" transform="translate(${f1(q[0] + w / 2 - 4)} ${f1(q[1] - h / 2 - tall - 24)})">${[[4, 0, 0, 0], [5, 4, -6, -1.6], [6, 9, -13, -3.2]].map(([r, x, y, t]) => {
           const b = `dur="5s" begin="${t}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 .58 1"`;
           return `<circle r="${r}" cx="${x}" cy="${y}"><animate attributeName="r" values="${r * 0.6};${r * 1.6}" ${b}/><animate attributeName="cx" values="${x};${x + 14}" ${b}/><animate attributeName="cy" values="${y};${y - 18}" ${b}/><animate attributeName="opacity" values=".7;0" ${b}/></circle>`;
-        }).join('')}</g>`);
+        }).join('')}</g>`); on = S; }
       } else if (l.kind === 'boatpark') {
         push(`<g transform="translate(${f1(q[0])} ${f1(q[1])}) rotate(${l.rot || 0})">` + [0, 1, 2, 3].map(i => `<path d="M${-8 + i * 5} -5l2 0 0 10 -2 0z" fill="${['#fff', '#ff8a3d', '#fff', '#ffd84a'][i]}" stroke="#24364f" stroke-width=".4"/>`).join('') + '</g>');
       } else if (l.kind === 'crane') {
@@ -433,11 +454,13 @@
     for (const b of G.buoys) {
       const q = P.p(b.x, b.y);
       const lit = b.light ? ' hub-buoy-lit' : '';
-      push(`<g class="hub-buoy${lit}" transform="translate(${f1(q[0])} ${f1(q[1])})">${b.light ? flash(((b.x * 7 + b.y * 3) % 3000 / 1000).toFixed(2)) : ''}<circle r="4.4" fill="#06264d" opacity=".25" cy="1.4"/><circle r="3.4" fill="${BUOY_COL[b.kind] || '#f80'}" stroke="#16243a" stroke-width="1"/>${b.kind.startsWith('card') ? '<path d="M-3.4 0h6.8" stroke="#16243a" stroke-width="1.6"/>' : ''}</g>`);
+      push(`<g class="hub-buoy${lit}" transform="translate(${f1(q[0])} ${f1(q[1])})"><circle r="4.4" fill="#06264d" opacity=".25" cy="1.4"/><circle r="3.4" fill="${BUOY_COL[b.kind] || '#f80'}" stroke="#16243a" stroke-width="1"/>${b.kind.startsWith('card') ? '<path d="M-3.4 0h6.8" stroke="#16243a" stroke-width="1.6"/>' : ''}</g>`);
+      if (b.light && RICH) { on = L; push(flashDot(q, ((b.x * 7 + b.y * 3) % 3000 / 1000).toFixed(2))); on = S; }
     }
     for (const l of G.lights) {
       const q = P.p(l.x, l.y);
-      push(`<g transform="translate(${f1(q[0])} ${f1(q[1])})"><circle class="hub-lightglow" r="16" fill="url(#hubGlow)"><animate attributeName="opacity" values=".15;.15;1;.15" ${GLOW}/><animateTransform attributeName="transform" type="scale" values=".6;.6;1.2;.6" ${GLOW}/></circle><circle r="3" fill="#fff" stroke="#333" stroke-width="1"/></g>`);
+      if (RICH) { on = L; push(`<g transform="translate(${f1(q[0])} ${f1(q[1])})"><circle r="16" fill="url(#hubGlow)" opacity=".15"><animate attributeName="opacity" values=".15;.15;1;.15" ${GLOW}/></circle></g>`); on = S; }
+      push(`<g transform="translate(${f1(q[0])} ${f1(q[1])})"><circle class="hub-lightglow" r="16" fill="url(#hubGlow)" opacity=".2"/><circle r="3" fill="#fff" stroke="#333" stroke-width="1"/></g>`);
     }
     // race marks on the course
     {
@@ -445,10 +468,11 @@
       if (c) {
         const top = P.p(c.x, c.y - 420), bot = P.p(c.x - 40, c.y + 380), bot2 = P.p(c.x + 40, c.y + 380);
         push(`<path d="M${f1(bot[0])} ${f1(bot[1])}L${f1(bot2[0])} ${f1(bot2[1])}" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 3"/>`);
-        for (const m of [top, bot, bot2]) push(`<g class="hub-buoy hub-buoy-lit" transform="translate(${f1(m[0])} ${f1(m[1])})">${flash(0)}<circle r="5" fill="#06264d" opacity=".25" cy="1.5"/><path d="M-4 2.5L0 -5.5L4 2.5Z" fill="#ff7a1f" stroke="#3a1a08" stroke-width="1"/></g>`);
+        for (const m of [top, bot, bot2]) { if (RICH) { on = L; push(flashDot(m, 0)); on = S; } push(`<g class="hub-buoy hub-buoy-lit" transform="translate(${f1(m[0])} ${f1(m[1])})"><circle r="5" fill="#06264d" opacity=".25" cy="1.5"/><path d="M-4 2.5L0 -5.5L4 2.5Z" fill="#ff7a1f" stroke="#3a1a08" stroke-width="1"/></g>`); }
       }
     }
     // moving boats
+    on = L;
     push('<g class="hub-boats">');
     const boat = (sym, pathPts, dur, opts) => {
       opts = opts || {};
@@ -484,8 +508,10 @@
       push(`<g class="hub-gull hub-gull-b" data-kind="gull"><use href="#hubGullB" x="-10" y="-6" width="20" height="12"/><animateMotion dur="${34 + i * 9}s" begin="${-i * 7 - 1.4}s" repeatCount="indefinite" rotate="auto" path="${smoothPath(pts, true)}"/></g>`);
     });
     push('</g>');
+    on = S;
     // warm sunset glow
     push(`<rect width="${P.W}" height="${P.H}" fill="url(#hubSun)" pointer-events="none"/>`);
+    on = L;
     // leader lines + anchor rings for pins (filled per pin)
     push('<g class="hub-anchors">');
     for (const a of AREAS) {
@@ -512,9 +538,25 @@
   }
   const chanX = (y) => (KOS.World && KOS.World.chanX ? KOS.World.chanX(y) : 610 - 0.36 * y);
 
+  // ------------------------------------------------------------------ lite mode (map stands still, base image only)
+  // lowFx setting: null = automatic, true/false = the player's choice (settings screen). Automatic = reduced motion, a
+  // remembered slow run (kos.hubLite, valid 30 days), a weak-looking device, or the game's frame governor already down.
+  const LITE_KEY = 'hubLite', LITE_TTL = 30 * 864e5;
+  const lite = {
+    setting() { try { const v = KOS.Storage.settings().lowFx; return v === true || v === false ? v : null; } catch (e) { return null; } },
+    reduced() { try { return !!((KOS.Storage && KOS.Storage.settings().reducedMotion) || root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } },
+    stored() { try { const v = KOS.Storage.get(LITE_KEY, null); return !!(v && v.on && Date.now() - v.at < LITE_TTL); } catch (e) { return false; } },
+    weak() { try { const n = root.navigator; return (n.hardwareConcurrency > 0 && n.hardwareConcurrency <= 2) || (n.deviceMemory > 0 && n.deviceMemory <= 2) || !!(KOS.Perf && KOS.Perf.level < 2); } catch (e) { return false; } },
+    effective() { const m = lite.setting(); if (m !== null) return m; return lite.reduced() || lite.stored() || lite.weak(); },
+    remember(why) { try { if (lite.setting() !== false) KOS.Storage.set(LITE_KEY, { on: true, at: Date.now(), why }); } catch (e) { /* ignore */ } },
+    forget() { try { KOS.Storage.remove(LITE_KEY); } catch (e) { /* ignore */ } },
+  };
+
   // ------------------------------------------------------------------ DOM / state
   let state = null;
+  const BASE = 'assets/hub/hub-map'; // pre-rendered static map: tools/render-hub.js
   let mapCache = null, cloudsCache = null;
+  const baseHtml = (small) => `<picture><source type="image/webp" srcset="${BASE}-1x.webp 1x${small ? '' : ', ' + BASE + '-2x.webp 2x'}"><img class="hub-base" alt="" width="${PROJ.W}" height="${PROJ.H}" decoding="async" draggable="false" src="${BASE}-1x.jpg"></picture>`;
 
   function pinHtml(a) {
     return `<button class="hub-pin" type="button" data-area="${a.id}" style="--c:${a.color}">
@@ -558,10 +600,15 @@
     if (state && state.host === sectionEl && sectionEl.contains(state.root)) { refresh(); state.paused = false; return; }
     if (state) unmount();
     if (!KOS.World) { sectionEl.textContent = 'KOS.World missing'; return; }
-    if (!mapCache) { mapCache = buildMap(); cloudsCache = buildClouds(); }
+    const mountT0 = performance.now();
+    const dev = /hubsvg=1/.test((root.location && root.location.hash) || ''); // dev: rebuild the full vector map instead of the image
+    const isLite = lite.effective();
+    if (!mapCache) mapCache = buildMap(dev ? 'full' : 'live');
+    if (!RICH || dev) cloudsCache = '';
+    else if (!isLite && cloudsCache === null) cloudsCache = buildClouds();
     const rootEl = document.createElement('div');
-    rootEl.className = 'hub';
-    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${mapCache}<div class="hub-labels">${labelsHtml()}</div>${cloudsCache}<div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
+    rootEl.className = 'hub' + (isLite ? ' hub-lite' : '');
+    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${dev ? '' : baseHtml(isLite)}${mapCache}<div class="hub-labels">${labelsHtml()}</div>${cloudsCache || ''}<div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
       ${topHtml()}
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
@@ -580,38 +627,73 @@
       el.style.left = ((q[0] + a.off[0]) / PROJ.W * 100).toFixed(3) + '%';
       el.style.top = ((q[1] + a.off[1]) / PROJ.H * 100).toFixed(3) + '%';
     }
-    const reduce = (() => { try { return (KOS.Storage && KOS.Storage.settings().reducedMotion) || root.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
-    if (reduce) { rootEl.classList.add('hub-reduced'); try { rootEl.querySelector('svg.hub-map').pauseAnimations(); } catch (e) { /* ignore */ } }
+    const reduce = lite.reduced();
+    const mapSvg = () => rootEl.querySelector('svg.hub-map');
+    const stopMap = () => { try { const m = mapSvg(); m && m.pauseAnimations(); } catch (e) { /* ignore */ } };
+    const goLite = (why, remember) => {
+      if (!state || state.root !== rootEl || rootEl.classList.contains('hub-lite')) return;
+      rootEl.classList.add('hub-lite'); stopMap();
+      state.liteWhy = why;
+      if (remember) lite.remember(why);
+    };
+    state.goLite = goLite;
+    if (reduce) { rootEl.classList.add('hub-reduced'); stopMap(); }
+    // the base image failed to load (offline cache miss, old file): fall back to the full vector map
+    const baseImg = rootEl.querySelector('.hub-base');
+    if (baseImg) baseImg.addEventListener('error', () => {
+      if (!state || state.root !== rootEl) return;
+      const m = mapSvg(); if (!m) return;
+      const t = document.createElement('div'); t.innerHTML = buildMap('full'); m.replaceWith(t.firstChild);
+      if (rootEl.classList.contains('hub-lite') || reduce) stopMap();
+    });
+    // SMIL parked until the first frames have been painted, and while the page is hidden
+    if (reduce || isLite) stopMap();
     else {
-      // slow device: the living map (sailing boats, ferry, gulls, clouds) costs frames; if the first seconds run well
-      // under 60 fps (or the game already dropped its quality level), freeze the map animations, keep the pins alive
-      const lite = () => { if (!state || state.root !== rootEl) return; rootEl.classList.add('hub-lite'); try { rootEl.querySelector('svg.hub-map').pauseAnimations(); } catch (e) { /* ignore */ } };
-      if (KOS.Perf && KOS.Perf.level < 2) lite();
-      else {
-        let n = 0, t0 = 0, raf = 0;
-        const tick = (now) => {
-          if (!state || state.root !== rootEl) return;
-          if (!t0) t0 = now;
-          n++;
-          if (now - t0 < 2500) { raf = requestAnimationFrame(tick); return; }
-          const avg = (now - t0) / Math.max(1, n - 1);
-          if (avg > 24) { lite(); if (KOS.Perf) { KOS.Perf.level = Math.min(KOS.Perf.level, 1); KOS.Perf.max = KOS.Perf.level; } }
-        };
-        setTimeout(() => { raf = requestAnimationFrame(tick); }, 600); // skip the mount/entry animation
-        state.listeners.push(() => cancelAnimationFrame(raf));
-      }
-    }
-
-    if (!reduce) {
-      // the 180 SMIL animations stay parked until the map has had its first frames: they invalidate the map every
-      // frame, which competes with the first layout/raster of the 3500-node SVG
-      const svgEl = rootEl.querySelector('svg.hub-map');
-      try { svgEl.pauseAnimations(); } catch (e) { /* ignore */ }
+      stopMap();
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (!state || state.root !== rootEl || rootEl.classList.contains('hub-lite') || rootEl.classList.contains('is-dragging')) return;
-        try { svgEl.unpauseAnimations(); } catch (e) { /* ignore */ }
+        if (!state || state.root !== rootEl || rootEl.classList.contains('hub-lite') || rootEl.classList.contains('is-dragging') || document.hidden) return;
+        try { mapSvg().unpauseAnimations(); } catch (e) { /* ignore */ }
       }));
     }
+    {
+      const onVis = () => {
+        if (!state || state.root !== rootEl || rootEl.classList.contains('hub-lite') || rootEl.classList.contains('hub-reduced')) return;
+        try { if (document.hidden) mapSvg().pauseAnimations(); else if (!rootEl.querySelector('.is-dragging')) mapSvg().unpauseAnimations(); } catch (e) { /* ignore */ }
+      };
+      document.addEventListener('visibilitychange', onVis);
+      state.listeners.push(() => document.removeEventListener('visibilitychange', onVis));
+    }
+    // slow-device safety net: time the first painted frame and the frames of the first ~2 s. Too slow (first frame >
+    // 1.5 s, median frame > 50 ms) -> lite mode now and remembered for the next visits; merely sluggish (mean > 24 ms)
+    // -> lite for this visit only. Works off rAF timestamps, so tests can stub them.
+    const probe = () => {
+      if (reduce || !state || state.root !== rootEl) return;
+      const jsMs = performance.now() - mountT0;
+      let a = 0, last = 0, raf = 0; const ds = [];
+      const stop = () => cancelAnimationFrame(raf);
+      const onHide = () => { if (document.hidden) { stop(); document.removeEventListener('visibilitychange', onHide); } };
+      document.addEventListener('visibilitychange', onHide);
+      state.listeners.push(() => { stop(); document.removeEventListener('visibilitychange', onHide); });
+      const tick = (now) => {
+        if (!state || state.root !== rootEl || document.hidden) return;
+        if (!a) { a = last = now; raf = requestAnimationFrame(tick); return; }
+        const d = now - last; last = now;
+        if (!ds.length) {
+          state.firstFrameMs = Math.round(jsMs + d);
+          if (state.firstFrameMs > 1500) { goLite('first-frame', true); return; }
+        }
+        ds.push(d);
+        if (now - a < 2200 && ds.length < 40) { raf = requestAnimationFrame(tick); return; }
+        const rest = ds.slice(1).sort((x, y) => x - y);
+        if (!rest.length) return;
+        const med = rest[rest.length >> 1], avg = rest.reduce((x, y) => x + y, 0) / rest.length;
+        state.medianMs = Math.round(med);
+        if (med > 50) goLite('frames', true);
+        else if (avg > 24 && !rootEl.classList.contains('hub-lite')) { goLite('frames-soft', false); if (KOS.Perf) { KOS.Perf.level = Math.min(KOS.Perf.level, 1); KOS.Perf.max = KOS.Perf.level; } }
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    state.probe = probe;
     bindInput();
     rootEl.addEventListener('click', onClick);
     const on = (ev, fn) => { if (KOS.Events && KOS.Events.on) { KOS.Events.on(ev, fn); state.unsub.push(() => KOS.Events.off && KOS.Events.off(ev, fn)); } };
@@ -626,7 +708,16 @@
     const ht = setTimeout(hideHint, 7000);
     vp.addEventListener('pointerdown', hideHint, { once: true });
     state.listeners.push(() => clearTimeout(ht));
-    requestAnimationFrame(() => rootEl.classList.add('hub-in'));
+    {
+      let shown = false;
+      const show = () => {
+        if (shown) return; shown = true;
+        requestAnimationFrame(() => { if (state && state.root === rootEl) { rootEl.classList.add('hub-in'); probe(); } });
+      };
+      const bi = rootEl.querySelector('.hub-base');
+      if (bi && bi.decode) { bi.decode().then(show, show); const t = setTimeout(show, 1500); state.listeners.push(() => clearTimeout(t)); }
+      else show();
+    }
   }
 
   function unmount() {
@@ -833,10 +924,10 @@
     // While a finger moves the map, freeze every animation inside the big map SVG (CSS + SMIL boats/gulls): each
     // animation frame forces the phone to re-rasterise the whole map layer while it is being dragged, which shows
     // as flashing on Android. They resume when the finger lifts.
-    const svg = s.root.querySelector('svg.hub-map');
     const frozenByUs = () => s.root.classList.contains('hub-reduced') || s.root.classList.contains('hub-lite');
     const freeze = on => {
       vp.classList.toggle('is-dragging', on);
+      const svg = s.root.querySelector('svg.hub-map');
       if (svg && !frozenByUs()) { try { if (on) svg.pauseAnimations(); else svg.unpauseAnimations(); } catch (e) { /* ignore */ } }
     };
     const local = (e) => { const r = vp.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
@@ -995,6 +1086,10 @@
     isAreaUnlocked, areaLockStars,
     iconSvg: icon,
     get mounted() { return !!state; },
+    lite,
+    get liteNow() { return !!(state && state.root.classList.contains('hub-lite')); },
+    get probeInfo() { return state ? { firstFrameMs: state.firstFrameMs, medianMs: state.medianMs, why: state.liteWhy } : null; },
+    staticSvg: () => buildMap('static'),
     _project: (x, y) => { PROJ = PROJ || makeProj(); return PROJ.p(x, y); },
   };
 })(typeof window !== 'undefined' ? window : globalThis);
