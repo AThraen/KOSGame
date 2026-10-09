@@ -1,0 +1,44 @@
+/* css/modes/soslag.css — Søslag i bugten (js/modes/soslag.js). Scoped to .soslag-* classes; cards reuse race.css (.race-card, .race-intro-card). */
+
+/* ---- opponent panel: top-right on desktop, under the HUD on phones */
+.soslag-panel {
+  position: absolute; z-index: 21; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t) + 12px);
+  width: 196px; padding: 9px 12px; border-radius: 16px; color: #fff; pointer-events: none;
+  background: rgba(13, 19, 33, .7); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.28);
+}
+.sp-head { display: flex; align-items: center; gap: 6px; font-size: .68rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; color: var(--primary, #ffb547); }
+.sp-head .ico { width: 16px; height: 16px; flex: none; }
+.sp-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.sp-row b { font-size: 1.25rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sp-row em { font-style: normal; font-size: .74rem; font-weight: 900; padding: 1px 8px; border-radius: 8px; background: rgba(255,255,255,.1); }
+.sp-row em.luv { background: rgba(255,154,61,.25); color: #ffb38a; } /* he is windward of you */
+.sp-row em.lae { background: rgba(62,224,143,.22); color: #7dffb5; } /* you are windward of him */
+.sp-out { margin-top: 6px; font-size: .74rem; font-weight: 900; color: #ffb38a; }
+.has-intro-card .soslag-panel { opacity: .15; pointer-events: none; transition: opacity .25s; }
+
+/* ---- intro card lines */
+.soslag-lines { margin: 4px 0 8px; padding-left: 1.15em; text-align: left; font-weight: 700; line-height: 1.35; }
+.soslag-lines li { margin: 3px 0; }
+.soslag-trainer { margin-bottom: 2px; }
+
+/* ---- 3-2-1 countdown */
+.soslag-count {
+  position: absolute; z-index: 22; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.6); pointer-events: none; opacity: 0;
+  font-size: 5.5rem; font-weight: 900; color: #fff; text-shadow: 0 4px 18px rgba(0,0,0,.55); transition: opacity .2s, transform .35s var(--ease-pop, ease-out);
+}
+.soslag-count.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.soslag-count.go { color: #7dffb5; font-size: 3.6rem; }
+
+@media (max-width: 560px) {
+  .soslag-panel { top: calc(var(--safe-t) + 128px); right: calc(var(--safe-r, 0px) + 8px); width: 128px; padding: 6px 9px; border-radius: 14px; }
+  .sp-row b { font-size: 1rem; }
+  .soslag-count { font-size: 4rem; } .soslag-count.go { font-size: 2.6rem; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .soslag-panel { top: calc(var(--safe-t) + 8px); width: 140px; padding: 5px 9px; }
+  .soslag-count { font-size: 3.6rem; top: 42%; } .soslag-count.go { font-size: 2.4rem; }
+  .race-layer .race-card, .soslag-layer .race-card { top: calc(var(--safe-t) + 64px); }
+}
+@media (prefers-reduced-motion: reduce) { .soslag-count { transition: none; } }

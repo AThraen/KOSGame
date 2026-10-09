@@ -101,6 +101,7 @@
     motion: '<path d="M4 12h3l2-5 3 10 2-6 1.5 1H20"/>',
     calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>',
+    drop: '<path d="M12 3.2c3.4 4.3 6 7.4 6 10.6a6 6 0 0 1-12 0c0-3.2 2.6-6.3 6-10.6z"/><path d="M9.2 14.2a3 3 0 0 0 2.4 2.6"/>',
   };
   function iconSvg(name, cls) {
     const body = ICONS[name] || ICONS.sail;

@@ -5,6 +5,7 @@
 //     WxH     viewport, default 1440x900 (sizes under 900 wide or 500 high get touch + mobile emulation)
 //     waitMs  total time before the screenshot, default 5000 (keys are spread over it)
 //     keys    comma list of Key:holdMs, e.g. "ArrowLeft:600,Space:400,ArrowUp:300"
+//     SHOT_CLICK_GO=1 (env) clicks the intro card's .sc-go once after the start
 //     out     default shot-play-<id>-<WxH>.png (shot*.png is gitignored scratch)
 // Examples:
 //   node tools/playshot.js sail.rings 390x844 7000 "ArrowRight:500"
@@ -37,6 +38,7 @@ const url = require('url');
     const ok = await page.evaluate(id => KOS.App.play(id, { force: true }), id);
     if (!ok) { console.log('could not start ' + id); await browser.close(); process.exit(1); }
   }
+  if (process.env.SHOT_CLICK_GO) { try { await page.click('.sc-go', { timeout: 4000 }); } catch (e) { logs.push('warning no .sc-go to click'); } } // SHOT_CLICK_GO=1: dismiss the intro card
   const steps = keys ? keys.split(',') : [];
   const per = +wait / (steps.length + 1);
   await page.waitForTimeout(per);
