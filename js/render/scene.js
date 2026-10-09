@@ -107,9 +107,10 @@
     let w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) { w = (typeof window !== 'undefined' && window.innerWidth) || 800; h = (typeof window !== 'undefined' && window.innerHeight) || 600; }
     const small = Math.min(w, h) < 600;
-    // KOS.Perf.level (set by the app's frame-time governor): 2 = full, 1 = lighter, 0 = slow device → fewer pixels
-    const lvl = KOS.Perf ? KOS.Perf.level : 2;
-    const cap = lvl >= 2 ? (small ? 2 : 2.5) : lvl === 1 ? 1.6 : 1.15;
+    // KOS.Perf.level (quality tier from the app's governor, 3 = full .. 0 = minimal): the canvas backing store is capped
+    // so a 3x phone does not fill 1179x2556 px; 3: 2 (phones) / 2.5, 2: 2, 1: 1.5, 0: 1.15
+    const lvl = KOS.Perf ? KOS.Perf.level : 3;
+    const cap = lvl >= 3 ? (small ? 2 : 2.5) : lvl === 2 ? 2 : lvl === 1 ? 1.5 : 1.15;
     const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, cap);
     this._perfLvl = lvl;
     this.w = w; this.h = h; this.dpr = dpr;
@@ -615,7 +616,7 @@
         if (this._tilt && KOS.Sprites) { KOS.Sprites.drawFlagpoleTilted(ctx, l, wd, t, this._tilt); continue; } // post to z=8, flag upright
         ctx.fillStyle = 'rgba(40,40,30,0.3)'; ctx.beginPath(); ctx.arc(l.x + 1.2, l.y + 1.5, 0.5, 0, TAU); ctx.fill();
         ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.arc(l.x, l.y, 0.45, 0, TAU); ctx.fill();
-        if (KOS.Sprites) this.drawDannebrog(ctx, l.x, l.y, wd + PI, t);
+        if (KOS.Sprites) this.drawDannebrog(ctx, l.x, l.y, wd + PI, (KOS.Perf && KOS.Perf.level < 3) ? 0 : t); // tier < 3: the flag hangs still
       }
     }
   };

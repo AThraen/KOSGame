@@ -244,3 +244,6 @@ html.in-play, html.in-play body { touch-action: pan-x pan-y; } /* pan-x pan-y = 
   body.mode-sea .hud-val { font-size: 1rem; }
   body.mode-sea .hud-wind-dial { width: 32px; height: 32px; }
 }
+
+/* quality tier < 3 (KOS.Perf): no frosted-glass blur over the live sea canvas - WebKit re-blurs the moving canvas behind every HUD pill/control each frame */
+html:not([data-tier="3"]) body.mode-sea * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }

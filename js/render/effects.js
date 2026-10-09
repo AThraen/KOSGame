@@ -19,12 +19,12 @@
   }
   const E = Effects.prototype;
 
-  // on slow devices (KOS.Perf.level < 2, set by the app's frame-time governor) cosmetic spray is thinned out
+  // on slow devices (KOS.Perf.level < 3, quality tier set by the app's governor) cosmetic spray is thinned out
   const COSMETIC = { drop: 1, ripple: 1, foam: 1 };
   E.add = function (o) {
-    const lvl = KOS.Perf ? KOS.Perf.level : 2;
-    if (lvl < 2 && COSMETIC[o.type] && Math.random() < (lvl === 1 ? 0.4 : 0.75)) return o;
-    const max = lvl >= 2 ? MAXP : lvl === 1 ? 500 : 250;
+    const lvl = KOS.Perf ? KOS.Perf.level : 3;
+    if (lvl < 3 && COSMETIC[o.type] && Math.random() < (lvl === 2 ? 0.15 : lvl === 1 ? 0.4 : 0.75)) return o;
+    const max = lvl >= 3 ? MAXP : lvl === 2 ? Math.round(MAXP * 0.7) : lvl === 1 ? 500 : 250;
     while (this.p.length >= max) this.p.shift();
     this.p.push(o); return o;
   };
@@ -77,7 +77,7 @@
     const L = (cls && cls.length) || g.L, B = (cls && cls.beam) || g.B;
     const h = boat.heading || 0, sx = Math.sin(h), sy = -Math.cos(h);
     tr.acc += dt;
-    if (tr.acc >= 0.07) {
+    if (tr.acc >= (KOS.Perf && KOS.Perf.level <= 1 ? 0.14 : 0.07)) { // tier <= 1: coarser wake (half the points)
       tr.acc = 0;
       if (sp > 0.25 && !boat.capsized) tr.pts.push({ x: boat.x - sx * L * 0.48, y: boat.y - sy * L * 0.48, t: this.t, w: B * (0.45 + Math.min(1.4, sp / 4)), s: sp, motor: !!(g.motor && Math.abs(boat.throttle || 0) > 0.05) });
     }

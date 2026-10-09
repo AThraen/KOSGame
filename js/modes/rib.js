@@ -1418,8 +1418,8 @@
       const W = sc.w, H = sc.h;
       ctx.fillStyle = 'rgba(28,36,52,' + (0.42 * k) + ')'; ctx.fillRect(0, 0, W, H);
       const rain = U.clamp((k - 0.3) / 0.7, 0, 1); if (rain <= 0) return;
-      const d = down(), len = 14 + 16 * rain, lvl = KOS.Perf ? KOS.Perf.level : 2;
-      const n = Math.round((60 + 220 * rain) * (lvl >= 2 ? 0.6 : lvl === 1 ? 0.35 : 0.2)); // fewer streaks on slower devices
+      const d = down(), len = 14 + 16 * rain, lvl = KOS.Perf ? KOS.Perf.level : 3;
+      const n = Math.round((60 + 220 * rain) * (lvl >= 3 ? 0.6 : lvl === 2 ? 0.45 : lvl === 1 ? 0.35 : 0.2)); // fewer streaks on slower devices
       ctx.strokeStyle = 'rgba(220,232,255,' + (0.25 + 0.25 * rain) + ')'; ctx.lineWidth = 1.2;
       ctx.beginPath();
       for (let i = 0; i < n; i++) {

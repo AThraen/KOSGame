@@ -27,7 +27,7 @@
   }
 
   const DEFAULT_SETTINGS = {
-    lang: 'da', sound: true, music: false, volume: 0.8, assist: 'easy', controls: 'auto', unlockAll: false, reducedMotion: false, windUnit: 'ms', tilt: 'auto',
+    lang: 'da', sound: true, music: false, volume: 0.8, assist: 'easy', controls: 'auto', unlockAll: false, reducedMotion: false, lowFx: null, windUnit: 'ms', tilt: 'auto',
   };
 
   function emit(name, payload) { if (KOS.Events && KOS.Events.emit) KOS.Events.emit(name, payload); }

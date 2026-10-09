@@ -16,6 +16,9 @@ const SUITES = {
   core: { script: 'tools/test-core.js', args: [] },
   precache: { script: 'tools/gen-precache.js', args: ['--check'] },
   i18n: { script: 'tools/check-i18n.js', args: [] },
+  hubimg: { script: 'tools/render-hub.js', args: ['--check'] },
+  hublite: { script: 'tools/test-hub-lite.js', args: [] },
+  perftier: { script: 'tools/test-perf-tier.js', args: [] },
   smoke: { script: 'tools/smoke.js', args: ['--no-shots'] },
 };
 const NAMES = Object.keys(SUITES);
