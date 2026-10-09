@@ -718,7 +718,7 @@
     for (let i = 0; i < 2; i++) { const p = ((t * 0.9 + i * 0.5) % 1); const y = L / 2 - p * L * 0.9; ctx.globalAlpha = Math.sin(p * PI); ctx.beginPath(); ctx.moveTo(-hw * 1.6, y); ctx.lineTo(-hw * 1.6, y - 10 * mpp); ctx.moveTo(hw * 1.6, y + 6 * mpp); ctx.lineTo(hw * 1.6, y - 4 * mpp); ctx.stroke(); }
     ctx.restore();
     const vind = KOS.t ? String(KOS.t('ui.hud.wind')).toUpperCase() : 'WIND';
-    this.pill(ctx, cx + ux * L * 0.95, cy + uy * L * 0.95, vind + ' ' + Math.round(w.speed) + ' kn', { dy: 0, size: 11, bg: 'rgba(13,19,33,0.6)' });
+    this.pill(ctx, cx + ux * L * 0.95, cy + uy * L * 0.95, vind + ' ' + KOS.U.windTxt(w.speed), { dy: 0, size: 11, bg: 'rgba(13,19,33,0.6)' });
   };
 
   // night: darken and re-light buoys, lighthouses and boats' navigation lights

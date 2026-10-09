@@ -44,6 +44,24 @@
   function kn(ms) { return ms / KN; }
   function ms(k) { return k * KN; }
 
+  // Wind speed DISPLAY unit (internal wind speeds are always knots). 'ms' (default) | 'kn'; set from the settings by KOS.App.
+  let windUnit_ = 'ms';
+  function setWindUnit(u) { windUnit_ = u === 'kn' ? 'kn' : 'ms'; return windUnit_; }
+  function windUnit() { return windUnit_; }
+  /** Wind speed given in knots -> number in the chosen display unit, rounded to dec decimals (default 0). */
+  /** Unit label only: "m/s" or "kn". */
+  function windUnitLabel() { return windUnit_ === 'kn' ? 'kn' : 'm/s'; }
+  function windVal(k, dec) {
+    const v = windUnit_ === 'kn' ? k : k * KN, f = Math.pow(10, dec || 0);
+    return Math.round((+v || 0) * f) / f;
+  }
+  /** Wind speed given in knots -> text with unit, e.g. "5 m/s" or "10 kn". long = spell the unit out in knots ("10 knob"/"10 knots"). */
+  function windTxt(k, long, dec) {
+    const v = windVal(k, dec);
+    if (windUnit_ !== 'kn') return v + ' m/s';
+    return v + ' ' + (long && KOS.t ? KOS.t('common.knots') : 'kn');
+  }
+
   /** String/number -> 32-bit unsigned seed. */
   function hash(s) {
     if (typeof s === 'number' && isFinite(s)) s = String(s);
@@ -181,7 +199,7 @@
   KOS.U = {
     PI, TAU, KN,
     clamp, lerp, wrapPi, wrap2Pi, angDiff, angLerp, rad, deg, vec, heading, len, dist, bearing, rot, sign,
-    smoothstep, approach, kn, ms, hash, rng, noise1, noise2,
+    smoothstep, approach, kn, ms, setWindUnit, windUnit, windUnitLabel, windVal, windTxt, hash, rng, noise1, noise2,
     pointInPoly, segNearest, segDistance, segSeg, polyNearest, polyBounds, polyArea, polyCentroid, side, segCross,
     px, py,
   };
