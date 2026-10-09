@@ -56,6 +56,7 @@
         penLeft: 'Du skylder stadig en strafrunde. Tag den nu – ellers får du tidsstraf i mål.',
         irons: 'Du står i vindøjet! Læg roret til den ene side, så falder båden af.',
         heel: 'Båden krænger meget – hæng ud!',
+        rail: 'Ud på kanten! Når det blæser op, skal mandskabet sidde på rælingen – så krænger båden mindre og sejler hurtigere.',
         finishLine: 'Mållinjen er mellem dommerbåden og pinden.',
         capsize: 'Kæntret! Op igen – kapsejladsen er ikke slut!',
         missLine: 'Du er ikke startet endnu! Sejl tilbage og kryds startlinjen MELLEM dommerbåden og pinden.',
@@ -123,6 +124,7 @@
         penLeft: 'You still owe a penalty turn. Do it now – or you get a time penalty at the finish.',
         irons: 'You are in irons! Push the tiller to one side and the bow falls off.',
         heel: 'The boat is heeling a lot – hike out!',
+        rail: 'Hike out! When the breeze builds, the crew sits on the rail – the boat heels less and sails faster.',
         finishLine: 'The finish line is between the committee boat and the pin.',
         capsize: 'Capsized! Back up – the race is not over!',
         missLine: 'You have not started yet! Go back and cross the start line BETWEEN the committee boat and the pin.',
@@ -441,10 +443,12 @@
     const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
 
     // ---------------------------------------------------------------- scene, input, HUD
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats, follow: me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
       showWindArrow: true, showNoGo: false, showLaylines: false });
     const pathLine = { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, kind: 'path' };
     scene.addOverlay(drawWorld);
+    // under tilt the committee boat is a depth-sorted scene prop (its mast must not paint over boats south of it); flat keeps the overlay call
+    scene.props.push({ x: com.x, y: com.y, draw(ctx, sc, tl) { if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: sc.t, windDir: wind.dir, flags: committeeFlags(), tilt: tl }); } });
     scene.addOverlay(drawTargetArrow, { screen: true });
     let userZoom = 1;
     function applyZoom() {
@@ -465,7 +469,7 @@
     if (assist !== 'easy') extra.push({ id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' });
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'asym' : 'spi',
-      hike: !cls.keel && assist !== 'easy', autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
+      hike: assist !== 'easy', hikeKeel: !!cls.keel, autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
     }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
     const aids = KOS.SailAids.create({ ctrl, boat: me, assist, coach: txt => say(txt) });
     ctrl.on('ff', () => { if (S.phase === 'pre' && S.clock < -14) { S.ff = !S.ff; sfx('whoosh', { vol: 0.5 }); ctrl.highlight('ff', S.ff); } });
@@ -889,6 +893,7 @@
       const kn = U.kn(Math.abs(me.speed)); if (kn > S.topKn) S.topKn = kn;
       // gusts
       const base = wind.base ? wind.base.speed : P.windKn;
+      if (cls.keel && !controls.autoHike && me.tws > 10 && Math.abs(me.heel) > U.rad(cls.optHeel + 3) && me.hike < 0.3 && S.raceT > 10) tip('rail');
       const gusty = me.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.35 }); floatText(t('race.fx.gust'), '#9fe7ff'); if (S.raceT > 15) tip('gust'); }
       else if (!gusty && me.tws < base * 1.08) S.gustOn = false;
@@ -1109,14 +1114,17 @@
     }
 
     // ==================================================================== drawing
-    function drawWorld(ctx, sc) {
-      const mpp = sc.mpp, tm = sc.t;
-      // committee boat with the signal flags
+    function committeeFlags() {
       const fl = [];
       if (S.flags.cls) fl.push((CLASS_FLAG[clsId] || CLASS_FLAG.opti).bg);
       if (S.flags.P) fl.push('#1a5fd4');
       if (S.flags.X) fl.push('#ffffff');
-      if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: tm, windDir: wind.dir, flags: fl.length ? fl : ['#ff7a1a'] });
+      return fl.length ? fl : ['#ff7a1a'];
+    }
+    function drawWorld(ctx, sc) {
+      const mpp = sc.mpp, tm = sc.t;
+      // committee boat with the signal flags (tilted: drawn by the scene prop, depth-sorted)
+      if (!sc._tilt && KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: tm, windDir: wind.dir, flags: committeeFlags() });
       // favoured end sparkle (easy / normal, prestart)
       if (S.phase === 'pre' && assist !== 'pro' && Math.abs(P.bias || 0) >= 3 && S.sig.prep) {
         const e = P.bias > 0 ? pin : com, r = Math.max(4, 22 * mpp) * (1 + 0.15 * Math.sin(tm * 5));
@@ -1148,7 +1156,7 @@
       const tg = currentTarget(); if (!tg) return;
       const p = sc.worldToScreen(tg.x, tg.y), W = sc.w, H = sc.h;
       const hb = hud.el.getBoundingClientRect(), land = H < 500;
-      const m = { l: land ? 150 : 34, r: land ? 150 : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
+      const m = { l: land ? 150 : 34, r: land ? KOS.Input.sideR(ctrl) : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
       const dist = Math.round(U.dist(tg, me));
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (p.x > m.l && p.x < W - m.r && p.y > m.t && p.y < H - m.b) {
@@ -1196,7 +1204,7 @@
     function autoPlan() { return me.rc.finT != null ? parkPlan : me.plan; }
     function skipIntro() { closeIntroCard(); S.introT = Math.max(S.introT, 3.21); scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = true; } }
     const debug = {
-      get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line,
+      get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line, cb, fitCourse,
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
       foul(rule) { penalize(me, rule === 'R31' ? 1 : 2, rule || 'R10', { reasonKey: 'rules.reason.R10', reasonVars: { give: t('rules.you'), stand: ai[0] && ai[0].short } }); },
       penAll() { boats.forEach(b => addPen(b, 1)); },

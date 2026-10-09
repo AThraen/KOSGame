@@ -8,7 +8,7 @@
   const KOS = (root.KOS = root.KOS || {});
   const BASE = 'https://matomo.bering.codeart.dk/';
   const SITE_ID = '13';
-  const WATCHED = ['lang', 'sound', 'music', 'assist', 'controls', 'reducedMotion', 'unlockAll']; // volume is too chatty
+  const WATCHED = ['lang', 'sound', 'music', 'assist', 'controls', 'reducedMotion', 'tilt', 'unlockAll']; // volume is too chatty
   // Custom dimension ids as created in Matomo (Administration > Websites > Custom Dimensions). 0 = not sent.
   // Visit scope: who is playing; action scope: progress at the moment of each page view / event.
   const DIM = { age: 1, boat: 2, done: 3, stars: 4, level: 5 };

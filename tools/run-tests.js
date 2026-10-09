@@ -1,8 +1,8 @@
 // KØS SEJL — runs the test suites one after another and prints a summary. Never opens a window.
 //
 //   node tools/run-tests.js              core + precache (fast, Node-only)
-//   node tools/run-tests.js all          all four suites (i18n + smoke use headless Chrome)
-//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, smoke
+//   node tools/run-tests.js all          all suites (i18n, mobile + smoke use headless Chrome)
+//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, mobile, smoke
 //
 // Exit code: 0 all good, 1 a suite failed, 2 unknown suite name.
 // A suite whose script file does not exist is reported as SKIP (not a failure).
@@ -16,6 +16,10 @@ const SUITES = {
   core: { script: 'tools/test-core.js', args: [] },
   precache: { script: 'tools/gen-precache.js', args: ['--check'] },
   i18n: { script: 'tools/check-i18n.js', args: [] },
+  hubimg: { script: 'tools/render-hub.js', args: ['--check'] },
+  hublite: { script: 'tools/test-hub-lite.js', args: [] },
+  perftier: { script: 'tools/test-perf-tier.js', args: [] },
+  mobile: { script: 'tools/test-mobile.js', args: [] },
   smoke: { script: 'tools/smoke.js', args: ['--no-shots'] },
 };
 const NAMES = Object.keys(SUITES);

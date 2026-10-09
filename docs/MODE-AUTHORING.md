@@ -125,7 +125,7 @@ UI as DOM/SVG inside `host.layer`. `update(dt)` and `render()` are still called,
 ## 4. Scene (sea modes)
 
 ```js
-const scene = new KOS.SailScene(host.canvas, {venue, wind, boats, follow: boat, marks, lines,
+const scene = new KOS.SailScene(host.canvas, {tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: boat, marks, lines,
   showWindArrow: true, showNoGo: false, showLaylines: false, laylineTarget: mark, night: 0, showLanes: false});
 ```
 - **Camera:** `follow(boat)` gives a smooth follow with look-ahead and auto zoom. Use `scene.setZoom(mul)` to tune it.
@@ -141,6 +141,18 @@ const scene = new KOS.SailScene(host.canvas, {venue, wind, boats, follow: boat, 
   `scene.view` = visible world rect for culling, `scene.t` = render time). `scene.addOverlay(fn, {screen: true})` draws in
   screen pixels (`scene.worldToScreen(x, y)`). sail.js uses a world overlay for rings and trash (a minimum size of
   `13 * mpp` keeps them readable) and a screen overlay for the edge-of-screen target arrow. Copy `drawTargetArrow`.
+- **Tilted view (Skrå visning):** pass `tilt: host.tilt, tiltAuto: host.tiltAuto` to the scene. When `scene._tilt` is non-null
+  (null whenever the view is flat, so test it, never assume) the world transform is squashed vertically by `scene.kY` and everything
+  on the ground (rings, zones, lines, ground lettering) squashes with it. Write overlays so they work both ways:
+  - `scene.worldToScreen` / `screenToWorld` already include the tilt (exact inverse), so edge arrows and tap-to-world need no change.
+  - `scene.project(x, y, z)` gives the screen px of a world point `z` metres above the water (clear a mast with it, `z = mastH`).
+  - Text, badges and glyphs must not be squashed: under `if (scene._tilt)` call `scene.upright(ctx, x, y, z)` inside a `save()/restore()`.
+    It resets the transform to screen-aligned CSS px at the projected point, so draw in px there (font `15px`, no `* mpp`).
+    `scene.pill(ctx, x, y, text, {dy, z})` does this itself (`dy` stays in px). With tilt off keep your old code path untouched.
+  - Conversions of a screen-Y offset in px to metres divide by `Z * scene.kY` (`kY` is exactly 1 when flat), as in rowschool/dock framing.
+  - Things with height that must sort against the boats (a post, a mast, a committee boat) register `scene.props.push({x, y, draw(ctx, scene, tilt)})`;
+    props are only iterated when tilted, depth-sorted with boats and marks, and drawn with the world transform. See the race committee boat.
+  - `scene.fit()` already accounts for the squash. Never rely on the chase cam (`#chase=1` dev flag); `biasY` is 0 in the user build.
 - **Effects:** `scene.effects.text(x, y, 'Vending!', {color, size})`, `.stars(x, y, n)`, `.confetti(x, y, n)`,
   `.splash(x, y, k)`, `.ripple(x, y, r, life)`, `.spray(...)`. Wakes, bow spray, heel, sail flutter, hiking crew and
   spinnaker pop are automatic.
@@ -225,6 +237,8 @@ node tools/smoke.js --only=race            # boots, visits every screen, runs ea
 node tools/smoke.js --only=race --no-shots # quicker
 node tools/playshot.js race.club1 390x844 7000 "ArrowLeft:600,Space:400"   # one screenshot after some input → shot-play-*.png
 node tools/autoplay.js race.club1 29er normal   # fast-forward to the end (needs inst.setAutopilot / skipIntro hooks)
+node tools/smoke.js --no-shots --only=race   # also runs the light "file-tilt" pass (Skrå visning on); --no-tilt skips it
+node tools/tilt-check.js --fit             # tilted course fit: every course corner inside the screen at 390x844 and 844x390
 node tools/test-core.js                    # core physics/rules/AI tests (run them if you touched js/core)
 node tools/gen-precache.js                 # after adding or renaming files (the orchestrator runs it before commits)
 ```

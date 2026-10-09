@@ -48,6 +48,7 @@ render  js/render/sprites.js    KOS.Sprites
         js/render/effects.js    KOS.Effects
         js/render/water.js      KOS.Water
         js/render/scene.js      KOS.SailScene
+        js/render/tilt.js       KOS.Tilt
 ui      js/ui/storage.js        KOS.Storage
         js/ui/audio.js          KOS.Audio
         js/ui/input.js          KOS.Input
@@ -89,7 +90,8 @@ results), `css/controls.css`, `css/hub.css`, and one `css/modes/<mode>.css` per 
 | `js/render/sprites.js` | `KOS.Sprites` | SVG/canvas boat sprites (sails, crew, spinnaker), IALA-A buoys, marks, side-view cards, icons |
 | `js/render/effects.js` | `KOS.Effects` | World-space particles: wakes, spray, splashes, ripples, confetti, floating text |
 | `js/render/water.js` | `KOS.Water` | Top-down water: depth shading, wave crests, gust patches, shore foam |
-| `js/render/scene.js` | `KOS.SailScene` | The top-down renderer used by every 'sea' mode: camera, culling, overlays, night mode |
+| `js/render/scene.js` | `KOS.SailScene` | The top-down renderer used by every 'sea' mode: camera, culling, overlays, night mode, the tilted view (Skrå visning: `_tiltWant` = overview 0, else `SailScene.view.tilt` quick toggle, else setting; auto drops to flat at perf level 0; reduced motion snaps) |
+| `js/render/tilt.js` | `KOS.Tilt` | Pure math for the tilted camera (projection, boat matrices, easing) and `resolve(setting, activity, perfLevel)`; dev flags `#tilt=on` / `#tilt=off`, `#chase=1` |
 | `js/ui/storage.js` | `KOS.Storage` | localStorage (prefix `kos.`, in-memory fallback): settings, profile, progress, stars, XP, badges |
 | `js/ui/audio.js` | `KOS.Audio` | Web Audio synthesis: one-shots, ambient wind/waves, RIB engine, generative music |
 | `js/ui/input.js` | `KOS.Input` | Keyboard/mouse/multi-touch controls for sea modes (tiller pads, sheet slider, hike, spinnaker) |
@@ -150,8 +152,9 @@ All venues share one global frame: origin (0, 0) is the root of KØS's main jett
 2. **Start.** `KOS.App.play(activityId)` looks up the activity (`KOS.Activities.get`), the mode
    (`KOS.Modes.get`), shows the play screen, builds the **host** object and calls
    `mode.create(host, activity)`, then `instance.start()`.
-   - `host = { canvas, ctx2d, layer, activity, params, assist, settings, profile, boat,
-     finish(result), quit(), setPaused(bool), isPaused() }`.
+   - `host = { canvas, ctx2d, layer, activity, params, assist, settings, profile, boat, tilt, tiltAuto,
+     finish(result), quit(), setPaused(bool), isPaused() }`. `tilt` is the Skrå visning setting resolved for this
+     activity (`KOS.Tilt.resolve(settings.tilt, activity, KOS.Perf.level)`); sea modes pass `tilt: host.tilt, tiltAuto: host.tiltAuto` to `SailScene`.
    - `'sea'` modes get `canvas` + `ctx2d` (the shared `#game-canvas`) plus a DOM `layer` for
      HUD/overlays; `'dom'` modes get the `layer` only (canvas hidden).
 3. **Loop.** The app's `requestAnimationFrame` loop accumulates real time and calls
@@ -163,6 +166,26 @@ All venues share one global frame: origin (0, 0) is the root of KØS's main jett
    stops the loop, calls `KOS.Storage.record(activityId, result)` (returns `{newBest,
    starsGained}`), awards automatic badges, then shows the results screen
    (`KOS.UI.results`: stars, stats, retry / next / back to the map).
+
+## 9. Quality tiers (KOS.Perf)
+
+`KOS.Perf.level` (0..3) is the only quality knob; renderers read it, nothing else decides. Set by the governor in
+`js/ui/app.js`: **start** = `#perf=N` (forced, no governor, nothing saved) else the tier remembered for the device
+(Storage `perfTier`) else a guess (iPhone/iPad/Safari or small touch screen = 2, otherwise 3). **Measure**: median/p95 of a
+rolling window of frame times (45 frames or ~1 s on a slow device); two bad windows (median > 21 ms or p95 > 45 ms, after the
+first 2.5 s of a run) step DOWN and remember it; 20 s of good windows step UP, never within 60 s of a drop and never above a
+tier that dropped twice this session. Setting `lowFx` ("Spar på telefonen") caps the tier at 1; reduced motion works as before.
+`<html data-tier>` mirrors the tier for CSS. Gameplay information (marks, boats, wind arrow, laylines, labels, HUD, controls) is
+never dropped.
+
+| Tier | Sea canvas DPR cap | Dropped (cumulative) |
+|---|---|---|
+| 3 full | 2 phones / 2.5 | nothing |
+| 2 | 2 | water sparkles, flag flutter, lapping shore foam, whitecap layer, 85% of cosmetic spray, 30% fewer particles, HUD backdrop blur over the sea, hub ambience (clouds, boat wobble, gull flap, smoke, blinking lights) |
+| 1 | 1.5 | 2nd wave layer, half the wind streaks, 60% of spray, coarser wakes, hub lite (still map) |
+| 0 | 1.15 | 75% of spray, 1 wave layer only, fewest rain streaks |
+
+Hub: lite mode (still map) at tier <= 1 or when its own first-frame probe is slow; see SPEC.md. Tests: `tools/test-perf-tier.js`.
 
 ## 8. Testing
 
@@ -178,7 +201,7 @@ Node + headless Playwright only — the tools never open a visible window.
 - `tools/gen-precache.js --check` — exits 1 if the precache list or version in `sw.js` is stale
   (without `--check` it rewrites `sw.js`; `--list` prints the list).
 - `tools/run-tests.js` — runs the suites in order and prints a summary: `core` + `precache` by
-  default, `all` adds `i18n` + `smoke` (the two headless-Chrome suites).
+  default, `all` adds `i18n`, `hubimg`, `hublite`, `perftier` + `smoke` (headless-Chrome suites).
 
 Other headless helpers in `tools/`: `harness.js` (loads `js/core/*` into Node), `serve.js`
 (static server for the http pass), `shot.js` (screenshot helper), `playshot.js` (start an

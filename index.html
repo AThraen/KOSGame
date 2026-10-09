@@ -29,23 +29,25 @@
 <link rel="icon" href="assets/icons/app/icon.svg" type="image/svg+xml">
 <link rel="icon" href="assets/icons/app/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/icons/app/icon-192.png">
+<link rel="preload" as="image" href="assets/bg/title-port.jpg" media="(orientation: portrait)">
+<link rel="preload" as="image" href="assets/bg/title-land.jpg" media="(orientation: landscape)">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/game.css">
 <link rel="stylesheet" href="css/controls.css">
 <link rel="stylesheet" href="css/hub.css">
-<link rel="stylesheet" href="css/modes/sail.css">
-<link rel="stylesheet" href="css/modes/school.css">
-<link rel="stylesheet" href="css/modes/race.css">
-<link rel="stylesheet" href="css/modes/soslag.css">
-<link rel="stylesheet" href="css/modes/rowschool.css">
-<link rel="stylesheet" href="css/modes/nav.css">
-<link rel="stylesheet" href="css/modes/dock.css">
-<link rel="stylesheet" href="css/modes/rib.css">
-<link rel="stylesheet" href="css/modes/rigging.css">
-<link rel="stylesheet" href="css/modes/knots.css">
-<link rel="stylesheet" href="css/modes/capsize.css">
-<link rel="stylesheet" href="css/modes/quiz.css">
-<link rel="stylesheet" href="css/modes/shed.css">
+<link rel="stylesheet" href="css/modes/sail.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/school.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/race.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/soslag.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/rowschool.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/nav.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/dock.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/rib.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/rigging.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/knots.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/capsize.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/quiz.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/modes/shed.css" media="print" onload="this.media='all'">
 </head>
 <body>
 <!-- Screens are owned by js/ui/app.js (see SPEC.md). Each <section class="screen"> is shown by KOS.App.show(id). -->
@@ -77,6 +79,7 @@
 <script src="js/render/sprites.js"></script>
 <script src="js/render/effects.js"></script>
 <script src="js/render/water.js"></script>
+<script src="js/render/tilt.js"></script>
 <script src="js/render/scene.js"></script>
 <script src="js/ui/storage.js"></script>
 <script src="js/ui/audio.js"></script>
@@ -86,19 +89,20 @@
 <script src="js/ui/hub.js"></script>
 <script src="js/ui/track.js"></script>
 <script src="js/ui/app.js"></script>
-<script src="js/modes/sail.js"></script>
-<script src="js/modes/school.js"></script>
-<script src="js/modes/race.js"></script>
-<script src="js/modes/soslag.js"></script>
-<script src="js/modes/rowschool.js"></script>
-<script src="js/modes/nav.js"></script>
-<script src="js/modes/dock.js"></script>
-<script src="js/modes/rib.js"></script>
-<script src="js/modes/rigging.js"></script>
-<script src="js/modes/knots.js"></script>
-<script src="js/modes/capsize.js"></script>
-<script src="js/modes/quiz.js"></script>
-<script src="js/modes/shed.js"></script>
+<script src="js/modes/sail.js" defer></script>
+<script src="js/modes/school.js" defer></script>
+<script src="js/modes/race.js" defer></script>
+<script src="js/modes/soslag.js" defer></script>
+<script src="js/modes/rowschool.js" defer></script>
+<script src="js/modes/nav.js" defer></script>
+<script src="js/modes/dock.js" defer></script>
+<script src="js/modes/rib.js" defer></script>
+<script src="js/modes/rigging.js" defer></script>
+<script src="js/modes/knots.js" defer></script>
+<script src="js/modes/capsize.js" defer></script>
+<script src="js/modes/quiz.js" defer></script>
+<script src="js/modes/shed.js" defer></script>
 <script src="js/main.js"></script>
+<script src="js/modes-ready.js" defer></script>
 </body>
 </html>

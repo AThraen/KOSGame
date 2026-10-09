@@ -42,6 +42,7 @@
         luff: 'Sejlet blafrer – hal skødet ind, til det holder op med at blafre.',
         stall: 'Skødet er for stramt. Fier lidt ud, så kører båden hurtigere.',
         heel: 'Båden krænger meget! Hæng ud – hold MELLEMRUM eller knappen HÆNG UD.',
+        rail: 'Ud på kanten! Når det blæser op, skal mandskabet sidde på rælingen – så krænger båden mindre og sejler hurtigere. Hold MELLEMRUM eller knappen UD PÅ KANTEN.',
         gust: 'Et vindpust! Den mørke krusning på vandet er mere vind. Hæng ud eller fier lidt.',
         ground: 'Av, grundt vand! Styr ud mod det mørkeblå vand – der er dybere.',
         swim: 'Badezone! Her må der ikke sejles – ud igen, folk bader.',
@@ -86,6 +87,7 @@
         luff: 'The sail is flapping – sheet in until it stops.',
         stall: 'The sheet is too tight. Ease a little and the boat goes faster.',
         heel: 'The boat is heeling a lot! Hike out – hold SPACE or the HIKE button.',
+        rail: 'Hike out! When the breeze builds, the crew sits on the rail – the boat heels less and sails faster. Hold SPACE or the HIKE OUT button.',
         gust: 'A gust! The dark ripples on the water mean more wind. Hike out or ease a little.',
         ground: 'Ouch, shallow water! Steer towards the dark blue water – it is deeper.',
         swim: 'Swim zone! No sailing here – get out, people are swimming.',
@@ -228,7 +230,7 @@
     else buildFree();
 
     // ---- scene (renderer). Overlays draw our items, the target arrow and the course hints.
-    const scene = new KOS.SailScene(host.canvas, {
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto,
       venue, wind, boats: [boat], follow: boat, marks: S.marks.filter(m => m.show !== false),
       lines: S.lines || [], showNoGo: false, showWindArrow: true,
     });
@@ -253,7 +255,7 @@
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: isRib ? 'rib' : 'sail',
       spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'gennaker' : 'spi',
-      hike: !isRib && !cls.keel && assist !== 'easy',
+      hike: !isRib && assist !== 'easy', hikeKeel: !!cls.keel, // keelboats: "Ud på kanten" (crew on the rail)
       autoTrim: controls.autoTrim, pauseButton: false,
       extraButtons: P.kind === 'free' ? [{ id: 'done', icon: 'check', labelKey: 'sail.btn.done' }] : [],
     }, aidOpts));
@@ -269,6 +271,7 @@
     if (P.kind === 'timetrial') hudItems.push({ id: 'count', icon: 'flag', labelKey: 'sail.hud.mark' });
     if (!isRib && assist !== 'easy' && !cls.keel && P.kind === 'free') hudItems.push('heel');
     const hud = KOS.UI.hud(host.layer, hudItems);
+    let goalsChip = null;
     const goalsEl = P.kind === 'free' ? buildGoalsPanel() : null;
 
     // ---- events from physics (filtered to our boat; removed again in destroy)
@@ -379,6 +382,8 @@
       const el = document.createElement('div');
       el.className = 'sail-goals glass';
       host.layer.appendChild(el);
+      goalsChip = KOS.UI.panelChip(host.layer, el, { icon: 'flag' });
+      goalsChip.expand(4500); // phones: the card shows for a few seconds, then collapses to a chip
       return el;
     }
     function paintGoals() {
@@ -390,6 +395,7 @@
             '<span class="sg-txt">' + KOS.UI.esc(t(g.key, { n: g.n })) + '<i class="sg-bar"><b style="width:' + Math.round(frac * 100) + '%"></b></i></span></div>';
         }).join('');
       if (html !== paintGoals.last) { goalsEl.innerHTML = html; paintGoals.last = html; }
+      if (goalsChip) { const nd = S.goals.filter(g => g.done).length; if (paintGoals.nd != null && nd !== paintGoals.nd) goalsChip.expand(3500); paintGoals.nd = nd; goalsChip.set({ text: t('sail.hud.goals') + ' ' + nd + '/' + S.goals.length, frac: S.goals.reduce((a, g) => a + Math.min(1, g.v / g.n), 0) / Math.max(1, S.goals.length), done: nd === S.goals.length }); }
     }
 
     // ==================================================================== small helpers
@@ -623,7 +629,7 @@
       const p = sc.worldToScreen(tg.x, tg.y), W = sc.w, H = sc.h;
       // keep clear of the HUD (top) and the touch controls (bottom / sides in landscape)
       const hb = hud.el.getBoundingClientRect(), land = H < 500;
-      const m = { l: land ? 150 : 34, r: land ? 150 : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
+      const m = { l: land ? 150 : 34, r: land ? KOS.Input.sideR(ctrl) : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
       const dist = Math.round(Math.hypot(tg.x - boat.x, tg.y - boat.y));
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (p.x > m.l && p.x < W - m.r && p.y > m.t && p.y < H - m.b) {
@@ -723,8 +729,9 @@
     function sailFeedback(dt) {
       if (isRib) return;
       S.luffT -= dt;
-      if (boat.luffing && !boat.inIrons && S.luffT <= 0) { sfx('luff', { vol: 0.35 }); S.luffT = 0.9; if (!controls.autoTrim) tip('luff'); }
-      if (boat.stalled && !controls.autoTrim && Math.abs(boat.speed) > 0.3) tip('stall');
+      if (boat.luffing && !boat.inIrons && S.luffT <= 0) { sfx('luff', { vol: 0.35 }); S.luffT = 0.9; if (!controls.autoTrim || ctrl.state.trimBias > 0.12) tip('luff'); }
+      if (boat.stalled && (!controls.autoTrim || ctrl.state.trimBias < -0.12) && Math.abs(boat.speed) > 0.3) tip('stall');
+      if (cls.keel && !controls.autoHike && boat.tws > 10 && Math.abs(boat.heel) > U.rad(cls.optHeel + 3) && boat.hike < 0.3) tip('rail');
       const base = wind.base ? wind.base.speed : P.windKn;
       const gusty = boat.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.4 }); floatText(t('sail.fx.gust'), '#9fe7ff'); if (S.time > 8) tip('gust'); }
@@ -761,6 +768,7 @@
       if (coachIntro) coachIntro.close(true);
       ctrl.detach();
       hud.destroy();
+      if (goalsChip) goalsChip.destroy();
       if (goalsEl) goalsEl.remove();
       scene.destroy();
       try { KOS.Audio.ambient(null); KOS.Audio.engine(null); } catch (e) { /* optional */ }

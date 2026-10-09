@@ -459,6 +459,7 @@
   function drawBoat(ctx, boat, opts) {
     opts = opts || {};
     if (!boat || !isFinite(boat.x) || !isFinite(boat.y)) return;
+    if (opts.tilt && drawBoatTilted(ctx, boat, opts)) return; // tilted view (false → this flat body, in the squashed world)
     const clsId = clsIdOf(boat), g = geo(clsId), L = g.L;
     const t = opts.t != null ? opts.t : boat.t || 0;
     const st = stateOf(boat);
@@ -618,6 +619,456 @@
     ctx.restore();
   }
 
+  // ------------------------------------------------------------------------------------------
+  // Tilted view (Skrå visning, docs/specs/tilt-camera.md §4). The boat is drawn with height through a per-boat 2x3
+  // screen matrix M (KOS.Tilt.boatMatrix: boat-local bx,by,bz → CSS px) and its shadow through the P·S·W shadow matrix
+  // SM (KOS.Tilt.shadowMatrix, §3.4): the same 3D polygons through SM are their shadows on the water. Flat things (deck
+  // sprite, rudder, tiller) are drawn on the deck plane with one setTransform. Every class goes through here; capsized
+  // boats return false → the flat drawBoat body draws them lying on the squashed water. The flat drawBoat body is
+  // deliberately NOT refactored (invariant I1): rig and crew-seat formulas are copied (rigStateTilted, crewSeatsTilted).
+  const TILT_FB = { opti: 0.3, tera: 0.3, feva: 0.3, zest: 0.3, ilca: 0.3, '29er': 0.3, hboat: 0.55, j70: 0.55, rib: 0.5 }; // freeboard (m)
+  const TILT_KEEL = { hboat: 1.4, j70: 1.6 }; // keel depth (m)
+  const tM = new Float64Array(8), tSM = new Float64Array(8), tP = { x: 0, y: 0 }, tW = new Float64Array(9);
+  const tPoly = new Float64Array(96), tParts = [];
+  for (let i = 0; i < 10; i++) tParts.push({ d: 0, k: 0 });
+  const tCrew = [];
+  for (let i = 0; i < 4; i++) tCrew.push({ x: 0, y: 0, out: 1, mode: 'sit', ext: 0, rail: false });
+  const SUN3 = (() => { const l = Math.hypot(0.32, 0.5, 1); return [-0.32 / l, -0.5 / l, 1 / l]; })();
+  const SHADOW_T = 'rgba(0,25,60,0.16)';
+  const sailShadeCache = new Map();
+  const tRig = {};
+  // the hull outline as points (same sampling as outlineD, bow/stern arcs as 3 points each), cached per class
+  const outlinePtsCache = new Map();
+  function outlinePts(g) {
+    let pts = outlinePtsCache.get(g); if (pts) return pts;
+    const N = 26, L = g.L, st = [];
+    for (let i = 0; i <= N; i++) { const s = Math.pow(i / N, 1.25); st.push([Math.max(0.001, halfW(g, s)), lerp(-L / 2, L / 2, s)]); }
+    const q = (p0, c, p2, u) => [(1 - u) * (1 - u) * p0[0] + 2 * u * (1 - u) * c[0] + u * u * p2[0], (1 - u) * (1 - u) * p0[1] + 2 * u * (1 - u) * c[1] + u * u * p2[1]];
+    pts = st.slice();
+    const sN = st[N], sNm = [-sN[0], sN[1]], cS = [0, sN[1] + g.sternArc * L];
+    for (const u of [0.25, 0.5, 0.75]) pts.push(q(sN, cS, sNm, u));
+    for (let i = N; i >= 0; i--) pts.push([-st[i][0], st[i][1]]);
+    const s0 = st[0], s0m = [-s0[0], s0[1]], cB = [0, s0[1] - g.bowArc * L];
+    for (const u of [0.25, 0.5, 0.75]) pts.push(q(s0m, cB, s0, u));
+    outlinePtsCache.set(g, pts);
+    return pts;
+  }
+  // the deck plane at height z as the ctx transform (device px), shake included
+  function deckT(ctx, M, z, T) { const d = T.dpr; ctx.setTransform(d * M[0], d * M[1], d * M[2], d * M[3], d * (M[6] + M[4] * z + T.shx), d * (M[7] + M[5] * z + T.shy)); }
+  // boat-local point → screen CSS px (shake included) into tP
+  function prj(M, T, bx, by, bz) { tP.x = M[0] * bx + M[2] * by + M[4] * bz + M[6] + T.shx; tP.y = M[1] * bx + M[3] * by + M[5] * bz + M[7] + T.shy; return tP; }
+  // depth v (camera space, relative to the boat origin) of a boat-local point; W = [ch*cH, ch*sH, -sh, -sH, cH, 0, sh*cH, sh*sH, ch]
+  function depthOf(W, T, bx, by, bz) { const wx = W[0] * bx + W[3] * by + W[6] * bz, wy = W[1] * bx + W[4] * by + W[7] * bz; return wx * T.sr + wy * T.cr; }
+  // a screen-space line between two boat-local points
+  function drawPost(ctx, M, T, x0, y0, z0, x1, y1, z1, col, wPx) {
+    ctx.beginPath(); prj(M, T, x0, y0, z0); ctx.moveTo(tP.x, tP.y); prj(M, T, x1, y1, z1); ctx.lineTo(tP.x, tP.y);
+    ctx.strokeStyle = col; ctx.lineWidth = wPx; ctx.stroke();
+  }
+  // a planar quad between four boat-local points, filled (screen space)
+  function quad3(ctx, M, T, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, fill) {
+    ctx.beginPath(); prj(M, T, x0, y0, z0); ctx.moveTo(tP.x, tP.y); prj(M, T, x1, y1, z1); ctx.lineTo(tP.x, tP.y);
+    prj(M, T, x2, y2, z2); ctx.lineTo(tP.x, tP.y); prj(M, T, x3, y3, z3); ctx.lineTo(tP.x, tP.y); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+  }
+  // an upright box (centre cx,cy, half sizes hx,hy, turned by ang about z) from z0 to z1: the side faces turned toward
+  // the viewer (outward normal with camera depth v > 0), then the top
+  function box3(ctx, M, T, W, cx, cy, hx, hy, ang, z0, z1, sideA, sideB, top) {
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    for (let f = 0; f < 4; f++) {
+      const nx = f === 0 ? ca : f === 1 ? -ca : f === 2 ? -sa : sa, ny = f === 0 ? sa : f === 1 ? -sa : f === 2 ? ca : -ca;
+      if (depthOf(W, T, nx, ny, 0) <= 0) continue;
+      const ex = f < 2 ? hx : hy, tx = f < 2 ? -sa * hy : ca * hx, ty = f < 2 ? ca * hy : sa * hx; // face centre offset + half edge
+      const mx = cx + nx * ex, my = cy + ny * ex;
+      quad3(ctx, M, T, mx - tx, my - ty, z0, mx + tx, my + ty, z0, mx + tx, my + ty, z1, mx - tx, my - ty, z1, f < 2 ? sideA : sideB);
+    }
+    const ax = ca * hx, ay = sa * hx, bx = -sa * hy, by = ca * hy;
+    quad3(ctx, M, T, cx - ax - bx, cy - ay - by, z1, cx + ax - bx, cy + ay - by, z1, cx + ax + bx, cy + ay + by, z1, cx - ax + bx, cy - ay + by, z1, top);
+  }
+  // Rig values for the tilted path. COPY of the drawBoat derivations (drawBoat: "crew side follows…", "spinnaker
+  // spring…", "---- rig" block: boom, lee, luff, trim, depth, flutter, jibAng, jibFlutter, rudder, hike). It also runs
+  // the per-frame st mutations (crewSide hysteresis, spinnaker spring) exactly once per frame, like drawBoat does.
+  // Keep both copies in sync when editing either.
+  function rigStateTilted(boat, g, st, dt, opts) {
+    const r = tRig, fin = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+    const twa = boat.twa != null ? boat.twa : boat.tack === 'port' ? -1 : 1;
+    const windSide = twa >= 0 ? 1 : -1;
+    if (st.crewSide == null) st.crewSide = windSide;
+    st.crewSide += clamp(windSide - st.crewSide, -dt * 2.8, dt * 2.8);
+    const spiOn = !!boat.spinnaker && g.spi && g.spi !== 'none';
+    st.spiV += (((spiOn ? 1 : 0) - st.spi) * 70 - st.spiV * (spiOn ? 7 : 12)) * dt; st.spi = Math.max(0, st.spi + st.spiV * dt);
+    if (!spiOn && st.spi < 0.02) { st.spi = 0; st.spiV = 0; }
+    const cap = (boat.cls && typeof boat.cls === 'object' && boat.cls.capsizeHeel) || 0.96; // heel clamp: after righting the physics heel eases down from ~88°
+    r.heel = clamp(fin(boat.heel, 0), -cap, cap);
+    if (!boat.capsized && KOS.Tilt) { // visual exaggeration, clamped; sign preserved
+      const TLt = KOS.Tilt, lim = g.keel ? TLt.HEEL_VIS_MAX.keel : TLt.HEEL_VIS_MAX.dinghy, a = Math.abs(r.heel);
+      r.heel = (r.heel < 0 ? -1 : 1) * (a >= lim ? a : Math.min(a * TLt.HEEL_VIS, lim));
+    }
+    r.windSide = windSide; r.spiOn = spiOn;
+    r.boom = clamp(fin(boat.boom, -windSide * 0.4), -1.6, 1.6);
+    r.lee = r.boom > 0.02 ? 1 : r.boom < -0.02 ? -1 : -windSide;
+    const luff = !!boat.luffing || !!boat.inIrons;
+    r.trim = boat.trim != null ? boat.trim : 0.8;
+    r.depth = luff ? 0.1 : 0.1 + 0.1 * clamp(r.trim, 0, 1) * (boat.stalled ? 0.75 : 1);
+    r.flutter = luff ? 0.05 + (boat.inIrons ? 0.03 : 0) : 0;
+    r.jibAng = boat.jibManual && Number.isFinite(boat.jibAng) ? clamp(boat.jibAng, -1.05, 1.05) || r.lee * 0.15 : clamp(r.boom * 0.72, -1.05, 1.05) || r.lee * 0.15;
+    r.jibFlutter = boat.jibLuffing ? 0.07 : r.flutter;
+    r.rudder = clamp(opts.rudder != null ? opts.rudder : boat.rudder != null ? boat.rudder : (boat.controls && boat.controls.rudder) || clamp((boat.yawRate || 0) * 1.5, -1, 1), -1, 1);
+    r.hike = clamp(fin(boat.hike, 0.3), 0, 1);
+    return r;
+  }
+  // Crew seats for the tilted path. COPY of the drawBoat crew loop seat logic ("// crew": trap / rail / helm+crew
+  // branches, wings edge, crossing). The flat hx*0.5 heel shift is left out: heel is real geometry here. Keep in sync.
+  function crewSeatsTilted(g, st, hike) {
+    const side = st.crewSide, sideSign = side >= 0 ? 1 : -1, crossing = Math.abs(side) < 0.9, n = Math.min(g.crew.length, tCrew.length);
+    for (let i = 0; i < n; i++) {
+      const seat = g.crew[i], c = tCrew[i], w = halfW(g, seat.s);
+      c.y = yAt(g, seat.s); c.out = sideSign; c.ext = 0; c.rail = seat.role === 'rail';
+      if (seat.role === 'trap' && hike > 0.45 && !crossing) { c.x = sideSign * (g.wings ? g.wings / 2 : w); c.mode = 'trap'; }
+      else if (seat.role === 'rail') { c.x = side * (w - 0.18); c.mode = hike > 0.3 && !crossing ? 'hike' : 'sit'; c.ext = 0.15 + hike * 0.25; }
+      else {
+        const edge = g.wings && seat.s > g.wingS[0] && seat.s < g.wingS[1] ? g.wings / 2 : w;
+        const sitIn = lerp(w * 0.55, edge - 0.05, clamp(hike * 2, 0, 1));
+        c.x = side * (crossing ? Math.abs(side) * sitIn : sitIn);
+        c.mode = hike > 0.2 && !crossing ? 'hike' : 'sit'; c.ext = clamp((hike - 0.2) * 1.4, 0, 1) * 0.9;
+      }
+    }
+    return n;
+  }
+  // §4.2 upright crew: legs (1 line), torso (1 thick round-cap line), head (1 arc), helmet/hair tint (1 arc), in screen
+  // space through M. Hip on the gunwale at z; the torso leans outboard by hike*65° ('hike'), hangs along the wire at 80°
+  // from the feet on the wing edge ('trap'), or stands ('stand'). Fills tC with the shoulder (boat-local) for the wire.
+  const tC = new Float64Array(3);
+  function drawSailorTilted(ctx, M, T, c, z, hike, look, sc) {
+    const Z = T.Z, out = c.out, mode = c.mode;
+    let fx, fy, fz, hx, hy, hz, a;
+    if (mode === 'trap') { a = 80 * PI / 180; fx = c.x; fy = c.y; fz = z; }
+    else if (mode === 'stand') { a = 0; fx = c.x; fy = c.y; fz = z; }
+    else { a = mode === 'hike' ? clamp(hike, 0.25, 1) * 65 * PI / 180 : 0.08; hx = c.x; hy = c.y; hz = z + 0.05; }
+    const dx = out * Math.sin(a), dz = Math.cos(a);
+    if (mode === 'trap' || mode === 'stand') { const lg = (mode === 'trap' ? 0.85 : 0.8) * sc; hx = fx + dx * lg; hy = fy; hz = fz + dz * lg; }
+    else if (c.rail) { fx = c.x + out * 0.25; fy = c.y + 0.1; fz = z - 0.45; } // keelboat rail: legs over the side
+    else { fx = c.x - out * 0.5 * sc; fy = c.y - 0.12; fz = z * 0.4; } // feet in the cockpit under the straps
+    const sx = hx + dx * 0.55 * sc, sz = hz + dz * 0.55 * sc;
+    tC[0] = sx; tC[1] = hy; tC[2] = sz;
+    // legs
+    ctx.beginPath(); prj(M, T, fx, fy, fz); ctx.moveTo(tP.x, tP.y); prj(M, T, hx, hy, hz); ctx.lineTo(tP.x, tP.y);
+    ctx.strokeStyle = look.pants || '#2c3e66'; ctx.lineWidth = Math.max(1, 0.13 * Z * sc); ctx.stroke();
+    // torso (life jacket)
+    ctx.beginPath(); prj(M, T, hx + dx * 0.08 * sc, hy, hz + dz * 0.08 * sc); ctx.moveTo(tP.x, tP.y); prj(M, T, sx, hy, sz); ctx.lineTo(tP.x, tP.y);
+    ctx.strokeStyle = look.jacket; ctx.lineWidth = Math.max(2, 0.32 * Z * sc); ctx.stroke();
+    // head + helmet/hair on top
+    prj(M, T, hx + dx * 0.8 * sc, hy, hz + dz * 0.8 * sc);
+    const r = Math.max(1.2, 0.13 * Z * sc);
+    ctx.fillStyle = look.skin; ctx.beginPath(); ctx.arc(tP.x, tP.y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = look.helmet || look.skin; ctx.beginPath(); ctx.arc(tP.x, tP.y, r, PI, TAU); ctx.fill();
+  }
+  // §4.1 sail polygon (main and jib share it). Luff from (lx0,ly0,lz0) to (lx1,ly1,lz1); leech point i at chord
+  // c_i = chord*(1 - f*upper)*(1 + roach*sin(pi f)), angle a_i = ang + lee*twist*f + flutter*sin(t*18 + phase + 3f),
+  // lifted by f*peakDz (opti sprit peak). Order: luff bottom→top (2), leech top→bottom (n), foot clew→tack with camber
+  // (5) → screen xy into tPoly. Returns the vertex count; tS gets tack, clew, head and tPk the leech top (boat-local).
+  const tS = new Float64Array(9), tPk = new Float64Array(3);
+  function sailPolygon3D(M, T, lx0, ly0, lz0, lx1, ly1, lz1, chord, ang, o, n) {
+    let k = 0;
+    prj(M, T, lx0, ly0, lz0); tPoly[k++] = tP.x; tPoly[k++] = tP.y;
+    prj(M, T, lx1, ly1, lz1); tPoly[k++] = tP.x; tPoly[k++] = tP.y;
+    let cx = 0, cy = 0, cz = 0;
+    for (let i = n - 1; i >= 0; i--) {
+      const f = i / (n - 1);
+      const c = chord * (1 - f * o.upper) * (1 + o.roach * Math.sin(PI * f));
+      const a = ang + o.lee * o.twist * f + o.flutter * Math.sin(o.t * 18 + o.phase + f * 3);
+      const x = lx0 + (lx1 - lx0) * f + Math.sin(a) * c, y = ly0 + (ly1 - ly0) * f + Math.cos(a) * c, z = lz0 + (lz1 - lz0) * f + (1 - f) * (o.clewDz || 0) + f * (o.peakDz || 0);
+      prj(M, T, x, y, z); tPoly[k++] = tP.x; tPoly[k++] = tP.y;
+      if (i === n - 1) { tPk[0] = x; tPk[1] = y; tPk[2] = z; }
+      if (i === 0) { cx = x; cy = y; cz = z; }
+    }
+    // cambered foot: offset along the in-plane (horizontal) normal to leeward
+    const a0 = ang, nx = o.lee * Math.cos(a0), ny = -o.lee * Math.sin(a0), fc = Math.hypot(cx - lx0, cy - ly0);
+    for (let j = 1; j <= 5; j++) {
+      const q = 1 - j / 6, b = o.depth * fc * 4 * q * (1 - q);
+      prj(M, T, lx0 + (cx - lx0) * q + nx * b, ly0 + (cy - ly0) * q + ny * b, lz0 + (cz - lz0) * q); tPoly[k++] = tP.x; tPoly[k++] = tP.y;
+    }
+    tS[0] = lx0; tS[1] = ly0; tS[2] = lz0; tS[3] = cx; tS[4] = cy; tS[5] = cz; tS[6] = lx1; tS[7] = ly1; tS[8] = lz1;
+    return k >> 1;
+  }
+  // fill colour for a sail plane lit by SUN3: light = 0.72 + 0.28*|N·SUN3|, N = (clew - tack) x (head - tack) in world space
+  function sailShade(W, col) {
+    const lx = tS[3] - tS[0], ly = tS[4] - tS[1], lz = tS[5] - tS[2], mx = tS[6] - tS[0], my = tS[7] - tS[1], mz = tS[8] - tS[2]; // W is linear: map the edges
+    const ax = W[0] * lx + W[3] * ly + W[6] * lz, ay = W[1] * lx + W[4] * ly + W[7] * lz, az = W[2] * lx + W[5] * ly + W[8] * lz;
+    const bx = W[0] * mx + W[3] * my + W[6] * mz, by = W[1] * mx + W[4] * my + W[7] * mz, bz = W[2] * mx + W[5] * my + W[8] * mz;
+    const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx, nl = Math.hypot(nx, ny, nz) || 1;
+    const q = Math.round(Math.abs((nx * SUN3[0] + ny * SUN3[1] + nz * SUN3[2]) / nl) * 7); // 8 light steps
+    const key = col + '|' + q;
+    let s = sailShadeCache.get(key);
+    if (!s) { s = shade(col, 0.72 + 0.28 * q / 7 - 1); if (sailShadeCache.size > 200) sailShadeCache.clear(); sailShadeCache.set(key, s); }
+    return s;
+  }
+  function polyPath(ctx, n, off) {
+    off = off || 0; ctx.beginPath(); ctx.moveTo(tPoly[off], tPoly[off + 1]);
+    for (let i = 1; i < n; i++) ctx.lineTo(tPoly[off + i * 2], tPoly[off + i * 2 + 1]);
+    ctx.closePath();
+  }
+  function fillPoly(ctx, n, fill, stroke, lw) {
+    polyPath(ctx, n); ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+  }
+  // battens + draft line on the sail polygon in tPoly (full perf): screen-space lerps are exact, the projection is affine.
+  // Leech sample i (f = i/(n-1)) sits at tPoly index 2 + (n-1-i); the luff runs from vertex 0 (f=0) to vertex 1 (f=1).
+  function lu(f, e) { return lerp(tPoly[e], tPoly[2 + e], f); }
+  function le(n, f, e) { const p = f * (n - 1), i = Math.min(n - 2, Math.floor(p)), u = p - i, a = 2 + (n - 1 - i), b = a - 1; return lerp(tPoly[a * 2 + e], tPoly[b * 2 + e], u); }
+  function sailDetail(ctx, n, nb) {
+    if (nb) {
+      ctx.strokeStyle = 'rgba(40,50,70,0.35)'; ctx.lineWidth = 1; ctx.beginPath();
+      for (let k = 1; k <= nb; k++) { const f = k / (nb + 1), x = le(n, f, 0), y = le(n, f, 1); ctx.moveTo(x, y); ctx.lineTo(lerp(x, lu(f, 0), 0.3), lerp(y, lu(f, 1), 0.3)); }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(30,50,80,0.16)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i <= 6; i++) { const f = i / 6 * 0.92, x = lerp(lu(f, 0), le(n, f, 0), 0.45), y = lerp(lu(f, 1), le(n, f, 1), 0.45); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  }
+  const sOptT = { upper: 0, roach: 0, twist: 0, lee: 1, flutter: 0, t: 0, phase: 0, depth: 0, clewDz: 0, peakDz: 0 };
+  // sail options for the main (opti: spritsail, wide head lifted to the sprit peak at 0.95*mastH) and the jib
+  function mainOpt(o, r, g, head) { const sp = !!g.sprit; o.upper = sp ? 0.15 : 0.72; o.roach = sp ? 0 : 0.08; o.twist = 0.42; o.flutter = r.flutter; o.depth = r.depth; o.clewDz = 0; o.peakDz = sp ? g.mastH * 0.95 - head : 0; }
+  function jibOpt(o, r, boat) { o.upper = 0.9; o.roach = 0; o.twist = 0.2; o.flutter = r.jibFlutter; o.depth = r.depth * (boat.jibLuffing ? 0.45 : 0.95); o.clewDz = 0.15; o.peakDz = 0; }
+
+  // Spinnaker / gennaker in 3D. The footprint (tack, clew, bezier belly) is a COPY of drawSpinnaker's 2D geometry
+  // (keep in sync). The footprint arc is lifted: tack and clew at z = fb + 0.3 (sym tack at the pole, fb + 0.9), the
+  // arc middle at ~35% of the head height; the sail is the fan from that arc to the head at 0.88*mastH (grows with
+  // st.spi). Surface point P(u, f) = lerp(arc(u), head, f). Returns false when furled.
+  const tSpi = new Float64Array(16); // tack xyz, c1 xy, c2 xy, clew xyz, head xyz, zMid
+  function spiGeom(g, boat, st, side, ang, t, fb) {
+    const k = st.spi; if (k < 0.02) return false;
+    const L = g.L, sym = g.spi === 'sym', mastY = yAt(g, g.mast);
+    const open = clamp(Math.abs(ang) / 1.4, 0, 1);
+    const kk = Math.min(1.25, k), grow = Math.min(1, k);
+    let tx, ty, cx, cy;
+    if (sym) {
+      const span = L * (0.32 + 0.12 * open) * grow;
+      tx = -side * span * (0.35 + 0.65 * open); ty = -L / 2 + L * 0.08 - L * 0.06 * open;
+      cx = side * (g.B / 2 + span * 0.85); cy = mastY - L * 0.08 + L * 0.1 * (1 - open);
+    } else {
+      tx = 0; ty = -L / 2 - (g.bowsprit || 0.3) * (g.retractSprit ? grow : 1);
+      const spread = L * (0.16 + 0.26 * open) * grow;
+      cx = side * (g.B / 2 + spread); cy = mastY - L * 0.05 + L * 0.12 * (1 - open) * grow;
+    }
+    const ex = cx - tx, ey = cy - ty, el = Math.hypot(ex, ey) || 1;
+    let nx = ey / el, ny = -ex / el; if (ny > 0) { nx = -nx; ny = -ny; }
+    const wob = Math.sin(t * 6 + st.phase) * (boat.luffing ? 0.12 : 0.025);
+    const belly = el * (0.42 + 0.1 * open) * kk * (1 + wob);
+    const S = tSpi, zc = fb + 0.3, hz = zc + (g.mastH * 0.88 - zc) * grow;
+    S[0] = tx; S[1] = ty; S[2] = sym ? fb + 0.9 : zc;
+    S[3] = tx + ex * 0.08 + nx * belly; S[4] = ty + ey * 0.08 + ny * belly;
+    S[5] = tx + ex * 0.92 + nx * belly * 0.95 + side * el * 0.12; S[6] = ty + ey * 0.92 + ny * belly * 0.95;
+    S[7] = cx; S[8] = cy; S[9] = zc;
+    S[10] = 0; S[11] = mastY - 0.15; S[12] = hz;
+    S[13] = zc + (hz - zc) * 0.35;
+    return true;
+  }
+  // P(u, f) of the spinnaker surface → screen into tPoly at vertex index vi
+  function spiPt(M, T, u, f, vi) {
+    const S = tSpi, a = 1 - u, b0 = a * a * a, b1 = 3 * a * a * u, b2 = 3 * a * u * u, b3 = u * u * u;
+    const x = b0 * S[0] + b1 * S[3] + b2 * S[5] + b3 * S[7], y = b0 * S[1] + b1 * S[4] + b2 * S[6] + b3 * S[8];
+    const z = lerp(S[2], S[9], u) + (S[13] - lerp(S[2], S[9], 0.5)) * Math.sin(PI * u);
+    prj(M, T, x + (S[10] - x) * f, y + (S[11] - y) * f, z + (S[12] - z) * f);
+    tPoly[vi * 2] = tP.x; tPoly[vi * 2 + 1] = tP.y;
+  }
+  // the outline (arc + head) into tPoly; returns the vertex count
+  function spiOutline(M, T, m) { for (let i = 0; i <= m; i++) spiPt(M, T, i / m, 0, i); const S = tSpi; prj(M, T, S[10], S[11], S[12]); tPoly[(m + 1) * 2] = tP.x; tPoly[(m + 1) * 2 + 1] = tP.y; return m + 2; }
+  function drawSpiTilted(ctx, M, T, W, g, boat, st, lee, fb, perf) {
+    const m = perf >= 2 ? 8 : 6, S = tSpi, cols = g.spiColors || ['#ff7a3d', '#ffd23f', '#ffffff'];
+    tS[0] = S[0]; tS[1] = S[1]; tS[2] = S[2]; tS[3] = S[7]; tS[4] = S[8]; tS[5] = S[9]; tS[6] = S[10]; tS[7] = S[11]; tS[8] = S[12];
+    if (g.spi === 'sym') drawPost(ctx, M, T, 0, yAt(g, g.mast), fb + 1.0, S[0], S[1], S[2], '#8a8f99', Math.max(1, 0.07 * T.Z)); // pole
+    const nv = spiOutline(M, T, m);
+    fillPoly(ctx, nv, sailShade(W, cols[0]));
+    if (perf >= 2) { // horizontal colour bands: strips between two fan heights f0..f1
+      for (let bnd = 0; bnd < 2; bnd++) {
+        const f0 = bnd ? 0.5 : 0.4, f1 = bnd ? 1 : 0.5;
+        for (let i = 0; i <= m; i++) { spiPt(M, T, i / m, f0, i); spiPt(M, T, 1 - i / m, f1, m + 1 + i); }
+        polyPath(ctx, 2 * m + 2); ctx.fillStyle = sailShade(W, bnd ? cols[1] : cols[2] || '#ffffff'); ctx.fill();
+      }
+      spiOutline(M, T, m);
+    }
+    polyPath(ctx, nv); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    // sheet (and the sym guy)
+    ctx.strokeStyle = 'rgba(30,30,30,0.55)'; ctx.lineWidth = 1; ctx.beginPath();
+    prj(M, T, S[7], S[8], S[9]); ctx.moveTo(tP.x, tP.y); prj(M, T, lee * halfW(g, 0.82), yAt(g, 0.82), fb); ctx.lineTo(tP.x, tP.y);
+    if (g.spi === 'sym') { prj(M, T, S[0], S[1], S[2]); ctx.moveTo(tP.x, tP.y); prj(M, T, -lee * halfW(g, 0.82), yAt(g, 0.82), fb); ctx.lineTo(tP.x, tP.y); }
+    ctx.stroke();
+  }
+  function addPart(np, k, d) { tParts[np].k = k; tParts[np].d = d; return np + 1; }
+  function sortParts(np) { for (let i = 1; i < np; i++) { const p = tParts[i]; let j = i - 1; while (j >= 0 && tParts[j].d > p.d) { tParts[j + 1] = tParts[j]; j--; } tParts[j + 1] = p; } } // insertion sort, no allocation
+
+  // drawBoat under opts.tilt (the scene's _tilt). Returns false when this boat should take the flat path (capsized).
+  // Draw order (§4.3): shadows (P·S·W), keel/board, hull bottom, side band, deck sprite, rudder + tiller, then the
+  // rig parts and crew back to front by camera depth, windex last. Level gating (§8, T.perf): 2 everything; 1 n=5,
+  // no battens/draft line, flat spinnaker, sail shadows only for the target boat; 0 n=4, hull + mast shadow only, no keel.
+  function drawBoatTilted(ctx, boat, opts) {
+    const T = opts.tilt, TL = KOS.Tilt;
+    if (!TL || boat.capsized) { if (!boat.capsized && KOS.Sprites) KOS.Sprites._tiltFallbacks = (KOS.Sprites._tiltFallbacks || 0) + 1; return false; } // dev counter
+    const clsId = clsIdOf(boat), g = geo(clsId), L = g.L;
+    const t = opts.t != null ? opts.t : boat.t || 0;
+    const st = stateOf(boat);
+    const dt = st.t == null ? 0 : clamp(t - st.t, 0, 0.1); st.t = t;
+    const colors = colorsOf(clsId, boat.colors);
+    const ppm = opts.ppm || 20;
+    const r = rigStateTilted(boat, g, st, dt, opts), heel = r.heel;
+    const fb = TILT_FB[clsId] || 0.3, keelBoat = !!g.keel, zB = fb + (keelBoat ? 0.95 : 0.75);
+    const M = TL.boatMatrix(null, T, boat, heel, tM);
+    const H = boat.heading || 0, cH = Math.cos(H), sH = Math.sin(H), ch = Math.cos(heel), sh = Math.sin(heel);
+    tW[0] = ch * cH; tW[1] = ch * sH; tW[2] = -sh; tW[3] = -sH; tW[4] = cH; tW[5] = 0; tW[6] = sh * cH; tW[7] = sh * sH; tW[8] = ch;
+    const Zp = T.Z, dpr = T.dpr, perf = T.perf;
+    const shadows = opts.shadow !== false, sailShadows = shadows && (perf >= 2 || (perf === 1 && opts.target));
+    const n = perf >= 2 ? 7 : perf === 1 ? 5 : 4;
+    const mastY = yAt(g, g.mast || 0.3), sprit = !!g.sprit;
+    const head = sprit ? g.mastH * 0.6 : g.mastH * 0.97, mastTop = sprit ? head + 0.15 : g.mastH;
+    const clewX = Math.sin(r.boom) * g.boom, clewY = mastY + Math.cos(r.boom) * g.boom;
+    const jibTackY = -L / 2 + L * (g.jib || 0), jibHead = g.mastH * (L > 6 ? 0.8 : 0.72);
+    const jibChord = (mastY - jibTackY) * (g.jibLen || 1) * 1.02;
+    const o = sOptT; o.t = t; o.phase = st.phase; o.lee = r.lee;
+    const spiUp = !g.motor && spiGeom(g, boat, st, r.lee, r.boom, t, fb);
+    const base = opts.alpha != null ? opts.alpha : 1;
+    ctx.save();
+    ctx.globalAlpha = base;
+    if (opts.highlight) { // ring on the water (the world transform is still active: it squashes with the ground)
+      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      ctx.strokeStyle = 'rgba(255,214,94,' + (0.35 + 0.35 * pulse) + ')'; ctx.lineWidth = Math.max(0.12, 2.5 / ppm);
+      ctx.beginPath(); ctx.arc(boat.x, boat.y, L * 0.75 + pulse * 0.2, 0, TAU); ctx.stroke();
+    }
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const hullD = path2d(outlineD(g, 0));
+    // ---- 1. shadows on the water through SM = P·S·W (stay attached to the hull under heel, §3.4)
+    if (shadows) {
+      const SM = TL.shadowMatrix(null, T, boat, heel, tSM);
+      deckT(ctx, SM, fb, T); ctx.fillStyle = SHADOW_T; ctx.fill(hullD);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!g.motor) {
+        drawPost(ctx, SM, T, 0, mastY, fb, 0, mastY, mastTop, SHADOW_T, Math.max(1.2, 0.09 * Zp));
+        if (sailShadows) {
+          mainOpt(o, r, g, head); fillPoly(ctx, sailPolygon3D(SM, T, 0, mastY, zB, 0, mastY, head, g.boom, r.boom, o, n), SHADOW_T);
+          if (g.jib) { jibOpt(o, r, boat); fillPoly(ctx, sailPolygon3D(SM, T, 0, jibTackY, fb + 0.1, 0, mastY, jibHead, jibChord, r.jibAng, o, Math.min(n, 5)), SHADOW_T); }
+          if (spiUp) fillPoly(ctx, spiOutline(SM, T, 6), SHADOW_T);
+        }
+      } else box3(ctx, SM, T, tW, 0, yAt(g, 0.47) + 0.02, 0.42, 0.37, 0, fb, 1.35, SHADOW_T, SHADOW_T, SHADOW_T); // RIB console
+    }
+    // ---- 2. keel / daggerboard below the hull (only the high side shows once the hull covers it), raised board top
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const up = g.board && boat.cls && boat.cls.hasBoard && boat.board != null ? clamp(1 - boat.board, 0, 1) : 0;
+    if (perf >= 1 && Math.abs(heel) > 0.12 && (keelBoat || g.board)) {
+      const D = keelBoat ? TILT_KEEL[clsId] || 1.4 : 0.9 * (1 - up);
+      if (D > 0.1) {
+        const ky = keelBoat ? yAt(g, g.cabin ? (g.cabin[0] + g.cabin[1]) / 2 + 0.08 : 0.45) : yAt(g, g.board - 0.06), c0 = keelBoat ? L * 0.13 : L * 0.11, c1 = c0 * 0.6;
+        ctx.globalAlpha = base * clamp((Math.abs(heel) - 0.12) * 2.5, 0, 0.85);
+        quad3(ctx, M, T, 0, ky, -0.05, 0, ky + c0, -0.05, 0, ky + c0 * 0.9, -D, 0, ky + c0 * 0.9 - c1, -D, keelBoat ? '#26364d' : '#3a3f48');
+        ctx.globalAlpha = base;
+      }
+    }
+    // ---- hull: high-side bottom, side band (z=0 and a middle slice + a px-wide stroke, so bow/stern have no notches), deck
+    const sideCol = shade(colors.hull, -0.35);
+    if (Math.abs(heel) > 0.05) { deckT(ctx, M, -0.12, T); ctx.fillStyle = shade(colors.hull, -0.45); ctx.fill(hullD); }
+    ctx.fillStyle = sideCol;
+    deckT(ctx, M, 0, T); ctx.fill(hullD);
+    deckT(ctx, M, fb / 2, T); ctx.fill(hullD);
+    const op = outlinePts(g);
+    ctx.beginPath(); ctx.moveTo(op[0][0], op[0][1]); for (let i = 1; i < op.length; i++) ctx.lineTo(op[i][0], op[i][1]); ctx.closePath();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // the path keeps its deck-plane points; stroke width in CSS px
+    ctx.strokeStyle = sideCol; ctx.lineWidth = fb * Zp * T.s; ctx.stroke();
+    deckT(ctx, M, fb, T);
+    const hs = hullSprite(clsId, boat.colors, boat.sailNo, ppm);
+    if (hs) ctx.drawImage(hs.canvas, hs.x0, hs.y0, hs.w, hs.h);
+    else { ctx.fillStyle = colors.hull; ctx.fill(hullD); }
+    if (g.motor) { drawRibTilted(ctx, boat, g, M, T, r.rudder, fb, base); ctx.restore(); return true; }
+    // ---- 3. rudder + tiller on the deck plane at fb + 0.15 (copy of drawBoat "rudder + tiller")
+    deckT(ctx, M, fb + 0.15, T);
+    const sternY = L / 2, ra = r.rudder * 0.55;
+    ctx.strokeStyle = '#2b2f36'; ctx.lineWidth = 0.07;
+    ctx.beginPath(); ctx.moveTo(0, sternY); ctx.lineTo(Math.sin(ra) * 0.35, sternY + Math.cos(ra) * 0.35); ctx.stroke();
+    if (!g.keel || clsId === 'hboat') {
+      const tl = Math.min(1.25, L * 0.27);
+      ctx.strokeStyle = clsId === 'opti' || clsId === 'hboat' ? '#a87443' : '#3a3f48'; ctx.lineWidth = 0.055;
+      ctx.beginPath(); ctx.moveTo(0, sternY); ctx.lineTo(-Math.sin(ra) * tl, sternY - Math.cos(ra) * tl); ctx.stroke();
+    } else { ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(0, sternY - 0.1); ctx.lineTo(-Math.sin(ra) * 1.4, sternY - 0.1 - Math.cos(ra) * 1.4); ctx.stroke(); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // raised daggerboard top above the case, a thin box (copy of drawBoat "raised daggerboard": up = 1 - board)
+    if (up > 0.03) {
+      const by = yAt(g, g.board - 0.06), bl = L * 0.11;
+      const bc = clsId === 'opti' ? '#c08a55' : '#eef1f5';
+      box3(ctx, M, T, tW, 0, by + bl / 2, 0.04, bl / 2, 0, fb, fb + up * 0.6, shade(bc, -0.25), shade(bc, -0.12), bc);
+    }
+    // retractable pole (feva) out with the gennaker
+    if (g.retractSprit && st.spi > 0.02) drawPost(ctx, M, T, 0, -L / 2 + 0.25, fb, 0, -L / 2 - g.bowsprit * Math.min(1, st.spi), fb, '#2a2f3a', Math.max(1, 0.06 * Zp));
+    // ---- 4. rig parts and crew, painter's order by camera depth: 0 main, 1 jib, 2 mast + boom (+ sprit), 3 spinnaker, 4+i crew i
+    let np = 0;
+    np = addPart(np, 0, depthOf(tW, T, clewX * 0.5, (mastY + clewY) / 2, (zB + head) / 2));
+    if (g.jib) np = addPart(np, 1, depthOf(tW, T, Math.sin(r.jibAng) * jibChord * 0.4, (jibTackY + mastY) / 2, (fb + jibHead) / 2));
+    np = addPart(np, 2, depthOf(tW, T, 0, mastY, g.mastH / 2));
+    if (spiUp) np = addPart(np, 3, depthOf(tW, T, (tSpi[0] + tSpi[7]) / 2, (tSpi[1] + tSpi[8]) / 2, tSpi[13]));
+    const nc = crewSeatsTilted(g, st, r.hike);
+    for (let i = 0; i < nc; i++) np = addPart(np, 4 + i, depthOf(tW, T, tCrew[i].x, tCrew[i].y, fb + 0.5));
+    sortParts(np);
+    const sc = L > 6 ? 1.12 : clsId === 'opti' ? 0.92 : 1.02, sailEdge = shade(colors.sail, -0.5);
+    for (let pi = 0; pi < np; pi++) {
+      const k = tParts[pi].k;
+      if (k === 0) { // mainsail (opti: spritsail, short luff and a high peak)
+        mainOpt(o, r, g, head);
+        const nv = sailPolygon3D(M, T, 0, mastY, zB, 0, mastY, head, g.boom * (sprit ? 0.98 : 1), r.boom, o, n);
+        fillPoly(ctx, nv, sailShade(tW, colors.sail), sailEdge, 1);
+        if (g.mylar && perf >= 1) { ctx.globalAlpha = base * 0.18; ctx.fillStyle = '#7f8da3'; ctx.fill(); ctx.globalAlpha = base; }
+        if (perf >= 2 && !r.flutter) sailDetail(ctx, n, g.battens || 0);
+        if (sprit) drawPost(ctx, M, T, 0, mastY, fb + 0.4, tPk[0], tPk[1], tPk[2], '#c08a55', Math.max(1, 0.04 * Zp));
+      } else if (k === 1) { // jib on the forestay
+        jibOpt(o, r, boat);
+        const nv = sailPolygon3D(M, T, 0, jibTackY, fb + 0.1, 0, mastY, jibHead, jibChord, r.jibAng, o, Math.min(n, 5));
+        fillPoly(ctx, nv, sailShade(tW, colors.sail), sailEdge, 1);
+        if (g.mylar && perf >= 1) { ctx.globalAlpha = base * 0.18; ctx.fillStyle = '#7f8da3'; ctx.fill(); ctx.globalAlpha = base; }
+      } else if (k === 2) { // boom, then mast (heel included through M)
+        drawPost(ctx, M, T, 0, mastY, zB, clewX, clewY, zB, g.boomCol || '#4a515c', Math.max(1, (L > 6 ? 0.11 : 0.07) * Zp));
+        drawPost(ctx, M, T, 0, mastY, fb, 0, mastY, mastTop, g.mastCol || '#6b7380', Math.max(1.2, (L > 6 ? 0.13 : 0.09) * Zp));
+      } else if (k === 3) drawSpiTilted(ctx, M, T, tW, g, boat, st, r.lee, fb, perf);
+      else { // crew member (trapeze wire from the shoulder to the hounds)
+        const i = k - 4, look = crewLook(boat, i);
+        drawSailorTilted(ctx, M, T, tCrew[i], fb, r.hike, look, sc);
+        if (tCrew[i].mode === 'trap') { ctx.strokeStyle = 'rgba(40,40,40,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); prj(M, T, tC[0], tC[1], tC[2]); ctx.moveTo(tP.x, tP.y); prj(M, T, 0, mastY, g.mastH * 0.72); ctx.lineTo(tP.x, tP.y); ctx.stroke(); }
+      }
+    }
+    // ---- 5. windex at the masthead pointing downwind (apparent), as in drawBoat
+    if (ppm > 14 && boat.awa != null) {
+      const a = PI + boat.awa;
+      drawPost(ctx, M, T, 0, mastY, mastTop, Math.sin(a) * 0.35, mastY - Math.cos(a) * 0.35, mastTop, '#ff3b3b', 1.5);
+    }
+    ctx.restore();
+    return true;
+  }
+  // RIB under tilt (§4 table): the hull sprite is already on the deck plane (z = fb). Console as a box from fb to 1.35
+  // with a windscreen, outboard as a leg + cowling turning with the rudder (as drawRibLive), driver standing upright
+  // behind the wheel, an optional passenger; back to front by camera depth.
+  const tRibCrew = { x: 0, y: 0, out: 1, mode: 'stand', ext: 0, rail: false };
+  function drawRibTilted(ctx, boat, g, M, T, rudder, fb, base) {
+    const L = g.L, cy = yAt(g, 0.47), Zp = T.Z, oa = -rudder * 0.5, oy = L / 2 - 0.1;
+    ctx.setTransform(T.dpr, 0, 0, T.dpr, 0, 0);
+    let np = 0;
+    np = addPart(np, 10, depthOf(tW, T, 0, cy, 1));
+    np = addPart(np, 11, depthOf(tW, T, 0, cy + 0.87, 1));
+    np = addPart(np, 12, depthOf(tW, T, 0, oy + 0.4, 0.8));
+    const pass = boat.crewNames && boat.crewNames.length > 1;
+    if (pass) np = addPart(np, 13, depthOf(tW, T, 0.55, yAt(g, 0.72), 1));
+    sortParts(np);
+    for (let pi = 0; pi < np; pi++) {
+      const k = tParts[pi].k;
+      if (k === 10) { // console + windscreen
+        box3(ctx, M, T, tW, 0, cy + 0.02, 0.42, 0.37, 0, fb, 1.35, '#c24a0a', '#d4520c', '#ff8a3d');
+        quad3(ctx, M, T, -0.4, cy - 0.35, 1.35, 0.4, cy - 0.35, 1.35, 0.34, cy - 0.12, 1.72, -0.34, cy - 0.12, 1.72, 'rgba(170,215,240,0.7)');
+        quad3(ctx, M, T, -0.34, cy + 0.08, 1.351, 0.34, cy + 0.08, 1.351, 0.34, cy + 0.34, 1.351, -0.34, cy + 0.34, 1.351, '#1d1f23'); // dash
+      } else if (k === 11) { // driver (look as drawRibLive)
+        const look = crewLook(boat, 0); look.jacket = boat.crewColors ? boat.crewColors[0] : '#ffd23f'; look.helmet = HAIR[hashStr(boat.id || 'r') % HAIR.length];
+        tRibCrew.x = 0; tRibCrew.y = cy + 0.87; tRibCrew.mode = 'stand';
+        drawSailorTilted(ctx, M, T, tRibCrew, fb, 0, look, 1.05);
+      } else if (k === 12) { // outboard: leg + cowling, turning with the rudder about the transom
+        const ca = Math.cos(oa), sa = Math.sin(oa), px = -sa * 0.42, py = oy + ca * 0.42;
+        drawPost(ctx, M, T, px, py, -0.1, px, py, 0.6, '#2d3138', Math.max(1, 0.14 * Zp));
+        box3(ctx, M, T, tW, px, py, 0.28, 0.39, oa, 0.6, 1.0, '#121418', '#1b1e23', '#2d3138');
+      } else if (k === 13) { tRibCrew.x = 0.55; tRibCrew.y = yAt(g, 0.72); tRibCrew.mode = 'sit'; tRibCrew.out = 1; drawSailorTilted(ctx, M, T, tRibCrew, fb, 0, crewLook(boat, 1), 1); tRibCrew.out = 1; }
+    }
+  }
+
   function drawRibLive(ctx, boat, g, colors, t, rudder, st) {
     const L = g.L;
     // outboard (turns with steering)
@@ -742,6 +1193,7 @@
   // drawBuoy: ctx in world meters; draws upright (counter-rotates camera rot).
   function drawBuoy(ctx, kind, x, y, opts) {
     opts = opts || {};
+    if (opts.tilt) return drawBuoyTilted(ctx, kind, x, y, opts);
     const t = opts.t || 0, ppm = opts.ppm || 20, sc = opts.scale || 1.5;
     const def = buoyDef(kind);
     const ph = (x * 0.37 + y * 0.71) % 6.28;
@@ -789,6 +1241,7 @@
 
   // committee boat (top view, anchored head to wind), with flags streaming downwind
   function drawCommittee(ctx, x, y, heading, opts) {
+    if (opts.tilt) return drawCommitteeTilted(ctx, x, y, heading, opts);
     const t = opts.t || 0, L = 9, B = 3.1;
     const g = { L, B, bowW: 0, pb: 0.55, maxAt: 0.55, sternW: 0.85, bowArc: 0.02, sternArc: 0.02 };
     const yaw = Math.sin(t * 0.3 + x) * 0.06;
@@ -822,6 +1275,150 @@
     for (let i = N; i >= 0; i--) { const s = i / N, wave = Math.sin(s * 6 - t * 9) * 0.12 * s; ctx.lineTo(w / 2 + wave, -s * len); }
     ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.04; ctx.stroke();
     if (pattern === 'P') { ctx.fillStyle = '#fff'; ctx.fillRect(-w * 0.22, -len * 0.7, w * 0.44, len * 0.4); }
+    ctx.restore();
+  }
+
+  // ---- Tilted view: buoys, marks, committee boat, flags, flagpole (docs/specs/tilt-camera.md §4) -----------------------
+  // Buoys / marks: the upright sprite is a billboard at the projected foot point, same pixel size as flat (Z*scale px per
+  // sprite unit, times KOS.Tilt.BUOY_SCALE), no rotate (camera rot is in the projection). The ring and the shadow lie on the
+  // squashed ground (world transform still active), the shadow stretched along SUN by the sprite height. Flag and light code
+  // mirror drawBuoy; keep both in sync.
+  const tB = { x: 0, y: 0 };
+  function drawBuoyTilted(ctx, kind, x, y, opts) {
+    const T = opts.tilt, TL = KOS.Tilt;
+    const t = opts.t || 0, ppm = opts.ppm || 20, sc = opts.scale || 1.5;
+    const def = buoyDef(kind);
+    const ph = (x * 0.37 + y * 0.71) % 6.28;
+    const bob = Math.sin(t * 1.9 + ph) * 0.06, tilt = Math.sin(t * 1.3 + ph * 1.7) * 0.07;
+    ctx.save();
+    // ground, in sprite units scaled to metres: ring + shadow along SUN (the pole tip lands at SUN * height)
+    ctx.translate(x, y); ctx.scale(sc, sc);
+    const H = -def.top, S3 = TL.SUN, fr = 0.5 + 0.5 * Math.sin(t * 2.4 + ph);
+    ctx.fillStyle = 'rgba(0,25,60,0.22)'; ctx.beginPath();
+    ctx.ellipse(S3.x * H * 0.5, S3.y * H * 0.5, Math.hypot(S3.x, S3.y) * H * 0.5 + def.w * 0.3, def.w * 0.28, Math.atan2(S3.y, S3.x), 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.35 + 0.3 * fr) + ')'; ctx.lineWidth = 0.07;
+    ctx.beginPath(); ctx.arc(0, 0, def.w * (0.5 + 0.07 * fr), 0, TAU); ctx.stroke();
+    // the billboard, in screen space
+    const p = TL.project(T, x, y, 0, tB), d = T.dpr, zs = T.Z * sc * (TL.BUOY_SCALE || 1);
+    ctx.setTransform(d * zs, 0, 0, d * zs, d * (p.x + T.shx), d * (p.y + T.shy));
+    ctx.translate(0, bob); ctx.rotate(tilt);
+    const s = buoySprite(kind, ppm * sc);
+    if (s) ctx.drawImage(s.canvas, s.x0, s.y0, s.w, s.h); else paintShapes(ctx, def.shapes);
+    if (def.flag) { // side-view flag streaming downwind (screen side from the projected wind)
+      const dir = opts.windDir != null ? (Math.sin(opts.windDir + PI - (opts.rot || 0)) >= 0 ? 1 : -1) : 1;
+      ctx.beginPath(); ctx.moveTo(0, -2.4);
+      for (let i = 1; i <= 6; i++) { const u = i / 6; ctx.lineTo(dir * u * 0.95, -2.4 + Math.sin(u * 5 - t * 8) * 0.07 * u + u * 0.04); }
+      for (let i = 6; i >= 0; i--) { const u = i / 6; ctx.lineTo(dir * u * 0.95, -1.95 + Math.sin(u * 5 - t * 8 + 0.4) * 0.07 * u - u * 0.04); }
+      ctx.closePath(); ctx.fillStyle = def.flag; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.03; ctx.stroke();
+    }
+    const L = parseLight(opts.light);
+    if (L) {
+      const lv = lightLevel(L, t + (ph % 1.3));
+      if (lv > 0) { // glow at the sprite top = project(x, y, top)
+        const night = opts.night || 0, r = 0.6 + night * 2.4;
+        ctx.globalCompositeOperation = 'lighter';
+        const gr = ctx.createRadialGradient(0, def.top, 0, 0, def.top, r);
+        const c = LIGHT_COL[L.col] || LIGHT_COL.W;
+        gr.addColorStop(0, rgba(c, 0.95)); gr.addColorStop(0.25, rgba(c, 0.55 + night * 0.3)); gr.addColorStop(1, rgba(c, 0));
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, def.top, r, 0, TAU); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, def.top, 0.09, 0, TAU); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+  // sprite height in sprite units (metres = this * the draw scale): scene.drawNight puts glows at light height with it
+  function buoyTop(kind) { return -buoyDef(kind).top; }
+  // height (m) of a scene mark's sprite in the tilted view: mirrors drawMark's kind map and scale (scene.markTopPx puts the label pill above it)
+  function markTop(m, scale) {
+    if (m.kind === 'committee') return 4;
+    const kind = { orange: 'mark-orange', yellow: 'mark-yellow', gate: 'mark-orange', pin: 'pin', finish: 'finish' }[m.kind] || m.kind || 'mark-orange';
+    return buoyTop(kind) * (scale || 1.5) * (kind === 'pin' || kind === 'finish' ? 1 : 1.1);
+  }
+
+  // An upright flag hanging from (X0, Y0) (screen CSS px, shake included), streaming along the world direction
+  // (-sin dir, cos dir): `dir` is the wind-from heading, so the flag points downwind. The cloth is a vertical plane: length
+  // along the projected ground direction, width straight down the screen, ripple sideways on the ground. amp/freq/spd shape
+  // the ripple (metres at the free end). Geometry mirrors drawFlag (same ripple, same P-flag block).
+  const tFl = { x: 0, y: 0 };
+  function flagPt(T, X0, Y0, ex, ey, s, a, wv, len, w) { // s 0..1 along, a 0 (top edge) .. 1 (bottom edge)
+    const Z = T.Z, cr = T.cr, sr = T.sr, al = s * len;
+    tFl.x = X0 + Z * ((ex * cr - ey * sr) * al + (-ey * cr - ex * sr) * wv);
+    tFl.y = Y0 + Z * (((ex * sr + ey * cr) * al + (-ey * sr + ex * cr) * wv) * T.k + a * w * T.s);
+    return tFl;
+  }
+  function drawFlagUp(ctx, T, X0, Y0, dir, col, t, len, w, amp, freq, spd, pattern) {
+    const ex = -Math.sin(dir), ey = Math.cos(dir), N = 8;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const s = i / N, p = flagPt(T, X0, Y0, ex, ey, s, 0, Math.sin(s * freq - t * spd) * amp * s, len, w); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+    for (let i = N; i >= 0; i--) { const s = i / N, p = flagPt(T, X0, Y0, ex, ey, s, 1, Math.sin(s * freq - t * spd) * amp * s, len, w); ctx.lineTo(p.x, p.y); }
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+    if (pattern === 'P') { // white centre block (0.3..0.7 along, 0.28..0.72 across, as drawFlag)
+      ctx.fillStyle = '#fff'; ctx.beginPath();
+      for (let i = 0; i < 4; i++) { const s = i === 0 || i === 3 ? 0.3 : 0.7, p = flagPt(T, X0, Y0, ex, ey, s, i < 2 ? 0.28 : 0.72, Math.sin(s * freq - t * spd) * amp * s, len, w); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+      ctx.closePath(); ctx.fill();
+    } else if (pattern === 'DK') { // Dannebrog: white cross, vertical bar at 0.36 of the length
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, 0.45 * T.Z * T.s); ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const s = i / N, p = flagPt(T, X0, Y0, ex, ey, s, 0.5, Math.sin(s * freq - t * spd) * amp * s, len, w); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+      const sv = 0.36, wv = Math.sin(sv * freq - t * spd) * amp * sv, p0 = flagPt(T, X0, Y0, ex, ey, sv, 0, wv, len, w), ax = p0.x, ay = p0.y, p1 = flagPt(T, X0, Y0, ex, ey, sv, 1, wv, len, w);
+      ctx.moveTo(ax, ay); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    }
+  }
+  // club flagpole: a post to z=8 with the Dannebrog upright at the top; the shadow lies along SUN (world transform active on entry)
+  function drawFlagpoleTilted(ctx, l, windDir, t, T) {
+    const TL = KOS.Tilt, S3 = TL.SUN, h = 8;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(40,40,30,0.25)'; ctx.lineWidth = 0.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(l.x + S3.x * h, l.y + S3.y * h); ctx.stroke();
+    ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.arc(l.x, l.y, 0.45, 0, TAU); ctx.fill();
+    const p0 = TL.project(T, l.x, l.y, 0, {}), p1 = TL.project(T, l.x, l.y, h, {}), d = T.dpr;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    const pw = Math.max(2, T.Z * 0.3); ctx.beginPath(); ctx.moveTo(p0.x + T.shx, p0.y + T.shy); ctx.lineTo(p1.x + T.shx, p1.y + T.shy);
+    ctx.strokeStyle = 'rgba(90,85,70,0.55)'; ctx.lineWidth = pw + 1.5; ctx.stroke(); ctx.strokeStyle = '#f2f2f2'; ctx.lineWidth = pw; ctx.stroke(); // outlined: pale post on sand
+    drawFlagUp(ctx, T, p1.x + T.shx, p1.y + T.shy, windDir, '#c8102e', t, 4.2, 3, 0.35, 5, 8, 'DK');
+    ctx.restore();
+  }
+
+  // Committee boat in the tilted view: flat hull with a freeboard band (0.6 m), cabin box, stern mast post (z=4) with upright
+  // flags, shadows along SUN. Race runs it as a scene prop (§4.6) so it depth-sorts with the boats. The deck mirrors
+  // drawCommittee; keep both in sync.
+  const cBoat = { x: 0, y: 0, heading: 0 };
+  function drawCommitteeTilted(ctx, x, y, heading, opts) {
+    const T = opts.tilt, TL = KOS.Tilt, t = opts.t || 0, L = 9, B = 3.1, FB = 0.6, MH = 4, my = 2.6;
+    const g = { L, B, bowW: 0, pb: 0.55, maxAt: 0.55, sternW: 0.85, bowArc: 0.02, sternArc: 0.02 };
+    const yaw = Math.sin(t * 0.3 + x) * 0.06, Hd = heading + yaw, cH = Math.cos(Hd), sH = Math.sin(Hd), dpr = T.dpr, Zp = T.Z;
+    cBoat.x = x; cBoat.y = y; cBoat.heading = Hd;
+    const M = TL.boatMatrix(null, T, cBoat, 0, tM), SM = TL.shadowMatrix(null, T, cBoat, 0, tSM);
+    tW[0] = cH; tW[1] = sH; tW[2] = 0; tW[3] = -sH; tW[4] = cH; tW[5] = 0; tW[6] = 0; tW[7] = 0; tW[8] = 1;
+    const hull = path2d(outlineD(g, 0));
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    // shadows through P·S·W
+    deckT(ctx, SM, FB, T); ctx.fillStyle = SHADOW_T; ctx.fill(hull);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawPost(ctx, SM, T, 0, my, FB, 0, my, MH, SHADOW_T, Math.max(1.5, 0.1 * Zp));
+    // anchor line forward, on the water
+    deckT(ctx, M, 0, T);
+    ctx.strokeStyle = 'rgba(30,30,30,0.5)'; ctx.lineWidth = 0.05; ctx.setLineDash([0.3, 0.2]); ctx.beginPath(); ctx.moveTo(0, -L / 2); ctx.lineTo(0, -L / 2 - 4); ctx.stroke(); ctx.setLineDash([]);
+    // side band: z=0 and a middle slice, plus a px-wide stroke between them (no bow/stern notches)
+    ctx.fillStyle = '#c3ccd8'; ctx.fill(hull);
+    deckT(ctx, M, FB / 2, T); ctx.fill(hull);
+    const op = outlinePts(g);
+    ctx.beginPath(); ctx.moveTo(op[0][0], op[0][1]); for (let i = 1; i < op.length; i++) ctx.lineTo(op[i][0], op[i][1]); ctx.closePath();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.strokeStyle = '#c3ccd8'; ctx.lineWidth = FB * Zp * T.s; ctx.stroke();
+    // deck plane at z = FB: the flat deck of drawCommittee
+    deckT(ctx, M, FB, T);
+    ctx.fillStyle = '#ffffff'; ctx.fill(hull); ctx.strokeStyle = '#1c3f7a'; ctx.lineWidth = 0.18; ctx.stroke(path2d(outlineD(g, 0.08)));
+    ctx.fillStyle = '#eef1f5'; ctx.fill(path2d(outlineD(g, 0.3)));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sternNear = depthOf(tW, T, 0, 1, 0) > 0; // stern toward the viewer: the mast is drawn after the cabin, else before
+    if (!sternNear) drawPost(ctx, M, T, 0, my, FB, 0, my, MH, '#5b6470', Math.max(1.5, 0.1 * Zp));
+    box3(ctx, M, T, tW, 0, 0, 1.0, 1.6, 0, FB, FB + 1.1, '#c7ced8', '#b3bcc8', '#d9dfe6');
+    if (depthOf(tW, T, 0, -1, 0) > 0) quad3(ctx, M, T, -0.85, -1.6, FB + 0.55, 0.85, -1.6, FB + 0.55, 0.85, -1.6, FB + 0.95, -0.85, -1.6, FB + 0.95, 'rgba(60,100,140,0.75)');
+    if (sternNear) drawPost(ctx, M, T, 0, my, FB, 0, my, MH, '#5b6470', Math.max(1.5, 0.1 * Zp));
+    // flags hang from the mast top, streaming downwind (windDir is the wind-from heading)
+    const top = prj(M, T, 0, my, MH), fx = top.x, fy = top.y, wdir = opts.windDir || 0;
+    const flags = opts.flags || ['#ff7a1a', '#1a7fd4'];
+    for (let i = 0; i < flags.length; i++) drawFlagUp(ctx, T, fx, fy + i * 0.15 * Zp * T.s, wdir + (i - 0.5) * 0.25, flags[i], t + i * 0.7, 1.6, 1.04, 0.12, 6, 9, i === 1 ? 'P' : null);
     ctx.restore();
   }
 
@@ -1016,7 +1613,7 @@
   KOS.Sprites = {
     GEO, CLASS_IDS, geo, halfW, colorsOf, outlineD,
     boat: boatSvg, rib: ribSvg, buoy: buoySvg, mark: markSvg, sail, boatCard, avatar, icon,
-    drawBoat, drawBuoy, drawMark, drawCommittee, drawFlag, drawSailor,
+    drawBoat, drawBoatTilted, drawBuoy, drawMark, drawCommittee, drawFlag, drawSailor, buoyTop, markTop, drawFlagUp, drawFlagpoleTilted,
     hullSprite, buoySprite, parseLight, lightLevel, buoyKinds: Object.keys(BUOYS),
     shapesToSvg, paintShapes, shade, rgba, palettes: { JACKETS, HAIR, SKIN, HELMETS },
     clearCache() { hullCache.clear(); buoySpriteCache.clear(); },

@@ -110,8 +110,13 @@ js/modes/knots.js     knot tying mini-game
 js/modes/capsize.js   capsize recovery mini-game
 js/modes/quiz.js      sailing quiz
 js/modes/shed.js      tidy-the-shed mini-game (Træner Peter)
-js/main.js            boot
+js/main.js            boot (runs right after the scripts above: init + title screen; sets KOS.Boot)
+js/modes-ready.js     last script: every mode ran -> KOS.Boot.modesReady()
 ```
+The 12 `js/modes/*.js` scripts are `defer`red (they download in parallel with the core scripts but run after `main.js`),
+so the title is interactive without waiting for the ~1 MB of mode code. Until `KOS.modesReady`, `App.show()` holds back
+every screen except the title (a tap on Spil waits for it); `<html class="booted">` is set when the modes are ready
+(`title-ready` earlier). Mode stylesheets are linked `media="print" onload="this.media='all'"` so they do not block render.
 CSS: `css/style.css` (tokens, shell, buttons, screens), `css/game.css` (HUD, touch controls, results),
 `css/hub.css`, and one `css/modes/<mode>.css` per mode (only if needed). `index.html` already links them all.
 
@@ -259,7 +264,7 @@ Helpers: `KOS.World.isLand(v, x, y)`, `KOS.World.depthAt(v, x, y)`, `KOS.World.h
 
 ### KOS.Storage (ui/storage.js)
 localStorage behind try/catch, key prefix `kos.`. `get(k, def)`, `set(k, v)`, `settings()` / `saveSettings(s)`
-(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion, windUnit: 'ms'|'kn'}`),
+(`{lang, sound, music, volume, assist: 'easy'|'normal'|'pro', controls: 'auto'|'buttons'|'joystick', unlockAll, reducedMotion, windUnit: 'ms'|'kn', tilt: 'auto'|'on'|'off'}`; `tilt` = Skrå visning, the tilted camera, default `auto`: on for race, free sail and RIB, off for school, rowschool, nav and dock; the in-game button or key `V` overrides it for one run, `M` (overview) forces flat; see docs/specs/tilt-camera.md),
 `profile()` / `saveProfile(p)` (`{name, avatar: {skin, hair, jacket}, sailNo, boatColor, createdAt}`),
 `progress(id)` → `{stars, best, plays, done}`, `record(id, result)` → `{newBest, starsGained}`, `totalStars()`, `xp()`,
 `badges()` / `award(badgeId)`.
@@ -330,8 +335,26 @@ unfinished unlocked activity) — used by the hub's "Næste udfordring" card. `K
 (shared by the hub top bar and the Sejlerpas). `KOS.App.BADGES` / `addBadges(defs)`: badge definitions; milestones are checked
 after every finished activity, and badges a mode awards with `KOS.Storage.award(id)` during play are shown on the results
 screen (medal strip + sound). First run: profile → hub → Jesper welcome dialog → `school.steer`.
-`KOS.Perf.level` (2 full, 1 lighter, 0 slow device) is set by the app's frame-time governor; the scene lowers its DPR cap and
-the effects thin out cosmetic particles at lower levels.
+
+**Hub map rendering (performance).** The static art of the harbour map (sea, depth, land, ~1,700 city blocks, coast with
+blur/drop-shadow, piers, moored boats, buoys, sun glow) is NOT drawn live: it is pre-rendered to `assets/hub/hub-map-1x.webp`,
+`-2x.webp` and `-1x.jpg` (fallback) and shown as an `<img>` base. A 480 KB / 3,500-node filtered SVG took 15-20 s to paint on
+a current iPhone (WebKit). Only the interactive/moving bits stay live SVG on top (`buildMap('live')`: boats, gulls, pin anchors,
+~212 nodes, 27 SMIL animations on iOS, no SVG filters anywhere), plus HTML pins and labels.
+- Edit the art in `js/ui/hub.js` (`buildMap`, `STATIC_CSS`, world data). While editing, open the game with `#hubsvg=1`: it
+  rebuilds the full vector map (no image).
+- Regenerate the images after any change to the static art: `node tools/render-hub.js` (headless Chrome; `--q=0.86` webp quality),
+  then `node tools/gen-precache.js`. `hub-map.json` stores a hash of the static markup; `node tools/render-hub.js --check`
+  (suite `hubimg` of `tools/run-tests.js`) fails if the art changed but the images were not regenerated.
+- Lite mode (`KOS.Hub.lite`): map animations stopped, no clouds, 1x image, only the next-challenge pin moves. Automatic when
+  reduced motion is on, when a previous visit was slow (`kos.hubLite`, 30 days), when the device looks weak (<= 2 cores,
+  deviceMemory <= 2, `KOS.Perf.level` <= 1), or at runtime when the first painted frame takes > 1.5 s or the median frame in
+  the first 2 s is > 50 ms (then it is remembered). Setting `lowFx` (null = automatic, true/false = player's choice;
+  "Spar på telefonen" in Settings) overrides it. On iOS/Safari the live layer only animates boat motion (no wobble, gull flap,
+  smoke, blinking lights). Tests: `tools/test-hub-lite.js` (suite `hublite`).
+`KOS.Perf.level` is the quality tier (3 full .. 0 minimal) decided in one place, the governor in `js/ui/app.js`: start tier
+guess (iOS/Safari and small touch screens 2, else 3) or the remembered one (`perfTier`), stepped down fast / up slowly from
+measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. What each tier drops: docs/ARCHITECTURE.md §9.
 
 ## Progression
 
@@ -394,7 +417,7 @@ or offline changes nothing. Screen changes are virtual page views on real-lookin
 `/indstillinger`, `/om-spillet`, `/start`, one per area (`/sejlerskolen`, `/klubhuset`, `/fri-sejlads`, `/kapsejlads`, `/vigeregler`, `/navigation`,
 `/havnemanoevrer`, `/rib-missioner`), activities as `/<area>/<activity id>` and `/<area>/<activity id>/resultat`; titles are fixed Danish
 (`KØS SEJL / Sejlerskolen / Styr og stop`), with `setReferrerUrl` to the previous screen. No cookies: `disableCookies` is set before any hit. Events (category / action / name [value]):
-Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|unlockAll, View overview|zoom,
+Activity start|finish|time (s), Boat sailed|chosen, Settings lang|sound|music|assist|controls|reducedMotion|tilt|unlockAll, View overview|zoom|tilt,
 Install offered|accepted|dismissed, Onboarding profile-created|start-first-lesson, Controls board|jib <activity id> (first use per
 activity, from the `controls:use` bus event that KOS.SailAids emits). Game code hooks the `KOS.Events` bus (`screen`, `play:start`,
 `play:finish`, `settings`) plus a few direct `KOS.Track.event` calls in app.js.
@@ -456,7 +479,7 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
   and heel, slower in light wind, so reefing too early or too late both cost.
 - **Hiking everywhere + crew commands (user 2026-10-06):** the HIKE button is hidden on Let (free sail/race/nav), for
   keelboats always, in dock and rowschool, and in most school lessons. Plan: show it for every dinghy and keelboat in
-  all sea modes; on Let auto-hike stays but pressing adds a bonus; keelboats "Ud på kanten!" (rail weight, small heel
+  all sea modes; on Let auto-hike stays but pressing adds a bonus; keelboats "Ud på kanten!" (BUILT for J70+H-boat on Normal/Pro in sail/race/nav: rail weight, small heel
   reduction), 29er "Trapez ud!". Advanced levels add crew commands, unlocked along the boat ladder with a coach
   intro the first time: "Klar til at vende?" → "Ro fra!" (2-person boats: good timing = smoother tack), "Klar til at
   bomme?" → "Bom!" (+ chicken gybe in strong wind), "Sæt gennaker!" / "Tag den ned!", "Træk kickeren!" / "Cunningham!"

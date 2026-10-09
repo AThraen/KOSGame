@@ -362,7 +362,7 @@
     const now = e.timeStamp, quick = now - lastTouchEnd < 400;
     lastTouchEnd = now;
     const el = e.target && e.target.closest ? e.target : null;
-    if (el && el.closest('input, textarea, select')) return;
+    if (el && el.closest('input, textarea, select, .play-chrome, .play-menu, .pc-chip')) return; // the menu button, menu and goals chip must always get their click
     // the controls never need a click (pointerdown drives them); elsewhere only swallow the second tap of a pair
     if (e.cancelable && (quick || (el && el.closest('.kc')))) e.preventDefault();
   }
@@ -393,7 +393,7 @@
     const SS = KOS.SailScene;
     if (!SS || !SS.view) return;
     const V = SS.view;
-    V.mul = 1; V.overview = false;
+    V.mul = 1; V.overview = false; V.tilt = null; // the tilt quick toggle (Skrå visning) lasts for this run only
     const btn = doc.createElement('button');
     btn.type = 'button'; btn.className = 'icon-btn view-btn';
     btn.setAttribute('aria-label', t('app.view.overview')); btn.title = t('app.view.overview') + ' (M)';
@@ -402,6 +402,78 @@
     const toggle = () => { sfx('click'); V.overview = !V.overview; if (V.overview) track('View', 'overview', run.act && run.act.id); if (!V.overview && V.mul < 1) V.mul = 1; sync(); };
     btn.addEventListener('click', toggle);
     chrome.appendChild(btn); sync();
+    // Skrå visning quick toggle: flips the effective state for this run (not persisted); dimmed while the overview forces flat
+    const tbtn = doc.createElement('button');
+    tbtn.type = 'button'; tbtn.className = 'icon-btn tilt-btn';
+    tbtn.setAttribute('aria-label', t('app.view.tilt')); tbtn.title = t('app.view.tilt');
+    tbtn.innerHTML = ico('tilt');
+    let tLast = '';
+    const tsync = () => {
+      const sc = SS.current, on = V.tilt != null ? !!V.tilt : !!(sc && sc._tiltWant), dis = !!V.overview, k = (on ? 1 : 0) + '' + (dis ? 1 : 0);
+      if (k === tLast) return; tLast = k;
+      tbtn.classList.toggle('on', on && !dis); tbtn.setAttribute('aria-pressed', on && !dis ? 'true' : 'false'); tbtn.setAttribute('aria-disabled', dis ? 'true' : 'false');
+    };
+    const tiltToggle = () => { if (V.overview) return; sfx('click'); const sc = SS.current; V.tilt = !(V.tilt != null ? V.tilt : !!(sc && sc._tiltWant)); track('View', 'tilt', run.act && run.act.id); tLast = ''; tsync(); };
+    tbtn.addEventListener('click', tiltToggle);
+    chrome.appendChild(tbtn); tsync(); run.tiltSync = tsync;
+    // ⋯ menu (phones, body.phone-ui): pause, overview and Skrå visning collapse into one small button top-left. While it is open
+    // the game is paused (silently, without the pause card); it closes on a choice or a tap outside.
+    const dots = doc.createElement('button');
+    dots.type = 'button'; dots.className = 'icon-btn dots-btn';
+    dots.setAttribute('aria-label', t('app.menu.more')); dots.setAttribute('aria-haspopup', 'true'); dots.setAttribute('aria-expanded', 'false');
+    dots.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2" fill="currentColor"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><circle cx="19" cy="12" r="2.2" fill="currentColor"/></svg>';
+    chrome.insertBefore(dots, chrome.firstChild);
+    let menuEl = null, menuScrim = null;
+    const menuClose = () => {
+      if (!menuEl) return;
+      menuEl.remove(); menuScrim.remove(); menuEl = menuScrim = null; run.menuOpen = false; run.menuClose = null;
+      dots.classList.remove('on'); dots.setAttribute('aria-expanded', 'false');
+      if (run.running && run.paused) { // resume the game
+        run.paused = false; run.last = performance.now();
+        try { run.inst && run.inst.resume && run.inst.resume(); } catch (e) { console.error(e); }
+        emit('play:pause', false);
+      }
+    };
+    const menuOpen = () => {
+      if (menuEl || !run.running || run.finished || run.paused) return;
+      sfx('click'); track('View', 'menu', run.act && run.act.id);
+      run.paused = true; run.menuOpen = true; run.menuClose = menuClose;
+      try { run.inst && run.inst.pause && run.inst.pause(); } catch (e) { console.error(e); }
+      if (UI().coachClose) UI().coachClose();
+      audio('engine', null);
+      emit('play:pause', true);
+      const cur = settings().tilt;
+      const row = (act, icon, label, extra) => '<button type="button" class="pm-row' + (extra && extra.on ? ' on' : '') + '" data-pm="' + act + '">' + ico(icon) + '<span>' + esc(label) + '</span>' + ((extra && extra.badge) || '') + '</button>';
+      menuScrim = doc.createElement('div'); menuScrim.className = 'play-menu-scrim';
+      menuEl = doc.createElement('div'); menuEl.className = 'play-menu glass'; menuEl.setAttribute('role', 'menu');
+      menuEl.innerHTML =
+        row('pause', 'pause', t('app.pause.title')) +
+        row('overview', 'map', t('app.menu.overview'), { on: V.overview, badge: '<i class="pm-state">' + esc(t(V.overview ? 'app.menu.on' : 'app.menu.off')) + '</i>' }) +
+        '<div class="pm-tilt"><span class="pm-lbl">' + ico('tilt') + '<span>' + esc(t('app.menu.tilt')) + '</span></span><span class="pm-seg" role="group">' +
+        [['off', 'app.tilt.off'], ['on', 'app.tilt.on'], ['auto', 'app.tilt.auto']].map(o => '<button type="button" data-tilt="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '"' + (cur === o[0] ? ' class="on"' : '') + '>' + esc(t(o[1])) + '</button>').join('') + '</span></div>' +
+        (iosNeedsGuide() ? '<button type="button" class="pm-hint" data-pm="install">' + ico('download') + '<span>' + esc(t('app.menu.install')) + '</span></button>' : '');
+      menuEl.addEventListener('click', e => {
+        const tb = e.target.closest('[data-tilt]');
+        if (tb) {
+          const v = tb.getAttribute('data-tilt'); sfx('click');
+          try { S().saveSettings({ tilt: v }); } catch (er) { /* storage blocked */ }
+          V.tilt = !!(KOS.Tilt && KOS.Tilt.resolve(v, run.act, Perf.level)); tLast = ''; tsync();
+          menuEl.querySelectorAll('[data-tilt]').forEach(b => { const on = b === tb; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+          setTimeout(menuClose, 220);
+          return;
+        }
+        const b = e.target.closest('[data-pm]'); if (!b) return;
+        const act = b.getAttribute('data-pm'); sfx('click');
+        menuClose();
+        if (act === 'pause') setPaused(true);
+        else if (act === 'overview') toggle();
+        else if (act === 'install') { setPaused(true); App.install(); }
+      });
+      menuScrim.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); menuClose(); });
+      sec.appendChild(menuScrim); sec.appendChild(menuEl);
+      dots.classList.add('on'); dots.setAttribute('aria-expanded', 'true');
+    };
+    dots.addEventListener('click', () => { if (menuEl) menuClose(); else menuOpen(); });
     const zoomBy = k => { if (!V.zt) { V.zt = 1; track('View', 'zoom', run.act && run.act.id); } V.overview = false; V.mul = Math.max(0.05, Math.min(3, V.mul * k)); sync(); };
     const inControls = el => !!(el && el.closest && el.closest('.kc, .pause-overlay, button, .dialog'));
     let pinch = null;
@@ -421,15 +493,22 @@
     listen(sec, 'wheel', e => { if (e.defaultPrevented || inControls(e.target)) return; e.preventDefault(); zoomBy(e.deltaY > 0 ? 0.88 : 1.14); }, { passive: false });
     listen(root, 'keydown', e => {
       if (run.paused || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === 'm' || e.key === 'M') toggle();
+      if (e.key === 'm' || e.key === 'M') { if (!e.repeat) toggle(); } // toggles ignore key auto-repeat (holding M or V would flicker); zoom keys repeat
+      else if (e.key === 'v' || e.key === 'V') { if (!e.repeat) tiltToggle(); }
       else if (e.key === '-' || e.key === '_') zoomBy(0.8);
       else if (e.key === '+' || e.key === '=') zoomBy(1.25);
     });
-    run.viewOff = () => { offs.forEach(f => f()); V.mul = 1; V.overview = false; sec.classList.remove('view-overview'); };
+    run.viewOff = () => { offs.forEach(f => f()); menuClose(); run.tiltSync = null; V.mul = 1; V.overview = false; V.tilt = null; sec.classList.remove('view-overview'); };
   }
   App.show = function (screen, params, opts) {
     opts = opts || {};
     if (!renderers[screen]) screen = 'title';
+    // startup phase 2 (see js/main.js): the mode scripts register the activities every other screen needs
+    if (screen !== 'title' && !KOS.modesReady) {
+      App._held = [screen, params, opts];
+      doc.body.classList.add('modes-wait');
+      return screenEl(App.cur || 'title');
+    }
     const prev = App.cur;
     if (prev && prev !== screen && leave[prev]) { try { leave[prev](); } catch (e) { console.error(e); } }
     if (prev && !opts.isBack && !opts.replace && prev !== screen && prev !== 'play' && prev !== 'results') {
@@ -460,6 +539,21 @@
     if (screen !== 'play') announceScreen(sec);
     emit('screen', screen);
     return sec;
+  };
+  // called once by main.js when all mode scripts have run: play a held screen request, or fill the title in place
+  App.modesReady = function () {
+    doc.body.classList.remove('modes-wait');
+    const held = App._held;
+    App._held = null;
+    if (held) { App.show(held[0], held[1], held[2]); return; }
+    const sec = screenEl('title');
+    if (App.cur !== 'title' || !sec) return;
+    // the title was rendered before the activities existed: patch the star total and the quick-start button in place
+    // (a full re-render would replay the logo animation)
+    const pill = sec.querySelector('.topbar-left .pill');
+    if (pill) pill.outerHTML = starPill();
+    const quick = sec.querySelector('[data-act="quick"]');
+    if (quick && KOS.Activities && KOS.Activities.byArea('bay')[0]) quick.disabled = false;
   };
   App.back = function () {
     const prev = App.stack.pop();
@@ -506,7 +600,7 @@
     bind(sec, {
       play: () => { sfx('click'); if (!S().profile()) App.show('profile', { first: true }); else App.show('hub'); },
       garage: () => { sfx('click'); App.show('garage'); },
-      quick: () => { sfx('click'); if (bay) App.play(bay.id); },
+      quick: () => { sfx('click'); const b = KOS.Activities ? KOS.Activities.byArea('bay')[0] : null; if (b) App.play(b.id); },
       settings: () => { sfx('click'); App.show('settings'); },
       profile: () => { sfx('click'); App.show('profile', {}); },
       credits: () => { sfx('click'); App.show('credits'); },
@@ -624,6 +718,9 @@
     return true;
   };
 
+  // phone UI (body.phone-ui): ⋯ menu instead of three buttons, goals / lesson panels collapse to a chip, two-thumb controls
+  function syncPhoneUi() { try { doc.body.classList.toggle('phone-ui', !!(KOS.Input && KOS.Input.isPhone && KOS.Input.isPhone())); } catch (e) { /* optional */ } }
+  App.syncPhoneUi = syncPhoneUi;
   renderers.play = function (sec) {
     const a = run.act;
     if (!a) { setTimeout(() => App.show('hub', {}, { replace: true }), 0); return; }
@@ -638,6 +735,7 @@
     chrome.innerHTML = '<button type="button" class="icon-btn pause-btn" aria-label="' + esc(t('app.pause.title')) + '">' + ico('pause') + '</button>';
     chrome.querySelector('button').addEventListener('click', () => { sfx('click'); setPaused(!run.paused); });
     sec.appendChild(chrome);
+    syncPhoneUi();
     if (run.mode.kind !== 'dom') setupViewZoom(sec, chrome);
 
     const kind = run.mode.kind === 'dom' ? 'dom' : 'sea';
@@ -659,6 +757,7 @@
       params: a.params || {},
       assist: st.assist,
       settings: st,
+      tilt: !!(KOS.Tilt && KOS.Tilt.resolve(st.tilt, a, Perf.level)), tiltAuto: st.tilt === 'auto', // Skrå visning: resolved once at play start (scene applies the override, overview and perf-drop rules)
       profile: S().profile() || {},
       boat: a.boat || S().get('boat', 'opti'),
       finish: result => finish(result),
@@ -680,7 +779,7 @@
     run.running = true;
     run.acc = 0;
     run.last = performance.now();
-    run.startT = run.last; Perf.ema = 16.7; Perf.slowT = 0;
+    run.startT = run.last; Perf.reset();
     cancelAnimationFrame(run.raf);
     run.raf = requestAnimationFrame(frame);
     emit('play:start', { id: a.id, boat: a.boat || S().get('boat', 'opti') });
@@ -688,15 +787,68 @@
   leave.play = function () { stopRun(); if (UI().setCoach) UI().setCoach('jesper'); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
 
-  // frame-time governor: on a slow device drop to fewer pixels / particles (KOS.Perf.level 2 → 1 → 0), and climb back
-  // when there is headroom. Scene and effects read KOS.Perf.level.
-  const Perf = KOS.Perf = KOS.Perf || { level: 2, ema: 16.7, slowT: 0, fastT: 0 };
+  // Quality tiers (KOS.Perf.level) - ONE place decides how much decoration the renderers draw:
+  //   3 full | 2 no ambient extras (sparkles, flag flutter, shore-foam motion, whitecap layer, hub ambience)
+  //   1 lighter (no 2nd wave layer, half the wind streaks, thinner spray, canvas DPR <= 1.5) | 0 minimal (DPR 1.15, 1 wave layer)
+  // Gameplay information (marks, boats, wind arrow, laylines, labels, HUD, controls) is never dropped. See docs/ARCHITECTURE.md.
+  // Start tier: #perf=0..3 forces one (no governor, nothing remembered); else the tier remembered for this device
+  // (Storage 'perfTier'); else a guess: iPhone/iPad/Safari and small touch screens start at 2, everything else at 3.
+  // Then the governor measures: median/p95 of a rolling window of frame times steps DOWN fast (2 bad windows, ~1 s) and UP
+  // slowly (20 s of good windows, never within 60 s of a drop, never above a tier that dropped twice this session).
+  // Settings: lowFx=true caps the tier at 1.
+  const Perf = KOS.Perf = KOS.Perf || { level: 3 };
+  Object.assign(Perf, { buf: [], bad: 0, goodT: 0, holdUntil: 0, ceiling: 3, downs: {}, forced: null, ema: 16.7 });
+  Perf.cap = function () { try { return S().settings().lowFx === true ? 1 : 3; } catch (e) { return 3; } };
+  Perf.init = function () {
+    let m = null; try { m = /[#&]perf=([0-3])/.exec(root.location.hash || ''); } catch (e) { /* no location */ }
+    if (m) { Perf.forced = +m[1]; Perf.level = Perf.forced; Perf.mark(); return; }
+    let guess = 3;
+    try {
+      const n = root.navigator, small = Math.min(root.innerWidth, root.innerHeight) < 600 && root.matchMedia('(pointer: coarse)').matches;
+      if (/iPhone|iPad|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1) || 'GestureEvent' in root || small) guess = 2;
+    } catch (e) { /* keep 3 */ }
+    Perf.guess = guess;
+    let lvl = guess;
+    try { const v = S().get('perfTier', null); if (v && v.level >= 0 && v.level <= 3) lvl = v.level | 0; } catch (e) { /* none */ }
+    Perf.level = Math.min(lvl, Perf.cap()); Perf.mark();
+  };
+  // html[data-tier] lets CSS drop cosmetic work too (frosted-glass blur over the sea canvas below tier 3, see css/game.css)
+  Perf.mark = function () { try { doc.documentElement.setAttribute('data-tier', String(Perf.level)); } catch (e) { /* ignore */ } };
+  Perf.reset = function () { Perf.buf.length = 0; Perf.bad = 0; Perf.goodT = 0; if (Perf.forced === null) Perf.level = Math.min(Perf.level, Perf.cap()); Perf.mark(); };
+  Perf.set = function (lvl, why) {
+    if (lvl === Perf.level) return;
+    Perf.level = lvl; Perf.buf.length = 0; Perf.bad = 0; Perf.goodT = 0; Perf.why = why; Perf.mark();
+    try { S().set('perfTier', { level: lvl, at: Date.now() }); } catch (e) { /* ignore */ }
+    emit('perf:tier', { level: lvl, why });
+  };
+  Perf.init();
   function govern(ms) {
-    if (!(ms > 0) || ms > 250) return; // tab switches / breakpoints
-    Perf.ema += (ms - Perf.ema) * 0.05;
-    if (Perf.ema > 19.5) { Perf.slowT += ms; Perf.fastT = 0; } else if (Perf.ema < 17.5) { Perf.fastT += ms; Perf.slowT = 0; } else { Perf.slowT = 0; Perf.fastT = 0; }
-    if (Perf.slowT > 1500 && Perf.level > 0 && performance.now() - run.startT > 2500) { Perf.level--; Perf.max = Perf.level; Perf.slowT = 0; Perf.ema = 16.7; }
-    else if (Perf.fastT > 12000 && Perf.level < (Perf.max === undefined ? 2 : Perf.max)) { Perf.level++; Perf.fastT = 0; }
+    if (Perf.forced !== null || !(ms > 0) || ms > 250) return; // forced tier; tab switches / breakpoints
+    const buf = Perf.buf; if (!buf.length) Perf.winT = 0; buf.push(ms); Perf.winT += ms;
+    if (buf.length < 45 && !(Perf.winT >= 900 && buf.length >= 5)) return; // a window = 45 frames, or ~1 s on a slow device
+    const s = buf.slice().sort((x, y) => x - y), med = s[s.length >> 1], p95 = s[Math.floor(s.length * 0.95)];
+    Perf.ema = med; Perf.med = med; Perf.p95 = p95;
+    const t = performance.now(), age = t - run.startT; buf.length = 0;
+    if (age < 2500) return;
+    // a steady ~33 ms clock with little jitter is a 30 fps cap (iOS Low Power Mode, Android battery saver), not a struggling
+    // device: 30 fps is then the target, and only frames clearly worse than the cap (median > 45 ms or p95 > 70 ms) count as bad
+    const capped = Math.abs(med - 33.3) <= 3 && p95 - med <= 6;
+    Perf.capped = capped;
+    const bad = capped ? false : (med > 21 || p95 > 45);
+    if (bad) {
+      Perf.goodT = 0;
+      if (++Perf.bad >= 2 && Perf.level > 0) {
+        Perf.downs[Perf.level] = (Perf.downs[Perf.level] || 0) + 1;
+        if (Perf.downs[Perf.level] >= 2) Perf.ceiling = Math.min(Perf.ceiling, Perf.level - 1);
+        Perf.holdUntil = t + 60000; Perf.set(Perf.level - 1, 'slow');
+      }
+    } else {
+      Perf.bad = 0;
+      if (med < 17.9 && p95 < 24) {
+        Perf.goodT += Perf.winT;
+        if (Perf.goodT > 20000 && t > Perf.holdUntil && Perf.level < Math.min(Perf.ceiling, Perf.cap())) Perf.set(Perf.level + 1, 'headroom');
+      } else Perf.goodT = 0;
+    }
   }
 
   function frame(now) {
@@ -718,6 +870,7 @@
         if (!run.running || run.paused) break;
       }
       if (run.running && run.inst && run.inst.render) run.inst.render(Math.min(1, run.acc / step));
+      if (run.tiltSync) run.tiltSync();
     } catch (e) { crash(e); }
   }
 
@@ -756,6 +909,7 @@
 
   function setPaused(b) {
     if (!run.running || run.finished) return;
+    if (run.menuOpen && run.menuClose) { run.menuClose(); if (!b) return; } // the ⋯ menu pauses silently; P / Esc closes it
     if (b === run.paused) return;
     run.paused = b;
     if (b) {
@@ -914,6 +1068,8 @@
   // ================================================================== SETTINGS
   renderers.settings = function (sec) {
     const s = settings();
+    // lowFx is null = automatic; show what the hub will actually do
+    try { if (s.lowFx !== true && s.lowFx !== false) s.lowFx = !!(KOS.Hub && KOS.Hub.lite && KOS.Hub.lite.effective()); } catch (e) { s.lowFx = false; }
     const seg = (key, opts) => '<div class="seg" role="radiogroup">' + opts.map(o =>
       '<button type="button" role="radio" aria-checked="' + (s[key] === o.v) + '" class="' + (s[key] === o.v ? 'on' : '') + '" data-act="set" data-k="' + key + '" data-v="' + o.v + '">' +
       (o.icon ? ico(o.icon) : '') + '<span>' + esc(o.label) + '</span></button>').join('') + '</div>';
@@ -933,9 +1089,12 @@
       seg('assist', [{ v: 'easy', label: t('app.assist.easy') }, { v: 'normal', label: t('app.assist.normal') }, { v: 'pro', label: t('app.assist.pro') }]) +
       '<p class="set-help">' + esc(t('app.assist.' + s.assist + 'Help')) + '</p></section>' +
       '<section class="panel glass"><h2>' + ico('joystick') + esc(t('app.settings.controls')) + '</h2>' +
-      seg('controls', [{ v: 'auto', label: t('app.controls.auto'), icon: 'sparkle' }, { v: 'buttons', label: t('app.controls.buttons'), icon: 'buttons' }, { v: 'joystick', label: t('app.controls.joystick'), icon: 'joystick' }]) +
+      seg('controls', [{ v: 'auto', label: t('app.controls.auto'), icon: 'sparkle' }, { v: 'tiller', label: t('app.controls.tiller'), icon: 'sail' }, { v: 'buttons', label: t('app.controls.buttons'), icon: 'buttons' }, { v: 'joystick', label: t('app.controls.joystick'), icon: 'joystick' }]) +
       '<p class="set-help">' + esc(t('app.controls.help')) + '</p>' +
-      sw('reducedMotion', t('app.settings.reducedMotion'), 'motion') + '</section>' +
+      sw('reducedMotion', t('app.settings.reducedMotion'), 'motion') + sw('lowFx', t('app.settings.lowFx'), 'gauge') + '</section>' +
+      '<section class="panel glass"><h2>' + ico('tilt') + esc(t('app.settings.tilt')) + '</h2>' +
+      seg('tilt', [{ v: 'auto', label: t('app.tilt.auto'), icon: 'sparkle' }, { v: 'on', label: t('app.tilt.on'), icon: 'tilt' }, { v: 'off', label: t('app.tilt.off'), icon: 'map' }]) +
+      '<p class="set-help">' + esc(t('app.tilt.help')) + '</p></section>' +
       '<section class="panel glass panel-coach"><h2>' + ico('whistle') + esc(t('app.settings.coach')) + '</h2>' +
       '<p class="set-help">' + esc(t('app.settings.coachHelp')) + '</p>' +
       '<div class="set-row"><span class="set-ico">' + ico(s.unlockAll ? 'unlock' : 'lock') + '</span><span class="set-label">' + esc(t('app.settings.unlockAll')) + '</span>' +
@@ -958,7 +1117,9 @@
       },
       toggle: b => {
         const k = b.getAttribute('data-k');
-        const ns = save({ [k]: !settings()[k] });
+        let cur = !!settings()[k];
+        if (k === 'lowFx') { try { cur = !!KOS.Hub.lite.effective(); if (cur) KOS.Hub.lite.forget(); } catch (e) { /* ignore */ } } // automatic -> what it does now
+        const ns = save({ [k]: !cur });
         sfx('tap');
         b.classList.toggle('on', !!ns[k]);
         b.setAttribute('aria-checked', String(!!ns[k]));
@@ -1319,6 +1480,7 @@
     applySettings(s);
     root.addEventListener('keydown', onKey, true);
     root.addEventListener('resize', () => {
+      syncPhoneUi();
       if (App.cur === 'play' && run.inst) {
         sizeCanvas(doc.getElementById('game-canvas'));
         try { run.inst.onResize && run.inst.onResize(); } catch (e) { console.error(e); }
@@ -1374,7 +1536,9 @@
         difficulty: 'Sværhed', empty: 'Her kommer snart nye opgaver. Kig forbi igen!',
         needStars: 'Du skal bruge {n} ★ for at låse op (du har {have}).', needAfter: 'Klar først: {name}',
       },
-      view: { overview: 'Oversigt – se hele farvandet' },
+      view: { overview: 'Oversigt – se hele farvandet', tilt: 'Skrå visning (V)' },
+      menu: { more: 'Menu', overview: 'Overblik', tilt: 'Skrå visning', on: 'Til', off: 'Fra', install: 'Føj til hjemmeskærm for fuld skærm' },
+      tilt: { auto: 'Automatisk', on: 'Til', off: 'Fra', help: 'Se bådene skråt fra siden, så du kan se dem krænge. Automatisk: til i kapsejlads, fri sejlads og RIB, fra i sejlerskolen, regelskolen, navigation og havnemanøvrer.' },
       pause: {
         title: 'Pause', quit: 'Til kortet',
         tip1: 'Husk: bagbord vige for styrbord!', tip2: 'Kan du ikke sejle direkte mod vinden? Så kryds!',
@@ -1384,7 +1548,7 @@
       crash: { title: 'Ups – en bølge for meget!', body: 'Noget gik galt i denne aktivitet. Prøv en anden, mens vi retter det.' },
       settings: {
         title: 'Indstillinger', lang: 'Sprog', audio: 'Lyd', sound: 'Lydeffekter', music: 'Musik', volume: 'Lydstyrke',
-        assist: 'Hjælpeniveau', windUnit: 'Vindstyrke i', controls: 'Styring', reducedMotion: 'Færre animationer',
+        assist: 'Hjælpeniveau', windUnit: 'Vindstyrke i', controls: 'Styring', reducedMotion: 'Færre animationer', tilt: 'Skrå visning', lowFx: 'Spar på telefonen (stille kort)',
         coach: 'Træner og forældre', coachHelp: 'Kun for voksne: hold knappen nede i 3 sekunder for at låse alt op (eller låse igen).',
         unlockAll: 'Lås alt op', hold: 'Hold i 3 sekunder', holdHint: 'Hold knappen nede i 3 sekunder.',
         unlockedAll: 'Alt er låst op!', lockedAll: 'Låst igen – sejl dig til stjernerne.',
@@ -1395,10 +1559,10 @@
       assist: {
         easy: 'Let', normal: 'Normal', pro: 'Pro',
         easyHelp: 'Sejlene trimmer sig selv, du kan ikke kæntre, og træneren viser vejen.',
-        normalHelp: 'Du trimmer selv, men får lidt hjælp. Pas på krængningen!',
+        normalHelp: 'Sejlet trimmer sig selv, og du justerer med skødet: skub for at hale ind eller fire lidt. Pas på krængningen!',
         proHelp: 'Som i virkeligheden: manuelt trim, kæntring og strafrunder. Kun for hajer!',
       },
-      controls: { auto: 'Auto', buttons: 'Knapper', joystick: 'Joystick', help: 'Auto vælger knapper på touchskærm og tastatur på computer.' },
+      controls: { auto: 'Auto', tiller: 'Rorpind + skøde', buttons: 'Knapper', joystick: 'Joystick', help: 'Auto vælger rorpind + skøde på telefon, knapper på tablet og tastatur på computer. Rorpind: træk med venstre tommel for at styre, skødet sidder til højre.' },
       profile: {
         title: 'Din profil', newTitle: 'Ny sejler', sub: 'Hvem skal til søs i dag?', name: 'Dit navn', namePh: 'Skriv dit navn',
         age: 'Alder', ageOpt: '{a} år', look: 'Udseende', style: 'Frisure', skin: 'Hudfarve', hair: 'Hårfarve', jacket: 'Sejlerjakke',
@@ -1448,7 +1612,9 @@
         difficulty: 'Difficulty', empty: 'New challenges are coming soon. Check back later!',
         needStars: 'You need {n} ★ to unlock this (you have {have}).', needAfter: 'Finish first: {name}',
       },
-      view: { overview: 'Overview – see the whole area' },
+      view: { overview: 'Overview – see the whole area', tilt: 'Tilted view (V)' },
+      menu: { more: 'Menu', overview: 'Overview', tilt: 'Tilted view', on: 'On', off: 'Off', install: 'Add to home screen for full screen' },
+      tilt: { auto: 'Automatic', on: 'On', off: 'Off', help: 'See the boats at an angle, so you can watch them heel. Automatic: on for racing, free sailing and the RIB, off in the sailing school, the rules school, navigation and docking.' },
       pause: {
         title: 'Paused', quit: 'To the map',
         tip1: 'Remember: port gives way to starboard!', tip2: 'Can’t sail straight into the wind? Beat upwind!',
@@ -1458,7 +1624,7 @@
       crash: { title: 'Oops – one wave too many!', body: 'Something went wrong in this activity. Try another one while we fix it.' },
       settings: {
         title: 'Settings', lang: 'Language', audio: 'Sound', sound: 'Sound effects', music: 'Music', volume: 'Volume',
-        assist: 'Assist level', windUnit: 'Wind speed in', controls: 'Controls', reducedMotion: 'Reduce motion',
+        assist: 'Assist level', windUnit: 'Wind speed in', controls: 'Controls', reducedMotion: 'Reduce motion', tilt: 'Tilted view', lowFx: 'Save battery (still map)',
         coach: 'Coaches and parents', coachHelp: 'Grown-ups only: hold the button for 3 seconds to unlock everything (or lock again).',
         unlockAll: 'Unlock everything', hold: 'Hold for 3 seconds', holdHint: 'Hold the button down for 3 seconds.',
         unlockedAll: 'Everything unlocked!', lockedAll: 'Locked again – sail for those stars.',
@@ -1469,10 +1635,10 @@
       assist: {
         easy: 'Easy', normal: 'Normal', pro: 'Pro',
         easyHelp: 'Sails trim themselves, you can’t capsize, and your coach shows the way.',
-        normalHelp: 'You trim yourself with a little help. Watch the heel!',
+        normalHelp: 'The sail trims itself and you fine-tune with the sheet: nudge it to haul in or ease a little. Watch the heel!',
         proHelp: 'Like the real thing: manual trim, capsizing and penalty turns. Sharks only!',
       },
-      controls: { auto: 'Auto', buttons: 'Buttons', joystick: 'Joystick', help: 'Auto picks buttons on touch screens and keyboard on computers.' },
+      controls: { auto: 'Auto', tiller: 'Tiller + sheet', buttons: 'Buttons', joystick: 'Joystick', help: 'Auto picks tiller + sheet on phones, buttons on tablets and keyboard on computers. Tiller: drag with your left thumb to steer, the sheet sits on the right.' },
       profile: {
         title: 'Your profile', newTitle: 'New sailor', sub: 'Who’s going to sea today?', name: 'Your name', namePh: 'Type your name',
         age: 'Age', ageOpt: '{a} yrs', look: 'Look', style: 'Hair style', skin: 'Skin', hair: 'Hair colour', jacket: 'Sailing jacket',

@@ -47,7 +47,7 @@
     this.night = opts.night || 0;
     this.laylineTarget = opts.laylineTarget || null;
     this.zoomMul = typeof opts.zoom === 'number' ? opts.zoom : 1;
-    this.camera = { x: 0, y: 0, zoom: 20, rot: opts.rot || 0 };
+    this.camera = { x: 0, y: 0, zoom: 20, rot: opts.rot || 0, pitch: 0 }; // pitch: radians from top-down (tilted view)
     this.target = null;
     this._look = { x: 0, y: 0 };
     this._snap = true;
@@ -64,6 +64,14 @@
     this.dpr = 1; this.w = 1; this.h = 1;
     this._spiPrev = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
     this.sound = opts.sound !== false;
+    // Skrå visning (tilted camera, docs/specs/tilt-camera.md): T eases toward _tiltWant; _tilt is the per-frame
+    // projection cache, null whenever the effective pitch < PITCH_MIN (then every draw takes the untouched flat path)
+    const TL = KOS.Tilt;
+    this._tiltWant = TL && TL.force != null ? (TL.force ? 1 : 0) : opts.tilt ? 1 : 0;
+    this._tiltT = this._tiltWant; this._tilt = null; this._tiltBuf = {};
+    this.props = []; // depth-sorted extras from modes: { x, y, draw(ctx, scene, tilt) }; iterated only under tilt (§4.6)
+    this._tiltAuto = !!opts.tiltAuto; this._tiltDrop = false; this._reduced = !!(KOS.UI && KOS.UI.reduced && KOS.UI.reduced()); this._rot0 = opts.rot || 0; // auto-sourced tilt (perf drop rule, §7.2); cached reduced motion, refreshed on 'settings'
+    this.kY = 1; this.viewItems = this.view; this.chase = !!(TL && TL.chase);
     if (opts.follow) this.follow(opts.follow);
     else if (this.venue && this.venue.spawn) { this.camera.x = this.venue.spawn.x; this.camera.y = this.venue.spawn.y; }
     this._bindEvents();
@@ -75,6 +83,7 @@
     const E = KOS.Events; if (!E || !E.on) return;
     const self = this, fx = () => self.effects;
     this._handlers = {
+      'settings': () => { self._reduced = !!(KOS.UI && KOS.UI.reduced && KOS.UI.reduced()); },
       'boat:ground': (e) => { if (!fx() || !e) return; const b = e.boat || e; fx().splash(e.x != null ? e.x : b.x, e.y != null ? e.y : b.y, clamp((e.speed || 1) / 2, 0.4, 1.5)); if (b && (b === self.target || b.isPlayer)) self.shake(clamp((e.speed || 1) / 2, 0.3, 1)); },
       'boat:collide': (e) => { if (!fx() || !e) return; fx().splash(e.x, e.y, clamp((e.speed || 1) / 2, 0.3, 1.2)); if (e.a === self.target || e.b === self.target) self.shake(0.6); },
       'boat:capsize': (e) => { const b = e && (e.boat || e); if (fx() && b) { fx().splash(b.x, b.y, 1.5); if (b === self.target) self.shake(0.8); } },
@@ -98,9 +107,10 @@
     let w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) { w = (typeof window !== 'undefined' && window.innerWidth) || 800; h = (typeof window !== 'undefined' && window.innerHeight) || 600; }
     const small = Math.min(w, h) < 600;
-    // KOS.Perf.level (set by the app's frame-time governor): 2 = full, 1 = lighter, 0 = slow device → fewer pixels
-    const lvl = KOS.Perf ? KOS.Perf.level : 2;
-    const cap = lvl >= 2 ? (small ? 2 : 2.5) : lvl === 1 ? 1.6 : 1.15;
+    // KOS.Perf.level (quality tier from the app's governor, 3 = full .. 0 = minimal): the canvas backing store is capped
+    // so a 3x phone does not fill 1179x2556 px; 3: 2 (phones) / 2.5, 2: 2, 1: 1.5, 0: 1.15
+    const lvl = KOS.Perf ? KOS.Perf.level : 3;
+    const cap = lvl >= 3 ? (small ? 2 : 2.5) : lvl === 2 ? 2 : lvl === 1 ? 1.5 : 1.15;
     const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, cap);
     this._perfLvl = lvl;
     this.w = w; this.h = h; this.dpr = dpr;
@@ -115,8 +125,11 @@
     let span = (18 + 4 * L) * (1 + clamp(sp / 25, 0, 0.35));
     const small = Math.min(this.w, this.h) < 600;
     let z = Math.sqrt(this.w * this.h) / span * (small ? 1.3 : 1);
+    if (this._tiltT > 0 && KOS.Tilt) z *= 1 + (KOS.Tilt.ZOOM_MUL - 1) * this._tiltT; // closer under tilt (flat path untouched)
     return z * this.zoomMul;
   };
+  // masthead height in metres for the tilted tag anchor (RIB / motor boats: console height)
+  function boatMastH(b) { const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g && g.mastH ? g.mastH : 1.4; }
   function boatLen(b) { if (b.cls && typeof b.cls === 'object' && b.cls.length) return b.cls.length; const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g ? g.L : 4; }
 
   // zoom that fits the whole venue on screen (the "overview")
@@ -144,20 +157,54 @@
       else { const k = 1 - Math.exp(-dt * 3.2); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; }
     } else if (this._snap) { cam.zoom = zt; this._snap = false; }
     cam.zoom += (zt - cam.zoom) * (1 - Math.exp(-dt * 2));
+    if (this.chase) { // dev flag #chase=1 (§3.6): the camera turns with the target; off (rot back to start) when reduced motion or the tilt is off
+      if (!this._reduced && this._tiltT > 0 && tgt) cam.rot += KOS.U.angDiff(cam.rot, tgt.heading || 0) * (1 - Math.exp(-dt * 1.5));
+      else cam.rot = this._rot0;
+    }
     this._shake = Math.max(0, this._shake - dt * 1.8);
   };
   // frame the given world rect (e.g. a whole race course)
-  S.fit = function (r, pad) { pad = pad == null ? 40 : pad; this.camera.x = (r.x0 + r.x1) / 2; this.camera.y = (r.y0 + r.y1) / 2; this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / (r.y1 - r.y0)); this.camera.zoom = this.fixedZoom; this.target = null; };
+  // Tilted (_tiltWant, set in the constructor): the Y span shrinks by k, so use kWant = cos(P0) (conservative: the real pitch is P0*zf <= P0), spec §5.
+  S.fit = function (r, pad) {
+    pad = pad == null ? 40 : pad; this.camera.x = (r.x0 + r.x1) / 2; this.camera.y = (r.y0 + r.y1) / 2;
+    if (this._tiltWant) this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / ((r.y1 - r.y0) * Math.cos(KOS.Tilt.basePitch(this.w, this.h))));
+    else this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / (r.y1 - r.y0));
+    this.camera.zoom = this.fixedZoom; this.target = null;
+  };
   S.unfit = function () { this.fixedZoom = null; };
+  // world (x, y, height z) → screen CSS px (no shake). Flat: z is ignored (= worldToScreen).
+  S.project = function (x, y, z) { return this._tilt ? KOS.Tilt.project(this._tilt, x, y, z || 0, {}) : this.worldToScreen(x, y); };
+  // screen-aligned, unsquashed CSS-px transform at the projected point (caller wraps in save/restore)
+  S.upright = function (ctx, x, y, z) {
+    const p = this.project(x, y, z), d = this.dpr;
+    ctx.setTransform(d, 0, 0, d, d * (p.x + (this._shx || 0)), d * (p.y + (this._shy || 0)));
+  };
+  // per-frame tilt: ease T toward the target, then rebuild the projection cache (null below PITCH_MIN → flat path)
+  S._updateTilt = function (dt) {
+    const TL = KOS.Tilt, V = SailScene.view, c = this.camera;
+    // _tiltWant precedence (§7.2): overview → 0; else the quick-toggle override; else the dev force or the resolved setting; then the auto perf-drop rule
+    let want = TL.force != null ? +!!TL.force : this.opts.tilt ? 1 : 0;
+    if (V.tilt != null) want = +!!V.tilt;
+    else if (this._tiltAuto && TL.force == null) { if (KOS.Perf && KOS.Perf.level === 0) this._tiltDrop = true; if (this._tiltDrop) want = 0; } // governor hit level 0: ease out, never back this run
+    if (V.overview) want = 0;
+    this._tiltWant = want;
+    if (this._tiltT !== want) this._tiltT = TL.ease(this._tiltT, want, dt, this._reduced); // reduced motion snaps
+    if (this.chase) this.biasY = this.target && !this.fixedZoom && !this._reduced ? this._tiltT * TL.zoomFade(c.zoom) * TL.BIAS * this.h : 0; // only with the chase cam (§3.3)
+    this._tilt = this._tiltT ? KOS.Tilt.makeTilt({ T: this._tiltT, cam: c, w: this.w, h: this.h, biasY: this.biasY || 0, dpr: this.dpr, shx: this._shx, shy: this._shy, perf: KOS.Perf ? KOS.Perf.level : 2 }, this._tiltBuf) : null;
+    c.pitch = this._tilt ? this._tilt.pitch : 0;
+    this.kY = this._tilt ? this._tilt.k : 1;
+  };
 
   S.worldToScreen = function (x, y) {
     if (typeof x === 'object') { y = x.y; x = x.x; }
     const c = this.camera, cs = Math.cos(-c.rot), sn = Math.sin(-c.rot);
+    if (this._tilt) return KOS.Tilt.project(this._tilt, x, y, 0, {});
     const dx = x - c.x, dy = y - c.y;
     return { x: this.w / 2 + (dx * cs - dy * sn) * c.zoom, y: this.h / 2 + (this.biasY || 0) + (dx * sn + dy * cs) * c.zoom };
   };
   S.screenToWorld = function (sx, sy) {
     if (typeof sx === 'object') { sy = sx.y; sx = sx.x; }
+    if (this._tilt) return KOS.Tilt.unproject(this._tilt, sx, sy, 0, {});
     const c = this.camera, cs = Math.cos(c.rot), sn = Math.sin(c.rot);
     const dx = (sx - this.w / 2) / c.zoom, dy = (sy - this.h / 2 - (this.biasY || 0)) / c.zoom;
     return { x: c.x + dx * cs - dy * sn, y: c.y + dx * sn + dy * cs };
@@ -165,8 +212,10 @@
   S.applyWorld = function (ctx) {
     const c = this.camera, sh = this._shake;
     const sx = sh ? (Math.random() - 0.5) * sh * 14 : 0, sy = sh ? (Math.random() - 0.5) * sh * 14 : 0;
+    this._shx = sx; this._shy = sy; // kept for upright draws under tilt (not read when flat)
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.translate(this.w / 2 + sx, this.h / 2 + (this.biasY || 0) + sy); // biasY: px the camera centre sits below the screen centre (more room ahead of the boat)
+    if (this._tilt) { const T = this._tilt; ctx.scale(1, T.k); T.shx = sx; T.shy = sy; T.ox = T.cx + sx; T.oy = T.cy + sy; } // squash screen-Y, before rotate (§3.4)
     if (c.rot) ctx.rotate(-c.rot);
     ctx.scale(c.zoom, c.zoom);
     ctx.translate(-c.x, -c.y);
@@ -179,12 +228,19 @@
     const t = this.t, ctx = this.ctx;
     if (this.canvas.clientWidth && (Math.round(this.canvas.clientWidth * this.dpr) !== this.canvas.width || Math.round(this.canvas.clientHeight * this.dpr) !== this.canvas.height || (KOS.Perf && KOS.Perf.level !== this._perfLvl))) this.resize();
     this.updateCamera(dt);
+    if (KOS.Tilt) this._updateTilt(dt);
     const fx = this.effects;
     if (fx) { fx.update(dt); for (const b of this.boats) if (b && !b.hidden) fx.trackBoat(b, dt); }
     this._soundHooks();
     // view rect
+    if (this._tilt) { // ground AABB, plus a taller one for upright items, both into reused objects (§3.5)
+      this.view = KOS.Tilt.viewAABB(this._tilt, this.w, this.h, this._viewT || (this._viewT = {}));
+      this.viewItems = KOS.Tilt.viewItemsAABB(this._tilt, this.w, this.h, this._viewI || (this._viewI = {}));
+    } else {
     const corners = [this.screenToWorld(0, 0), this.screenToWorld(this.w, 0), this.screenToWorld(0, this.h), this.screenToWorld(this.w, this.h)];
     this.view = { x0: Math.min(...corners.map((p) => p.x)), y0: Math.min(...corners.map((p) => p.y)), x1: Math.max(...corners.map((p) => p.x)), y1: Math.max(...corners.map((p) => p.y)) };
+    this.viewItems = this.view;
+    }
     this.mpp = 1 / this.camera.zoom;
     const ppm = this.camera.zoom * this.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -202,19 +258,30 @@
     if (this.showNoGo && this.target) this.drawNoGo(ctx, this.target, t);
     // upright things & boats, back to front
     const items = [];
+    if (this._tilt) { // tilted: cull by the taller viewItems box, sort key = camera depth v (kept in .y)
+      const v = this.viewItems, TL = this._tilt, dep = KOS.Tilt.depth;
+      if (this.venue && this.venue.buoys) for (const b of this.venue.buoys) if (b.x > v.x0 - 10 && b.x < v.x1 + 10 && b.y > v.y0 - 10 && b.y < v.y1 + 10) items.push({ y: dep(TL, b.x, b.y), k: 0, o: b });
+      for (const m of this.marks) if (m && m.x > v.x0 - 20 && m.x < v.x1 + 20 && m.y > v.y0 - 20 && m.y < v.y1 + 20) items.push({ y: dep(TL, m.x, m.y), k: 1, o: m });
+      for (const b of this.boats) if (b && !b.hidden && b.x > v.x0 - 30 && b.x < v.x1 + 30 && b.y > v.y0 - 30 && b.y < v.y1 + 30) items.push({ y: dep(TL, b.x, b.y), k: 2, o: b });
+      for (const p of this.props) if (p && p.x > v.x0 - 30 && p.x < v.x1 + 30 && p.y > v.y0 - 30 && p.y < v.y1 + 30) items.push({ y: dep(TL, p.x, p.y), k: 3, o: p });
+    } else {
     const v = this.view;
     if (this.venue && this.venue.buoys) for (const b of this.venue.buoys) if (b.x > v.x0 - 10 && b.x < v.x1 + 10 && b.y > v.y0 - 10 && b.y < v.y1 + 10) items.push({ y: b.y, k: 0, o: b });
     for (const m of this.marks) if (m && m.x > v.x0 - 20 && m.x < v.x1 + 20 && m.y > v.y0 - 20 && m.y < v.y1 + 20) items.push({ y: m.y, k: 1, o: m });
     for (const b of this.boats) if (b && !b.hidden && b.x > v.x0 - 30 && b.x < v.x1 + 30 && b.y > v.y0 - 30 && b.y < v.y1 + 30) items.push({ y: b.y, k: 2, o: b });
+    }
     items.sort((a, b) => a.y - b.y);
+    this._items = items; // (debug handle: last frame's depth-sorted list)
     const S2 = KOS.Sprites, wd = wind.dir || 0, rot = this.camera.rot;
     for (const it of items) {
       if (!S2) break;
-      if (it.k === 0) S2.drawBuoy(ctx, it.o.kind, it.o.x, it.o.y, { t, ppm, light: it.o.light, night: this.night, rot, scale: 1.5 });
-      else if (it.k === 1) { S2.drawMark(ctx, it.o, { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night }); this.drawMarkExtras(ctx, it.o, t); }
+      if (it.k === 3) { ctx.save(); try { it.o.draw(ctx, this, this._tilt); } catch (e) { if (!this._ovErr) { this._ovErr = 1; console.error(e); } } ctx.restore(); }
+      else if (it.k === 0) S2.drawBuoy(ctx, it.o.kind, it.o.x, it.o.y, this._tilt ? { t, ppm, light: it.o.light, night: this.night, rot, scale: 1.5, windDir: wd, tilt: this._tilt } : { t, ppm, light: it.o.light, night: this.night, rot, scale: 1.5 });
+      else if (it.k === 1) { S2.drawMark(ctx, it.o, this._tilt ? { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night, tilt: this._tilt } : { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night }); this.drawMarkExtras(ctx, it.o, t); }
       else {
         const b = it.o, isT = b === this.target;
-        S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined });
+        if (this._tilt) S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined, tilt: this._tilt, target: isT });
+        else S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined });
       }
     }
     if (fx) fx.render(ctx, this, 'over');
@@ -223,6 +290,7 @@
     if (this.night > 0) this.drawNight(ctx, t);
     if (this.showWindArrow && this.target) this.drawWindArrow(ctx, t);
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this._tilt) this.drawHaze(ctx); // under the HUD / target arrows, over the world
     for (const fn of this.screenOverlays) { try { ctx.save(); fn(ctx, this); ctx.restore(); } catch (e) {} }
     // soft vignette
     if (!this._vig || this._vig.w !== this.w || this._vig.h !== this.h) {
@@ -230,6 +298,21 @@
       g.addColorStop(0, 'rgba(5,15,35,0)'); g.addColorStop(1, 'rgba(5,15,35,0.28)'); this._vig = { w: this.w, h: this.h, g };
     }
     ctx.fillStyle = this._vig.g; ctx.fillRect(0, 0, this.w, this.h);
+  };
+
+  // Tilted view: sky haze at the top of the screen for depth (§3.5): a vertical gradient over the top 22% plus a 2 px glint at
+  // y=0, strength T*zoomFade (0 at the venue overview). Gradient cached per (h, alpha step, night).
+  S.drawHaze = function (ctx) {
+    const T = this._tilt, a = T.T * T.zf; if (a < 0.02) return;
+    const q = Math.round(a * 20), nt = this.night > 0.3 ? 1 : 0, h = this.h, key = h + ':' + q + ':' + nt;
+    let hz = this._haze;
+    if (!hz || hz.key !== key) {
+      const n = nt ? '20,30,60' : '200,225,245', aa = q / 20, g = ctx.createLinearGradient(0, 0, 0, h * 0.22);
+      g.addColorStop(0, 'rgba(' + n + ',' + 0.55 * aa + ')'); g.addColorStop(1, 'rgba(' + n + ',0)');
+      hz = this._haze = { key, g, glint: 'rgba(255,255,255,' + 0.1 * aa + ')' };
+    }
+    ctx.fillStyle = hz.g; ctx.fillRect(0, 0, this.w, h * 0.22);
+    ctx.fillStyle = hz.glint; ctx.fillRect(0, 0, this.w, 2);
   };
 
   S._soundHooks = function () {
@@ -530,9 +613,10 @@
     for (const l of v.landmarks || []) {
       if (l.x < vw.x0 - 20 || l.x > vw.x1 + 20 || l.y < vw.y0 - 20 || l.y > vw.y1 + 20) continue;
       if (l.kind === 'flagpole') {
+        if (this._tilt && KOS.Sprites) { KOS.Sprites.drawFlagpoleTilted(ctx, l, wd, t, this._tilt); continue; } // post to z=8, flag upright
         ctx.fillStyle = 'rgba(40,40,30,0.3)'; ctx.beginPath(); ctx.arc(l.x + 1.2, l.y + 1.5, 0.5, 0, TAU); ctx.fill();
         ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.arc(l.x, l.y, 0.45, 0, TAU); ctx.fill();
-        if (KOS.Sprites) this.drawDannebrog(ctx, l.x, l.y, wd + PI, t);
+        if (KOS.Sprites) this.drawDannebrog(ctx, l.x, l.y, wd + PI, (KOS.Perf && KOS.Perf.level < 3) ? 0 : t); // tier < 3: the flag hangs still
       }
     }
   };
@@ -555,6 +639,7 @@
       const txt = tt(lb.text); if (!txt) continue;
       const size = lb.size || 14;
       let px = size * z;
+      if (this._tilt) px *= this._tilt.k; // squashed lettering: size gate on the projected height
       if (px < 9) continue;
       const scale = px > 64 ? 64 / px : 1;
       const halfW = (txt.length * size * 0.32 * scale) + size;
@@ -635,12 +720,16 @@
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(hx + tx * hs, hy + ty * hs); ctx.lineTo(hx - ty * hs * 0.6, hy + tx * hs * 0.6); ctx.lineTo(hx + ty * hs * 0.6, hy - tx * hs * 0.6); ctx.closePath(); ctx.fill();
       ctx.restore();
     }
-    if (m.label) this.pill(ctx, m.x, m.y, tt(m.label), { dy: -44, bg: 'rgba(13,19,33,0.72)' });
+    if (m.label) this.pill(ctx, m.x, m.y, tt(m.label), { dy: this._tilt ? -(this.markTopPx(m) + 14) : -44, bg: 'rgba(13,19,33,0.72)' }); // tilted: just above the sprite top
   };
+  // css-px height of a mark's upright sprite (tilted pill anchor)
+  S.markTopPx = function (m) { const TL = KOS.Tilt; return (KOS.Sprites && KOS.Sprites.markTop ? KOS.Sprites.markTop(m, m.scale || 1.6) : 2) * this.camera.zoom * (TL.BUOY_SCALE || 1); };
   // screen-aligned pill label anchored at a world point (dy in css px)
   S.pill = function (ctx, x, y, text, o) {
     o = o || {}; const mpp = this.mpp;
-    ctx.save(); ctx.translate(x, y); if (this.camera.rot) ctx.rotate(-this.camera.rot); ctx.scale(mpp, mpp); ctx.translate(0, o.dy || -30);
+    ctx.save();
+    if (this._tilt) { this.upright(ctx, x, y, o.z || 0); ctx.translate(0, o.dy || -30); } // tilted: screen-aligned CSS px at the projected anchor (dy in px, size as flat)
+    else { ctx.translate(x, y); if (this.camera.rot) ctx.rotate(-this.camera.rot); ctx.scale(mpp, mpp); ctx.translate(0, o.dy || -30); }
     ctx.font = '800 ' + (o.size || 12) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(text).width + 14, h = (o.size || 12) + 9;
     ctx.fillStyle = o.bg || 'rgba(13,19,33,0.7)'; rrect(ctx, -w / 2, -h / 2, w, h, h / 2); ctx.fill();
@@ -653,10 +742,11 @@
     const z = this.camera.zoom;
     for (const b of this.boats) {
       if (!b || b.hidden || b === this.target || b.noTag) continue;
-      const v = this.view; if (b.x < v.x0 || b.x > v.x1 || b.y < v.y0 || b.y > v.y1) continue;
+      const v = this._tilt ? this.viewItems : this.view; if (b.x < v.x0 || b.x > v.x1 || b.y < v.y0 || b.y > v.y1) continue;
       const label = b.tag || b.name || b.sailNo; if (!label) continue;
-      const L = boatLen(b);
-      this.pill(ctx, b.x, b.y, String(label), { dy: -(L * z * 0.6 + 26), size: 11, bg: b.tagColor || 'rgba(13,19,33,0.55)' });
+      const L = boatLen(b), T = this._tilt;
+      // tilted: above the projected mast top (mastH*Z*s) plus a bit of the hull's projected length (spec §5)
+      this.pill(ctx, b.x, b.y, String(label), { dy: T ? -(boatMastH(b) * z * T.s + L * z * T.k * 0.3 + 18) : -(L * z * 0.6 + 26), size: 11, bg: b.tagColor || 'rgba(13,19,33,0.55)' });
     }
   };
 
@@ -724,8 +814,10 @@
   // night: darken and re-light buoys, lighthouses and boats' navigation lights
   S.drawNight = function (ctx, t) {
     const k = clamp(this.night, 0, 1), vw = this.view;
+    const TL = this._tilt; // tilted: darken in screen space, glows sit at light height (§5)
     ctx.save(); ctx.fillStyle = 'rgba(6,12,38,' + 0.72 * k + ')';
-    ctx.fillRect(vw.x0 - 5, vw.y0 - 5, vw.x1 - vw.x0 + 10, vw.y1 - vw.y0 + 10);
+    if (TL) { ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); ctx.fillRect(0, 0, this.w, this.h); }
+    else ctx.fillRect(vw.x0 - 5, vw.y0 - 5, vw.x1 - vw.x0 + 10, vw.y1 - vw.y0 + 10);
     ctx.globalCompositeOperation = 'lighter';
     const S2 = KOS.Sprites; if (!S2) { ctx.restore(); return; }
     const glow = (x, y, col, r, a) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, S2.rgba(col, a)); g.addColorStop(0.2, S2.rgba(col, a * 0.5)); g.addColorStop(1, S2.rgba(col, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); };
@@ -733,16 +825,24 @@
     const lightsAt = [];
     const v = this.venue;
     if (v) { for (const b of v.buoys || []) if (b.light) lightsAt.push(b); for (const l of v.lights || []) lightsAt.push(l); for (const l of v.landmarks || []) if (l.kind === 'lighthouse') lightsAt.push(l); }
-    const R = 40 * this.mpp;
+    const R = 40 * this.mpp, lz = (L) => (L.kind === 'lighthouse' ? 12 : S2.buoyTop && L.kind && L.light ? S2.buoyTop(L.kind) * 1.5 : 3); // light height under tilt: lighthouse 12 m, buoy sprite top, else 3 m
     for (const L of lightsAt) {
       if (L.x < vw.x0 - 30 || L.x > vw.x1 + 30 || L.y < vw.y0 - 30 || L.y > vw.y1 + 30) continue;
       const pl = S2.parseLight(L.light); if (!pl) continue;
       const on = S2.lightLevel(pl, t + ((L.x * 0.37 + L.y * 0.71) % 6.28) % 1.3);
-      if (on) glow(L.x, L.y - 3, COL[L.color] || COL[pl.col] || COL.W, Math.max(6, R), 0.9 * k);
+      if (on) {
+        if (TL) { const q = this.project(L.x, L.y, lz(L)); glow(q.x + TL.shx, q.y + TL.shy, COL[L.color] || COL[pl.col] || COL.W, Math.max(6 * TL.Z, 40), 0.9 * k); }
+        else glow(L.x, L.y - 3, COL[L.color] || COL[pl.col] || COL.W, Math.max(6, R), 0.9 * k);
+      }
     }
     for (const b of this.boats) {
       if (!b || b.hidden || b.x < vw.x0 - 20 || b.x > vw.x1 + 20 || b.y < vw.y0 - 20 || b.y > vw.y1 + 20) continue;
       const L = boatLen(b), h = b.heading || 0, fx = Math.sin(h), fy = -Math.cos(h), rx = Math.cos(h), ry = Math.sin(h);
+      if (TL) { // nav lights at ~0.8 m, glow radius in px
+        const r = Math.max(2.5 * TL.Z, 14), gl = (x, y, col, a) => { const q = this.project(x, y, 0.8); glow(q.x + TL.shx, q.y + TL.shy, col, r, a); };
+        gl(b.x + fx * L * 0.4 - rx * 0.4, b.y + fy * L * 0.4 - ry * 0.4, COL.R, 0.9 * k); gl(b.x + fx * L * 0.4 + rx * 0.4, b.y + fy * L * 0.4 + ry * 0.4, COL.G, 0.9 * k); gl(b.x - fx * L * 0.5, b.y - fy * L * 0.5, COL.W, 0.8 * k);
+        continue;
+      }
       const r = Math.max(2.5, 14 * this.mpp);
       glow(b.x + fx * L * 0.4 - rx * 0.4, b.y + fy * L * 0.4 - ry * 0.4, COL.R, r, 0.9 * k);
       glow(b.x + fx * L * 0.4 + rx * 0.4, b.y + fy * L * 0.4 + ry * 0.4, COL.G, r, 0.9 * k);
@@ -753,7 +853,7 @@
 
   // Viewer zoom shared by every sea mode: mul = pinch / wheel multiplier on the mode's own zoom (never further out than
   // the whole venue), overview = show the whole venue. Driven by the play screen (app.js).
-  SailScene.view = { mul: 1, overview: false };
+  SailScene.view = { mul: 1, overview: false, tilt: null }; // tilt: null = follow the setting, true/false = the quick toggle (V) for this run
   SailScene.current = null;
   KOS.SailScene = SailScene;
 })(typeof window !== 'undefined' ? window : globalThis);

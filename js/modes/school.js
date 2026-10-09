@@ -911,7 +911,7 @@
     controls.autoHike = easy && !L.hike;
 
     // ---- scene
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats: [boat], follow: boat, marks: S.marks, lines: S.lines || [],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats: [boat], follow: boat, marks: S.marks, lines: S.lines || [],
       showNoGo: !!L.noGo, showWindArrow: true });
     if (L.lines) scene.lines = L.lines;
     scene.addOverlay(drawWorld);
@@ -945,6 +945,7 @@
     const panel = document.createElement('div');
     panel.className = 'school-panel';
     host.layer.appendChild(panel);
+    const chip = KOS.UI.panelChip(host.layer, panel, { icon: 'school' });
     let card = buildCard();
 
     // ---- physics events (our boat only)
@@ -1082,6 +1083,7 @@
       if (!card) return;
       const el = card; card = null;
       host.layer.classList.remove('has-intro-card');
+      chip.expand(4500);
       el.classList.add('out');
       setTimeout(() => el.remove(), 380);
     }
@@ -1099,11 +1101,13 @@
         '<div class="sp-bar"><b style="width:' + Math.round(p * 100) + '%"></b></div><div class="sp-dots">' + dots + '</div>';
       if (html !== lastPanel || force) {
         const structural = !lastPanel || lastPanel.split('sp-bar')[0] !== html.split('sp-bar')[0];
-        if (structural) { panel.innerHTML = html; if (lastPanel) { panel.classList.remove('pop'); void panel.offsetWidth; panel.classList.add('pop'); } }
+        if (structural) { panel.innerHTML = html; if (lastPanel) { panel.classList.remove('pop'); void panel.offsetWidth; panel.classList.add('pop'); } if (!card && S.phase !== 'card') chip.expand(S.phase === 'done' ? 3000 : 4000); }
         else { const b = panel.querySelector('.sp-bar b'); if (b) b.style.width = Math.round(p * 100) + '%'; }
         lastPanel = html;
       }
       panel.classList.toggle('show', S.phase !== 'card');
+      const tot = S.phase === 'done' ? 1 : U.clamp((S.done + (S.wait > 0 ? 1 : p)) / Math.max(1, n), 0, 1);
+      chip.set({ text: t('school.panel.lesson', { n: P.n }) + ' · ' + Math.round(tot * 100) + '%', frac: tot, done: S.phase === 'done' });
     }
 
     // ---- card diagram: the points-of-sail wheel (or a small course sketch) as inline SVG
@@ -1171,7 +1175,7 @@
           g.addColorStop(0, 'rgba(62,224,143,0.05)'); g.addColorStop(1, 'rgba(62,224,143,0.32)');
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
           ctx.strokeStyle = 'rgba(62,224,143,0.95)'; ctx.lineWidth = Math.max(0.2, 3 * mpp); ctx.stroke();
-          if (!S.dummy) { ctx.scale(mpp, mpp); ctx.font = '900 15px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(t('school.fx.stop').replace('!', ''), 0, 0); }
+          if (!S.dummy) { if (scene._tilt) scene.upright(ctx, tg.x, tg.y, 0); else ctx.scale(mpp, mpp); ctx.font = '900 15px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(t('school.fx.stop').replace('!', ''), 0, 0); } // tilted: upright at the ring centre
         } else {
           ctx.strokeStyle = tg.ring === 'round' ? 'rgba(255,224,102,0.55)' : 'rgba(255,181,71,0.9)';
           ctx.lineWidth = Math.max(0.2, 3 * mpp); ctx.setLineDash([7 * mpp, 6 * mpp]); ctx.lineDashOffset = -tm * 12 * mpp;
@@ -1211,7 +1215,8 @@
       // label (which point of sail)
       const key = z.lo >= 155 ? 'run' : z.lo >= 110 ? 'broad' : z.lo >= 70 ? 'beam' : 'close';
       const lv = U.vec(hm), lr = Rz * 1.12 + 22 * mpp;
-      ctx.translate(lv.x * lr, lv.y * lr); ctx.scale(mpp, mpp);
+      if (scene._tilt) scene.upright(ctx, boat.x + lv.x * lr, boat.y + lv.y * lr, 0); // tilted: the point-of-sail label stands upright at its world anchor
+      else { ctx.translate(lv.x * lr, lv.y * lr); ctx.scale(mpp, mpp); }
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(13,19,33,0.75)'; ctx.strokeText(t('school.dia.' + key), 0, 0);
       ctx.fillStyle = inside ? '#3ee08f' : '#fff'; ctx.fillText(t('school.dia.' + key), 0, 0);
@@ -1275,7 +1280,7 @@
       const tg = s.target(); if (!tg) return;
       const p = sc.worldToScreen(tg.x, tg.y), W = sc.w, Hh = sc.h;
       const hb = hud.el.getBoundingClientRect(), pb = panel.getBoundingClientRect(), land = Hh < 500;
-      const m = { l: land ? 150 : 34, r: land ? 150 : 34, t: Math.max(60, hb.bottom + 34, W < 560 ? pb.bottom + 30 : 0), b: land ? 60 : W < 700 ? 200 : 140 };
+      const m = { l: land ? 150 : 34, r: land ? KOS.Input.sideR(ctrl) : 34, t: Math.max(60, hb.bottom + 34, W < 560 ? Math.max(pb.bottom, chip.el.getBoundingClientRect().bottom) + 30 : 0), b: land ? 60 : W < 700 ? 200 : 140 };
       const dd = Math.round(dist(tg));
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const col = tg.color || '#ffb547';
@@ -1379,8 +1384,8 @@
     function sailFeedback(dt) {
       if (S.step && S.step.hint && S.time - S.stepT0 > 7 && S.step.p < 0.2) tip(S.step.hint);
       S.luffT -= dt;
-      if (boat.luffing && !boat.inIrons && S.luffT <= 0 && Math.abs(boat.twa) > cls.noGo) { sfx('luff', { vol: 0.3 }); S.luffT = 1.1; if (!controls.autoTrim && L.id !== 'trim') tip('luff'); }
-      if (boat.stalled && !controls.autoTrim && Math.abs(boat.speed) > 0.3 && L.id !== 'trim') tip('stall');
+      if (boat.luffing && !boat.inIrons && S.luffT <= 0 && Math.abs(boat.twa) > cls.noGo) { sfx('luff', { vol: 0.3 }); S.luffT = 1.1; if ((!controls.autoTrim || ctrl.state.trimBias > 0.12) && L.id !== 'trim') tip('luff'); }
+      if (boat.stalled && (!controls.autoTrim || ctrl.state.trimBias < -0.12) && Math.abs(boat.speed) > 0.3 && L.id !== 'trim') tip('stall');
       const base = wind.base ? wind.base.speed : P.windKn;
       const gusty = boat.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.4 }); floatText(t('school.fx.gust'), '#9fe7ff'); if (L.hike) tip('gust'); }
@@ -1411,6 +1416,7 @@
       flashTimers.forEach(clearTimeout);
       ctrl.detach();
       hud.destroy();
+      chip.destroy();
       panel.remove();
       if (card) card.remove();
       if (coachApi && coachApi.close) coachApi.close(true);

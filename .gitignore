@@ -5,3 +5,6 @@ shot*.png
 shot-*.js
 tools/tmp/
 .tmp/
+
+# stray Windows temp paths written relative to the repo
+UsersALLANT*

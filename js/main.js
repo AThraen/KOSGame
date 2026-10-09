@@ -1,6 +1,7 @@
 // KØS SEJL — js/main.js
 // Boot: apply settings, start the app on the title screen.
 // Debug/test deep links (used by tools/smoke.js):  #screen=garage   #area=race   #play=<activityId>
+// Dev flags: #tilt=on|off (force the tilted view), #chase=1 (chase cam), combinable with &
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
   if (typeof document === 'undefined') return;
@@ -15,6 +16,10 @@
     return out;
   }
 
+  // Startup is two-phase: the core/ui scripts are classic scripts and boot() runs right after them (the title
+  // is interactive as soon as they ran); the 12 big mode scripts (js/modes/*.js) are `defer`red - they download in
+  // parallel but run later, and the last deferred script (js/modes-ready.js) calls Boot.modesReady().
+  // App.show() holds back every screen except the title until then (the hub lists the activities the modes register).
   function boot() {
     if (!KOS.App || !KOS.UI || !KOS.Storage) {
       console.error('[KOS] boot: core shell modules missing');
@@ -23,7 +28,19 @@
     const h = parseHash();
     // #god=1 / #god=0 switches God mode (testing) on or off for this browser
     if (h.god === '1' || h.god === '0') KOS.Storage.setGod(h.god === '1');
+    // dev flags for Skrå visning: #tilt=on|off forces the tilted view (bypasses the setting), #chase=1 the chase cam
+    if (KOS.Tilt && (h.tilt === 'on' || h.tilt === 'off')) KOS.Tilt.force = h.tilt === 'on';
+    if (KOS.Tilt && h.chase === '1') KOS.Tilt.chase = true;
     KOS.App.init();
+    KOS.App.show('title');
+    document.documentElement.classList.add('title-ready');
+  }
+
+  function modesReady() {
+    if (!KOS.App || !document.documentElement.classList.contains('title-ready')) return;
+    const h = parseHash();
+    KOS.modesReady = true;
+    KOS.App.modesReady(); // plays a screen the player already asked for, or fills in the title
     if (h.play && KOS.Activities && KOS.Activities.get(h.play)) {
       KOS.App.show('title');
       KOS.App.play(h.play, { force: true });
@@ -33,13 +50,11 @@
     } else if (h.screen) {
       KOS.App.show('title');
       KOS.App.show(h.screen, {});
-    } else {
-      KOS.App.show('title');
     }
     document.documentElement.classList.add('booted');
     if (KOS.Events && KOS.Events.emit) KOS.Events.emit('boot');
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  KOS.Boot = { modesReady };
+  boot(); // the scripts sit at the end of <body>, so everything boot() needs is already parsed
 })(typeof window !== 'undefined' ? window : globalThis);

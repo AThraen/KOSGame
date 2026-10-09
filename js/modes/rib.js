@@ -315,7 +315,7 @@
     for (let i = 0; i < 200; i++) wind.update(0.5);
 
     // ---- scene
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats: [boat].concat(optis, fleet), follow: boat, marks, lines: [], showWindArrow: true });
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats: [boat].concat(optis, fleet), follow: boat, marks, lines: [], showWindArrow: true });
     scene.addOverlay(drawWorld);
     scene.addOverlay(drawScreen, { screen: true });
     let userZoom = 1;
@@ -335,6 +335,7 @@
     const card = document.createElement('div');
     card.className = 'rib-card';
     host.layer.appendChild(card);
+    const cardChip = KOS.UI.panelChip(host.layer, card, { icon: 'flag' }); // phones: the mission card collapses to a chip
     const badge = document.createElement('div');
     badge.className = 'rib-zone';
     badge.innerHTML = '<span class="rz-sign"><b>' + AS.zoneKn + '</b></span><span class="rz-txt"><b>' + KOS.UI.esc(t('rib.zone.title')) + '</b><small>' +
@@ -1238,7 +1239,7 @@
       for (const s of zoneSegs.signs) {
         if (s.x < v.x0 - 10 || s.x > v.x1 + 10 || s.y < v.y0 - 10 || s.y > v.y1 + 10) continue;
         const k = Math.max(1, 12 * mpp / 0.9), bob = Math.sin(sc.t * 2 + s.x) * 0.05;
-        ctx.save(); ctx.translate(s.x, s.y); ctx.scale(k, k);
+        ctx.save(); if (scene._tilt) { scene.upright(ctx, s.x, s.y, 0); ctx.scale(k * scene.camera.zoom, k * scene.camera.zoom); } else { ctx.translate(s.x, s.y); ctx.scale(k, k); } // tilted: the speed sign stands upright (metres → px by the zoom)
         ctx.fillStyle = 'rgba(0,30,60,0.25)'; ctx.beginPath(); ctx.ellipse(0.15, 0.2, 0.7, 0.45, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#ffd21f'; ctx.beginPath(); ctx.arc(0, bob, 0.6, 0, TAU); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.strokeStyle = '#e8323c'; ctx.lineWidth = 0.16; ctx.beginPath(); ctx.arc(0, -0.95 + bob, 0.55, 0, TAU); ctx.fill(); ctx.stroke();
@@ -1306,7 +1307,9 @@
         ctx.fillStyle = k % 2 ? '#ffffff' : (yellow ? '#ffb21e' : '#ff7a3d'); ctx.beginPath(); ctx.arc(px, py, Math.max(0.35, 4 * mpp), 0, TAU); ctx.fill();
       }
       ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(13,19,33,0.8)'; ctx.lineWidth = 3 * mpp;
-      ctx.font = '900 ' + (16 * mpp) + 'px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (scene._tilt) { scene.upright(ctx, x, y, 0); x = y = 0; ctx.font = '900 16px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.lineWidth = 3; } // tilted: ring number upright, same px size
+      else ctx.font = '900 ' + (16 * mpp) + 'px ui-rounded,"Segoe UI",system-ui,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.strokeText(label, x, y); ctx.fillText(label, x, y);
       ctx.restore();
     }
@@ -1317,6 +1320,7 @@
       ctx.strokeStyle = 'rgba(62,224,143,' + (a + 0.2) + ')'; ctx.lineWidth = Math.max(0.15, 2.5 * mpp); ctx.setLineDash([0.6, 0.4]);
       ctx.strokeRect(-PARK.wid / 2, -PARK.len / 2, PARK.wid, PARK.len); ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(255,255,255,' + (a + 0.2) + ')'; ctx.font = '900 2px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (scene._tilt) { scene.upright(ctx, PARK.x, PARK.y, 0); ctx.font = '900 ' + 2 * scene.camera.zoom + 'px ui-rounded,"Segoe UI",system-ui,sans-serif'; } // tilted: the P stands upright
       ctx.fillText('P', 0, 0);
       ctx.restore();
     }
@@ -1327,7 +1331,8 @@
       ctx.beginPath(); ctx.arc(HOME.x, HOME.y, r * (active ? 1 + 0.04 * Math.sin(tm * 4) : 1), 0, TAU); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(62,224,143,0.12)'; ctx.fill();
       ctx.fillStyle = '#fff'; ctx.font = '900 ' + Math.max(3, 18 * mpp) + 'px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('⚓', HOME.x, HOME.y);
+      if (sc._tilt) { sc.upright(ctx, HOME.x, HOME.y, 0); ctx.font = '900 18px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.fillText('⚓', 0, 0); } // tilted: anchor glyph upright
+      else ctx.fillText('⚓', HOME.x, HOME.y);
       ctx.restore();
     }
     function drawLeeWedge(ctx, o, sc) { // green "come in here" wedge downwind of the dinghy, red on the windward side
@@ -1371,8 +1376,9 @@
       ctx.beginPath(); ctx.moveTo(-s, 0); ctx.lineTo(-R * 0.15, 0); ctx.moveTo(R * 0.15, 0); ctx.lineTo(s, 0); ctx.moveTo(0, -s); ctx.lineTo(0, -R * 0.15); ctx.moveTo(0, R * 0.15); ctx.lineTo(0, s); ctx.stroke();
       if (active) { ctx.rotate(tm * 0.8); ctx.setLineDash([R * 0.25, R * 0.18]); ctx.beginPath(); ctx.arc(0, 0, R * 1.12, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.rotate(-tm * 0.8); }
       ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(13,19,33,0.8)'; ctx.lineWidth = 3 * mpp;
-      ctx.font = '900 ' + (15 * mpp) + 'px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.strokeText(label, R * 0.9, -R * 0.9); ctx.fillText(label, R * 0.9, -R * 0.9);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (sc._tilt) { sc.upright(ctx, tg.x + R * 0.9, tg.y - R * 0.9, 0); ctx.font = '900 15px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.lineWidth = 3; ctx.strokeText(label, 0, 0); ctx.fillText(label, 0, 0); } // tilted: label upright at its world anchor
+      else { ctx.font = '900 ' + (15 * mpp) + 'px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.strokeText(label, R * 0.9, -R * 0.9); ctx.fillText(label, R * 0.9, -R * 0.9); }
       ctx.restore();
     }
     function drawGear(ctx, sc) {
@@ -1413,8 +1419,8 @@
       const W = sc.w, H = sc.h;
       ctx.fillStyle = 'rgba(28,36,52,' + (0.42 * k) + ')'; ctx.fillRect(0, 0, W, H);
       const rain = U.clamp((k - 0.3) / 0.7, 0, 1); if (rain <= 0) return;
-      const d = down(), len = 14 + 16 * rain, lvl = KOS.Perf ? KOS.Perf.level : 2;
-      const n = Math.round((60 + 220 * rain) * (lvl >= 2 ? 0.6 : lvl === 1 ? 0.35 : 0.2)); // fewer streaks on slower devices
+      const d = down(), len = 14 + 16 * rain, lvl = KOS.Perf ? KOS.Perf.level : 3;
+      const n = Math.round((60 + 220 * rain) * (lvl >= 3 ? 0.6 : lvl === 2 ? 0.45 : lvl === 1 ? 0.35 : 0.2)); // fewer streaks on slower devices
       ctx.strokeStyle = 'rgba(220,232,255,' + (0.25 + 0.25 * rain) + ')'; ctx.lineWidth = 1.2;
       ctx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -1458,14 +1464,16 @@
     let cardLast = '';
     function paintCard() {
       const c = M.card ? M.card() : null;
-      if (!c) { if (cardLast) { card.innerHTML = ''; card.classList.add('rib-hidden'); cardLast = ''; } return; }
+      if (!c) { if (cardLast) { card.innerHTML = ''; card.classList.add('rib-hidden'); cardLast = ''; cardChip.set({ text: '' }); } return; }
       let h = '<div class="rc-head">' + KOS.UI.iconSvg(ACTS.find(a => a.params.kind === P.kind).icon) + '<span>' + KOS.UI.esc(c.head) + '</span></div>' +
         '<div class="rc-text">' + KOS.UI.esc(c.text) + '</div>';
       if (c.dots) { h += '<div class="rc-dots">'; for (let k = 0; k < c.dots.n; k++) h += '<i class="' + (k < c.dots.i ? 'on' : k === c.dots.i ? 'cur' : '') + '"></i>'; h += '</div>'; }
       if (c.bar != null) h += '<i class="rc-bar' + (c.barGood != null && c.bar >= c.barGood ? ' good' : '') + '"><b style="width:' + Math.round(U.clamp(c.bar, 0, 1) * 100) + '%"></b>' +
         (c.barGood != null ? '<u style="left:' + Math.round(c.barGood * 100) + '%"></u>' : '') + '</i>';
-      if (h !== cardLast) { card.innerHTML = h; cardLast = h; card.classList.remove('rib-hidden'); }
+      if (h !== cardLast) { card.innerHTML = h; if (!cardLast || cardLast.split('rc-dots')[0].split('rc-bar')[0] !== h.split('rc-dots')[0].split('rc-bar')[0]) cardChip.expand(4000); cardLast = h; card.classList.remove('rib-hidden'); }
+      if (!!c.warn !== card.classList.contains('warn')) { if (c.warn) cardChip.expand(3000); cardChip.el.classList.toggle('pc-warn', !!c.warn); }
       card.classList.toggle('warn', !!c.warn);
+      cardChip.set({ text: c.head, frac: c.dots ? c.dots.i / Math.max(1, c.dots.n) : c.bar != null ? U.clamp(c.bar, 0, 1) : 0 });
     }
     let badgeOn = null, badgeBad = null;
     function paintBadge() {

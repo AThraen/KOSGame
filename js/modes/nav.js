@@ -355,7 +355,7 @@
     const lines = [];
     S.steps.forEach(st => { if (st.type === 'finish') lines.push({ a: st.a, b: st.b, kind: 'finish' }); });
     if (easy && kind !== 'compass') { S.pathLine = { a: P2(0, 0), b: P2(0, 0), kind: 'path' }; lines.push(S.pathLine); }
-    const scene = new KOS.SailScene(host.canvas, {
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto,
       venue: sceneVenue, wind, boats: [boat], follow: boat, marks: S.marks, lines,
       showWindArrow: kind !== 'night', showNoGo: false, showLanes: kind === 'ferry', night: 0,
     });
@@ -377,7 +377,7 @@
     // ---- controls + HUD
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'gennaker' : 'spi',
-      hike: !cls.keel && !easy, autoTrim: controls.autoTrim, pauseButton: false,
+      hike: !easy, hikeKeel: !!cls.keel, autoTrim: controls.autoTrim, pauseButton: false,
     }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
     const aids = KOS.SailAids.create({ ctrl, boat, assist, coach: txt => { S.tipT = S.time; KOS.UI.coach(txt, { ms: 5600 }); } });
     ctrl.on('action', () => { if (card && card.primary) card.primary.click(); });
@@ -1115,7 +1115,7 @@
         const R = w.r * (1 + 0.06 * Math.sin(tm * 4));
         ctx.strokeStyle = w.hidden ? 'rgba(255,255,255,.55)' : 'rgba(255,181,71,.9)'; ctx.lineWidth = Math.max(0.3, 2.5 * mpp); ctx.setLineDash([5 * mpp, 6 * mpp]); ctx.lineDashOffset = -tm * 12 * mpp;
         ctx.beginPath(); ctx.arc(w.x, w.y, R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-        if (w.hidden) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '900 ' + Math.max(3, 18 * mpp) + 'px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', w.x, w.y); }
+        if (w.hidden) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '900 ' + Math.max(3, 18 * mpp) + 'px ui-rounded,system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; if (scene._tilt) { ctx.save(); scene.upright(ctx, w.x, w.y, 0); ctx.font = '900 18px ui-rounded,system-ui'; ctx.fillText('?', 0, 0); ctx.restore(); } else ctx.fillText('?', w.x, w.y); }
       }
       // cardinal hint (easy): green chevrons pointing to the safe side
       if (easy && st && st.card && S.phase === 'go') {
@@ -1279,7 +1279,7 @@
       const color = kind === 'night' ? '#fffbe0' : '#ffb547';
       const p = sc.worldToScreen(tg.x, tg.y), W = sc.w, H = sc.h;
       const hb = hud.el.getBoundingClientRect(), land = H < 500;
-      const m = { l: land ? 150 : 34, r: land ? 150 : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
+      const m = { l: land ? 150 : 34, r: land ? KOS.Input.sideR(ctrl) : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
       const d = Math.round(Math.hypot(tg.x - boat.x, tg.y - boat.y));
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (p.x > m.l && p.x < W - m.r && p.y > m.t && p.y < H - m.b) {

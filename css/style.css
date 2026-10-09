@@ -543,3 +543,8 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus { outline: none; }
 /* God mode (testing only: localStorage kos.godmode = "1" or #god=1) */
 .god-pill { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: .12em; color: #2b1300; background: linear-gradient(180deg, #ffe27a, #ffb547); box-shadow: 0 0 14px rgba(255, 200, 80, .55); align-self: center; }
 .god-row { justify-content: center; gap: 8px; }
+
+/* startup phase 2 (js/main.js): a tap on a non-title screen while the mode scripts still load is held; show it is working */
+body.modes-wait, body.modes-wait * { cursor: progress; }
+body.modes-wait .btn-play { opacity: .75; animation: modes-wait-pulse .9s ease-in-out infinite alternate; }
+@keyframes modes-wait-pulse { to { opacity: 1; } }
