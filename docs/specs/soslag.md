@@ -5,7 +5,7 @@ while still obeying the right-of-way rules, and the wind decides who has the adv
 by the wind (long range downwind, almost nothing upwind). It is a real KØS summer exercise, so the tone is "fun and
 friendly", never "war".
 
-Status: SPEC + PLAN, revised after review (nothing built yet; see "Review notes" at the end). Branch `soslag`, based on `main`. Part 1 is the spec, Part 2 the build plan.
+Status: BUILT (steps 1-5 done; originally SPEC + PLAN, revised after review; see "Review notes" at the end). Branch `soslag`, based on `main`. Part 1 is the spec, Part 2 the build plan.
 Language: Danish is the default UI language, English second. Trainers are always "Træner <name>" (the word
 "Coach" never appears in new UI text; it only occurs as the repo helper names `coachFor` / `coachName` in code references). Wind is stored in knots and shown only through `KOS.U.windTxt` / `windVal` (m/s by default).
 

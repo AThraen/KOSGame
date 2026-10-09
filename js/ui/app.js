@@ -107,6 +107,7 @@
     { id: 'skiff-pilot', icon: 'speed', name: { da: 'Skiffpilot', en: 'Skiff pilot' }, desc: { da: 'Gennemfør en aktivitet i 29’eren.', en: 'Finish an activity in the 29er.' } },
     { id: 'keelboat', icon: 'anchor', name: { da: 'Kølbådsskipper', en: 'Keelboat skipper' }, desc: { da: 'Gennemfør en aktivitet i H-båden eller J/70’eren.', en: 'Finish an activity in the H-boat or the J/70.' } },
     { id: 'boat-ladder', icon: 'boat', name: { da: 'Hele bådstigen', en: 'The whole ladder' }, desc: { da: 'Lås alle klubbens både op i Sejlerpasset.', en: 'Unlock all the club’s boats in the Sailing Passport.' } },
+    { id: 'soslag', icon: 'drop', name: { da: 'Søslagsmester', en: 'Water-fight champion' }, desc: { da: 'Vind et søslag i bugten.', en: 'Win a water fight in the bay.' } },
   ];
   // milestone badges, checked after every finished activity (modes may also award their own via KOS.Storage.award)
   function evalBadges(a, result) {
@@ -126,6 +127,7 @@
       give('podium', place > 0 && place <= 3);
       give('race-five', Object.keys(all).filter(k => k.indexOf('race.') === 0 && all[k].done).length >= 5);
     }
+    give('soslag', a.mode === 'soslag' && ok && st >= 2);
     give('navigator', a.id === 'nav.channel' && ok && Object.keys(stats).some(k => /ground$/.test(k) && +stats[k] === 0));
     give('night-sailor', a.id === 'nav.night' && ok);
     give('rib-driver', a.area === 'rib' && ok);

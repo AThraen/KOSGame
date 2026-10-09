@@ -613,7 +613,7 @@
       } else if (S.phase === 'duel') {
         S.clock += dt;
         if (S.goTipT > 0 && (S.goTipT -= dt) <= 0) tip('windward');
-        if (!S.lastTip && remaining() <= 15) { S.lastTip = true; tip('last', true); }
+        if (!S.lastTip && remaining() <= 15) { S.lastTip = true; tip('last', true); showCard('warn', t('soslag.tip.last')); }
       }
       const live = boats;
       controls = KOS.Input.toControls(ctrl.state, me, controls, dt);

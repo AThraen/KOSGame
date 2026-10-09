@@ -196,6 +196,7 @@ host.finish({stars /*0..3*/, score, timeMs, success, stats: {...}, msgKey, msgVa
   the boats' polars. `KOS.SailMode.routeTime(cls, tws, windDir, points)` and `KOS.SailMode.starsFor(ratio, assist)`
   are shared helpers for this. Then run `tools/autoplay.js` with a fast and a slow boat to check the numbers.
 - Quitting from the pause menu needs nothing from you: the app calls `destroy()`.
+- A mode with its own result data (soslag's wet bars) puts it in `result.soslag`; the app keeps the whole result in `KOS.App.run.lastResult`, so the mode can decorate the results card from there. A mode badge is a `BADGES` entry plus a `give(...)` line in `evalBadges` (`app.js`), gated on `a.mode`; `node tools/check-badges.js` must pass. See `js/modes/soslag.js` and `docs/specs/soslag.md`.
 
 ## 8. Strings (i18n)
 
