@@ -47,7 +47,7 @@
     this.night = opts.night || 0;
     this.laylineTarget = opts.laylineTarget || null;
     this.zoomMul = typeof opts.zoom === 'number' ? opts.zoom : 1;
-    this.camera = { x: 0, y: 0, zoom: 20, rot: opts.rot || 0 };
+    this.camera = { x: 0, y: 0, zoom: 20, rot: opts.rot || 0, pitch: 0 }; // pitch: radians from top-down (tilted view)
     this.target = null;
     this._look = { x: 0, y: 0 };
     this._snap = true;
@@ -64,6 +64,12 @@
     this.dpr = 1; this.w = 1; this.h = 1;
     this._spiPrev = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
     this.sound = opts.sound !== false;
+    // Skrå visning (tilted camera, docs/specs/tilt-camera.md): T eases toward _tiltWant; _tilt is the per-frame
+    // projection cache, null whenever the effective pitch < PITCH_MIN (then every draw takes the untouched flat path)
+    const TL = KOS.Tilt;
+    this._tiltWant = TL && TL.force != null ? (TL.force ? 1 : 0) : opts.tilt ? 1 : 0;
+    this._tiltT = this._tiltWant; this._tilt = null; this._tiltBuf = {};
+    this.kY = 1; this.viewItems = this.view; this.chase = !!(TL && TL.chase);
     if (opts.follow) this.follow(opts.follow);
     else if (this.venue && this.venue.spawn) { this.camera.x = this.venue.spawn.x; this.camera.y = this.venue.spawn.y; }
     this._bindEvents();
@@ -149,15 +155,33 @@
   // frame the given world rect (e.g. a whole race course)
   S.fit = function (r, pad) { pad = pad == null ? 40 : pad; this.camera.x = (r.x0 + r.x1) / 2; this.camera.y = (r.y0 + r.y1) / 2; this.fixedZoom = Math.min((this.w - pad * 2) / (r.x1 - r.x0), (this.h - pad * 2) / (r.y1 - r.y0)); this.camera.zoom = this.fixedZoom; this.target = null; };
   S.unfit = function () { this.fixedZoom = null; };
+  // world (x, y, height z) → screen CSS px (no shake). Flat: z is ignored (= worldToScreen).
+  S.project = function (x, y, z) { return this._tilt ? KOS.Tilt.project(this._tilt, x, y, z || 0, {}) : this.worldToScreen(x, y); };
+  // screen-aligned, unsquashed CSS-px transform at the projected point (caller wraps in save/restore)
+  S.upright = function (ctx, x, y, z) {
+    const p = this.project(x, y, z), d = this.dpr;
+    ctx.setTransform(d, 0, 0, d, d * (p.x + (this._shx || 0)), d * (p.y + (this._shy || 0)));
+  };
+  // per-frame tilt: ease T toward the target, then rebuild the projection cache (null below PITCH_MIN → flat path)
+  S._updateTilt = function (dt) {
+    const want = SailScene.view.overview ? 0 : this._tiltWant; // the map button forces flat (§3.2)
+    if (this._tiltT !== want) this._tiltT = KOS.Tilt.ease(this._tiltT, want, dt, false);
+    const c = this.camera;
+    this._tilt = this._tiltT ? KOS.Tilt.makeTilt({ T: this._tiltT, cam: c, w: this.w, h: this.h, biasY: this.biasY || 0, dpr: this.dpr, shx: this._shx, shy: this._shy, perf: KOS.Perf ? KOS.Perf.level : 2 }, this._tiltBuf) : null;
+    c.pitch = this._tilt ? this._tilt.pitch : 0;
+    this.kY = this._tilt ? this._tilt.k : 1;
+  };
 
   S.worldToScreen = function (x, y) {
     if (typeof x === 'object') { y = x.y; x = x.x; }
     const c = this.camera, cs = Math.cos(-c.rot), sn = Math.sin(-c.rot);
+    if (this._tilt) return KOS.Tilt.project(this._tilt, x, y, 0, {});
     const dx = x - c.x, dy = y - c.y;
     return { x: this.w / 2 + (dx * cs - dy * sn) * c.zoom, y: this.h / 2 + (this.biasY || 0) + (dx * sn + dy * cs) * c.zoom };
   };
   S.screenToWorld = function (sx, sy) {
     if (typeof sx === 'object') { sy = sx.y; sx = sx.x; }
+    if (this._tilt) return KOS.Tilt.unproject(this._tilt, sx, sy, 0, {});
     const c = this.camera, cs = Math.cos(c.rot), sn = Math.sin(c.rot);
     const dx = (sx - this.w / 2) / c.zoom, dy = (sy - this.h / 2 - (this.biasY || 0)) / c.zoom;
     return { x: c.x + dx * cs - dy * sn, y: c.y + dx * sn + dy * cs };
@@ -165,8 +189,10 @@
   S.applyWorld = function (ctx) {
     const c = this.camera, sh = this._shake;
     const sx = sh ? (Math.random() - 0.5) * sh * 14 : 0, sy = sh ? (Math.random() - 0.5) * sh * 14 : 0;
+    this._shx = sx; this._shy = sy; // kept for upright draws under tilt (not read when flat)
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.translate(this.w / 2 + sx, this.h / 2 + (this.biasY || 0) + sy); // biasY: px the camera centre sits below the screen centre (more room ahead of the boat)
+    if (this._tilt) { const T = this._tilt; ctx.scale(1, T.k); T.shx = sx; T.shy = sy; T.ox = T.cx + sx; T.oy = T.cy + sy; } // squash screen-Y, before rotate (§3.4)
     if (c.rot) ctx.rotate(-c.rot);
     ctx.scale(c.zoom, c.zoom);
     ctx.translate(-c.x, -c.y);
@@ -179,12 +205,19 @@
     const t = this.t, ctx = this.ctx;
     if (this.canvas.clientWidth && (Math.round(this.canvas.clientWidth * this.dpr) !== this.canvas.width || Math.round(this.canvas.clientHeight * this.dpr) !== this.canvas.height || (KOS.Perf && KOS.Perf.level !== this._perfLvl))) this.resize();
     this.updateCamera(dt);
+    if (KOS.Tilt && (this._tiltT || this._tiltWant)) this._updateTilt(dt);
     const fx = this.effects;
     if (fx) { fx.update(dt); for (const b of this.boats) if (b && !b.hidden) fx.trackBoat(b, dt); }
     this._soundHooks();
     // view rect
+    if (this._tilt) { // ground AABB, plus a taller one for upright items, both into reused objects (§3.5)
+      this.view = KOS.Tilt.viewAABB(this._tilt, this.w, this.h, this._viewT || (this._viewT = {}));
+      this.viewItems = KOS.Tilt.viewItemsAABB(this._tilt, this.w, this.h, this._viewI || (this._viewI = {}));
+    } else {
     const corners = [this.screenToWorld(0, 0), this.screenToWorld(this.w, 0), this.screenToWorld(0, this.h), this.screenToWorld(this.w, this.h)];
     this.view = { x0: Math.min(...corners.map((p) => p.x)), y0: Math.min(...corners.map((p) => p.y)), x1: Math.max(...corners.map((p) => p.x)), y1: Math.max(...corners.map((p) => p.y)) };
+    this.viewItems = this.view;
+    }
     this.mpp = 1 / this.camera.zoom;
     const ppm = this.camera.zoom * this.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -202,10 +235,17 @@
     if (this.showNoGo && this.target) this.drawNoGo(ctx, this.target, t);
     // upright things & boats, back to front
     const items = [];
+    if (this._tilt) { // tilted: cull by the taller viewItems box, sort key = camera depth v (kept in .y)
+      const v = this.viewItems, TL = this._tilt, dep = KOS.Tilt.depth;
+      if (this.venue && this.venue.buoys) for (const b of this.venue.buoys) if (b.x > v.x0 - 10 && b.x < v.x1 + 10 && b.y > v.y0 - 10 && b.y < v.y1 + 10) items.push({ y: dep(TL, b.x, b.y), k: 0, o: b });
+      for (const m of this.marks) if (m && m.x > v.x0 - 20 && m.x < v.x1 + 20 && m.y > v.y0 - 20 && m.y < v.y1 + 20) items.push({ y: dep(TL, m.x, m.y), k: 1, o: m });
+      for (const b of this.boats) if (b && !b.hidden && b.x > v.x0 - 30 && b.x < v.x1 + 30 && b.y > v.y0 - 30 && b.y < v.y1 + 30) items.push({ y: dep(TL, b.x, b.y), k: 2, o: b });
+    } else {
     const v = this.view;
     if (this.venue && this.venue.buoys) for (const b of this.venue.buoys) if (b.x > v.x0 - 10 && b.x < v.x1 + 10 && b.y > v.y0 - 10 && b.y < v.y1 + 10) items.push({ y: b.y, k: 0, o: b });
     for (const m of this.marks) if (m && m.x > v.x0 - 20 && m.x < v.x1 + 20 && m.y > v.y0 - 20 && m.y < v.y1 + 20) items.push({ y: m.y, k: 1, o: m });
     for (const b of this.boats) if (b && !b.hidden && b.x > v.x0 - 30 && b.x < v.x1 + 30 && b.y > v.y0 - 30 && b.y < v.y1 + 30) items.push({ y: b.y, k: 2, o: b });
+    }
     items.sort((a, b) => a.y - b.y);
     const S2 = KOS.Sprites, wd = wind.dir || 0, rot = this.camera.rot;
     for (const it of items) {
@@ -214,7 +254,8 @@
       else if (it.k === 1) { S2.drawMark(ctx, it.o, { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night }); this.drawMarkExtras(ctx, it.o, t); }
       else {
         const b = it.o, isT = b === this.target;
-        S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined });
+        if (this._tilt) S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined, tilt: this._tilt });
+        else S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined });
       }
     }
     if (fx) fx.render(ctx, this, 'over');

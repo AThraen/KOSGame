@@ -6,6 +6,7 @@
 //     waitMs  total time before the screenshot, default 5000 (keys are spread over it)
 //     keys    comma list of Key:holdMs, e.g. "ArrowLeft:600,Space:400,ArrowUp:300"
 //     out     default shot-play-<id>-<WxH>.png (shot*.png is gitignored scratch)
+//   env KOS_TILT=on|off  force the tilted view on/off (Skrå visning dev flag KOS.Tilt.force)
 // Examples:
 //   node tools/playshot.js sail.rings 390x844 7000 "ArrowRight:500"
 //   node tools/playshot.js screen:area:bay 844x390 1500
@@ -30,6 +31,9 @@ const url = require('url');
     KOS.Storage.saveProfile({ name: 'Ida', age: '10-12', sailNo: '123', boatColor: '#ff7a3d' });
     KOS.Storage.saveSettings({ unlockAll: true });
   });
+  // KOS_TILT=on|off forces the tilted view (KOS.Tilt.force, the dev flag); auto/unset leaves the setting in charge
+  const tilt = process.env.KOS_TILT;
+  if (tilt === 'on' || tilt === 'off') await page.evaluate(on => { if (KOS.Tilt) KOS.Tilt.force = on; }, tilt === 'on');
   if (id.startsWith('screen:')) await page.evaluate(s => KOS.App.show(s.split(':')[1], { area: s.split(':')[2] || 'bay' }), id);
   else {
     const ok = await page.evaluate(id => KOS.App.play(id, { force: true }), id);

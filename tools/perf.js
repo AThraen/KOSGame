@@ -9,6 +9,7 @@
 //     --rate  CPU throttling rate (default 4)
 //     --secs  measuring window per id, in seconds (default 5)
 //     --vp    viewport WxH (default 390x844)
+//     --tilt  on|off: force the tilted view on/off (KOS.Tilt.force, bypasses the setting and the level-0 auto rule)
 //
 // Prints one aligned line per id, then `worst p95: <ms> (<id>)`. Exit code 0 if every p95 <= 20 ms, else 1.
 const { chromium } = require('playwright');
@@ -24,13 +25,15 @@ const DEFAULT_IDS = ['sail.free.opti', 'race.opti.1', 'race.29er.1', 'nav.night'
   const rate = +opt('rate', 4);
   const secs = +opt('secs', 5);
   const [vw, vh] = opt('vp', '390x844').split('x').map(Number);
+  const tilt = opt('tilt', null);
 
   const browser = await chromium.launch({ headless: true, channel: 'chrome', args: ['--enable-gpu-rasterization', '--ignore-gpu-blocklist'] });
   const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await ctx.newPage();
   await page.goto(url.pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href);
   await page.waitForFunction(() => window.KOS && KOS.App, null, { timeout: 15000 });
-  await page.evaluate(() => { KOS.Storage.saveProfile({ name: 'P', sailNo: '1' }); KOS.Storage.saveSettings({ sound: false, unlockAll: true, assist: 'normal' }); });
+  await page.evaluate(off => { KOS.Storage.saveProfile({ name: 'P', sailNo: '1' }); KOS.Storage.saveSettings(Object.assign({ sound: false, unlockAll: true, assist: 'normal' }, off ? { tilt: 'off' } : {})); }, tilt === 'off');
+  if (tilt === 'on' || tilt === 'off') await page.evaluate(on => { if (KOS.Tilt) KOS.Tilt.force = on; }, tilt === 'on');
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate });
 
