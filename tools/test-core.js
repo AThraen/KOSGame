@@ -811,7 +811,7 @@ test('AI: RIB motors to waypoints and keeps clear of sail', () => {
     }
   });
   test('tilt: unproject(project(p)) round trip', () => {
-    for (const pd of [20, 32, 38, 45]) for (const rot of [0, 0.7, -2.1]) for (const zoom of [2, 20]) for (const biasY of [0, 84]) {
+    for (const pd of [20, 32, 38, 45, 55]) for (const rot of [0, 0.7, -2.1]) for (const zoom of [2, 20]) for (const biasY of [0, 84]) {
       const cam = { x: 120, y: -40, zoom, rot }, t = mk({ cam, w: 844, h: 390, biasY, pitch: pd * Math.PI / 180 });
       for (let i = 0; i < 10; i++) { const x = cam.x + (rnd() - 0.5) * 80, y = cam.y + (rnd() - 0.5) * 80, s = TL.project(t, x, y, 0), u = TL.unproject(t, s.x, s.y); near(u.x, x, 1e-9, 'x'); near(u.y, y, 1e-9, 'y'); }
     }
@@ -884,9 +884,9 @@ test('AI: RIB motors to waypoints and keeps clear of sail', () => {
     ok(TL.makeTilt(Object.assign({ T: 0 }, base)) === null, 'T 0');
     ok(TL.makeTilt(Object.assign({ T: TL.PITCH_MIN / P0 * 0.999 }, base)) === null, 'just under 2 deg');
     const t = TL.makeTilt(Object.assign({ T: TL.PITCH_MIN / P0 * 1.0001 }, base)); ok(t && t.pitch >= TL.PITCH_MIN, 'at 2 deg');
-    const f = TL.makeTilt(Object.assign({ T: 1 }, base)); near(f.pitch, 38 * Math.PI / 180, 1e-12, 'portrait P0'); ok(f.k === Math.cos(f.pitch), 'k');
+    const f = TL.makeTilt(Object.assign({ T: 1 }, base)); near(f.pitch, 42 * Math.PI / 180, 1e-12, 'portrait P0'); ok(f.k === Math.cos(f.pitch), 'k');
     ok(TL.makeTilt({ T: 1, cam: { x: 0, y: 0, zoom: 1.2, rot: 0 }, w: 390, h: 844 }) === null, 'overview zoom fades to flat');
-    near(TL.basePitch(844, 390), 32 * Math.PI / 180, 1e-12, 'landscape phone'); near(TL.basePitch(1440, 900), 35 * Math.PI / 180, 1e-12, 'desktop');
+    near(TL.basePitch(844, 390), 45 * Math.PI / 180, 1e-12, 'landscape phone'); near(TL.basePitch(1440, 900), 50 * Math.PI / 180, 1e-12, 'desktop');
   });
 }
 

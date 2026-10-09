@@ -13,12 +13,14 @@
   const smooth = (e0, e1, x) => { const u = clamp((x - e0) / (e1 - e0), 0, 1); return u * u * (3 - 2 * u); };
 
   const T = {
-    PITCH: { portrait: 38 * D, phone: 32 * D, desk: 35 * D }, // base pitch P0 by viewport shape (§3.2), tunable
+    PITCH: { portrait: 42 * D, phone: 45 * D, desk: 50 * D }, // base pitch P0 by viewport shape (§3.2), tunable
     PITCH_MIN: 2 * D,    // below this the frame takes the flat path (no 3D-rig pop)
-    PITCH_MAX: 45 * D,   // cap: k >= 0.707, no division blow-up in the inverse
+    PITCH_MAX: 58 * D,   // cap: k >= 0.53, no division blow-up in the inverse
     SUN: { x: 0.20, y: 0.30 }, // world shadow offset per metre of height (light from NW, above), tunable
     BIAS: 0.06,          // chase-cam camera bias (fraction of h), §3.3
-    ZOOM_MUL: 1.0,       // zoom multiplier under tilt (tunable, unused at 1)
+    ZOOM_MUL: 1.25,      // zoom multiplier under tilt (scene.baseZoom, scaled by the tilt ease; tunable)
+    HEEL_VIS: 1.8,       // VISUAL heel multiplier for the tilted rig/hull (physics heel unchanged)
+    HEEL_VIS_MAX: { dinghy: 40 * D, keel: 30 * D }, // clamp of the drawn heel
     BUOY_SCALE: 1.0,     // size of the upright buoy / mark sprite under tilt (tunable)
     HMAX: 12,            // tallest upright thing (m): J70 mast + spinnaker head, for viewItems
     force: null,         // dev override: true/false bypasses the setting (#tilt=on, KOS_TILT, perf --tilt)

@@ -699,6 +699,10 @@
     if (!spiOn && st.spi < 0.02) { st.spi = 0; st.spiV = 0; }
     const cap = (boat.cls && typeof boat.cls === 'object' && boat.cls.capsizeHeel) || 0.96; // heel clamp: after righting the physics heel eases down from ~88°
     r.heel = clamp(fin(boat.heel, 0), -cap, cap);
+    if (!boat.capsized && KOS.Tilt) { // visual exaggeration, clamped; sign preserved
+      const TLt = KOS.Tilt, lim = g.keel ? TLt.HEEL_VIS_MAX.keel : TLt.HEEL_VIS_MAX.dinghy, a = Math.abs(r.heel);
+      r.heel = (r.heel < 0 ? -1 : 1) * (a >= lim ? a : Math.min(a * TLt.HEEL_VIS, lim));
+    }
     r.windSide = windSide; r.spiOn = spiOn;
     r.boom = clamp(fin(boat.boom, -windSide * 0.4), -1.6, 1.6);
     r.lee = r.boom > 0.02 ? 1 : r.boom < -0.02 ? -1 : -windSide;

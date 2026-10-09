@@ -124,6 +124,7 @@
     let span = (18 + 4 * L) * (1 + clamp(sp / 25, 0, 0.35));
     const small = Math.min(this.w, this.h) < 600;
     let z = Math.sqrt(this.w * this.h) / span * (small ? 1.3 : 1);
+    if (this._tiltT > 0 && KOS.Tilt) z *= 1 + (KOS.Tilt.ZOOM_MUL - 1) * this._tiltT; // closer under tilt (flat path untouched)
     return z * this.zoomMul;
   };
   // masthead height in metres for the tilted tag anchor (RIB / motor boats: console height)
