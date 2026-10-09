@@ -65,6 +65,18 @@ const DESK = { viewport: { width: 1280, height: 800 } };
   ok(await page2.evaluate(l => KOS.Perf.level === l, lvl), 'a new session starts at the remembered tier ' + lvl + ' (' + saved + ')');
   await ctx.close();
 
+  // stubbed frame clocks (the governor reads rAF timestamps): steady 33 ms = 30 fps cap -> stays; jittery 33-90 ms -> steps down
+  for (const [name, step, expectDown] of [['steady 33 ms (30 fps cap)', '33.3', false], ['jittery 33-90 ms', '33 + Math.random() * 57', true]]) {
+    c = await open(browser, DESK);
+    await c.page.evaluate(step => {
+      const orig = window.requestAnimationFrame.bind(window); let t = 1000, lastReal = -1;
+      window.requestAnimationFrame = cb => orig(real => { if (real !== lastReal) { lastReal = real; t += eval(step); } cb(t); }); // one fake tick per real frame
+    }, step);
+    r = await sail(c.page, 6000);
+    ok(expectDown ? r.level < 3 && r.why === 'slow' : r.level === 3 && !r.why, name + (expectDown ? ' steps the tier down' : ' does not step down') + ' (' + JSON.stringify({ level: r.level, why: r.why }) + ')');
+    await c.ctx.close();
+  }
+
   c = await open(browser, DESK, '', { lowFx: true });
   r = await sail(c.page, 1500);
   ok(r.level <= 1, 'lowFx=true caps the tier at 1 (' + r.level + ')');

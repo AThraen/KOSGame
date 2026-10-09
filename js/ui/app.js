@@ -750,7 +750,11 @@
     Perf.ema = med; Perf.med = med; Perf.p95 = p95;
     const t = performance.now(), age = t - run.startT; buf.length = 0;
     if (age < 2500) return;
-    const bad = med > 21 || p95 > 45;
+    // a steady ~33 ms clock with little jitter is a 30 fps cap (iOS Low Power Mode, Android battery saver), not a struggling
+    // device: 30 fps is then the target, and only frames clearly worse than the cap (median > 45 ms or p95 > 70 ms) count as bad
+    const capped = Math.abs(med - 33.3) <= 3 && p95 - med <= 6;
+    Perf.capped = capped;
+    const bad = capped ? false : (med > 21 || p95 > 45);
     if (bad) {
       Perf.goodT = 0;
       if (++Perf.bad >= 2 && Perf.level > 0) {

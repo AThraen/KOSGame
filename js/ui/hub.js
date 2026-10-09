@@ -694,7 +694,7 @@
         const med = rest[rest.length >> 1], avg = rest.reduce((x, y) => x + y, 0) / rest.length;
         state.medianMs = Math.round(med);
         if (med > 50) goLite('frames', true);
-        else if (avg > 24 && !rootEl.classList.contains('hub-lite')) { goLite('frames-soft', false); if (KOS.Perf) KOS.Perf.level = Math.min(KOS.Perf.level, 2); }
+        else if (avg > 24 && !(Math.abs(med - 33.3) <= 3 && rest[Math.floor(rest.length * 0.95)] - med <= 6) && !rootEl.classList.contains('hub-lite')) { goLite('frames-soft', false); if (KOS.Perf) KOS.Perf.level = Math.min(KOS.Perf.level, 2); }
       };
       raf = requestAnimationFrame(tick);
     };
@@ -727,6 +727,7 @@
 
   function unmount() {
     if (!state) return;
+    clearTimeout(state.moveT);
     for (const off of state.listeners) off();
     for (const off of state.unsub) off();
     if (state.root && state.root.parentNode) state.root.parentNode.removeChild(state.root);
@@ -819,10 +820,18 @@
     if (applyRaf) return;
     applyRaf = requestAnimationFrame(() => { applyRaf = 0; apply(); });
   }
+  function setTransform(s, promoted) {
+    s.stage.style.transform = (promoted ? `translate3d(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px, 0)` : `translate(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px)`) + ` scale(${s.s.toFixed(4)})`;
+  }
   function apply() {
     const s = state;
     if (!s || !s.stage) return;
-    s.stage.style.transform = `translate3d(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px, 0) scale(${s.s.toFixed(4)})`;
+    // the stage is only a promoted compositor layer while it moves (drag, pinch, zoom easing): kept permanently it is one
+    // ~5400x4854 device-px layer on a 3x phone, which WebKit tiles and holds in memory. At rest it is drawn plain, crisp.
+    if (!s.moving) { s.moving = true; s.stage.classList.add('is-moving'); }
+    clearTimeout(s.moveT);
+    s.moveT = setTimeout(() => { if (state !== s) return; s.moving = false; s.stage.classList.remove('is-moving'); setTransform(s, false); }, 700);
+    setTransform(s, true);
     const inv = (1 / s.s).toFixed(3);
     if (inv !== lastInv) { lastInv = inv; s.stage.style.setProperty('--inv', inv); }
   }
