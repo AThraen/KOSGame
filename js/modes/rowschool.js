@@ -1396,10 +1396,12 @@
     }
     // a fat course arrow from the bow; optional dashed "intention" arc (a boat about to head up / tack)
     function drawArrow(ctx, sc, b, L, col, tm, intentDeg) {
-      const p = sc.worldToScreen(b.x, b.y), z = 1 / sc.mpp, f = U.vec(b.heading);
-      const sp = Math.abs(b.speed || 0);
+      const p = sc.worldToScreen(b.x, b.y), z = 1 / sc.mpp;
+      // Skrå visning: a world direction is foreshortened on screen (y × kY), so take it from the projection; flat keeps U.vec as is
+      const dirOf = h => { const w = U.vec(h); if (!sc._tilt) return { x: w.x, y: w.y, m: z }; const q = sc.worldToScreen(b.x + w.x, b.y + w.y), dx = q.x - p.x, dy = q.y - p.y, m = Math.hypot(dx, dy) || 1; return { x: dx / m, y: dy / m, m }; };
+      const f = dirOf(b.heading), sp = Math.abs(b.speed || 0);
       const len = U.clamp(Math.max(L * 1.6, sp * 3.2) * z, 46, 170);
-      const sx = p.x + f.x * L * 0.55 * z, sy = p.y + f.y * L * 0.55 * z;
+      const sx = p.x + f.x * L * 0.55 * f.m, sy = p.y + f.y * L * 0.55 * f.m;
       const ex = sx + f.x * len, ey = sy + f.y * len, nx = -f.y, ny = f.x, wob = 1 + 0.06 * Math.sin(tm * 5);
       ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.strokeStyle = 'rgba(13,19,33,0.45)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(sx + 2, sy + 3); ctx.lineTo(ex - f.x * 10 + 2, ey - f.y * 10 + 3); ctx.stroke();
@@ -1408,9 +1410,10 @@
       ctx.fillStyle = col; ctx.strokeStyle = 'rgba(13,19,33,0.55)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(ex + f.x * 4, ey + f.y * 4); ctx.lineTo(ex - f.x * hl + nx * hw, ey - f.y * hl + ny * hw); ctx.lineTo(ex - f.x * hl - nx * hw, ey - f.y * hl - ny * hw); ctx.closePath(); ctx.fill(); ctx.stroke();
       if (intentDeg != null) {
-        const h1 = S.plan.F.hW(intentDeg), d = U.angDiff(b.heading, h1), R = len * 0.75;
+        const h1 = S.plan.F.hW(intentDeg), R = len * 0.75, f1 = sc._tilt ? dirOf(h1) : null;
+        const d = f1 ? Math.atan2(f.x * f1.y - f.y * f1.x, f.x * f1.x + f.y * f1.y) : U.angDiff(b.heading, h1); // tilted: the turn as seen on screen
         ctx.setLineDash([6, 6]); ctx.lineDashOffset = -tm * 20; ctx.strokeStyle = col; ctx.lineWidth = 4;
-        const a0 = b.heading - Math.PI / 2, a1 = a0 + d;
+        const a0 = f1 ? Math.atan2(f.y, f.x) : b.heading - Math.PI / 2, a1 = a0 + d;
         ctx.beginPath(); ctx.arc(p.x, p.y, R, a0, a1, d < 0); ctx.stroke(); ctx.setLineDash([]);
         const hx = p.x + Math.cos(a1) * R, hy = p.y + Math.sin(a1) * R, tx = -Math.sin(a1) * Math.sign(d), ty = Math.cos(a1) * Math.sign(d);
         ctx.beginPath(); ctx.moveTo(hx + tx * 12, hy + ty * 12); ctx.lineTo(hx - ty * 8, hy + tx * 8); ctx.lineTo(hx + ty * 8, hy - tx * 8); ctx.closePath(); ctx.fill();

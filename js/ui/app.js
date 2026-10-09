@@ -433,8 +433,8 @@
     listen(sec, 'wheel', e => { if (e.defaultPrevented || inControls(e.target)) return; e.preventDefault(); zoomBy(e.deltaY > 0 ? 0.88 : 1.14); }, { passive: false });
     listen(root, 'keydown', e => {
       if (run.paused || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === 'm' || e.key === 'M') toggle();
-      else if (e.key === 'v' || e.key === 'V') tiltToggle();
+      if (e.key === 'm' || e.key === 'M') { if (!e.repeat) toggle(); } // toggles ignore key auto-repeat (holding M or V would flicker); zoom keys repeat
+      else if (e.key === 'v' || e.key === 'V') { if (!e.repeat) tiltToggle(); }
       else if (e.key === '-' || e.key === '_') zoomBy(0.8);
       else if (e.key === '+' || e.key === '=') zoomBy(1.25);
     });

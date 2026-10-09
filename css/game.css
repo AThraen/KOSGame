@@ -222,3 +222,17 @@ html.in-play, html.in-play body { touch-action: pan-x pan-y; } /* pan-x pan-y = 
 #screen-play.view-overview #play-layer > *:not(.kc):not(.hud), #screen-play.view-overview > .coach { visibility: hidden; pointer-events: none; }
 /* tilt quick toggle: dimmed while the overview forces the flat view */
 .play-chrome .tilt-btn[aria-disabled="true"] { opacity: 0.4; }
+/* small landscape phones (sea modes): pause, map and tilt reach x=182, past the centred HUD's left edge, so the tilt button
+   covered the wind dial. Compact the buttons (right edge 154) and the HUD, and let the HUD slide right of the buttons
+   when centring would put it under them (translate = the larger of -50% and the shift that puts its left edge at 162) */
+@media (orientation: landscape) and (min-width: 521px) and (max-width: 819px) {
+  body.mode-sea .play-chrome { gap: 6px; }
+  body.mode-sea .play-chrome .icon-btn { width: 44px; height: 44px; }
+  body.mode-sea .play-chrome .icon-btn .ico { width: 22px; height: 22px; }
+  body.mode-sea .hud { transform: translateX(max(-50%, calc(var(--safe-l) + 162px - 50vw))); max-width: calc(100% - 172px - var(--safe-l) - var(--safe-r)); gap: 4px; padding: 4px; }
+  body.mode-sea .hud-item { padding: 3px 7px 3px 4px; gap: 4px; }
+  body.mode-sea .hud-item:not(.hud-wind) > .hud-ico { display: none; }
+  body.mode-sea .hud-label { font-size: .64rem; letter-spacing: .04em; }
+  body.mode-sea .hud-val { font-size: 1rem; }
+  body.mode-sea .hud-wind-dial { width: 32px; height: 32px; }
+}
