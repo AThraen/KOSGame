@@ -254,7 +254,7 @@
       else if (it.k === 1) { S2.drawMark(ctx, it.o, { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night }); this.drawMarkExtras(ctx, it.o, t); }
       else {
         const b = it.o, isT = b === this.target;
-        if (this._tilt) S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined, tilt: this._tilt });
+        if (this._tilt) S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined, tilt: this._tilt, target: isT });
         else S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined });
       }
     }
