@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const CORE = ['kos', 'i18n', 'boats', 'wind', 'physics', 'rules', 'ai', 'world', 'activities'];
+const CORE = ['kos', 'i18n', 'boats', 'wind', 'physics', 'rules', 'ai', 'world', 'soslag', 'activities'];
 let cached = null;
 function load(extra = []) {
   if (cached && !extra.length) return cached;
