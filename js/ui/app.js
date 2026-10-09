@@ -360,7 +360,7 @@
     const now = e.timeStamp, quick = now - lastTouchEnd < 400;
     lastTouchEnd = now;
     const el = e.target && e.target.closest ? e.target : null;
-    if (el && el.closest('input, textarea, select')) return;
+    if (el && el.closest('input, textarea, select, .play-chrome, .play-menu, .pc-chip')) return; // the menu button, menu and goals chip must always get their click
     // the controls never need a click (pointerdown drives them); elsewhere only swallow the second tap of a pair
     if (e.cancelable && (quick || (el && el.closest('.kc')))) e.preventDefault();
   }
@@ -414,6 +414,64 @@
     const tiltToggle = () => { if (V.overview) return; sfx('click'); const sc = SS.current; V.tilt = !(V.tilt != null ? V.tilt : !!(sc && sc._tiltWant)); track('View', 'tilt', run.act && run.act.id); tLast = ''; tsync(); };
     tbtn.addEventListener('click', tiltToggle);
     chrome.appendChild(tbtn); tsync(); run.tiltSync = tsync;
+    // ⋯ menu (phones, body.phone-ui): pause, overview and Skrå visning collapse into one small button top-left. While it is open
+    // the game is paused (silently, without the pause card); it closes on a choice or a tap outside.
+    const dots = doc.createElement('button');
+    dots.type = 'button'; dots.className = 'icon-btn dots-btn';
+    dots.setAttribute('aria-label', t('app.menu.more')); dots.setAttribute('aria-haspopup', 'true'); dots.setAttribute('aria-expanded', 'false');
+    dots.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2" fill="currentColor"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><circle cx="19" cy="12" r="2.2" fill="currentColor"/></svg>';
+    chrome.insertBefore(dots, chrome.firstChild);
+    let menuEl = null, menuScrim = null;
+    const menuClose = () => {
+      if (!menuEl) return;
+      menuEl.remove(); menuScrim.remove(); menuEl = menuScrim = null; run.menuOpen = false; run.menuClose = null;
+      dots.classList.remove('on'); dots.setAttribute('aria-expanded', 'false');
+      if (run.running && run.paused) { // resume the game
+        run.paused = false; run.last = performance.now();
+        try { run.inst && run.inst.resume && run.inst.resume(); } catch (e) { console.error(e); }
+        emit('play:pause', false);
+      }
+    };
+    const menuOpen = () => {
+      if (menuEl || !run.running || run.finished || run.paused) return;
+      sfx('click'); track('View', 'menu', run.act && run.act.id);
+      run.paused = true; run.menuOpen = true; run.menuClose = menuClose;
+      try { run.inst && run.inst.pause && run.inst.pause(); } catch (e) { console.error(e); }
+      if (UI().coachClose) UI().coachClose();
+      audio('engine', null);
+      emit('play:pause', true);
+      const cur = settings().tilt;
+      const row = (act, icon, label, extra) => '<button type="button" class="pm-row' + (extra && extra.on ? ' on' : '') + '" data-pm="' + act + '">' + ico(icon) + '<span>' + esc(label) + '</span>' + ((extra && extra.badge) || '') + '</button>';
+      menuScrim = doc.createElement('div'); menuScrim.className = 'play-menu-scrim';
+      menuEl = doc.createElement('div'); menuEl.className = 'play-menu glass'; menuEl.setAttribute('role', 'menu');
+      menuEl.innerHTML =
+        row('pause', 'pause', t('app.pause.title')) +
+        row('overview', 'map', t('app.menu.overview'), { on: V.overview, badge: '<i class="pm-state">' + esc(t(V.overview ? 'app.menu.on' : 'app.menu.off')) + '</i>' }) +
+        '<div class="pm-tilt"><span class="pm-lbl">' + ico('tilt') + '<span>' + esc(t('app.menu.tilt')) + '</span></span><span class="pm-seg" role="group">' +
+        [['off', 'app.tilt.off'], ['on', 'app.tilt.on'], ['auto', 'app.tilt.auto']].map(o => '<button type="button" data-tilt="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '"' + (cur === o[0] ? ' class="on"' : '') + '>' + esc(t(o[1])) + '</button>').join('') + '</span></div>' +
+        (iosNeedsGuide() ? '<button type="button" class="pm-hint" data-pm="install">' + ico('download') + '<span>' + esc(t('app.menu.install')) + '</span></button>' : '');
+      menuEl.addEventListener('click', e => {
+        const tb = e.target.closest('[data-tilt]');
+        if (tb) {
+          const v = tb.getAttribute('data-tilt'); sfx('click');
+          try { S().saveSettings({ tilt: v }); } catch (er) { /* storage blocked */ }
+          V.tilt = !!(KOS.Tilt && KOS.Tilt.resolve(v, run.act, Perf.level)); tLast = ''; tsync();
+          menuEl.querySelectorAll('[data-tilt]').forEach(b => { const on = b === tb; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+          setTimeout(menuClose, 220);
+          return;
+        }
+        const b = e.target.closest('[data-pm]'); if (!b) return;
+        const act = b.getAttribute('data-pm'); sfx('click');
+        menuClose();
+        if (act === 'pause') setPaused(true);
+        else if (act === 'overview') toggle();
+        else if (act === 'install') { setPaused(true); App.install(); }
+      });
+      menuScrim.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); menuClose(); });
+      sec.appendChild(menuScrim); sec.appendChild(menuEl);
+      dots.classList.add('on'); dots.setAttribute('aria-expanded', 'true');
+    };
+    dots.addEventListener('click', () => { if (menuEl) menuClose(); else menuOpen(); });
     const zoomBy = k => { if (!V.zt) { V.zt = 1; track('View', 'zoom', run.act && run.act.id); } V.overview = false; V.mul = Math.max(0.05, Math.min(3, V.mul * k)); sync(); };
     const inControls = el => !!(el && el.closest && el.closest('.kc, .pause-overlay, button, .dialog'));
     let pinch = null;
@@ -438,7 +496,7 @@
       else if (e.key === '-' || e.key === '_') zoomBy(0.8);
       else if (e.key === '+' || e.key === '=') zoomBy(1.25);
     });
-    run.viewOff = () => { offs.forEach(f => f()); run.tiltSync = null; V.mul = 1; V.overview = false; V.tilt = null; sec.classList.remove('view-overview'); };
+    run.viewOff = () => { offs.forEach(f => f()); menuClose(); run.tiltSync = null; V.mul = 1; V.overview = false; V.tilt = null; sec.classList.remove('view-overview'); };
   }
   App.show = function (screen, params, opts) {
     opts = opts || {};
@@ -637,6 +695,9 @@
     return true;
   };
 
+  // phone UI (body.phone-ui): ⋯ menu instead of three buttons, goals / lesson panels collapse to a chip, two-thumb controls
+  function syncPhoneUi() { try { doc.body.classList.toggle('phone-ui', !!(KOS.Input && KOS.Input.isPhone && KOS.Input.isPhone())); } catch (e) { /* optional */ } }
+  App.syncPhoneUi = syncPhoneUi;
   renderers.play = function (sec) {
     const a = run.act;
     if (!a) { setTimeout(() => App.show('hub', {}, { replace: true }), 0); return; }
@@ -651,6 +712,7 @@
     chrome.innerHTML = '<button type="button" class="icon-btn pause-btn" aria-label="' + esc(t('app.pause.title')) + '">' + ico('pause') + '</button>';
     chrome.querySelector('button').addEventListener('click', () => { sfx('click'); setPaused(!run.paused); });
     sec.appendChild(chrome);
+    syncPhoneUi();
     if (run.mode.kind !== 'dom') setupViewZoom(sec, chrome);
 
     const kind = run.mode.kind === 'dom' ? 'dom' : 'sea';
@@ -771,6 +833,7 @@
 
   function setPaused(b) {
     if (!run.running || run.finished) return;
+    if (run.menuOpen && run.menuClose) { run.menuClose(); if (!b) return; } // the ⋯ menu pauses silently; P / Esc closes it
     if (b === run.paused) return;
     run.paused = b;
     if (b) {
@@ -948,7 +1011,7 @@
       seg('assist', [{ v: 'easy', label: t('app.assist.easy') }, { v: 'normal', label: t('app.assist.normal') }, { v: 'pro', label: t('app.assist.pro') }]) +
       '<p class="set-help">' + esc(t('app.assist.' + s.assist + 'Help')) + '</p></section>' +
       '<section class="panel glass"><h2>' + ico('joystick') + esc(t('app.settings.controls')) + '</h2>' +
-      seg('controls', [{ v: 'auto', label: t('app.controls.auto'), icon: 'sparkle' }, { v: 'buttons', label: t('app.controls.buttons'), icon: 'buttons' }, { v: 'joystick', label: t('app.controls.joystick'), icon: 'joystick' }]) +
+      seg('controls', [{ v: 'auto', label: t('app.controls.auto'), icon: 'sparkle' }, { v: 'tiller', label: t('app.controls.tiller'), icon: 'sail' }, { v: 'buttons', label: t('app.controls.buttons'), icon: 'buttons' }, { v: 'joystick', label: t('app.controls.joystick'), icon: 'joystick' }]) +
       '<p class="set-help">' + esc(t('app.controls.help')) + '</p>' +
       sw('reducedMotion', t('app.settings.reducedMotion'), 'motion') + '</section>' +
       '<section class="panel glass"><h2>' + ico('tilt') + esc(t('app.settings.tilt')) + '</h2>' +
@@ -1337,6 +1400,7 @@
     applySettings(s);
     root.addEventListener('keydown', onKey, true);
     root.addEventListener('resize', () => {
+      syncPhoneUi();
       if (App.cur === 'play' && run.inst) {
         sizeCanvas(doc.getElementById('game-canvas'));
         try { run.inst.onResize && run.inst.onResize(); } catch (e) { console.error(e); }
@@ -1393,6 +1457,7 @@
         needStars: 'Du skal bruge {n} ★ for at låse op (du har {have}).', needAfter: 'Klar først: {name}',
       },
       view: { overview: 'Oversigt – se hele farvandet', tilt: 'Skrå visning (V)' },
+      menu: { more: 'Menu', overview: 'Overblik', tilt: 'Skrå visning', on: 'Til', off: 'Fra', install: 'Føj til hjemmeskærm for fuld skærm' },
       tilt: { auto: 'Automatisk', on: 'Til', off: 'Fra', help: 'Se bådene skråt fra siden, så du kan se dem krænge. Automatisk: til i kapsejlads, fri sejlads og RIB, fra i sejlerskolen, regelskolen, navigation og havnemanøvrer.' },
       pause: {
         title: 'Pause', quit: 'Til kortet',
@@ -1414,10 +1479,10 @@
       assist: {
         easy: 'Let', normal: 'Normal', pro: 'Pro',
         easyHelp: 'Sejlene trimmer sig selv, du kan ikke kæntre, og træneren viser vejen.',
-        normalHelp: 'Du trimmer selv, men får lidt hjælp. Pas på krængningen!',
+        normalHelp: 'Sejlet trimmer sig selv, og du justerer med skødet: skub for at hale ind eller fire lidt. Pas på krængningen!',
         proHelp: 'Som i virkeligheden: manuelt trim, kæntring og strafrunder. Kun for hajer!',
       },
-      controls: { auto: 'Auto', buttons: 'Knapper', joystick: 'Joystick', help: 'Auto vælger knapper på touchskærm og tastatur på computer.' },
+      controls: { auto: 'Auto', tiller: 'Rorpind + skøde', buttons: 'Knapper', joystick: 'Joystick', help: 'Auto vælger rorpind + skøde på telefon, knapper på tablet og tastatur på computer. Rorpind: træk med venstre tommel for at styre, skødet sidder til højre.' },
       profile: {
         title: 'Din profil', newTitle: 'Ny sejler', sub: 'Hvem skal til søs i dag?', name: 'Dit navn', namePh: 'Skriv dit navn',
         age: 'Alder', ageOpt: '{a} år', look: 'Udseende', style: 'Frisure', skin: 'Hudfarve', hair: 'Hårfarve', jacket: 'Sejlerjakke',
@@ -1468,6 +1533,7 @@
         needStars: 'You need {n} ★ to unlock this (you have {have}).', needAfter: 'Finish first: {name}',
       },
       view: { overview: 'Overview – see the whole area', tilt: 'Tilted view (V)' },
+      menu: { more: 'Menu', overview: 'Overview', tilt: 'Tilted view', on: 'On', off: 'Off', install: 'Add to home screen for full screen' },
       tilt: { auto: 'Automatic', on: 'On', off: 'Off', help: 'See the boats at an angle, so you can watch them heel. Automatic: on for racing, free sailing and the RIB, off in the sailing school, the rules school, navigation and docking.' },
       pause: {
         title: 'Paused', quit: 'To the map',
@@ -1489,10 +1555,10 @@
       assist: {
         easy: 'Easy', normal: 'Normal', pro: 'Pro',
         easyHelp: 'Sails trim themselves, you can’t capsize, and your coach shows the way.',
-        normalHelp: 'You trim yourself with a little help. Watch the heel!',
+        normalHelp: 'The sail trims itself and you fine-tune with the sheet: nudge it to haul in or ease a little. Watch the heel!',
         proHelp: 'Like the real thing: manual trim, capsizing and penalty turns. Sharks only!',
       },
-      controls: { auto: 'Auto', buttons: 'Buttons', joystick: 'Joystick', help: 'Auto picks buttons on touch screens and keyboard on computers.' },
+      controls: { auto: 'Auto', tiller: 'Tiller + sheet', buttons: 'Buttons', joystick: 'Joystick', help: 'Auto picks tiller + sheet on phones, buttons on tablets and keyboard on computers. Tiller: drag with your left thumb to steer, the sheet sits on the right.' },
       profile: {
         title: 'Your profile', newTitle: 'New sailor', sub: 'Who’s going to sea today?', name: 'Your name', namePh: 'Type your name',
         age: 'Age', ageOpt: '{a} yrs', look: 'Look', style: 'Hair style', skin: 'Skin', hair: 'Hair colour', jacket: 'Sailing jacket',
