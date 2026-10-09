@@ -84,3 +84,8 @@
   .race-layer .race-card, .soslag-layer .race-card { top: calc(var(--safe-t) + 64px); }
 }
 @media (prefers-reduced-motion: reduce) { .soslag-count, .sl-track i { transition: none; } .sl-tank.pulse, .sl-hint.pulse { animation: none; } }
+
+/* ---- penalty turn (step 4): the TURN button only while a turn is owed (it pulses via .kc-highlight on normal / pro, not on easy: the boat turns itself); progress bar in the panel */
+.soslag-layer:not(.soslag-pen) .kc [data-btn="turn"] { display: none; }
+.soslag-panel .sl-pen:empty { display: none; }
+.soslag-panel .rp-pen { margin-top: 5px; }

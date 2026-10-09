@@ -202,7 +202,7 @@ fails the balance test, because then the stat means nothing).
 
 ## 7. Wet meter, winning and stars
 
-- Each packet that hits the crew cylinder adds `WET_GAIN = 0.35` points to that crew's wet meter (0-100, clamped). No drying in a 3 minute game.
+- Each packet that hits the crew cylinder adds `WET_GAIN = 0.48` points (0.35 in the first draft; tuned in step 4 so the autopilot at normal lands 55-75 % opponent wet) to that crew's wet meter (0-100, clamped). No drying in a 3 minute game.
   Arithmetic: a full tank is 66 jets, at 55-60 % hits about 36-40 hits = 13-14 points. A good game spends about 100 + 360 (passive) + two dips
   (about 120) = 580 units = 390 jets = about 215 hits = **70-75 points**, so about 70 % is reachable for a good player who holds the windward position,
   a knock-out to 100 needs a near-perfect duel and stays rare, and a typical result is 35-60 %. `WET_GAIN` is the one balance constant; step 5 tunes it

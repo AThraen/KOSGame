@@ -2,11 +2,14 @@
 // The 'soslag' mode: Søslag i bugten (GitHub issue #11, docs/specs/soslag.md). Two H-boats duel in Svanemøllebugten with
 // water guns; the wind carries the jet, so the windward position is the good one. A real KØS summer exercise: friendly, never war.
 //
-// Build step 3 (this file): the player's gun. Intro card, 3-2-1 countdown, 180 s clock, an AI H-boat that sails to the windward
+// Build step 4 (this file): rules + the AI duellist on top of step 3's gun. Right-of-way fouls (KOS.Rules.monitor, contact only) give the give-way
+// boat a 360 degree penalty turn (720 after a hard collision; copied and adapted from race.js), the gun is locked while a turn is owed, and the
+// AI is a real duellist: SEEK the windward station / SHOOT in bursts / CONTEST a windward player / ESCAPE / REFILL (luff and dip the bucket).
+// Step 3: the player's gun. Intro card, 3-2-1 countdown, 180 s clock, an AI H-boat that sails to the windward
 // station (4 Hz {target} plan, still passive: it does not shoot), the arena ring, the off-screen opponent arrow, and now: hold-to-fire
 // SKYD with auto-aim (KOS.Soslag), a jet pool stepped in simStep, tank + dipping, gun locks, wet meters, the screen-space jet overlay,
 // the duel camera (follow / fit with hysteresis), time-up and 100 % end, real results with injected wet bars, trainer tips.
-// Later steps add penalties / the right-of-way rules (step 4) and the real AI duellist, the badge (step 5).
+// Step 5 adds the badge and polish.
 //
 // Activity params: venue, windDeg, windKn, gust, shift, seed, durationS (round length, sim s), arenaR (arena radius, m), opp.
 (function (root) {
@@ -19,6 +22,8 @@
   const LEAD_S = 3;        // the AI aims this many seconds ahead of the player
   const START_GAP = 45;    // m between the boats at the start, on a line across the wind
   const SL = KOS.Soslag, C = SL.CFG, D2R = Math.PI / 180;
+  const STANDOFF_S = 3.5;    // the AI closes in when it has not shot for this long (and is not within 12 m)
+  const AP_D = 12, AP_S = 4, AP_RANGE = 12, AP_SKILL = 0.65; // the test autopilot ("a competent player", a little better than the AI): station 12 m upwind + 4 m across, fires within 12 m
   const SIGMA = { easy: 3.5, normal: 5, pro: 6.5 }; // azimuth spread of the auto-aim (degrees); elevation spread is 3 degrees at every level
 
   // ======================================================================== 1. strings
@@ -34,9 +39,10 @@
         wind: 'Vind i dag: {wind}.',
       },
       hud: { m: '{n} m', luv: 'Luv', lae: 'Læ', out: 'Tilbage til banen!', time: 'Tid', you: 'Du', tank: 'Vand', dip: 'Luf op og sænk farten for at fylde', far: 'For langt!' },
+      pen: { auto: 'Båden tager strafrunden for dig, og skyderen er låst imens - husk reglen næste gang!', locked: 'Skyderen er låst, mens strafrunden tages', hard: 'Hård kollision - to strafrunder (720°)' },
       count: { go: 'Af sted!' },
       card: { end: 'Slut!', endSub: 'Tiden er gået', first: 'Venligt skud!', soaked: 'Gennemblødt!', soakedMe: 'Du er gennemblødt!' },
-      tip: { windward: 'Kom op i luv af ham! Vinden bærer vandet langt ned mod vinden - men husk: luv-båden viger.', out: 'Tilbage til banen! Hold dig inde i den stiplede ring.', last: 'Sidste chance!',
+      tip: { giveway: 'Du er luv-båd lige nu - hold dig fri af ham!', windward: 'Kom op i luv af ham! Vinden bærer vandet langt ned mod vinden - men husk: luv-båden viger.', out: 'Tilbage til banen! Hold dig inde i den stiplede ring.', last: 'Sidste chance!',
         shoot: 'Hold SKYD, når du er tæt nok på.', tank: 'Vandet er ved at slippe op.', dip: 'Luf op mod vinden og sænk farten, så fylder du spanden.',
         short: 'Strålen når ikke - skyd ned mod vinden eller kom tættere på.', win: 'Flot skudt! Prøv at komme endnu hurtigere op i luv næste gang.', lose: 'Næste gang: kom op i luv af ham og skyd ned mod vinden.' },
       msg: { win: 'Du vandt søslaget!', lose: 'Han var våddere end dig denne gang.', draw: 'Uafgjort - flot kamp!', soaked: 'Du gennemblødte hele holdet!', soakedMe: 'Du blev gennemblødt - godt kæmpet!', idle: 'Du skød næsten ikke - prøv igen!' },
@@ -56,9 +62,10 @@
         wind: 'Wind today: {wind}.',
       },
       hud: { m: '{n} m', luv: 'Windward', lae: 'Leeward', out: 'Back to the arena!', time: 'Time', you: 'You', tank: 'Water', dip: 'Luff up and slow down to refill', far: 'Too far!' },
+      pen: { auto: 'The boat takes the penalty turn for you, and the gun is locked meanwhile - remember the rule next time!', locked: 'The gun is locked while the turn is taken', hard: 'Hard collision - two penalty turns (720°)' },
       count: { go: 'Go!' },
       card: { end: 'Time!', endSub: 'The clock ran out', first: 'Nice shot!', soaked: 'Soaked!', soakedMe: 'You are soaked!' },
-      tip: { windward: 'Get to windward of him! The wind carries the water far downwind - but remember, the windward boat gives way.', out: 'Back to the arena! Stay inside the dashed ring.', last: 'Last chance!',
+      tip: { giveway: 'You are the windward boat now - keep clear of him!', windward: 'Get to windward of him! The wind carries the water far downwind - but remember, the windward boat gives way.', out: 'Back to the arena! Stay inside the dashed ring.', last: 'Last chance!',
         shoot: 'Hold SQUIRT when you are close enough.', tank: 'The water is running low.', dip: 'Luff up into the wind and slow down to fill the bucket.',
         short: 'The jet does not reach - shoot downwind or get closer.', win: 'Well shot! Try to get to windward even faster next time.', lose: 'Next time: get to windward of him and shoot downwind.' },
       msg: { win: 'You won the water fight!', lose: 'He got you wetter this time.', draw: 'A draw - great match!', soaked: 'You soaked the whole crew!', soakedMe: 'You got soaked - well fought!', idle: 'You hardly fired - try again!' },
@@ -80,8 +87,8 @@
   });
 
   // ======================================================================== helpers (pure)
-  // approximate downwind reach of the jet (m) at a true wind speed in knots; the real table comes with js/core/soslag.js (step 2)
-  const downRange = tws => 10.7 + 0.88 * tws;
+  // downwind reach of the jet (m) at a true wind speed in knots (the memoised table of js/core/soslag.js, rounded to half knots)
+  const downRange = tws => SL.downwindRange(Math.round(tws * 2) / 2);
   const DEFAULT_AREA = { x: -290, y: -640, r: 260 };
 
   // The arena: a circle of radius r around O, all water (8-point margin ring, no swim zone). Probe the venue's course area at
@@ -144,6 +151,7 @@
     const arena = findArena(venue, cls.draft || 1, P.seed, P.arenaR);
     const O = { x: arena.x, y: arena.y }, AR = arena.r;
     const rand = U.rng((P.seed || 1) * 13 + 7); // the auto-aim spread (seeded: same seed, same duel)
+    const randAi = U.rng((P.seed || 1) * 17 + 5); // the AI's own stream: its spread and burst timing
     const S = {
       phase: 'intro', clock: 0, cdT: COUNT_S, cdN: 0, hudT: 0, ambT: 0, tips: {}, tipT: -99, planN: 0, side: 1, jit: 0,
       out: false, outT: 0, endT: -1, result: null, done: false, goTipT: -1, lastTip: false, fxCount: 0,
@@ -151,6 +159,8 @@
       pool: SL.createPool(), fired: 0, hits: 0, oppHits: 0, fouls: 0, held: false, firing: false, locked: true, lockPrev: null, dip: false,
       aim: null, land: null, aimN: 0, sprayT: -9, hitSndT: -9, fxT: -9, dripT: 0, gainAcc: 0, gainT: 0, firstHit: false,
       dipHintT: -99, dipUntil: 0, farT: 0, cam: 'follow', camT: -9, fr: null,
+      // rules (step 4): the player's penalty (b.pen), turns served, per-pair / player cooldowns on the SIM clock, the last boat-boat hits (closing speed)
+      pen: null, penServed: 0, cool: {}, myFoulT: 0, closeT: 0, lastHit: {}, oppFouls: 0, giveT: 0, sprayAiT: -9,
     };
 
     // ---------------------------------------------------------------- wind
@@ -176,7 +186,11 @@
     opp.pace = KOS.AI.paceFor(skill, fs);
     opp.plan = { target: { x: pAi.x, y: pAi.y, r: 0.5 }, mode: 'race' };
     opp.tag = opp.short;
-    for (const b of [me, opp]) { b.tank = C.TANK_MAX; b.wet = 0; b.gunLock = 0; b.acc = 0; b.dry = false; } // per-boat plain fields, like b.rc in race
+    for (const b of [me, opp]) { b.tank = C.TANK_MAX; b.wet = 0; b.gunLock = 0; b.acc = 0; b.dry = false; b.pen = null; } // per-boat plain fields, like b.rc in race
+    // the AI duellist (spec section 9): b.ai.mode = SEEK | SHOOT | CONTEST | ESCAPE | REFILL; aimSigma (deg) and the burst timing come from its skill
+    const aiSigma = U.lerp(10, 5, skill), aiPace = 0.9 + 0.65 * skill, aiReact = U.lerp(0.4, 0.1, skill); // pace: burst length x, pause / x (shorter pauses at higher skill)
+    opp.ai = { mode: 'SEEK', t0: 0, along0: 0, cd: 0, refillCd: 0, luff: false, burst: 0, pause: 0, react: aiReact, needFill: false, aim: null, aimN: 0, zeroT: 0, maxZeroT: 0, fired: 0, lastFire: 0, close: false, winT: 0, modeT: { SEEK: 0, SHOOT: 0, CONTEST: 0, ESCAPE: 0, REFILL: 0 } };
+    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
     const boats = [me, opp];
     let controls = KOS.Physics.controls();
     controls.autoTrim = assist !== 'pro';
@@ -204,6 +218,7 @@
       layout: 'sail', spinnaker: false, hike: !cls.keel && assist !== 'easy', autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
     }, KOS.SailAids.inputOpts(cls, assist)));
     ctrl.setEnabled('fire', false); ctrl.setEnabled('turn', false);
+    ctrl.on('turn', () => { if (S.pen) { S.pen.auto = true; sfx('tap'); } }); // the boat takes the turn for you (on easy it already does: a harmless no-op)
     const aids = KOS.SailAids.create({ ctrl, boat: me, assist, coach: txt => say(txt) });
     host.layer.classList.add('soslag-layer');
 
@@ -213,12 +228,12 @@
     panel.innerHTML = '<div class="sl-bar me"><span class="sl-n"></span><b class="sl-p"></b><div class="sl-track"><i></i></div></div>' +
       '<div class="sl-bar op"><span class="sl-n"></span><b class="sl-p"></b><div class="sl-track"><i></i></div></div>' +
       '<div class="sl-tank"><span class="sl-ico">' + KOS.UI.iconSvg('drop') + '</span><span class="sl-n"></span><div class="sl-track"><i></i></div></div>' +
-      '<div class="sl-row"><b></b><em></em></div><div class="sl-hint"></div>';
+      '<div class="sl-row"><b></b><em></em></div><div class="sl-hint"></div><div class="sl-pen"></div>';
     host.layer.appendChild(panel);
     const pq = s => panel.querySelector(s);
     const pe = { meN: pq('.sl-bar.me .sl-n'), meP: pq('.sl-bar.me .sl-p'), meF: pq('.sl-bar.me i'), meB: pq('.sl-bar.me'),
       opN: pq('.sl-bar.op .sl-n'), opP: pq('.sl-bar.op .sl-p'), opF: pq('.sl-bar.op i'), opB: pq('.sl-bar.op'),
-      tk: pq('.sl-tank'), tkN: pq('.sl-tank .sl-n'), tkF: pq('.sl-tank i'), d: pq('.sl-row b'), w: pq('.sl-row em'), hint: pq('.sl-hint') };
+      tk: pq('.sl-tank'), tkN: pq('.sl-tank .sl-n'), tkF: pq('.sl-tank i'), d: pq('.sl-row b'), w: pq('.sl-row em'), hint: pq('.sl-hint'), pen: pq('.sl-pen') };
     const pv = {}; // last painted values (touch the DOM only when something changed)
     const card = document.createElement('div');
     card.className = 'race-card';
@@ -261,25 +276,188 @@
     }
     const remaining = () => Math.max(0, P.durationS - S.clock);
 
-    // ==================================================================== AI: sail to the windward station (4 Hz plan)
-    // station = opponent + upwind * d + crosswind * side * 6, d = 0.7 x downwind range (about 13 m at 9 kn, clamped 9..14), kept inside 0.85 x arena
+    // ==================================================================== rules: fouls and penalty turns (copied and adapted from race.js, per-boat b.pen, sim clock env.t)
+    // ONE rule at every assist level and for both boats: the give-way boat that touches owes one 360 degree turn (two after a hard collision, closing speed >= 1.4 m/s),
+    // its gun is locked while the turn is owed and 1.5 s after (3 s more after a hard hit). Assist only changes the help: on easy the boat steers the turn itself.
+    function floatText(str, color, x, y, size) { fx(f => f.text(x != null ? x : me.x, y != null ? y : me.y - 2, str, { color: color || '#fff', size: size || 22 })); }
+    function onFoul(f) {
+      const now = env.t;
+      if (S.phase !== 'duel') return;
+      const a = f.offender, v = f.victim;
+      if (!a || !v || a.pen) return;
+      if (v.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
+      const gap = KOS.Rules.hullGap ? KOS.Rules.hullGap(a, v) : 0;
+      if (!f.contact) { // close call, no contact: the trainer warns the player once in a while, no penalty
+        if (a === me && gap < 0.4 * L && now > S.closeT) { S.closeT = now + 25; say(t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); sfx('whistle', { vol: 0.4 }); }
+        return;
+      }
+      const rel = Math.hypot(a.vx - v.vx, a.vy - v.vy);
+      if (rel < 0.35) return; // a gentle rub is not worth a penalty
+      if (a === me && now < S.myFoulT) return;
+      const key = a.id + '|' + v.id;
+      if (S.cool[key] > now) return;
+      S.cool[key] = now + 12;
+      if (a === me) S.myFoulT = now + 15;
+      const lh = S.lastHit[a.id + '|' + v.id] || S.lastHit[v.id + '|' + a.id]; // collision escalation: the closing speed of the boat-boat hit just now
+      penalize(a, f.rule, f, !!lh && now - lh.t <= 0.5 && lh.speed >= 1.4);
+    }
+    function penalize(b, rule, f, hard) {
+      addPen(b, hard ? 2 : 1, hard); // RRS rule 44: one turn for a Part 2 foul; two after a hard collision
+      if (b === me) {
+        S.fouls++;
+        sfx('whistle');
+        const title = KOS.Rules.ruleName(rule), why = t(f.reasonKey, f.reasonVars || {});
+        if (assist === 'easy') { // easy: the same price, but the boat steers the turn (no pulsing button)
+          S.pen.auto = true;
+          showCard('warn', t('race.pen.warn') + ' · ' + title, hard ? t('soslag.pen.hard') : t('soslag.pen.locked'));
+          say(why + ' ' + t('soslag.pen.auto'), 8000, 'oops');
+          return;
+        }
+        showCard('bad', title, hard ? t('soslag.pen.hard') : t('race.pen.title360'));
+        say(why + ' ' + t('race.pen.do360'), 8500, 'oops');
+        ctrl.highlight('turn', true);
+        return;
+      }
+      S.oppFouls++; // the AI broke a rule
+      if (f && f.victim === me) {
+        showCard('good', t('race.pen.rightTitle'), KOS.Rules.ruleName(rule));
+        say(t('race.pen.right', { offender: b.short || b.name }), 5000);
+      }
+      if (U.dist(b, me) < 120) floatText(t('race.pen.ai'), '#ff9a3d', b.x, b.y - 3, 16);
+    }
+    function addPen(b, turns, hard) {
+      if (!b.pen) b.pen = { need: 0, acc: 0, prevH: b.heading, auto: false, dir: 0, T: 0, lock: 0 };
+      b.pen.need += turns * TAU; if (hard) b.pen.lock = 3;
+      b.gunLock = 1.5 + b.pen.lock; // pre-armed: it counts down only once the turn is served (the gun is locked while b.pen anyway)
+      SL.resetFire(b);
+      if (b === me) { S.pen = b.pen; host.layer.classList.add('soslag-pen'); ctrl.setEnabled('turn', true); }
+    }
+    function penStep(b, dt) {
+      const p = b.pen; if (!p) return;
+      p.T += dt;
+      const dh = U.wrapPi(b.heading - p.prevH); p.prevH = b.heading;
+      if (!p.dir && Math.abs(p.acc + dh) > 0.4) p.dir = Math.sign(p.acc + dh);
+      p.acc += dh;
+      if (Math.abs(p.acc) >= p.need - 0.05) {
+        b.pen = null;
+        if (b === me) {
+          S.pen = null; S.penServed += Math.round(p.need / TAU);
+          host.layer.classList.remove('soslag-pen'); ctrl.highlight('turn', false); ctrl.setEnabled('turn', false);
+          sfx('coin', { pitch: 1.2 }); floatText(t('race.pen.done'), '#3ee08f');
+          fx(f => f.stars(me.x, me.y, 10));
+        }
+      }
+    }
+    // steer a penalty turn: keep turning one way, but build speed on a close reach first if the boat would stall head to wind
+    function penControls(b, c) {
+      const p = b.pen;
+      if (!p) return c;
+      const twa = U.wrapPi(wind.dir - b.heading), sg = twa >= 0 ? 1 : -1;
+      if (!p.dir) p.dir = -sg; // first bear away
+      const back = b.speed < -0.05 && assist !== 'easy' ? -1 : 1;
+      if (p.build) {
+        p.buildT += KOS.DT;
+        const H = U.wrapPi(wind.dir - sg * (cls.noGo + 0.45));
+        c.rudder = U.clamp(U.angDiff(b.heading, H) * 2.5, -1, 1) * back;
+        if (b.speed > 0.85 * cls.uRef || p.buildT > 10) p.build = false;
+      } else {
+        const a = Math.abs(twa), into = sg === p.dir; // turning towards the wind (a tack is coming)
+        c.rudder = p.dir * (into && a < cls.noGo + 0.25 ? 1 : 0.8) * back;
+        if (into && a > cls.noGo + 0.1 && a < cls.noGo + 0.6 && b.speed < 0.7 * cls.uRef) { p.build = true; p.buildT = 0; }
+      }
+      c.spinnaker = false; c.autoTrim = true; c.trimBias = 0;
+      return c;
+    }
+
+    // ==================================================================== AI duellist (spec section 9)
+    // States (opp.ai.mode): SEEK the windward station / SHOOT (SEEK while a burst is on) / CONTEST (the player is windward of me: close in alongside him, where upwind jets reach, and win the place back) /
+    // ESCAPE (dodge across the wind, 10 s at most) / REFILL (sail crosswind of the player, luff and dip the bucket). The 4 Hz plan switches states and picks the target;
+    // aiFire() (every step) shoots in bursts when solveAim says it hits. A reached target makes the helm "finish" and idle, so every target is a fresh object with a
+    // small re-offset and r = 0.5.
+    function aiMode(m) { const ai = opp.ai; if (ai.mode !== m) { ai.mode = m; ai.t0 = env.t; if (m !== 'REFILL') { ai.rp = null; ai.luff = false; } } }
+    function clampArena(x, y) { const dx = x - O.x, dy = y - O.y, m = Math.hypot(dx, dy), lim = 0.85 * AR; return m > lim ? { x: O.x + dx / m * lim, y: O.y + dy / m * lim } : { x, y }; }
     function planAI() {
-      const tws = (wind.at(opp.x, opp.y) || {}).speed || P.windKn;
-      const d = U.clamp(0.7 * downRange(tws), 9, 14);
-      const sd = (opp.x - me.x) * right.x + (opp.y - me.y) * right.y; // which side of the player he is on (crosswind): keep it (hysteresis, no flip-flop)
+      const ai = opp.ai, now = env.t;
+      const tws = (wind.at(opp.x, opp.y) || {}).speed || P.windKn, DR = downRange(tws), dist = U.dist(opp, me);
+      const meWind = Math.abs(U.wrapPi(U.bearing(opp, me) - wd)) < U.rad(60); // the player is on the AI's windward side (+/-60 degrees)
+      const aiWind = Math.abs(U.wrapPi(U.bearing(me, opp) - wd)) < U.rad(60); // the AI is on the player's windward side
+      const along = (opp.x - me.x) * up.x + (opp.y - me.y) * up.y;           // metres the AI is upwind of the player (negative: to leeward)
+      const sd = (opp.x - me.x) * right.x + (opp.y - me.y) * right.y;         // which side of the player he is on (crosswind): keep it (hysteresis, no flip-flop)
       if (Math.abs(sd) > 4) S.side = sd > 0 ? 1 : -1;
-      S.jit = -S.jit || 1.5; // re-offset every update so a steady station never counts as "reached" (a reached target makes the helm idle)
+      const m = ai.mode;
+      if (m === 'REFILL') { if (opp.tank >= 60 || dist < 12 || now - ai.t0 > 25) { ai.refillCd = now + (dist < 12 || now - ai.t0 > 25 ? 8 : 0); aiMode('SEEK'); } }
+      else if (m === 'ESCAPE') { if (now - ai.t0 > 10 || (dist > 0.9 * DR && !meWind)) { ai.cd = now + 6; aiMode('SEEK'); } }
+      else if (m === 'CONTEST') {
+        if (ai.close) { if (now - ai.lastFire < 2 || dist < 5 || now - ai.t0 > 14) { ai.close = false; ai.cd = now + 4; aiMode('SEEK'); } } // closing in after a standoff: until it has shot (or reached him)
+        else if (!(meWind && dist < 0.95 * DR)) aiMode('SEEK');
+        else if (now - ai.t0 > 12 && along < ai.along0 + 3) aiMode('ESCAPE');
+      }
+      if (ai.mode === 'SEEK' || ai.mode === 'SHOOT') {
+        if (opp.tank < 12 && dist > 12 && now > ai.refillCd) aiMode('REFILL');
+        else if (meWind && dist < 0.95 * DR && now > ai.cd) { ai.along0 = along; aiMode('CONTEST'); }
+        else if (now > ai.cd && now > 10 && now - ai.lastFire > STANDOFF_S && dist > 12 && !(aiWind && dist < 0.95 * DR)) { ai.close = true; aiMode('CONTEST'); } // a standoff (nobody shoots): close in alongside him, where jets reach either way
+      }
+      S.jit = -S.jit || 1.5; // re-offset every update so a steady station never counts as "reached"
       const lx = me.x + (me.vx || 0) * LEAD_S, ly = me.y + (me.vy || 0) * LEAD_S; // aim at where he will be (a moving opponent), not where he is
-      let x = lx + up.x * d + right.x * (S.side * 6 + S.jit), y = ly + up.y * d + right.y * (S.side * 6 + S.jit);
-      const dx = x - O.x, dy = y - O.y, m = Math.hypot(dx, dy), lim = 0.85 * AR;
-      if (m > lim) { x = O.x + dx / m * lim; y = O.y + dy / m * lim; }
-      opp.plan = { target: { x, y, r: 0.5 }, mode: 'race' }; // a fresh object every time
+      let x, y;
+      if (ai.mode === 'REFILL') { // a fixed point 1.2 x downwind range crosswind of the player (re-picked only if he comes near it); luff there and dip
+        if (!ai.rp || U.dist(me, ai.rp) < 0.8 * DR) ai.rp = clampArena(me.x + right.x * S.side * 1.2 * DR, me.y + right.y * S.side * 1.2 * DR);
+        x = ai.rp.x + S.jit * 0.3; y = ai.rp.y;
+        ai.luff = U.dist(opp, ai.rp) < (ai.luff ? 16 : 7);
+      } else if (ai.mode === 'CONTEST') { // back to windward of him: aim just upwind of where he will be (the helm beats / luffs and keeps clear by rule)
+        x = lx + up.x * 3 + right.x * (S.side * 6 + S.jit); y = ly + up.y * 3 + right.y * (S.side * 6 + S.jit);
+      } else if (ai.mode === 'ESCAPE') { // across the wind and away: the side he is already on, 35 m
+        const sg = sd >= 0 ? 1 : -1, ux = (opp.x - me.x) / Math.max(dist, 1), uy = (opp.y - me.y) / Math.max(dist, 1);
+        x = opp.x + right.x * sg * 35 + ux * 10 + S.jit; y = opp.y + right.y * sg * 35 + uy * 10;
+      } else { // SEEK / SHOOT: station = opponent + upwind * d + crosswind * side * 6, d = 0.7 x downwind range (clamped 9..14)
+        const d = U.clamp(0.7 * DR, 9, 14);
+        x = lx + up.x * d + right.x * (S.side * 6 + S.jit); y = ly + up.y * d + right.y * (S.side * 6 + S.jit);
+      }
+      const c = clampArena(x, y);
+      opp.plan = { target: { x: c.x, y: c.y, r: 0.5 }, mode: 'race' }; // a fresh object every time
       return opp.plan;
+    }
+    const jitAi = s => (randAi() + randAi() + randAi() - 1.5) * 2 * s * D2R;
+    function aiFire(dt) {
+      const ai = opp.ai, duel = S.phase === 'duel';
+      ai.modeT[ai.mode] += dt;
+      if (duel && Math.abs(U.wrapPi(U.bearing(me, opp) - wd)) < U.rad(60)) ai.winT += dt; // test stat: time the AI is windward of the player
+      if (opp.tank < 1.5) { ai.zeroT += dt; if (ai.zeroT > ai.maxZeroT) ai.maxZeroT = ai.zeroT; } else ai.zeroT = 0; // test: never stuck at 0 for long
+      if (!duel) return;
+      SL.tankStep(opp, dt);
+      if (!SL.gunReady(opp)) ai.needFill = true; else if (ai.needFill && opp.tank >= 25) ai.needFill = false; // after running empty it waits for 25
+      const dist = U.dist(opp, me);
+      const can = !opp.pen && opp.gunLock <= 0 && !ai.needFill && U.dist(me, O) <= AR && U.dist(opp, O) <= AR; // never at a boat outside the arena
+      if (can && dist < 32) { if (ai.aimN++ % 5 === 0 || !ai.aim) ai.aim = SL.solveAim(opp, me, wind); } else ai.aim = null; // 12 Hz, cached in between
+      const ok = !!(can && ai.aim && ai.aim.ok);
+      if (ai.pause > 0) ai.pause -= dt;
+      if (!ok) { ai.react = aiReact; if (ai.burst > 0) { ai.burst = 0; ai.pause = (0.4 + randAi() * 0.5) * aiPace; } }
+      else if (ai.burst > 0) {
+        const rm = (assist === 'easy' && S.clock < 30 ? 0.5 : 1) * (me.wet >= 85 ? 0.5 : 1); // kindness: easy starts slowly; a crew >= 85 % wet gets half the fire
+        for (let n = SL.accTake(opp, dt * rm); n > 0 && SL.gunReady(opp); n--) {
+          const a = ai.aim, az = a.az + jitAi(aiSigma), el = U.clamp(a.el + jitAi(3), 0.05, 1.3);
+          SL.launch(S.pool, opp, az, el, opp); SL.spend(opp, 1); ai.fired++; ai.lastFire = env.t;
+          if (env.t - S.sprayAiT >= 0.4 && dist < 50) { S.sprayAiT = env.t; sfx('spray', { vol: 0.12, pitch: 0.8 + randAi() * 0.16 }); }
+        }
+        if ((ai.burst -= dt) <= 0) { ai.burst = 0; ai.pause = (0.4 + randAi() * 0.5) * aiPace; SL.resetFire(opp); }
+      } else if (ai.pause <= 0) {
+        if (ai.react > 0) ai.react -= dt;
+        else { ai.burst = (0.8 + randAi() * 0.8) / aiPace; opp.acc = C.RATE_DT; }
+      }
+      if (ai.mode === 'SEEK' || ai.mode === 'SHOOT') ai.mode = ai.burst > 0 ? 'SHOOT' : 'SEEK'; // SHOOT is SEEK while a burst is on
+    }
+    // REFILL at its point: luff head to wind with the sheet eased so the boat stops (below 1.2 m/s the bucket fills at 14/s)
+    function aiLuff(c) {
+      const wdir = (wind.at(opp.x, opp.y) || { dir: wd }).dir, e = U.angDiff(opp.heading, wdir);
+      c.rudder = U.clamp(e * 2.5 - opp.yawRate * 0.9, -1, 1) * (opp.speed < -0.05 && assist !== 'easy' ? -1 : 1);
+      c.autoTrim = false; c.sheet = 1; c.trimBias = 0;
+      return c;
     }
     // the player's autopilot (test hook, "a competent player"): sails to just windward of the opponent and fires whenever the aim says it hits
     let autopilot = null;
     function autoPlan() {
-      let x = opp.x + (opp.vx || 0) * 2 + up.x * 6, y = opp.y + (opp.vy || 0) * 2 + up.y * 6;
+      const sd = (me.x - opp.x) * right.x + (me.y - opp.y) * right.y; if (Math.abs(sd) > 2) S.apSide = sd > 0 ? 1 : -1;
+      let x = opp.x + (opp.vx || 0) * 2 + up.x * AP_D + right.x * AP_S * (S.apSide || 1), y = opp.y + (opp.vy || 0) * 2 + up.y * AP_D + right.y * AP_S * (S.apSide || 1);
       const dx = x - O.x, dy = y - O.y, m = Math.hypot(dx, dy), lim = 0.85 * AR;
       if (m > lim) { x = O.x + dx / m * lim; y = O.y + dy / m * lim; }
       return { target: { x, y, r: 3 }, mode: 'race' };
@@ -317,6 +495,7 @@
     function finishRound(e) {
       if (S.done) return;
       e = e || SL.endCheck(me.wet, opp.wet, true);
+      if (S.fired < C.MIN_JETS && e.outcome === 'draw') e = { outcome: 'lose', why: e.why, diff: e.diff }; // a crew that hardly shot does not draw: an idle player loses
       S.done = true; S.phase = 'end'; S.endT = 1.2;
       releaseFire();
       hideCoach();
@@ -332,7 +511,7 @@
         stars, success: stars > 0, timeMs: Math.round(Math.min(S.clock, P.durationS) * 1000), score: SL.score(opp.wet, me.wet, S.fouls),
         stats: { 'soslag.stat.wetOpp': Math.round(opp.wet) + ' %', 'soslag.stat.wetMe': Math.round(me.wet) + ' %', 'soslag.stat.hits': S.hits, 'soslag.stat.acc': acc + ' %', 'soslag.stat.fouls': S.fouls, tacks: me.tacks },
         msgKey,
-        soslag: { myWet, oppWet, myHits: S.hits, oppHits: S.oppHits, fired: S.fired, outcome: e.outcome, why: e.why },
+        soslag: { myWet, oppWet, myHits: S.hits, oppHits: S.oppHits, fired: S.fired, outcome: e.outcome, why: e.why, fouls: S.fouls, oppFouls: S.oppFouls, oppFired: opp.ai.fired },
       };
     }
 
@@ -364,14 +543,13 @@
     }
     function gunStep(dt) {
       const duel = S.phase === 'duel';
-      if (me.gunLock > 0) me.gunLock = Math.max(0, me.gunLock - dt);
       S.dip = false;
       if (duel) S.dip = SL.tankStep(me, dt);
-      const locked = !duel || S.out || !SL.gunReady(me) || me.gunLock > 0;
+      const locked = !duel || S.out || !!me.pen || !SL.gunReady(me) || me.gunLock > 0; // a turn owed (+1.5 s after) locks the gun
       const held = duel && !!ctrl.state.buttons.fire, ap = duel && !!autopilot;
       if (ap && !held && U.dist(me, opp) > 26) S.aim = S.land = null; // the autopilot only aims when the opponent is anywhere near
-      else if ((held || ap) && (S.aimN++ % 6 === 0 || (held && !S.held) || !S.aim)) aimUpdate(); // solveAim every 6th step (10 Hz, spec: at most every 4th); the cached aim is reused in between
-      const want = held || (ap && S.aim && S.aim.ok);
+      else if ((held || ap) && (S.aimN++ % 3 === 0 || (held && !S.held) || !S.aim)) aimUpdate(); // solveAim every 6th step (10 Hz, spec: at most every 4th); the cached aim is reused in between
+      const want = held || (ap && S.aim && S.aim.ok && U.dist(me, opp) < AP_RANGE); // a competent player shoots from close in
       if (want && !locked) {
         if (!S.firing) me.acc = C.RATE_DT; // the first jet leaves at once on press
         S.firing = true;
@@ -386,6 +564,8 @@
         if (S.fired === 0 && S.clock > 10 && U.dist(me, opp) < 30) tip('shoot');
         S.farT = (S.firing && S.aim && !S.aim.ok) ? S.farT + dt : 0;
         if (S.farT > 1.5) tip('short');
+        // the windward boat gives way (R11): remind the player once when the best shooting place is the place where he must keep clear
+        if (!S.tips.giveway && S.clock > 15 && U.dist(me, opp) < 3 * L && Math.abs(U.wrapPi(U.bearing(opp, me) - wd)) < U.rad(60)) tip('giveway');
       }
     }
     function onCrewHit(j, tgt) {
@@ -440,16 +620,23 @@
       if (assist === 'easy') controls.autoHike = true;
       aids.apply(controls);
       if (autopilot) Object.assign(controls, autopilot.think(env, autoPlan(), live));
+      if (S.pen && (S.pen.auto || autopilot)) penControls(me, controls); // a turn owed is steered by the boat on easy / on the button / by the autopilot
       KOS.Physics.step(me, controls, env, dt);
       // the AI re-plans at 4 Hz (every 15 steps), and at once if its helm ever thinks it has arrived
       if (S.planN++ % 15 === 0 || opp.helm.finished) planAI();
-      KOS.Physics.step(opp, opp.helm.think(env, opp.plan, live), env, dt);
-      KOS.Physics.collide(live, venue, []);
+      let oc = opp.helm.think(env, opp.plan, live);
+      if (opp.ai.mode === 'REFILL' && opp.ai.luff && !opp.pen) oc = aiLuff(oc);
+      if (opp.pen) oc = penControls(opp, oc);
+      KOS.Physics.step(opp, oc, env, dt);
+      for (const h of KOS.Physics.collide(live, venue, []) || []) if (h.type === 'boat') S.lastHit[h.a.id + '|' + h.b.id] = { speed: h.speed, t: env.t }; // closing speed, for the hard-collision escalation
+      for (const b of boats) { if (b.pen) penStep(b, dt); else if (b.gunLock > 0) b.gunLock = Math.max(0, b.gunLock - dt); } // the lock after a turn counts down once it is served
+      if (S.phase === 'duel') for (const f of monitor.update(live, wind, [], dt) || []) onFoul(f); // fouls by contact only; no marks, so R18 / R31 are inactive
       // outside the arena: the gun is locked and the trainer says so
       S.out = U.dist(me, O) > AR;
       if (S.out && S.phase === 'duel' && env.t - S.outT > 10) { S.outT = env.t; tip('out', true); }
       // order inside one step: move, jets and hits, wet clamp, the 100 % check, then the clock
       gunStep(dt);
+      aiFire(dt);
       jetsStep(dt);
       dripStep(dt);
       if (S.phase === 'duel') {
@@ -477,6 +664,7 @@
       S.hudT -= dt; S.ambT -= dt;
       if (S.hudT <= 0) {
         S.hudT = 0.1;
+        opp.tag = opp.short + ' ' + Math.round(opp.wet) + ' %' + (opp.pen ? ' ↻' : ''); // "Træner Anton 12 %", a turn symbol while he pays a penalty
         hud.update({ wind: { dir: me.windDir || wind.dir, speed: me.tws || wind.speed }, speed: U.kn(Math.abs(me.speed)), timer: (S.phase === 'duel' || S.phase === 'end' ? remaining() : P.durationS) * 1000 });
         paintPanel();
       }
@@ -497,6 +685,9 @@
       setTxt(pe.d, 'd', t('soslag.hud.m', { n: Math.round(U.dist(me, opp)) }));
       setTxt(pe.w, 'w', t(w ? 'soslag.hud.luv' : 'soslag.hud.lae')); setCls(pe.w, 'wC', w ? 'luv' : 'lae');
       const hk = S.out ? 'out' : (S.firing && S.aim && !S.aim.ok) ? 'far' : env.t < S.dipUntil ? 'dip' : '';
+      // the penalty turn: a progress bar while one is owed (no animated width with reduced motion)
+      const pn = S.pen ? Math.round(U.clamp(Math.abs(S.pen.acc) / S.pen.need, 0, 1) * 100) : -1;
+      if (pv.pn !== pn) { pv.pn = pn; pe.pen.innerHTML = pn < 0 ? '' : '<div class="rp-pen"><span>' + KOS.UI.esc(t('race.pen.progress')) + ' ' + Math.round(Math.abs(S.pen.acc) * 180 / Math.PI) + '°/' + Math.round(S.pen.need * 180 / Math.PI) + '°</span><i><b style="width:' + pn + '%' + (red ? ';transition:none' : '') + '"></b></i></div>'; }
       setTxt(pe.hint, 'hint', hk ? t('soslag.hud.' + hk) : ''); setCls(pe.hint, 'hintC', 'sl-hint' + (hk ? ' on ' + hk : '') + (hk === 'dip' && !red ? ' pulse' : ''));
     }
 
@@ -525,6 +716,12 @@
       if (!KOS.UI.reduced()) ctx.lineDashOffset = -(sc.t * 6 * mpp);
       ctx.beginPath(); ctx.arc(O.x, O.y, AR, 0, TAU); ctx.stroke();
       ctx.setLineDash([]);
+      for (const b of boats) if (b.pen) { // penalty turn ring round the boat that owes it
+        const fr = U.clamp(Math.abs(b.pen.acc) / b.pen.need, 0, 1), r = L * 0.9 + 3;
+        ctx.lineWidth = Math.max(0.25, 3 * mpp); ctx.strokeStyle = 'rgba(255,77,94,0.35)';
+        ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = '#ff9a3d'; ctx.beginPath(); ctx.arc(b.x, b.y, r, -Math.PI / 2, -Math.PI / 2 + fr * TAU); ctx.stroke();
+      }
       ctx.restore();
     }
     // proj(x, y, z): world metres + height -> screen px. scene.project (tilt camera) when it exists, else the flat view with a lift of z * 0.45 px per px/m.
@@ -599,7 +796,7 @@
       ctx.restore();
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#fff'; ctx.fillText('KØS', ax, ay);
-      ctx.font = '800 10px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(t('soslag.hud.m', { n: Math.round(U.dist(me, opp)) }) + ' · ' + Math.round(opp.wet) + ' %', ax, ay + 32);
+      ctx.font = '800 10px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(t('soslag.hud.m', { n: Math.round(U.dist(me, opp)) }) + ' · ' + Math.round(opp.wet) + ' %' + (opp.pen ? ' ↻' : ''), ax, ay + 32);
     }
 
     // ==================================================================== instance
@@ -633,7 +830,7 @@
       destroyed = true;
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
       clearTimeout(cardTimer); clearTimeout(countTimer);
-      host.layer.classList.remove('soslag-layer', 'soslag-go', 'has-intro-card');
+      host.layer.classList.remove('soslag-layer', 'soslag-go', 'soslag-pen', 'has-intro-card');
       if (introCard) { introCard.remove(); introCard = null; }
       hideCoach();
       ctrl.detach(); hud.destroy(); panel.remove(); card.remove(); count.remove();
@@ -646,10 +843,12 @@
     function onResize() { scene.resize(); if (S.phase === 'intro') fitArena(); else if (S.cam !== 'fit') applyZoom(); }
 
     // ---- test hooks: autopilot (a competent player: KOS.AI sails the boat and the gun fires when the aim hits), skipIntro, debug
-    function setAutopilot(on) { autopilot = on ? KOS.AI.createHelm(me, { skill: 0.97, aggression: 0.6, seed: 5 }) : null; }
+    function setAutopilot(on) { autopilot = on ? KOS.AI.createHelm(me, { skill: AP_SKILL, aggression: 0.6, seed: 5 }) : null; }
     function skipIntro() { if (S.phase === 'intro') beginCount(); }
     const debug = {
-      O, arenaR: AR, arena, get opp() { return opp; }, get plan() { return opp.plan; }, isWindward,
+      O, arenaR: AR, arena, get opp() { return opp; }, get plan() { return opp.plan; }, get ai() { return opp.ai; }, isWindward, foul(off, vic, hard) { // test hook: a contact foul by off (me or opp) on vic, as the monitor would report it
+        if (hard) S.lastHit[off.id + '|' + vic.id] = { speed: 2, t: env.t };
+        onFoul({ offender: off, victim: vic, rule: 'R10', contact: true, reasonKey: 'rules.reason.R10', reasonVars: {} }); },
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
       end() { finishRound(SL.endCheck(me.wet, opp.wet, true)); },
     };

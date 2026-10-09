@@ -27,7 +27,7 @@
     RATE_DT: 0.12, MAX_JETS: 64, MAX_AGE: 3,
     GUN_FWD: 0.15, CREW_BACK: 0.12,                     // gun and crew positions as a fraction of the boat length (forward / aft of centre)
     TANK_MAX: 100, SHOT_COST: 1.5, PASSIVE: 2.0, DIP: 14, DIP_SPEED: 1.2, REFILL_MIN: 8,
-    WET_GAIN: 0.35, DRAW_DIFF: 5, STAR_MARGIN: 15, MIN_JETS: 20,
+    WET_GAIN: 0.48, DRAW_DIFF: 5, STAR_MARGIN: 15, MIN_JETS: 20,
   };
 
   // ---------------------------------------------------------------- wind

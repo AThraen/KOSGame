@@ -1015,8 +1015,8 @@ test('Soslag: tank maths (cost 1.5, passive 2/s, dip 14/s only below 1.2 m/s and
   const h = { tank: 3 }; ok(SL.gunReady(h), '3 units: ready'); SL.spend(h, 2); ok(!SL.gunReady(h), 'empty: grey'); h.tank = 7.9; ok(!SL.gunReady(h), '7.9: still grey'); h.tank = 8; ok(SL.gunReady(h), '8: ready again');
   const f = { tank: 0, speed: 3 }; let t = 0; while (f.tank < 100) { SL.tankStep(f, DT); t += DT; } between(t, 49.9, 50.2, 'from empty 50 s');
 });
-test('Soslag: wet gain 0.35 per hit, clamped at 100', () => {
-  near(SL.wetGain(10, 1), 10.35, 1e-9); eq(SL.wetGain(99.9, 1), 100); let w = 0; for (let i = 0; i < 400; i++) w = SL.wetGain(w, 1); eq(w, 100);
+test('Soslag: wet gain (CFG.WET_GAIN) per hit, clamped at 100', () => {
+  near(SL.wetGain(10, 1), 10 + SL.CFG.WET_GAIN, 1e-9); eq(SL.wetGain(99.9, 1), 100); let w = 0; for (let i = 0; i < 400; i++) w = SL.wetGain(w, 1); eq(w, 100);
 });
 test('Soslag: draw / knock-out / clock edge cases and the 5-point rule', () => {
   eq(SL.endCheck(100, 100, false).outcome, 'draw', 'both 100 in one step'); eq(SL.endCheck(100, 100, true).outcome, 'draw');
