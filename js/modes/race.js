@@ -655,6 +655,7 @@
       }
       const a = f.offender, v = f.victim;
       if (!a || !v || a.rc.finT != null || v.rc.finT != null) return;
+      if (v.rc.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
       const gap = KOS.Rules.hullGap ? KOS.Rules.hullGap(a, v) : 0;
       if (!f.contact) { // close call, no contact: the coach warns the player once in a while, no penalty
         if (a === me && gap < 0.4 * L && now > (S.closeT || 0)) { S.closeT = now + 25; say(t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); sfx('whistle', { vol: 0.4 }); }

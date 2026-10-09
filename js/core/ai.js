@@ -8,10 +8,12 @@
 //            optional plan.start = {line: [p1, p2], t0}   (holds back behind the line, hits it at the gun)
 //            optional plan.marks (for R18), plan.mode ('race'|'colreg')
 //   helm state for HUD/debug: helm.leg, helm.finished, helm.finishT, helm.state ('prestart'|'beat'|'reach'|'run'|
-//     'avoid'|'irons'|'finished'|'motor'), helm.target {x, y}, helm.wantTack, helm.ocs
+//     'avoid'|'irons'|'finished'|'motor'), helm.target {x, y}, helm.wantTack, helm.ocs, helm.avoiding (rule) / avoidBoat
 // Sailing logic: beats on VMG-optimal angles and tacks on laylines / when the other tack pays (hysteresis by skill),
-// gybes downwind on the optimal VMG angle, rounds marks on the correct side (entry -> apex -> exit), hoists the
-// kite on broad angles, keeps clear as the give-way boat (KOS.Rules) using closest-point-of-approach prediction.
+// looking around first (no tacking / gybing into a nearby boat's path), gybes downwind on the optimal VMG angle, rounds
+// marks on the correct side (entry -> apex -> exit, never steering through the mark), hoists the kite on broad angles,
+// keeps clear as the give-way boat (KOS.Rules) with the smallest duck / luff that opens the closest-point-of-approach
+// (never a turn back down the course), and as the right-of-way boat still dodges a collision at the last moment (R14).
 // Skill changes pinching/footing, steering wobble, tack hysteresis, trim errors, reaction time and start timing.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -42,7 +44,7 @@
     function nowOf(env) { return env && env.t !== undefined ? env.t : env && env.wind && env.wind.t !== undefined ? env.wind.t : boat.t; }
 
     // ---------------------------------------------------------------- course bookkeeping
-    function buildRoute(plan) {
+    function buildRoute(plan, wd) {
       const course = plan.course || (plan.target ? [plan.target] : []);
       const L = boat.cls.length;
       const route = [];
@@ -64,7 +66,11 @@
         const c = Math.max(2.2 * L, 8) * (1.2 - 0.2 * skill);
         const rin = U.vec(dirIn + Math.PI / 2, c * sg), fin = U.vec(dirIn, c);
         const rout = U.vec(dirOut + Math.PI / 2, c * sg), fout = U.vec(dirOut, c);
-        route.push({ kind: 'entry', leg: i, mark: m, dirIn, sg, c, x: m.x + rin.x - fin.x * 0.6, y: m.y + rin.y - fin.y * 0.6 });
+        // a mark at the top of a beat: the entry sits beside the mark and a little above it (the layline point), so the
+        // close-hauled approach passes a boat length or two clear of the mark instead of clipping it on the way to the apex
+        const beatIn = wd !== undefined && Math.abs(U.angDiff(wd, dirIn)) < R(55);
+        const ea = beatIn ? 0.35 : -0.6;
+        route.push({ kind: 'entry', leg: i, mark: m, dirIn, sg, c, beatIn, x: m.x + rin.x + fin.x * ea, y: m.y + rin.y + fin.y * ea });
         const turn = Math.abs(U.angDiff(dirIn, dirOut));
         if (turn > R(60)) {
           const vi = U.vec(dirIn), vo = U.vec(dirOut);
@@ -101,7 +107,7 @@
           const f = U.vec(wp.dirIn), r = U.vec(wp.dirIn + Math.PI / 2);
           const along = (b.x - wp.mark.x) * f.x + (b.y - wp.mark.y) * f.y;
           const lat = ((b.x - wp.mark.x) * r.x + (b.y - wp.mark.y) * r.y) * wp.sg;
-          return along > -wp.c * 0.7 && lat > wp.c * 0.35;
+          return along > wp.c * (wp.beatIn ? 0.05 : -0.7) && lat > wp.c * 0.35;
         }
         case 'apex': {
           if (d < wp.c * 0.7) return true;
@@ -130,7 +136,56 @@
       return { up: Math.max(cls.noGo + R(2), up.twa + helm.angleBias), dn: U.clamp(dn.twa - helm.angleBias, R(120), R(178)) };
     }
 
+    // is it safe to tack / gybe onto `side` (new heading Hn)? A sailor looks around first: no turning into the path of a
+    // boat close by (R13 while tacking, R10 as the new port tacker, R11/R12 as the new windward / overtaking boat). Only a
+    // new starboard tacker with a port boat still a few lengths off may go (the port boat has to keep clear).
+    function turnClear(Hn, side) {
+      const others = helm._others;
+      if (!others || !others.length) return true;
+      const me = boat, f = U.vec(Hn, Math.max(1, Math.abs(me.speed) * 0.75));
+      const horizon = 4 + 5 * skill;
+      for (const o of others) {
+        if (o === me || o.capsized || o.ghost) continue;
+        const Lm = Math.max(me.cls.length, o.cls ? o.cls.length : 4);
+        const px = o.x - me.x, py = o.y - me.y, d = Math.hypot(px, py);
+        if (d > 5 * Lm + 15) continue;
+        if (side === 'starboard' && o.tack === 'port' && d > 3 * Lm) continue;
+        const vx = (o.vx || 0) - f.x, vy = (o.vy || 0) - f.y, v2 = vx * vx + vy * vy;
+        const closing = -(px * vx + py * vy);
+        if (closing <= 0 && d > Lm + 1) continue; // turning away from it: the gap opens
+        const tc = v2 > 1e-4 ? U.clamp(closing / v2, 0, horizon) : 0;
+        if (Math.hypot(px + vx * tc, py + vy * tc) < 1.5 * Lm + 2) { helm._blockBy = o; return false; } // (who is in the way)
+      }
+      return true;
+    }
+
+    // navTo0 + a look around before every tack / gybe it decides: hold on until the turn is clear of the boats nearby
+    // (overstanding a little beats a foul and a penalty turn), easing the sheet when the boat in the way is on our
+    // quarter so it sails past and we can tack behind it, but not for ever
     function navTo(P, wd, tws, dt) {
+      dt = dt || KOS.DT;
+      const was = helm.wantTack;
+      helm._holdEase = false;
+      const r = navTo0(P, wd, tws, dt);
+      if (was && helm.wantTack !== was) {
+        // (a reach that swings across the wind is a tack / gybe too: hold the nearest heading on the old side)
+        const ang = polarAngles(tws), s = helm.wantTack === 'starboard' ? 1 : -1;
+        const a = r.mode === 'beat' || (r.mode === 'reach' && Math.abs(U.wrapPi(wd - r.H)) < Math.PI / 2) ? ang.up : ang.dn;
+        helm._blockBy = null;
+        if ((helm.holdT || 0) < 5 + 7 * skill && !turnClear(r.mode === 'reach' ? r.H : U.wrapPi(wd - s * a), helm.wantTack)) {
+          helm.holdT = (helm.holdT || 0) + dt;
+          const o = helm._blockBy;
+          helm._holdEase = !!o && o.tack === boat.tack && Math.abs(U.angDiff(boat.heading, U.bearing(boat, o))) > R(80);
+          helm.wantTack = was; helm.tackCd = 0.5;
+          r.H = U.wrapPi(wd + s * a);
+          return r;
+        }
+        helm.holdT = 0;
+      } else helm.holdT = Math.max(0, (helm.holdT || 0) - dt * 0.5);
+      return r;
+    }
+
+    function navTo0(P, wd, tws, dt) {
       const b = bearing(P);
       const twaB = U.wrapPi(wd - b);
       const a = Math.abs(twaB);
@@ -190,7 +245,7 @@
       if (!others || !others.length || !KOS.Rules) return H;
       const me = boat;
       const horizon = 4 + 5 * skill;
-      let best = null;
+      let best = null, r14 = null;
       for (const o of others) {
         if (o === me || o.capsized) continue;
         const Lm = Math.max(me.cls.length, o.cls ? o.cls.length : o.length || 4);
@@ -199,37 +254,67 @@
         if (d > 8 * Lm + 30) continue;
         const vx = (o.vx || 0) - me.vx, vy = (o.vy || 0) - me.vy;
         const v2 = vx * vx + vy * vy;
-        const tc = v2 > 1e-4 ? U.clamp(-(px * vx + py * vy) / v2, 0, 30) : 0;
+        const closing = -(px * vx + py * vy); // > 0 = the gap is shrinking
+        if (closing <= 0 && d > 1.2 * Lm) continue; // already passing / pulling apart: nothing left to avoid (no ducking a boat that is astern)
+        const tc = v2 > 1e-4 ? U.clamp(closing / v2, 0, 30) : 0;
         if (tc > horizon) continue;
         const dc = Math.hypot(px + vx * tc, py + vy * tc);
         if (dc > 1.7 * Lm + 2) continue;
         const row = KOS.Rules.rightOfWay(me, o, { wind: wd, marks: plan.marks, mode: plan.mode });
-        if (row.giveWay !== me && !row.both) continue;
+        if (row.giveWay !== me && !row.both) {
+          // RRS 14: the right-of-way boat still avoids contact when the other one plainly is not getting out of the way
+          if (tc < 1 + 1.5 * skill && dc < Lm + 0.5 && (!r14 || tc < r14.tc)) r14 = { o, tc, row: { rule: 'R14' }, Lm };
+          continue;
+        }
         if (!best || tc < best.tc) best = { o, tc, row, Lm };
       }
+      if (!best) best = r14;
       if (!best) return H;
       const o = best.o;
-      helm.avoiding = best.row.rule;
-      let Hav;
+      helm.avoiding = best.row.rule; helm.avoidBoat = o;
       const rule = best.row.rule;
-      if (rule === 'C-headon') Hav = U.wrapPi(me.heading + R(35));
-      else if (rule === 'R11') {
-        const s = me.tack === 'starboard' ? 1 : -1;
-        Hav = U.wrapPi(H + s * R(18)); // windward boat heads up, away from the leeward boat
-      } else {
-        // pass astern of the other boat
-        const fo = U.vec(o.heading || 0, (o.cls ? o.cls.length : 4) * 1.6 + 2);
-        const aim = { x: o.x - fo.x, y: o.y - fo.y };
-        Hav = U.bearing(me, aim);
-        if (rule === 'R12' || rule === 'C-overtaking') {
-          const away = U.bearing(o, me);
-          const l = U.wrapPi(U.bearing(me, o) - R(45)), r = U.wrapPi(U.bearing(me, o) + R(45));
-          Hav = Math.abs(U.angDiff(H, l)) < Math.abs(U.angDiff(H, r)) ? l : r;
-          void away;
+      if (rule === 'C-headon') return legalHeading(U.wrapPi(me.heading + R(35)), wd, me.tack);
+      // the smallest sailable change of course (a duck / a luff of a few tens of degrees, never a turn back down the
+      // course) that opens the predicted closest approach to a safe gap; the rule's way first (give-way port / leeward-
+      // overtaking boats bear away behind, the windward boat heads up). Nothing safe in reach: the one that gains most.
+      const safe = rule === 'R14' ? best.Lm + 1 : 1.7 * best.Lm + 2, v = Math.max(1, Math.abs(me.speed));
+      const gap = h => {
+        const f = U.vec(h, v), px = o.x - me.x, py = o.y - me.y, vx = (o.vx || 0) - f.x, vy = (o.vy || 0) - f.y, v2 = vx * vx + vy * vy;
+        const tc = v2 > 1e-4 ? U.clamp(-(px * vx + py * vy) / v2, 0, horizon) : 0;
+        return Math.hypot(px + vx * tc, py + vy * tc);
+      };
+      const sNow = me.tack === 'starboard' ? 1 : -1; // + sNow*x = heading up (towards the wind)
+      const pref = rule === 'R11' ? sNow : -sNow;
+      const lim = R(30 + 20 * skill), step = R(5);
+      let Hav = H, g0 = gap(H), bestG = g0;
+      for (let k = 1; k * step <= lim + 1e-6 && bestG < safe; k++) {
+        for (const sd of [pref, -pref]) {
+          const h = U.wrapPi(H + sd * k * step);
+          if (legalHeading(h, wd, me.tack) !== h) continue;
+          const g = gap(h);
+          if (g > bestG + 0.3) { bestG = g; Hav = h; if (g >= safe) break; }
         }
       }
-      const urgency = U.clamp(1.4 - best.tc / horizon, 0.3, 1);
-      return legalHeading(U.angLerp(H, Hav, urgency), wd, me.tack);
+      return legalHeading(Hav, wd, me.tack);
+    }
+
+    // don't sail into the mark being rounded: when the heading (towards a waypoint past it, or a dodge) would pass
+    // closer than about a boat width, steer the tangent on the rounding side instead (mark on port for a port rounding)
+    function clearMark(H) {
+      const route = helm._route;
+      if (!route) return H;
+      const me = boat;
+      for (const r of route) {
+        if (!r.mark || (r.leg !== helm.leg && r.leg !== helm.leg - 1)) continue;
+        const m = r.mark, d = U.dist(me, m);
+        const rc = (m.r || 1.2) + me.cls.length * 0.5 + 1.2;
+        if (d > 6 * r.c) continue; // (closer than rc: half = 90°, i.e. sail along the tangent, not into it)
+        const brg = U.bearing(me, m), half = Math.asin(U.clamp(rc / d, 0, 1));
+        if (Math.abs(U.angDiff(brg, H)) >= half) continue;
+        H = U.wrapPi(brg + r.sg * half);
+        break;
+      }
+      return H;
     }
 
     // ---------------------------------------------------------------- start
@@ -316,6 +401,7 @@
       const dt = helm._lastT === null ? KOS.DT : U.clamp(now - helm._lastT, 0, 0.5) || KOS.DT;
       helm._lastT = now;
       helm._assist = env.assist || 'normal';
+      helm._others = others;
       helm.tackCd = Math.max(0, helm.tackCd - dt);
       const c = KOS.Physics.controls();
       const wind = env.wind;
@@ -328,13 +414,17 @@
       if (sig !== helm._sig) {
         const retarget = helm._sig != null && !plan.course && typeof plan.leg !== 'number';
         helm._sig = sig;
-        helm._route = buildRoute(plan);
+        helm._route = buildRoute(plan, wd);
         // a new single {target}: start over (otherwise leg stays past the end and the helm stays 'finished')
         if (retarget) { helm.leg = 0; helm.finished = false; helm.finishT = null; if (helm.state === 'finished') helm.state = 'sail'; }
         helm.sub = subFor(helm.leg);
       }
       if (typeof plan.leg === 'number' && plan.leg !== helm._planLeg) {
-        helm._planLeg = plan.leg; helm.leg = plan.leg; helm.sub = subFor(plan.leg);
+        helm._planLeg = plan.leg;
+        // the race office counted the mark as rounded while we are still on its apex / exit close to it: finish the
+        // rounding first (cutting straight to the next mark from the apex clips the mark we are rounding)
+        const cur = helm._route[helm.sub];
+        if (!(cur && plan.leg === cur.leg + 1 && (cur.kind === 'apex' || cur.kind === 'exit') && U.dist(b, cur.mark) < 2.5 * cur.c)) { helm.leg = plan.leg; helm.sub = subFor(plan.leg); }
         if (helm.sub < helm._route.length) { helm.finished = false; helm.finishT = null; }
       }
       const route = helm._route;
@@ -396,6 +486,7 @@
             helm.target = wp;
             const r = navTo(wp, wd, tws, dt);
             H = r.H; mode = r.mode;
+            if (helm._holdEase) sheetBias = 0.5; // let the boat on our quarter go by before tacking
           }
         }
       }
@@ -403,7 +494,7 @@
       // keep clear of right-of-way boats
       const H2 = keepClear(H, wd, env, plan, others);
       if (helm.avoiding) mode = 'avoid';
-      H = H2;
+      H = prestart ? H2 : clearMark(H2);
 
       // don't try to tack without enough boat speed: build speed on the current tack first
       const twaH = U.wrapPi(wd - H), twaNow = U.wrapPi(wd - b.heading);
