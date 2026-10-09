@@ -42,6 +42,7 @@
         luff: 'Sejlet blafrer – hal skødet ind, til det holder op med at blafre.',
         stall: 'Skødet er for stramt. Fier lidt ud, så kører båden hurtigere.',
         heel: 'Båden krænger meget! Hæng ud – hold MELLEMRUM eller knappen HÆNG UD.',
+        rail: 'Ud på kanten! Når det blæser op, skal mandskabet sidde på rælingen – så krænger båden mindre og sejler hurtigere. Hold MELLEMRUM eller knappen UD PÅ KANTEN.',
         gust: 'Et vindpust! Den mørke krusning på vandet er mere vind. Hæng ud eller fier lidt.',
         ground: 'Av, grundt vand! Styr ud mod det mørkeblå vand – der er dybere.',
         swim: 'Badezone! Her må der ikke sejles – ud igen, folk bader.',
@@ -86,6 +87,7 @@
         luff: 'The sail is flapping – sheet in until it stops.',
         stall: 'The sheet is too tight. Ease a little and the boat goes faster.',
         heel: 'The boat is heeling a lot! Hike out – hold SPACE or the HIKE button.',
+        rail: 'Hike out! When the breeze builds, the crew sits on the rail – the boat heels less and sails faster. Hold SPACE or the HIKE OUT button.',
         gust: 'A gust! The dark ripples on the water mean more wind. Hike out or ease a little.',
         ground: 'Ouch, shallow water! Steer towards the dark blue water – it is deeper.',
         swim: 'Swim zone! No sailing here – get out, people are swimming.',
@@ -253,7 +255,7 @@
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: isRib ? 'rib' : 'sail',
       spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'gennaker' : 'spi',
-      hike: !isRib && !cls.keel && assist !== 'easy',
+      hike: !isRib && assist !== 'easy', hikeKeel: !!cls.keel, // keelboats: "Ud på kanten" (crew on the rail)
       autoTrim: controls.autoTrim, pauseButton: false,
       extraButtons: P.kind === 'free' ? [{ id: 'done', icon: 'check', labelKey: 'sail.btn.done' }] : [],
     }, aidOpts));
@@ -725,6 +727,7 @@
       S.luffT -= dt;
       if (boat.luffing && !boat.inIrons && S.luffT <= 0) { sfx('luff', { vol: 0.35 }); S.luffT = 0.9; if (!controls.autoTrim) tip('luff'); }
       if (boat.stalled && !controls.autoTrim && Math.abs(boat.speed) > 0.3) tip('stall');
+      if (cls.keel && !controls.autoHike && boat.tws > 10 && Math.abs(boat.heel) > U.rad(cls.optHeel + 3) && boat.hike < 0.3) tip('rail');
       const base = wind.base ? wind.base.speed : P.windKn;
       const gusty = boat.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.4 }); floatText(t('sail.fx.gust'), '#9fe7ff'); if (S.time > 8) tip('gust'); }

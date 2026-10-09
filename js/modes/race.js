@@ -56,6 +56,7 @@
         penLeft: 'Du skylder stadig en strafrunde. Tag den nu – ellers får du tidsstraf i mål.',
         irons: 'Du står i vindøjet! Læg roret til den ene side, så falder båden af.',
         heel: 'Båden krænger meget – hæng ud!',
+        rail: 'Ud på kanten! Når det blæser op, skal mandskabet sidde på rælingen – så krænger båden mindre og sejler hurtigere.',
         finishLine: 'Mållinjen er mellem dommerbåden og pinden.',
         capsize: 'Kæntret! Op igen – kapsejladsen er ikke slut!',
         missLine: 'Du er ikke startet endnu! Sejl tilbage og kryds startlinjen MELLEM dommerbåden og pinden.',
@@ -123,6 +124,7 @@
         penLeft: 'You still owe a penalty turn. Do it now – or you get a time penalty at the finish.',
         irons: 'You are in irons! Push the tiller to one side and the bow falls off.',
         heel: 'The boat is heeling a lot – hike out!',
+        rail: 'Hike out! When the breeze builds, the crew sits on the rail – the boat heels less and sails faster.',
         finishLine: 'The finish line is between the committee boat and the pin.',
         capsize: 'Capsized! Back up – the race is not over!',
         missLine: 'You have not started yet! Go back and cross the start line BETWEEN the committee boat and the pin.',
@@ -467,7 +469,7 @@
     if (assist !== 'easy') extra.push({ id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' });
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'asym' : 'spi',
-      hike: !cls.keel && assist !== 'easy', autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
+      hike: assist !== 'easy', hikeKeel: !!cls.keel, autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
     }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
     const aids = KOS.SailAids.create({ ctrl, boat: me, assist, coach: txt => say(txt) });
     ctrl.on('ff', () => { if (S.phase === 'pre' && S.clock < -14) { S.ff = !S.ff; sfx('whoosh', { vol: 0.5 }); ctrl.highlight('ff', S.ff); } });
@@ -891,6 +893,7 @@
       const kn = U.kn(Math.abs(me.speed)); if (kn > S.topKn) S.topKn = kn;
       // gusts
       const base = wind.base ? wind.base.speed : P.windKn;
+      if (cls.keel && !controls.autoHike && me.tws > 10 && Math.abs(me.heel) > U.rad(cls.optHeel + 3) && me.hike < 0.3 && S.raceT > 10) tip('rail');
       const gusty = me.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.35 }); floatText(t('race.fx.gust'), '#9fe7ff'); if (S.raceT > 15) tip('gust'); }
       else if (!gusty && me.tws < base * 1.08) S.gustOn = false;

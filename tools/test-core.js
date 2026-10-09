@@ -995,6 +995,20 @@ test('AI: RIB motors to waypoints and keeps clear of sail', () => {
     near(TL.basePitch(844, 390), 45 * Math.PI / 180, 1e-12, 'landscape phone'); near(TL.basePitch(1440, 900), 50 * Math.PI / 180, 1e-12, 'desktop');
   });
 }
+test('Physics: keelboats "Ud på kanten" - rail weight (hike=1) cuts heel and adds speed in a breeze, ~nothing in light air', () => {
+  for (const cls of ['j70', 'hboat']) {
+    const noRail = settle(cls, 45, 16, { controls: { autoHike: false, hike: 0 } });
+    const rail = settle(cls, 45, 16, { controls: { autoHike: false, hike: 1 } });
+    ok(Math.abs(rail.heel) < Math.abs(noRail.heel) - R(3), cls + ': rail weight reduces heel');
+    ok(rail.speed > noRail.speed * 1.02, cls + ': rail weight is faster at 16 kn upwind');
+    ok(rail.speed < noRail.speed * 1.10, cls + ': ... but only modestly');
+    const l0 = settle(cls, 45, 4, { controls: { autoHike: false, hike: 0 } });
+    const l1 = settle(cls, 45, 4, { controls: { autoHike: false, hike: 1 } });
+    near(l1.speed / l0.speed, 1, 0.04, cls + ': negligible difference at 4 kn');
+    const auto = settle(cls, 45, 16, { controls: { autoHike: true } }); // Let: crew handle it
+    ok(auto.speed > noRail.speed * 1.02 && auto.hike > 0.3, cls + ': autoHike works for keelboats');
+  }
+});
 
 // ====================================================================== summary
 console.log('\n');
