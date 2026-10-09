@@ -22,8 +22,10 @@
   const LEAD_S = 3;        // the AI aims this many seconds ahead of the player
   const START_GAP = 45;    // m between the boats at the start, on a line across the wind
   const SL = KOS.Soslag, C = SL.CFG, D2R = Math.PI / 180;
+  const HUNT_S = 2.5;        // the AI closes in alongside him when it has not shot for this long
   const STANDOFF_S = 3.5;    // the AI closes in when it has not shot for this long (and is not within 12 m)
-  const AP_D = 12, AP_S = 4, AP_RANGE = 12, AP_SKILL = 0.65; // the test autopilot ("a competent player", a little better than the AI): station 12 m upwind + 4 m across, fires within 12 m
+  const AP_SLOPPY = 1.8; // spread multiplier of the test autopilot
+  const AP_D = 12, AP_S = 4, AP_RANGE = 12, AP_SKILL = 0.35; // the test autopilot ("a competent player", a little better than the AI): station 12 m upwind + 4 m across, fires within 12 m
   const SIGMA = { easy: 3.5, normal: 5, pro: 6.5 }; // azimuth spread of the auto-aim (degrees); elevation spread is 3 degrees at every level
 
   // ======================================================================== 1. strings
@@ -188,7 +190,7 @@
     opp.tag = opp.short;
     for (const b of [me, opp]) { b.tank = C.TANK_MAX; b.wet = 0; b.gunLock = 0; b.acc = 0; b.dry = false; b.pen = null; } // per-boat plain fields, like b.rc in race
     // the AI duellist (spec section 9): b.ai.mode = SEEK | SHOOT | CONTEST | ESCAPE | REFILL; aimSigma (deg) and the burst timing come from its skill
-    const aiSigma = U.lerp(10, 5, skill), aiPace = 0.9 + 0.65 * skill, aiReact = U.lerp(0.4, 0.1, skill); // pace: burst length x, pause / x (shorter pauses at higher skill)
+    const aiSigma = U.lerp(24, 13, skill), aiSigmaEl = U.lerp(9, 5, skill), aiPace = 0.9 + 0.65 * skill, aiReact = U.lerp(0.4, 0.1, skill); // pace: burst length x, pause / x (shorter pauses at higher skill)
     opp.ai = { mode: 'SEEK', t0: 0, along0: 0, cd: 0, refillCd: 0, luff: false, burst: 0, pause: 0, react: aiReact, needFill: false, aim: null, aimN: 0, zeroT: 0, maxZeroT: 0, fired: 0, lastFire: 0, close: false, winT: 0, modeT: { SEEK: 0, SHOOT: 0, CONTEST: 0, ESCAPE: 0, REFILL: 0 } };
     const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
     const boats = [me, opp];
@@ -210,7 +212,7 @@
     }
     applyZoom();
     const fitArena = () => { scene.resize(); if (scene.w > 160 && scene.h > 160) scene.fit({ x0: O.x - AR - 10, y0: O.y - AR - 10, x1: O.x + AR + 10, y1: O.y + AR + 10 }, Math.min(40, scene.w * 0.08)); };
-    const followMe = () => { scene.fixedZoom = null; scene.follow(me); applyZoom(); };
+    const followMe = () => { scene.fixedZoom = null; scene.target = me; applyZoom(); }; // no snap: the camera eases back to following (a hard cut would jump)
 
     // the gun button (hold, K / 1) and the penalty-turn button (T / 2: wired up with the rules in step 4, greyed out until then)
     const extra = [{ id: 'fire', icon: 'drop', labelKey: 'input.fire', key: 'K' }, { id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' }];
@@ -413,6 +415,9 @@
         const d = U.clamp(0.7 * DR, 9, 14);
         x = lx + up.x * d + right.x * (S.side * 6 + S.jit); y = ly + up.y * d + right.y * (S.side * 6 + S.jit);
       }
+      // HUNT: nothing has hit for a while and he is not close: close in alongside him (6 m across the wind, where even an upwind jet reaches) instead of waiting for a perfect station
+      ai.hunt = ai.mode !== 'REFILL' && ai.mode !== 'ESCAPE' && now > 6 && now - ai.lastFire > HUNT_S && dist > 7;
+      if (ai.hunt) { x = lx + right.x * S.side * 6 + S.jit * 0.3; y = ly + right.y * S.side * 6; }
       const c = clampArena(x, y);
       opp.plan = { target: { x: c.x, y: c.y, r: 0.5 }, mode: 'race' }; // a fresh object every time
       return opp.plan;
@@ -424,25 +429,25 @@
       if (duel && Math.abs(U.wrapPi(U.bearing(me, opp) - wd)) < U.rad(60)) ai.winT += dt; // test stat: time the AI is windward of the player
       if (opp.tank < 1.5) { ai.zeroT += dt; if (ai.zeroT > ai.maxZeroT) ai.maxZeroT = ai.zeroT; } else ai.zeroT = 0; // test: never stuck at 0 for long
       if (!duel) return;
-      SL.tankStep(opp, dt);
+      SL.tankStep(opp, dt, opp.ai.burst > 0);
       if (!SL.gunReady(opp)) ai.needFill = true; else if (ai.needFill && opp.tank >= 25) ai.needFill = false; // after running empty it waits for 25
       const dist = U.dist(opp, me);
       const can = !opp.pen && opp.gunLock <= 0 && !ai.needFill && U.dist(me, O) <= AR && U.dist(opp, O) <= AR; // never at a boat outside the arena
       if (can && dist < 32) { if (ai.aimN++ % 5 === 0 || !ai.aim) ai.aim = SL.solveAim(opp, me, wind); } else ai.aim = null; // 12 Hz, cached in between
       const ok = !!(can && ai.aim && ai.aim.ok);
       if (ai.pause > 0) ai.pause -= dt;
-      if (!ok) { ai.react = aiReact; if (ai.burst > 0) { ai.burst = 0; ai.pause = (0.4 + randAi() * 0.5) * aiPace; } }
+      if (!ok) { ai.react = aiReact; if (ai.burst > 0) { ai.burst = 0; ai.pause = (0.3 + randAi() * 0.4) * aiPace; } }
       else if (ai.burst > 0) {
         const rm = (assist === 'easy' && S.clock < 30 ? 0.5 : 1) * (me.wet >= 85 ? 0.5 : 1); // kindness: easy starts slowly; a crew >= 85 % wet gets half the fire
         for (let n = SL.accTake(opp, dt * rm); n > 0 && SL.gunReady(opp); n--) {
-          const a = ai.aim, az = a.az + jitAi(aiSigma), el = U.clamp(a.el + jitAi(3), 0.05, 1.3);
+          const a = ai.aim, az = a.az + jitAi(aiSigma), el = U.clamp(a.el + jitAi(aiSigmaEl), 0.05, 1.3);
           SL.launch(S.pool, opp, az, el, opp); SL.spend(opp, 1); ai.fired++; ai.lastFire = env.t;
           if (env.t - S.sprayAiT >= 0.4 && dist < 50) { S.sprayAiT = env.t; sfx('spray', { vol: 0.12, pitch: 0.8 + randAi() * 0.16 }); }
         }
-        if ((ai.burst -= dt) <= 0) { ai.burst = 0; ai.pause = (0.4 + randAi() * 0.5) * aiPace; SL.resetFire(opp); }
+        if ((ai.burst -= dt) <= 0) { ai.burst = 0; ai.pause = (0.3 + randAi() * 0.4) * aiPace; SL.resetFire(opp); }
       } else if (ai.pause <= 0) {
         if (ai.react > 0) ai.react -= dt;
-        else { ai.burst = (0.8 + randAi() * 0.8) / aiPace; opp.acc = C.RATE_DT; }
+        else { ai.burst = (1.1 + randAi() * 1.3) / aiPace; opp.acc = C.RATE_DT; }
       }
       if (ai.mode === 'SEEK' || ai.mode === 'SHOOT') ai.mode = ai.burst > 0 ? 'SHOOT' : 'SEEK'; // SHOOT is SEEK while a burst is on
     }
@@ -535,7 +540,8 @@
     }
     const jit = s => (rand() + rand() + rand() - 1.5) * 2 * s * D2R;
     function shoot() {
-      const a = S.aim, az = a.az + jit(SIGMA[assist] || 5), el = U.clamp(a.el + jit(3), 0.05, 1.3);
+      const a = S.aim, kid = autopilot && !S.held ? AP_SLOPPY : 1; // the test autopilot is 'a kid with a thumb on the button': a wider spread than the real auto-aim
+      const az = a.az + jit((SIGMA[assist] || 5) * kid), el = U.clamp(a.el + jit(3 * kid), 0.05, 1.3);
       SL.launch(S.pool, me, az, el, me);
       SL.spend(me, 1); S.fired++;
       if (env.t - S.sprayT >= 0.25) { S.sprayT = env.t; sfx('spray', { vol: 0.25, pitch: 0.92 + rand() * 0.16 }); } // limited on SIM time, never the wall clock
@@ -544,12 +550,12 @@
     function gunStep(dt) {
       const duel = S.phase === 'duel';
       S.dip = false;
-      if (duel) S.dip = SL.tankStep(me, dt);
+      if (duel) S.dip = SL.tankStep(me, dt, S.firing);
       const locked = !duel || S.out || !!me.pen || !SL.gunReady(me) || me.gunLock > 0; // a turn owed (+1.5 s after) locks the gun
       const held = duel && !!ctrl.state.buttons.fire, ap = duel && !!autopilot;
       if (ap && !held && U.dist(me, opp) > 26) S.aim = S.land = null; // the autopilot only aims when the opponent is anywhere near
       else if ((held || ap) && (S.aimN++ % 3 === 0 || (held && !S.held) || !S.aim)) aimUpdate(); // solveAim every 6th step (10 Hz, spec: at most every 4th); the cached aim is reused in between
-      const want = held || (ap && S.aim && S.aim.ok && U.dist(me, opp) < AP_RANGE); // a competent player shoots from close in
+      const want = held || (ap && S.apFire !== false && S.aim && S.aim.ok && U.dist(me, opp) < AP_RANGE); // a competent player shoots from close in
       if (want && !locked) {
         if (!S.firing) me.acc = C.RATE_DT; // the first jet leaves at once on press
         S.firing = true;
@@ -574,7 +580,7 @@
       if (mine) S.hits++; else S.oppHits++;
       if (mine && !S.firstHit) { S.firstHit = true; showCard('good', t('soslag.card.first')); }
       if (env.t - S.hitSndT >= 0.15) { S.hitSndT = env.t; sfx('splash', { vol: 0.4, pitch: mine ? 1.25 : 0.8 }); }
-      if (env.t - S.fxT >= 0.2) { S.fxT = env.t; fx(f => f.splash(j.x, j.y, 0.6)); }
+      tgt.hitT = env.t; addRing(j.x, j.y, 1.5, 0.5); if (env.t - S.fxT >= 0.1) { S.fxT = env.t; burst(j.x, j.y, Math.max(0.6, j.z), 5); fx(f => f.splash(j.x, j.y, 0.6)); }
       S.gainAcc += C.WET_GAIN * (mine ? 1 : 0); // a floating "+n" per 0.6 s of hits, not one per jet
       if (S.gainAcc > 0 && env.t - S.gainT >= 0.6) { const g = S.gainAcc; S.gainAcc = 0; S.gainT = env.t; fx(f => f.text(tgt.x, tgt.y - 2, '+' + (Math.round(g * 10) / 10), { color: '#bfe6ff', size: 16 })); }
     }
@@ -585,9 +591,9 @@
         const h = duel ? SL.hitTest(j, tgt) : null;
         if (!h && !r) { i++; continue; }
         if (h === 'crew') onCrewHit(j, tgt);
-        else if (env.t - S.fxT >= 0.12) { // a hull / sail hit or a miss: a tiny splash or a ripple, no points
+        else if (env.t - S.fxT >= 0.06) { // a hull / sail hit or a miss: a tiny splash or a ripple, no points
           S.fxT = env.t;
-          if (h === 'hull') fx(f => f.splash(j.x, j.y, 0.15)); else fx(f => f.ripple(j.x, j.y, 1.2, 0.9));
+          if (h === 'hull') { addRing(j.x, j.y, 0.8, Math.max(0, j.z)); burst(j.x, j.y, Math.max(0.3, j.z), 2); fx(f => f.splash(j.x, j.y, 0.15)); } else { addRing(j.x, j.y, 1, 0); fx(f => f.ripple(j.x, j.y, 1.2, 0.9)); }
         }
         j.live = false;
         const last = pool.jets[--pool.n]; pool.jets[pool.n] = j; pool.jets[i] = last; // swap-remove: dense pool, no allocation
@@ -677,7 +683,7 @@
     function paintPanel() {
       const w = isWindward(), red = KOS.UI.reduced();
       const mw = Math.round(me.wet), ow = Math.round(opp.wet), tk = Math.round(me.tank);
-      setTxt(pe.meN, 'meN', t('soslag.hud.you')); setTxt(pe.opN, 'opN', t('soslag.opp')); setTxt(pe.tkN, 'tkN', t('soslag.hud.tank'));
+      setTxt(pe.meN, 'meN', t('soslag.hud.you')); if (pv.opN !== t('soslag.opp')) { pv.opN = t('soslag.opp'); const nm = pv.opN, sp = nm.indexOf(' '); pe.opN.innerHTML = sp > 0 ? '<span class="sl-pre">' + KOS.UI.esc(nm.slice(0, sp + 1)) + '</span>' + KOS.UI.esc(nm.slice(sp + 1)) : KOS.UI.esc(nm); } // first word ('Træner') hides on the narrowest phones setTxt(pe.tkN, 'tkN', t('soslag.hud.tank'));
       setTxt(pe.meP, 'meP', mw + ' %'); setTxt(pe.opP, 'opP', ow + ' %');
       setW(pe.meF, 'meW', mw); setW(pe.opF, 'opW', ow); setW(pe.tkF, 'tkW', tk);
       setCls(pe.meB, 'meC', 'sl-bar me' + (mw >= 70 ? ' hot' : '')); setCls(pe.opB, 'opC', 'sl-bar op' + (ow >= 70 ? ' hot' : ''));
@@ -691,20 +697,33 @@
       setTxt(pe.hint, 'hint', hk ? t('soslag.hud.' + hk) : ''); setCls(pe.hint, 'hintC', 'sl-hint' + (hk ? ' on ' + hk : '') + (hk === 'dip' && !red ? ' pulse' : ''));
     }
 
-    // ==================================================================== camera: follow, or fit both boats when they are close (50 m in, 60 m out: a hysteresis band, at least 1.5 s between switches)
+    // ==================================================================== camera: follow me when he is far, FRAME BOTH BOATS when the duel is on (70 m in, 85 m out: a hysteresis band, at least 1.5 s between switches).
+    // The frame is the two boats plus a margin, the zoom is clamped between a close view (the short side of the screen shows ~26 m) and a far one (~80 m), so
+    // on a phone the boats stay big; on a portrait phone the frame is also moved down a little (the HUD and the wet card cover more of the top than the thumbs of the bottom).
+    const FIT_IN = 70, FIT_OUT = 85, SPAN_NEAR = 26, SPAN_FAR = 80;
     function camUpdate() {
       if (S.phase === 'intro') return;
       const d = U.dist(me, opp);
-      if (S.cam === 'follow' && d < 50 && env.t - S.camT >= 1.5) {
+      if (S.cam === 'follow' && d < FIT_IN && env.t - S.camT >= 1.5) {
         S.cam = 'fit'; S.camT = env.t; S.fr = scene.view ? { x0: scene.view.x0, y0: scene.view.y0, x1: scene.view.x1, y1: scene.view.y1 } : null;
-      } else if (S.cam === 'fit' && d > 60 && env.t - S.camT >= 1.5) { S.cam = 'follow'; S.camT = env.t; followMe(); }
+      } else if (S.cam === 'fit' && d > FIT_OUT && env.t - S.camT >= 1.5) { S.cam = 'follow'; S.camT = env.t; followMe(); }
       if (S.cam !== 'fit') return;
-      let x0 = Math.min(me.x, opp.x), x1 = Math.max(me.x, opp.x), y0 = Math.min(me.y, opp.y), y1 = Math.max(me.y, opp.y);
-      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      if (x1 - x0 < 60) { x0 = cx - 30; x1 = cx + 30; } if (y1 - y0 < 60) { y0 = cy - 30; y1 = cy + 30; } // at least 60 m on each axis
+      const m = 0.45 * L + 2.5; // world margin round the two boats (boat centres: about half a boat length of water on every side)
+      const x0 = Math.min(me.x, opp.x) - m, x1 = Math.max(me.x, opp.x) + m, y0 = Math.min(me.y, opp.y) - m, y1 = Math.max(me.y, opp.y) + m;
       const f = S.fr || (S.fr = { x0, y0, x1, y1 });
-      f.x0 += (x0 - f.x0) * 0.15; f.x1 += (x1 - f.x1) * 0.15; f.y0 += (y0 - f.y0) * 0.15; f.y1 += (y1 - f.y1) * 0.15; // low-pass: the view glides
-      if (scene.w > 160 && scene.h > 160) scene.fit(f, U.clamp(18 * scene.camera.zoom, 40, 0.15 * Math.min(scene.w, scene.h)));
+      const k = 0.12; f.x0 += (x0 - f.x0) * k; f.x1 += (x1 - f.x1) * k; f.y0 += (y0 - f.y0) * k; f.y1 += (y1 - f.y1) * k; // low-pass: the view glides
+      if (scene.w > 160 && scene.h > 160) {
+        const W = scene.w, H = scene.h, sh = Math.min(W, H), kf = scene._tiltWant && KOS.Tilt ? Math.cos(KOS.Tilt.basePitch(W, H)) : 1;
+        // the free area of the screen (css px): the HUD + wet card above, the thumbs below, the SKYD / sheet column on the right of a portrait phone
+        const phone = sh < 600, ins = phone && H > W ? { t: 235, b: 120, l: 8, r: 90 } : phone ? { t: 96, b: 10, l: 10, r: 10 } : { t: 90, b: 20, l: 20, r: 20 };
+        const fw = Math.max(80, W - ins.l - ins.r), fh = Math.max(80, H - ins.t - ins.b);
+        const z = U.clamp(Math.min(fw / (f.x1 - f.x0), fh / ((f.y1 - f.y0) * kf)), sh / SPAN_FAR, sh / SPAN_NEAR);
+        const cam = scene.camera, rcx = (f.x0 + f.x1) / 2, rcy = (f.y0 + f.y1) / 2, zc = cam.zoom || z;
+        scene.fixedZoom = z; scene.target = null;                     // the scene eases its own zoom towards fixedZoom
+        cam.x += (rcx + (W / 2 - (ins.l + fw / 2)) / zc - cam.x) * 0.2;  // the frame's centre goes to the centre of the free area (eased: no jump when the frame starts)
+        cam.y += (rcy + (H / 2 - (ins.t + fh / 2)) / (zc * kf) - cam.y) * 0.2;
+        S.fz = z;
+      }
     }
 
     // ==================================================================== drawing
@@ -757,25 +776,95 @@
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(p1.x, p1.y); ctx.stroke();
         ctx.restore();
       }
-      // jets: a short 3-point trail (head, then back along the velocity) in white-blue, plus a faint ground shadow dot; all jets in two paths, no allocation
+      drawStreams(ctx, sc, zm, red);
+      drawImpacts(ctx, sc, zm, red);
+    }
+    // ---- the water: every jet is drawn as a ~0.17 s piece of its own arc; jets leave 0.12 s apart, so the pieces overlap into one continuous, arcing stream.
+    // Three strokes in one path (soft edge, cyan body, white core), droplets break away from the falling end. Cosmetic tiers: KOS.Perf.level (3 full .. 0 minimal) and reduced motion.
+    const TRAIL = 0.3;
+    const hash = (a, b) => { const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return x - Math.floor(x); };
+    function dropCount(red) { const L = KOS.Perf ? KOS.Perf.level : 3; return red ? Math.min(1, L) : L >= 3 ? 3 : L === 2 ? 2 : L === 1 ? 1 : 0; }
+    function drawStreams(ctx, sc, zm, red) {
       const pool = S.pool, n = pool.n;
       if (!n) return;
+      const lw = Math.max(3, 0.36 * zm), nd = dropCount(red);
       ctx.save();
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const tail = (j, tau) => { const k = Math.min(tau, j.age); return proj(sc, j.x - j.vx * k, j.y - j.vy * k, Math.max(0, j.z - j.vz * k - 0.5 * C.G * k * k)); };
       ctx.beginPath();
       for (let i = 0; i < n; i++) {
         const j = pool.jets[i];
-        let p = proj(sc, j.x - j.vx * 0.08, j.y - j.vy * 0.08, j.z - j.vz * 0.08); ctx.moveTo(p.x, p.y);
-        p = proj(sc, j.x - j.vx * 0.04, j.y - j.vy * 0.04, j.z - j.vz * 0.04); ctx.lineTo(p.x, p.y);
-        p = proj(sc, j.x, j.y, j.z); ctx.lineTo(p.x, p.y);
+        let p = tail(j, TRAIL); ctx.moveTo(p.x, p.y);
+        p = tail(j, TRAIL * 0.5); ctx.lineTo(p.x, p.y);
+        p = proj(sc, j.x, j.y, Math.max(0, j.z)); ctx.lineTo(p.x, p.y);
       }
-      const lw = Math.max(1.2, 0.14 * zm);
-      ctx.lineWidth = lw + 2; ctx.strokeStyle = 'rgba(15,60,120,0.35)'; ctx.stroke(); // a dark halo so the white jet reads on light water
-      ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(235,248,255,0.98)'; ctx.stroke();
-      ctx.fillStyle = 'rgba(10,40,80,0.18)';
+      ctx.lineWidth = lw * 3; ctx.strokeStyle = 'rgba(70,160,235,0.22)'; ctx.stroke();       // soft edge
+      ctx.lineWidth = lw * 1.7; ctx.strokeStyle = 'rgba(120,205,255,0.6)'; ctx.stroke();    // cyan body
+      ctx.lineWidth = lw * 0.8; ctx.strokeStyle = 'rgba(255,255,255,0.98)'; ctx.stroke();   // white core
+      // droplets break away from the falling end (the last metre of the arc): seeded per jet, so nothing flickers
+      if (nd) {
+        ctx.fillStyle = 'rgba(225,245,255,0.95)';
+        ctx.beginPath();
+        const r = Math.max(1.3, 0.1 * zm);
+        for (let i = 0; i < n; i++) {
+          const j = pool.jets[i];
+          if (j.vz >= 0 || j.z > 1.8) continue;
+          const sp = Math.hypot(j.vx, j.vy) || 1, nx = -j.vy / sp, ny = j.vx / sp;
+          for (let k = 0; k < nd; k++) {
+            const tau = 0.03 + 0.05 * k + 0.04 * hash(j.seq, k), off = (hash(j.seq, k + 7) - 0.5) * 1.1;
+            const p = proj(sc, j.x - j.vx * tau + nx * off, j.y - j.vy * tau + ny * off, Math.max(0, j.z - j.vz * tau - 0.5 * C.G * tau * tau + (hash(j.seq, k + 3) - 0.3) * 0.5));
+            ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, TAU);
+          }
+        }
+        ctx.fill();
+      }
+      // faint ground shadows so the height of the arc reads
+      ctx.fillStyle = 'rgba(10,40,80,0.2)';
       ctx.beginPath();
-      for (let i = 0; i < n; i++) { const j = pool.jets[i], p = proj(sc, j.x, j.y, 0); ctx.moveTo(p.x + 1.4, p.y); ctx.arc(p.x, p.y, 1.4, 0, TAU); }
+      for (let i = 0; i < n; i++) { const j = pool.jets[i], p = proj(sc, j.x, j.y, 0); ctx.moveTo(p.x + 1.8, p.y); ctx.arc(p.x, p.y, 1.8, 0, TAU); }
       ctx.fill();
+      ctx.restore();
+    }
+    // ---- impacts: splash rings where a jet lands, a bigger ring + a burst of droplets + a flash on the crew when it hits (ring buffers: no allocation per frame)
+    const RN = 28, DN = 48, rings = [], drops = [];
+    for (let i = 0; i < RN; i++) rings.push({ x: 0, y: 0, z: 0, t0: -9, k: 1 });
+    for (let i = 0; i < DN; i++) drops.push({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t0: -9 });
+    let ringI = 0, dropI = 0;
+    function addRing(x, y, k, z) { const r = rings[ringI++ % RN]; r.x = x; r.y = y; r.z = z || 0; r.t0 = env.t; r.k = k; }
+    function burst(x, y, z, k) { // k droplets (tier-scaled), thrown up and out
+      const n = Math.round(k * dropCount(KOS.UI.reduced()) / 3);
+      for (let i = 0; i < n; i++) { const d = drops[dropI++ % DN], a = hash(dropI, 1) * TAU, v = 1 + hash(dropI, 2) * 2.2; d.x = x; d.y = y; d.z = z; d.vx = Math.cos(a) * v; d.vy = Math.sin(a) * v; d.vz = 2.5 + hash(dropI, 3) * 3.5; d.t0 = env.t; }
+    }
+    function drawImpacts(ctx, sc, zm, red) {
+      const now = env.t;
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (let i = 0; i < RN; i++) { // splash rings: an expanding ellipse (projected circle), fading
+        const r = rings[i], u = (now - r.t0) / 0.6;
+        if (u < 0 || u >= 1) continue;
+        const rad = red ? 1.1 * r.k : (0.4 + 1.9 * u) * r.k;
+        ctx.lineWidth = Math.max(1.4, (0.2 - 0.12 * u) * zm * Math.min(r.k, 1.5)); ctx.strokeStyle = 'rgba(225,245,255,' + (0.85 * (1 - u)).toFixed(3) + ')';
+        ctx.beginPath();
+        for (let k = 0; k <= 14; k++) { const a = k / 14 * TAU, p = proj(sc, r.x + Math.cos(a) * rad, r.y + Math.sin(a) * rad, r.z); if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }
+        ctx.stroke();
+      }
+      if (!red) { // droplets of a hit: ballistic, 0.7 s
+        ctx.fillStyle = 'rgba(235,248,255,0.95)'; ctx.beginPath();
+        const rr = Math.max(1.5, 0.11 * zm);
+        for (let i = 0; i < DN; i++) {
+          const d = drops[i], a = now - d.t0; if (a < 0 || a > 0.7) continue;
+          const z = d.z + d.vz * a - 0.5 * C.G * a * a; if (z < 0) continue;
+          const p = proj(sc, d.x + d.vx * a, d.y + d.vy * a, z); ctx.moveTo(p.x + rr, p.y); ctx.arc(p.x, p.y, rr, 0, TAU);
+        }
+        ctx.fill();
+      }
+      for (const b of boats) { // a bright flash on the crew that was just hit
+        const u = (now - (b.hitT === undefined ? -9 : b.hitT)) / 0.3;
+        if (u < 0 || u >= 1) continue;
+        const c = SL.crewCenter(b), p = proj(sc, c.x, c.y, 1);
+        ctx.fillStyle = 'rgba(190,235,255,' + (0.55 * (1 - u)).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(p.x, p.y, C.CREW_R * zm * (0.8 + 0.4 * (red ? 0 : u)), 0, TAU); ctx.fill();
+      }
       ctx.restore();
     }
     function drawOppArrow(ctx, sc) { // off-screen opponent arrow with name, distance and wet % (adapted from race's drawTargetArrow)
@@ -843,7 +932,7 @@
     function onResize() { scene.resize(); if (S.phase === 'intro') fitArena(); else if (S.cam !== 'fit') applyZoom(); }
 
     // ---- test hooks: autopilot (a competent player: KOS.AI sails the boat and the gun fires when the aim hits), skipIntro, debug
-    function setAutopilot(on) { autopilot = on ? KOS.AI.createHelm(me, { skill: AP_SKILL, aggression: 0.6, seed: 5 }) : null; }
+    function setAutopilot(on, o) { autopilot = on ? KOS.AI.createHelm(me, { skill: AP_SKILL, aggression: 0.6, seed: 5 }) : null; S.apFire = !(o && o.fire === false); } // o.fire === false: a PASSIVE autopilot (sails near him, never shoots: how does the AI treat a peaceful player?)
     function skipIntro() { if (S.phase === 'intro') beginCount(); }
     const debug = {
       O, arenaR: AR, arena, get opp() { return opp; }, get plan() { return opp.plan; }, get ai() { return opp.ai; }, isWindward, foul(off, vic, hard) { // test hook: a contact foul by off (me or opp) on vic, as the monitor would report it

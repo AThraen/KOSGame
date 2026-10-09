@@ -136,8 +136,9 @@ Constants (`KOS.Soslag.CFG`, tunable in step 3):
 | `K` | 1.0 1/s | air drag: horizontal velocity relaxes towards the air velocity |
 | `KW` | 1.3 | gameplay exaggeration of the wind speed felt by the jet |
 | `EL_MIN`, `EL_MAX` | 8, 40 deg | elevation range `solveAim` may pick |
-| `CREW_R` | 1.4 m | radius of the crew cylinder |
-| `CREW_Z` | 0.3 - 2.3 m | jet height band that counts as "on a person" (deck 0.6 m + a seated crew) |
+| `CREW_R` | 1.4 m | radius of the crew cylinder (the polish pass tried 1.7 / 2.0; 1.4 plus the hull fix below keeps the AI's aim error meaningful) |
+| `CREW_Z` | 0.1 - 2.8 m | jet height band that counts as "on a person" (deck 0.6 m + a seated crew + a raised arm; was 0.3 - 2.3) |
+| `HULL_Z` | 0.9 m | a jet that reaches the target's hull / deck below this height is a 'hull' hit (a splash, no points). It used to be 2.8 m, so a jet descending on the cockpit hit the hull outline first and was swallowed: only about 25 % of perfectly aimed jets scored (polish pass); now a zero-sigma aim hits 100 % |
 | `AIM_Z` | 1.2 m | height at which `solveAim` makes the jet cross the crew centre (chest height), **not** z = 0 |
 | `RATE` | 1/0.12 = 8.33 packets/s | accumulator, section 4 |
 | `MAX_JETS` | 64 | live packets at most (pooled, preallocated). At 8.33/s and a 2.2 s flight a boat has about 19 live jets, two boats about 38; the 3 s age cap gives a worst case of about 50 for two boats, so 64 is safe. **Overflow policy** if the pool is ever full: recycle the oldest jet (never skip the new one, never allocate). |
@@ -190,19 +191,19 @@ fails the balance test, because then the stat means nothing).
 
 ## 6. Tank and refill
 
-- Capacity 100 units; each packet costs 1.5 (66 packets = 8 s of continuous fire).
-- Passive refill 2.0 units/s ("pumpen fylder lidt hele tiden"): 360 units over 180 s, so passive supply alone sustains about 36 % firing time and the tank,
-  not the clock, is the real limit; from empty it takes 50 s, a slow fallback that makes dipping worth it (3.0/s rejected, it would make dipping pointless).
+- Capacity 100 units; each packet costs 1.8 (55 packets = 6.7 s of continuous fire).
+- Passive refill 7 units/s while the gun is NOT firing (nothing flows in during a burst, so 6.7 s of fire is real): from empty it takes 14 s. Dipping (below) is
+  still faster (20/s, 5 s from empty).
 - **Dipping**: when the boat's speed is below 1.2 m/s (about 2.3 kn; an H-boat luffed head to wind gets there in 3-5 s, and the easy-assist helm can reach it)
-  and it is not in a penalty, refill is 14 units/s ("Dyp spanden!"). The HUD tank gauge shows a bucket icon, and the hint `soslag.hud.dip` shows when
+  and it is not in a penalty, refill is 20 units/s ("Dyp spanden!"). The HUD tank gauge shows a bucket icon, and the hint `soslag.hud.dip` shows when
   tank < 25 and speed >= 1.2 (at most every 20 s). Refilling is a tactical cost (a slow boat is an easy target)
   without a refill button, which suits a phone.
-- Empty tank: gun click; the button stays grey until the tank has 8 units (hysteresis, no flicker).
+- Empty tank: gun click; the button stays grey until the tank has 10 units (hysteresis, no flicker).
 - Per-boat plain fields on the physics boat objects (like `b.rc` in race): `b.tank`, `b.wet` (0..100), `b.gunLock` (s), `b.pen`.
 
 ## 7. Wet meter, winning and stars
 
-- Each packet that hits the crew cylinder adds `WET_GAIN = 0.48` points (0.35 in the first draft; tuned in step 4 so the autopilot at normal lands 55-75 % opponent wet) to that crew's wet meter (0-100, clamped). No drying in a 3 minute game.
+- Each packet that hits the crew cylinder adds `WET_GAIN = 0.7` points (0.35 in the first draft, 0.48 in step 4; polish pass: a well-aimed 5 s burst of 42 jets lands about 22 hits = 15 %, a full tank about 20 %) to that crew's wet meter (0-100, clamped). No drying in a 3 minute game.
   Arithmetic: a full tank is 66 jets, at 55-60 % hits about 36-40 hits = 13-14 points. A good game spends about 100 + 360 (passive) + two dips
   (about 120) = 580 units = 390 jets = about 215 hits = **70-75 points**, so about 70 % is reachable for a good player who holds the windward position,
   a knock-out to 100 needs a near-perfect duel and stays rare, and a typical result is 35-60 %. `WET_GAIN` is the one balance constant; step 5 tunes it
@@ -603,3 +604,14 @@ Each review point was checked against the code (this worktree) before the spec w
 16. Partly rejected. The claim that shallow descent makes most jets "too high" does not hold for the spec's own geometry: maximum-range lobs descend at 52-66 degrees and direct 10 m shots at 27-54 degrees (measured), and a jet aimed to land at the crew centre would be below the old 0.15 m floor. The real flaw was aiming at z = 0, so `AIM_Z 1.2`, a cylinder hit test and stated tolerances were added. The laser point is accepted: elevation sigma added, azimuth sigma raised, accuracy test band 40-70 %.
 17. Partly accepted. `smoke.js` finishes through the host with a fake result (`smoke.js:146,201`), so it never reaches the mode's own result; the spec adds `debug.end()` and the autoplay run for the real result, plus the destroy-mid-round and quit-to-hub checks.
 18. Accepted. "Coach" only remains as code identifiers; the grep commands are in the Step 5 verify list.
+
+## 16. Polish pass: a lively water fight (measured)
+
+What changed and why (numbers are `node tools/autoplay.js soslag.duel1 hboat <assist> --seeds=10`; `--passive` = the autopilot sails next to him but never fires, `--idle` = hands off, the boat sails straight out of the arena and the AI correctly does not shoot an out-of-arena boat):
+
+- **Hits**: the hull outline swallowed jets meant for the crew (`HULL_Z`, section 5), `CREW_Z` 0.1-2.8, `WET_GAIN 0.7`. Burst test (player 14 m to windward, 5 s of held SKYD, AI under way): 42 jets, about 22 hits, about 15 % wet.
+- **Tank**: cost 1.8, passive 7/s only while not firing, dip 20/s, hysteresis 10 (6.7 s of fire, 14 s to refill passively).
+- **Jets**: drawn as one continuous arc per jet (a 0.3 s piece of its own parabola, soft edge + cyan body + white core, width 0.36 m, at least 3 px), droplets near the falling end, a splash ring where a jet lands, a ring + droplets + a flash on a crew hit. Everything goes through `proj()` (tilt projection when the tilt camera is on). Droplets: 3 / 2 / 1 / 0 at perf level 3 / 2 / 1 / 0, 1 at most with reduced motion (rings stay, flat).
+- **Camera**: frames both boats (+ a margin of half a boat length) inside the free part of the screen (HUD and wet card above, thumbs and the SKYD / sheet column on a phone), zoom clamped between a short screen side of 26 m (close) and 80 m (far); 70 m in / 85 m out of the framing; the camera eases in and out, no hard cut.
+- **AI**: aim error `aimSigma` 24 -> 13 deg (az) and 9 -> 5 deg (el) with skill, longer bursts (1.1-2.4 s) and shorter pauses, and a HUNT rule: no shot for 2.5 s and farther than 7 m -> close in alongside him (6 m across the wind, where even an upwind jet reaches).
+- **Phone layout**: SKYD is a big round button in the right-thumb cluster (SPI's slot above the sheet in portrait, left of the sheet in landscape; the TURN button stacks above it); nothing of Søslag in the top-left. The wet card is a slim two-column card under the HUD (portrait) or a column under the ⋯ button (landscape); on 320 px wide screens the name drops the word 'Træner'.

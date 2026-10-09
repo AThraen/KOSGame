@@ -8,6 +8,7 @@
 //     --shot  save shot-auto-<id>.png of the results screen
 //     --seed  set the activity params.seed (e.g. soslag.duel1: the wind and the duel are seeded) before the run
 //     --seeds run seeds 1..k in one page, one line per seed and a summary line (soslag: WIN w/k STARS1 a STARS2 b STARS3 c meanOppWet x meanAcc y)
+//     --passive  autopilot sails near the opponent but never fires (soslag: how does the AI treat a peaceful player?)
 //     --idle  do not call setAutopilot: the player does nothing (e.g. soslag.duel1: the idle player must lose)
 //
 // The mode instance may expose two optional test hooks (see js/modes/sail.js):
@@ -23,7 +24,7 @@ const url = require('url');
   const opt = (n, d) => { const a = process.argv.find(x => x.startsWith('--' + n + '=')); return a ? a.split('=')[1] : d; };
   const [id, boat = 'opti', assist = 'easy'] = args;
   if (!id) { console.log('usage: node tools/autoplay.js <activityId> [boat] [assist] [--max=900] [--shot]'); process.exit(2); }
-  const max = +opt('max', 900), idle = process.argv.includes('--idle');
+  const max = +opt('max', 900), idle = process.argv.includes('--idle'), passive = process.argv.includes('--passive');
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
   const errs = [];
@@ -34,7 +35,7 @@ const url = require('url');
   const seedList = opt('seeds', null) ? Array.from({ length: +opt('seeds') }, (_, i) => i + 1) : [opt('seed', null) === null ? null : +opt('seed')];
   const runs = [];
   for (const seed of seedList) {
-    const r = await page.evaluate(([id, boat, assist, max, idle, seed]) => {
+    const r = await page.evaluate(([id, boat, assist, max, idle, seed, passive]) => {
       KOS.Storage.saveProfile({ name: 'Auto', sailNo: '1' });
       KOS.Storage.set('boat', boat);
       KOS.Storage.saveSettings({ assist, sound: false, unlockAll: true });
@@ -44,7 +45,7 @@ const url = require('url');
       let res = null;
       const onFin = e => { res = e && e.result; };
       KOS.Events.on('play:finish', onFin);
-      if (inst.setAutopilot && !idle) inst.setAutopilot(true);
+      if (inst.setAutopilot && !idle) inst.setAutopilot(true, passive ? { fire: false } : undefined);
       if (inst.skipIntro) inst.skipIntro();
       const t0 = performance.now();
       let steps = 0;
@@ -53,7 +54,7 @@ const url = require('url');
       const ai = inst.debug && inst.debug.ai;
       return { res, simS: steps / 60, wallMs: Math.round(performance.now() - t0), autopilot: !!inst.setAutopilot && !idle,
         ai: ai ? { fired: ai.fired, winT: Math.round(ai.winT), maxZeroT: Math.round(ai.maxZeroT * 10) / 10, modeT: ai.modeT } : null };
-    }, [id, boat, assist, max, idle, seed]);
+    }, [id, boat, assist, max, idle, seed, passive]);
     runs.push({ seed, r });
     if (r.err || seedList.length === 1) break;
     if (seed !== null && seedList.length > 1) { // one line per seed
@@ -66,8 +67,9 @@ const url = require('url');
   if (seedList.length > 1) {
     const ok = runs.map(x => x.r.res).filter(Boolean), n = runs.length, sl = ok.map(x => x.soslag).filter(Boolean);
     const cnt = k => ok.filter(x => x.stars === k).length, mean = (f) => sl.length ? Math.round(sl.reduce((a, x) => a + f(x), 0) / sl.length * 10) / 10 : 'n/a';
-    console.log(id + ' (' + boat + ', ' + assist + ')' + (idle ? ' [idle]' : '') + ' seeds 1..' + n + ((n - ok.length) ? '  UNFINISHED ' + (n - ok.length) : ''));
+    console.log(id + ' (' + boat + ', ' + assist + ')' + (idle ? ' [idle]' : '') + (passive ? ' [passive]' : '') + ' seeds 1..' + n + ((n - ok.length) ? '  UNFINISHED ' + (n - ok.length) : ''));
     console.log('WIN ' + ok.filter(x => x.stars >= 2).length + '/' + n + '  STARS1 ' + cnt(1) + '  STARS2 ' + cnt(2) + '  STARS3 ' + cnt(3) + '  meanOppWet ' + mean(x => x.oppWet) + '  meanAcc ' + mean(x => x.fired ? 100 * x.myHits / x.fired : 0));
+    if (sl.length) console.log('  meanMyWet ' + mean(x => x.myWet) + '  meanHits ' + mean(x => x.myHits) + '  meanJets ' + mean(x => x.fired) + '  meanAiHits ' + mean(x => x.oppHits) + '  meanAiJets ' + mean(x => x.oppFired || 0) + '  meanSimS ' + Math.round(ok.reduce((a, x) => a + x.timeMs / 1000, 0) / ok.length));
     console.log('  screen now: ' + await page.evaluate(() => KOS.App.cur));
   } else if (r.err) console.log(r.err);
   else {

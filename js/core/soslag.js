@@ -13,7 +13,7 @@
 //   crewCenter(boat) -> {x, y}   the cockpit disc centre; hitTest(j, target) -> 'crew' | 'hull' | null (swept, against the CURRENT target)
 //   solveAim(shooter, target, wind, opts) -> {az, el, ok, miss, T, zHit, descent}   (opts.sigma / opts.rand: radians, seeded rng)
 //   accTake(b, dt) -> n jets due this step (0.12 s accumulator that carries the remainder); b.acc resets with resetFire(b)
-//   gunReady(b) / spend(b, n) / tankStep(b, dt) / canFire(b): the tank (100, 1.5 per jet, 2/s passive, 14/s dipping below 1.2 m/s)
+//   gunReady(b) / spend(b, n) / tankStep(b, dt) / canFire(b): the tank (100, 1.8 per jet, 7/s passive when not firing, 20/s dipping below 1.2 m/s)
 //   wetGain(wet, hits) -> new wet (0..100); endCheck / stars / score: the round rules (draw, knock-out, stars table)
 //   downwindRange(tws) / upwindRange(tws) / station(opp, windFrom, tws, side, leadS): range table and the AI's windward station
 (function (root) {
@@ -23,11 +23,11 @@
 
   const CFG = {
     V0: 16, Z0: 1.2, G: 9.8, K: 1.0, KW: 1.3, EL_MIN: 8, EL_MAX: 40,
-    CREW_R: 1.4, CREW_Z0: 0.3, CREW_Z1: 2.3, AIM_Z: 1.2,
+    HULL_Z: 0.9, CREW_R: 1.4, CREW_Z0: 0.1, CREW_Z1: 2.8, AIM_Z: 1.2,
     RATE_DT: 0.12, MAX_JETS: 64, MAX_AGE: 3,
     GUN_FWD: 0.15, CREW_BACK: 0.12,                     // gun and crew positions as a fraction of the boat length (forward / aft of centre)
-    TANK_MAX: 100, SHOT_COST: 1.5, PASSIVE: 2.0, DIP: 14, DIP_SPEED: 1.2, REFILL_MIN: 8,
-    WET_GAIN: 0.48, DRAW_DIFF: 5, STAR_MARGIN: 15, MIN_JETS: 20,
+    TANK_MAX: 100, SHOT_COST: 1.8, PASSIVE: 7, DIP: 20, DIP_SPEED: 1.2, REFILL_MIN: 10,
+    WET_GAIN: 0.7, DRAW_DIFF: 5, STAR_MARGIN: 15, MIN_JETS: 20,
   };
 
   // ---------------------------------------------------------------- wind
@@ -94,7 +94,7 @@
     const cap = KOS.Physics.capsule(target);
     if (U.segSeg(j.px, j.py, j.x, j.y, cap.ax, cap.ay, cap.bx, cap.by).d <= cap.r) {
       const z = Math.max(j.z, 0);
-      if (z <= CFG.CREW_Z1 + 0.5) return 'hull'; // reaches the deck / sail of the target: no points
+      if (z <= CFG.HULL_Z) return 'hull'; // reaches the deck / hull of the target (not the air above it): no points
     }
     return null;
   }
@@ -208,10 +208,10 @@
   }
   const canFire = gunReady;
   function spend(b, n) { b.tank = Math.max(0, (b.tank === undefined ? CFG.TANK_MAX : b.tank) - CFG.SHOT_COST * (n === undefined ? 1 : n)); }
-  /** Refill: 14/s while dipping (speed < 1.2 m/s and not in a penalty), else the passive 2/s. */
-  function tankStep(b, dt) {
+  /** Refill: 20/s while dipping (speed < 1.2 m/s and not in a penalty), else the passive 7/s; nothing flows back in while the gun is firing (`firing`): a full tank lasts 100 / (1.8 x 8.3) = 6.7 s of fire. */
+  function tankStep(b, dt, firing) {
     const dip = Math.abs(b.speed || 0) < CFG.DIP_SPEED && !b.pen;
-    b.tank = Math.min(CFG.TANK_MAX, (b.tank === undefined ? CFG.TANK_MAX : b.tank) + (dip ? CFG.DIP : CFG.PASSIVE) * dt);
+    b.tank = Math.min(CFG.TANK_MAX, (b.tank === undefined ? CFG.TANK_MAX : b.tank) + (firing ? 0 : (dip ? CFG.DIP : CFG.PASSIVE)) * dt);
     return dip;
   }
   function wetGain(wet, hits) { return Math.min(100, wet + CFG.WET_GAIN * (hits === undefined ? 1 : hits)); }

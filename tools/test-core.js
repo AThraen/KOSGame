@@ -1096,10 +1096,10 @@ test('Soslag: hit test (crew disc yes, hull outside the disc no points, too high
   const tg = fakeBoat({ heading: 0 }), cc = SL.crewCenter(tg), mk = (x, y, z, px, py, pz) => ({ x, y, z, px, py, pz });
   ok(cc.y > tg.y, 'crew sits aft of the centre (heading north, so aft is south, y grows)');
   eq(SL.hitTest(mk(cc.x + 0.2, cc.y, 1.2, cc.x - 0.2, cc.y, 1.3), tg), 'crew', 'through the crew disc');
-  eq(SL.hitTest(mk(tg.x + 0.2, tg.y - 3.2, 1.0, tg.x - 0.2, tg.y - 3.0, 1.1), tg), 'hull', 'bow of the hull, outside the disc');
+  eq(SL.hitTest(mk(tg.x + 0.2, tg.y - 3.2, 0.5, tg.x - 0.2, tg.y - 3.0, 0.6), tg), 'hull', 'bow of the hull, outside the disc');
   eq(SL.hitTest(mk(cc.x + 0.2, cc.y, 3.4, cc.x - 0.2, cc.y, 3.4), tg), null, 'too high above hull and crew');
   eq(SL.hitTest(mk(cc.x + 9.2, cc.y, 1, cc.x + 8.8, cc.y, 1), tg), null, 'passes beside');
-  const low = SL.hitTest(mk(cc.x + 0.2, cc.y, 0.1, cc.x - 0.2, cc.y, 0.15), tg); ok(low !== 'crew', 'too low is no crew hit');
+  const low = SL.hitTest(mk(cc.x + 0.2, cc.y, 0.03, cc.x - 0.2, cc.y, 0.05), tg); ok(low !== 'crew', 'too low is no crew hit');
 });
 // zero-sigma replay of solveAim against a constant-velocity target with the same swept test the game uses
 function replay(sh, tg, wind, a) {
@@ -1116,7 +1116,7 @@ test('Soslag: solveAim ok implies a zero-sigma crew hit (z in band) at wind 0/90
       const g = SL.gunPos(sh), v = U.vec(brg, dist), th = brg + Math.PI / 2, tv = U.vec(th, cross);
       const tg = fakeBoat({ x: g.x + v.x, y: g.y + v.y, heading: th, vx: tv.x, vy: tv.y, speed: cross });
       const a = SL.solveAim(sh, tg, wind); total++;
-      if (a.ok) { oks++; ok(replay(sh, tg, wind, a), `ok but no hit: wind ${wd} rel ${rel} dist ${dist} cross ${cross}`); between(a.zHit, 0.3, 2.3, 'zHit'); }
+      if (a.ok) { oks++; ok(replay(sh, tg, wind, a), `ok but no hit: wind ${wd} rel ${rel} dist ${dist} cross ${cross}`); between(a.zHit, SL.CFG.CREW_Z0, SL.CFG.CREW_Z1, 'zHit'); }
       else if (rel === 180 || dist === 6 || (dist === 10 && rel !== 0 && !cross)) throw new Error(`expected ok: wind ${wd} rel ${rel} (target bearing from the wind-from line, 0 = upwind) dist ${dist} cross ${cross} miss ${a.miss.toFixed(2)}`);
     }
   }
@@ -1168,14 +1168,15 @@ test('Soslag: the pool never exceeds 64 in 60 s of two-boat fire, and recycles t
   for (let i = 0; i < 20; i++) { const j = SL.launch(p8, sh, 0, R(30), sh); eq(j.seq, i + 1); }
   eq(p8.n, 8, 'pool stays at 8'); eq(Math.min(...p8.jets.map(j => j.seq)), 13, 'the oldest were recycled (seq 13..20 left)'); eq(p8.jets.length, 8, 'never allocated');
 });
-test('Soslag: tank maths (cost 1.5, passive 2/s, dip 14/s only below 1.2 m/s and not in a penalty, hysteresis at 8)', () => {
-  const b = { tank: 100, speed: 3 }; SL.spend(b, 10); near(b.tank, 85, 1e-9, 'cost');
-  b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 52, 0.01, 'passive 2/s');
-  b.tank = 50; b.speed = 1.1; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 64, 0.01, 'dip 14/s');
-  b.tank = 50; b.speed = 1.3; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 52, 0.01, 'above 1.2 m/s no dip');
-  b.tank = 50; b.speed = 0.5; b.pen = { turns: 1 }; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 52, 0.01, 'no dip in a penalty');
-  const h = { tank: 3 }; ok(SL.gunReady(h), '3 units: ready'); SL.spend(h, 2); ok(!SL.gunReady(h), 'empty: grey'); h.tank = 7.9; ok(!SL.gunReady(h), '7.9: still grey'); h.tank = 8; ok(SL.gunReady(h), '8: ready again');
-  const f = { tank: 0, speed: 3 }; let t = 0; while (f.tank < 100) { SL.tankStep(f, DT); t += DT; } between(t, 49.9, 50.2, 'from empty 50 s');
+test('Soslag: tank maths (cost 1.8, passive 7/s, dip 20/s only below 1.2 m/s and not in a penalty, nothing while firing, hysteresis at 10)', () => {
+  const b = { tank: 100, speed: 3 }; SL.spend(b, 10); near(b.tank, 82, 1e-9, 'cost');
+  b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'passive 7/s'); b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT, true); near(b.tank, 50, 0.01, 'no refill while firing');
+  b.tank = 50; b.speed = 1.1; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 70, 0.01, 'dip 20/s');
+  b.tank = 50; b.speed = 1.3; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'above 1.2 m/s no dip');
+  b.tank = 50; b.speed = 0.5; b.pen = { turns: 1 }; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'no dip in a penalty');
+  const h = { tank: 3 }; ok(SL.gunReady(h), '3 units: ready'); SL.spend(h, 2); ok(!SL.gunReady(h), 'empty: grey'); h.tank = 9.9; ok(!SL.gunReady(h), '9.9: still grey'); h.tank = 10; ok(SL.gunReady(h), '10: ready again');
+  const f = { tank: 0, speed: 3 }; let t = 0; while (f.tank < 100) { SL.tankStep(f, DT); t += DT; } between(t, 14.1, 14.5, 'from empty 14.3 s passively');
+  const g = { tank: 100, speed: 3 }; let n = 0; while (SL.gunReady(g)) { g.tank -= 0; SL.spend(g, 1); n++; } between(n * SL.CFG.RATE_DT, 6, 8, 'a full tank lasts 6-8 s of continuous fire');
 });
 test('Soslag: wet gain (CFG.WET_GAIN) per hit, clamped at 100', () => {
   near(SL.wetGain(10, 1), 10 + SL.CFG.WET_GAIN, 1e-9); eq(SL.wetGain(99.9, 1), 100); let w = 0; for (let i = 0; i < 400; i++) w = SL.wetGain(w, 1); eq(w, 100);
