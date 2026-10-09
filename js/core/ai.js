@@ -620,5 +620,32 @@
     return helm;
   }
 
-  KOS.AI = { createHelm };
+  // ---- fleet strength follows the player's level -------------------------------------------------------------
+  // fleetSkill(profile, assist, stars) -> { offset, lo, hi }: the skill range [lo, hi] of a race fleet (boat i of n gets
+  // lerp(lo, hi, i/(n-1)) + a little noise, so every fleet still has a spread from weak to strong). Skill only makes the
+  // helm sloppier (pinching, trim, later tacks, slower reactions) - navigation is the same at any skill.
+  //   age group (profile.age): '8-10' -0.14, '11-13' -0.05, '14-17' 0, '18+' +0.03, unknown/empty 0
+  //   assist (Let/Normal/Pro):  easy -0.10, normal 0, pro +0.05
+  //   progression (total stars): 0 .. +0.02 (full at 60 stars)
+  // The sum (-0.24 .. +0.10) shifts the base range BASE_LO..BASE_HI.
+  const BASE_LO = 0.37, BASE_HI = 0.79;
+  const AGE_OFF = { '8-10': -0.14, '11-13': -0.05, '14-17': 0, '18+': 0.03 };
+  const ASSIST_OFF = { easy: -0.10, normal: 0, pro: 0.05 };
+  function fleetSkill(profile, assist, stars) {
+    const age = profile && AGE_OFF[profile.age] !== undefined ? AGE_OFF[profile.age] : 0;
+    const asst = ASSIST_OFF[assist] !== undefined ? ASSIST_OFF[assist] : 0;
+    const prog = U.clamp((+stars || 0) / 60, 0, 1) * 0.02;
+    const offset = age + asst + prog;
+    return { offset, lo: BASE_LO + offset, hi: BASE_HI + offset };
+  }
+
+  // paceFor(skill, fleet): overall boat-speed factor of an AI helm, fleet = fleetSkill(). The whole fleet is faster/slower with
+  // the player level (1.5 % base + offset * 0.3: -0.24 -> -6 %, +0.10 -> +4.5 %), and inside the fleet a better helm is a little faster
+  // (+-2.5 % across the range). Players and boats without .pace sail at 1.0.
+  function paceFor(skill, fleet) {
+    const f = fleet || { offset: 0, lo: skill, hi: skill };
+    return 1.015 + 0.3 * f.offset + 0.06 * (skill - (f.lo + f.hi) / 2);
+  }
+
+  KOS.AI = { createHelm, fleetSkill, paceFor };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -334,6 +334,7 @@
     const heelF = 1 - 0.35 * Math.pow(U.clamp(excess / span, 0, 1), 1.4);
     tKn *= heelF;
     if (boat.maneuverT > 0) tKn *= 0.92;
+    if (boat.pace) tKn *= boat.pace; // AI helms of lower skill are a little slower overall (KOS.AI.paceFor); players and default boats: 1
     if (boat.capsized) tKn = 0;
     boat.targetKn = tKn;
     let tMs = U.ms(tKn);

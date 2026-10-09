@@ -393,7 +393,8 @@
     const crew2 = cls.crew >= 2;
     const names = NAMES.filter(n => n.toLowerCase() !== String(profile.name || '').trim().toLowerCase());
     for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const x = names[i]; names[i] = names[j]; names[j] = x; }
-    const skillR = assist === 'easy' ? [0.22, 0.62] : assist === 'pro' ? [0.6, 0.95] : [0.4, 0.82];
+    const fs = KOS.AI.fleetSkill(profile, assist, KOS.Storage && KOS.Storage.totalStars ? KOS.Storage.totalStars() : 0); // fleet strength follows the player's level
+    const skillR = [fs.lo, fs.hi];
     const lvl = U.clamp((P.race - 1) / Math.max(1, P.races - 1), 0, 1) * 0.08;
     const boats = [];
     const startRow = (i) => { // spread along below the line
@@ -420,6 +421,7 @@
       b.short = short;
       const skill = U.clamp(U.lerp(skillR[0], skillR[1], i / Math.max(1, P.fleet - 1)) + lvl + (rand() - 0.5) * 0.08, 0.05, 0.98);
       b.helm = KOS.AI.createHelm(b, { skill, aggression: 0.3 + rand() * 0.5, seed: P.seed * 31 + i });
+      b.pace = KOS.AI.paceFor(skill, fs);
       boats.push(b); ai.push(b);
     }
     // per-boat race tracker
