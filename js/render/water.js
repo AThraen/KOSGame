@@ -116,7 +116,9 @@
         { tile: waveTile, m: 30, sp: 1.0 + wspd * 0.06, a: clamp(0.1 + wspd / 50, 0.1, 0.42), off: 0 },
         { tile: waveTile, m: 64, sp: 1.6 + wspd * 0.09, a: clamp(0.05 + wspd / 80, 0.05, 0.25), off: 97 },
       ];
-      if (wspd > 13) layers.push({ tile: capTile, m: 55, sp: 2 + wspd * 0.1, a: clamp((wspd - 13) / 12, 0, 0.6), off: 31 });
+      const tier = KOS.Perf ? KOS.Perf.level : 3; // quality tier: 2 loses the whitecap layer, 1 the second wave layer, 0 keeps one layer
+      if (tier <= 1) layers.splice(1, 1);
+      if (wspd > 13 && tier >= 3) layers.push({ tile: capTile, m: 55, sp: 2 + wspd * 0.1, a: clamp((wspd - 13) / 12, 0, 0.6), off: 31 });
       const deg = (wdir * 180) / Math.PI, zf = clamp(((1 / mpp) - 1.5) / 5, 0, 1);
       for (const L of layers) {
         const pat = ctx.createPattern(L.tile, 'repeat'); if (!pat || !pat.setTransform) continue;
@@ -131,7 +133,7 @@
     }
     // 4. wind streaks + sparkle
     this.renderStreaks(ctx, scene, t, wdir, wspd);
-    this.renderSparkle(ctx, scene, t);
+    if (!KOS.Perf || KOS.Perf.level >= 3) this.renderSparkle(ctx, scene, t); // decorative glints: top tier only
   };
 
   W.renderGusts = function (ctx, scene, wind, t, wdir) {
@@ -180,7 +182,7 @@
 
   W.renderStreaks = function (ctx, scene, t, wdir, wspd) {
     const view = scene.view, mpp = scene.mpp || 0.05, dt = clamp(t - (this._lt == null ? t : this._lt), 0, 0.1); this._lt = t;
-    const want = Math.round(clamp(wspd / 2, 2, 14) * clamp(((view.x1 - view.x0) * (view.y1 - view.y0)) / (mpp * mpp) / 900000, 0.5, 2));
+    const want = Math.round((KOS.Perf && KOS.Perf.level <= 1 ? 0.5 : 1) * clamp(wspd / 2, 2, 14) * clamp(((view.x1 - view.x0) * (view.y1 - view.y0)) / (mpp * mpp) / 900000, 0.5, 2));
     const dx = -Math.sin(wdir), dy = Math.cos(wdir), v = wspd * 0.5144 * 1.1;
     const S = this.streaks;
     while (S.length < want) S.push({ x: lerp(view.x0, view.x1, Math.random()), y: lerp(view.y0, view.y1, Math.random()), life: 0, max: 1.8 + Math.random() * 1.6, l: 26 + Math.random() * 40, w: 0.7 + Math.random() });
@@ -222,9 +224,10 @@
       if (!p || p.length < 3) continue;
       const b = bbox(p); if (b.x1 < view.x0 - 10 || b.x0 > view.x1 + 10 || b.y1 < view.y0 - 10 || b.y0 > view.y1 + 10) continue;
       ctx.beginPath(); polyPath(ctx, p);
-      const pulse = 0.5 + 0.5 * Math.sin(t * 1.3);
+      const still = KOS.Perf && KOS.Perf.level < 3; // tier < 3: the shore foam stops lapping
+      const pulse = still ? 0.5 : 0.5 + 0.5 * Math.sin(t * 1.3);
       ctx.strokeStyle = 'rgba(255,255,255,' + 0.18 * k + ')'; ctx.lineWidth = Math.max(2.5 * k + pulse * 1.5 * k, 8 * mpp); ctx.stroke();
-      ctx.setLineDash([2.2 * k + 1, 1.6 * k + 0.6]); ctx.lineDashOffset = -t * 0.8;
+      ctx.setLineDash([2.2 * k + 1, 1.6 * k + 0.6]); ctx.lineDashOffset = still ? 0 : -t * 0.8;
       ctx.strokeStyle = 'rgba(255,255,255,' + (0.45 + 0.2 * pulse) * Math.min(1, k) + ')'; ctx.lineWidth = Math.max(0.9 * k + pulse * 0.6, 3 * mpp); ctx.stroke();
       ctx.setLineDash([]);
     }

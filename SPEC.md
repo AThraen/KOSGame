@@ -348,12 +348,13 @@ a current iPhone (WebKit). Only the interactive/moving bits stay live SVG on top
   (suite `hubimg` of `tools/run-tests.js`) fails if the art changed but the images were not regenerated.
 - Lite mode (`KOS.Hub.lite`): map animations stopped, no clouds, 1x image, only the next-challenge pin moves. Automatic when
   reduced motion is on, when a previous visit was slow (`kos.hubLite`, 30 days), when the device looks weak (<= 2 cores,
-  deviceMemory <= 2, `KOS.Perf.level` < 2), or at runtime when the first painted frame takes > 1.5 s or the median frame in
+  deviceMemory <= 2, `KOS.Perf.level` <= 1), or at runtime when the first painted frame takes > 1.5 s or the median frame in
   the first 2 s is > 50 ms (then it is remembered). Setting `lowFx` (null = automatic, true/false = player's choice;
   "Spar på telefonen" in Settings) overrides it. On iOS/Safari the live layer only animates boat motion (no wobble, gull flap,
   smoke, blinking lights). Tests: `tools/test-hub-lite.js` (suite `hublite`).
-`KOS.Perf.level` (2 full, 1 lighter, 0 slow device) is set by the app's frame-time governor; the scene lowers its DPR cap and
-the effects thin out cosmetic particles at lower levels.
+`KOS.Perf.level` is the quality tier (3 full .. 0 minimal) decided in one place, the governor in `js/ui/app.js`: start tier
+guess (iOS/Safari and small touch screens 2, else 3) or the remembered one (`perfTier`), stepped down fast / up slowly from
+measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. What each tier drops: docs/ARCHITECTURE.md §9.
 
 ## Progression
 

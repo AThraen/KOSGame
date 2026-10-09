@@ -251,14 +251,18 @@
   // show the old full-SVG hub on a current iPhone), so there the live layer only gets the boats' motion - no wobble, gull
   // flap, smoke or blinking lights. Elsewhere those stay.
   const IOS = (() => { try { const n = root.navigator; return /iPhone|iPad|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1) || 'GestureEvent' in root; } catch (e) { return false; } })();
-  const RICH = !IOS;
+  // ambience (wobble, flap, smoke, blinking lights, clouds) only at the top quality tier (KOS.Perf, see app.js) and not on iOS
+  let RICH = !IOS;
   // mouse/trackpad = desktop-class GPU: whole-map effects (wave drift, marching coast foam) run there, not on phones
   const FINE_POINTER = (() => { try { return root.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return false; } })();
-  const BOB = !RICH ? '' : `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="2.6s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
-  const FLAP = !RICH ? '' : `<animate attributeName="d" values="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0;M-7 1.2Q-3.5 -.4 0 1.2Q3.5 -.4 7 1.2;M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" dur="1s" begin="0s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  const BOB_S = `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="2.6s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  const FLAP_S = `<animate attributeName="d" values="M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0;M-7 1.2Q-3.5 -.4 0 1.2Q3.5 -.4 7 1.2;M-7 0Q-3.5 -4.5 0 0Q3.5 -4.5 7 0" dur="1s" begin="0s" repeatCount="indefinite" calcMode="spline" keySplines="${EASE};${EASE}"/>`;
+  let BOB = '', FLAP = '';
+  const setRich = () => { RICH = !IOS && !(KOS.Perf && KOS.Perf.level < 3); BOB = RICH ? BOB_S : ''; FLAP = RICH ? FLAP_S : ''; };
   const GLOW = `dur="3s" repeatCount="indefinite" keyTimes="0;.7;.8;1" calcMode="spline" keySplines="${EASE};${EASE};${EASE}"`;
   const flashDot = (q, t) => `<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="4.5" fill="#fff" opacity="0" pointer-events="none"><animate attributeName="opacity" values="0;.8;0" keyTimes="0;.9;.94" calcMode="discrete" dur="3s" begin="${t}s" repeatCount="indefinite"/></circle>`;
   function buildMap(mode) {
+    setRich();
     mode = mode || 'full'; // 'static' = the pre-rendered base art, 'live' = the moving/interactive overlay, 'full' = both in one svg (#hubsvg=1)
     const S = mode !== 'live', L = mode !== 'static', FULL = mode === 'full';
     const W = KOS.World, G = W.global;
@@ -546,7 +550,7 @@
     setting() { try { const v = KOS.Storage.settings().lowFx; return v === true || v === false ? v : null; } catch (e) { return null; } },
     reduced() { try { return !!((KOS.Storage && KOS.Storage.settings().reducedMotion) || root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } },
     stored() { try { const v = KOS.Storage.get(LITE_KEY, null); return !!(v && v.on && Date.now() - v.at < LITE_TTL); } catch (e) { return false; } },
-    weak() { try { const n = root.navigator; return (n.hardwareConcurrency > 0 && n.hardwareConcurrency <= 2) || (n.deviceMemory > 0 && n.deviceMemory <= 2) || !!(KOS.Perf && KOS.Perf.level < 2); } catch (e) { return false; } },
+    weak() { try { const n = root.navigator; return (n.hardwareConcurrency > 0 && n.hardwareConcurrency <= 2) || (n.deviceMemory > 0 && n.deviceMemory <= 2) || !!(KOS.Perf && KOS.Perf.level <= 1); } catch (e) { return false; } },
     effective() { const m = lite.setting(); if (m !== null) return m; return lite.reduced() || lite.stored() || lite.weak(); },
     remember(why) { try { if (lite.setting() !== false) KOS.Storage.set(LITE_KEY, { on: true, at: Date.now(), why }); } catch (e) { /* ignore */ } },
     forget() { try { KOS.Storage.remove(LITE_KEY); } catch (e) { /* ignore */ } },
@@ -604,6 +608,7 @@
     const dev = /hubsvg=1/.test((root.location && root.location.hash) || ''); // dev: rebuild the full vector map instead of the image
     const isLite = lite.effective();
     if (!mapCache) mapCache = buildMap(dev ? 'full' : 'live');
+    setRich();
     if (!RICH || dev) cloudsCache = '';
     else if (!isLite && cloudsCache === null) cloudsCache = buildClouds();
     const rootEl = document.createElement('div');
@@ -689,7 +694,7 @@
         const med = rest[rest.length >> 1], avg = rest.reduce((x, y) => x + y, 0) / rest.length;
         state.medianMs = Math.round(med);
         if (med > 50) goLite('frames', true);
-        else if (avg > 24 && !rootEl.classList.contains('hub-lite')) { goLite('frames-soft', false); if (KOS.Perf) { KOS.Perf.level = Math.min(KOS.Perf.level, 1); KOS.Perf.max = KOS.Perf.level; } }
+        else if (avg > 24 && !rootEl.classList.contains('hub-lite')) { goLite('frames-soft', false); if (KOS.Perf) KOS.Perf.level = Math.min(KOS.Perf.level, 2); }
       };
       raf = requestAnimationFrame(tick);
     };

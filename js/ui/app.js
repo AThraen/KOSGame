@@ -699,7 +699,7 @@
     run.running = true;
     run.acc = 0;
     run.last = performance.now();
-    run.startT = run.last; Perf.ema = 16.7; Perf.slowT = 0;
+    run.startT = run.last; Perf.reset();
     cancelAnimationFrame(run.raf);
     run.raf = requestAnimationFrame(frame);
     emit('play:start', { id: a.id, boat: a.boat || S().get('boat', 'opti') });
@@ -707,15 +707,64 @@
   leave.play = function () { stopRun(); if (UI().setCoach) UI().setCoach('jesper'); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
 
-  // frame-time governor: on a slow device drop to fewer pixels / particles (KOS.Perf.level 2 → 1 → 0), and climb back
-  // when there is headroom. Scene and effects read KOS.Perf.level.
-  const Perf = KOS.Perf = KOS.Perf || { level: 2, ema: 16.7, slowT: 0, fastT: 0 };
+  // Quality tiers (KOS.Perf.level) - ONE place decides how much decoration the renderers draw:
+  //   3 full | 2 no ambient extras (sparkles, flag flutter, shore-foam motion, whitecap layer, hub ambience)
+  //   1 lighter (no 2nd wave layer, half the wind streaks, thinner spray, canvas DPR <= 1.5) | 0 minimal (DPR 1.15, 1 wave layer)
+  // Gameplay information (marks, boats, wind arrow, laylines, labels, HUD, controls) is never dropped. See docs/ARCHITECTURE.md.
+  // Start tier: #perf=0..3 forces one (no governor, nothing remembered); else the tier remembered for this device
+  // (Storage 'perfTier'); else a guess: iPhone/iPad/Safari and small touch screens start at 2, everything else at 3.
+  // Then the governor measures: median/p95 of a rolling window of frame times steps DOWN fast (2 bad windows, ~1 s) and UP
+  // slowly (20 s of good windows, never within 60 s of a drop, never above a tier that dropped twice this session).
+  // Settings: lowFx=true caps the tier at 1.
+  const Perf = KOS.Perf = KOS.Perf || { level: 3 };
+  Object.assign(Perf, { buf: [], bad: 0, goodT: 0, holdUntil: 0, ceiling: 3, downs: {}, forced: null, ema: 16.7 });
+  Perf.cap = function () { try { return S().settings().lowFx === true ? 1 : 3; } catch (e) { return 3; } };
+  Perf.init = function () {
+    let m = null; try { m = /[#&]perf=([0-3])/.exec(root.location.hash || ''); } catch (e) { /* no location */ }
+    if (m) { Perf.forced = +m[1]; Perf.level = Perf.forced; Perf.mark(); return; }
+    let guess = 3;
+    try {
+      const n = root.navigator, small = Math.min(root.innerWidth, root.innerHeight) < 600 && root.matchMedia('(pointer: coarse)').matches;
+      if (/iPhone|iPad|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1) || 'GestureEvent' in root || small) guess = 2;
+    } catch (e) { /* keep 3 */ }
+    Perf.guess = guess;
+    let lvl = guess;
+    try { const v = S().get('perfTier', null); if (v && v.level >= 0 && v.level <= 3) lvl = v.level | 0; } catch (e) { /* none */ }
+    Perf.level = Math.min(lvl, Perf.cap()); Perf.mark();
+  };
+  // html[data-tier] lets CSS drop cosmetic work too (frosted-glass blur over the sea canvas below tier 3, see css/game.css)
+  Perf.mark = function () { try { doc.documentElement.setAttribute('data-tier', String(Perf.level)); } catch (e) { /* ignore */ } };
+  Perf.reset = function () { Perf.buf.length = 0; Perf.bad = 0; Perf.goodT = 0; if (Perf.forced === null) Perf.level = Math.min(Perf.level, Perf.cap()); Perf.mark(); };
+  Perf.set = function (lvl, why) {
+    if (lvl === Perf.level) return;
+    Perf.level = lvl; Perf.buf.length = 0; Perf.bad = 0; Perf.goodT = 0; Perf.why = why; Perf.mark();
+    try { S().set('perfTier', { level: lvl, at: Date.now() }); } catch (e) { /* ignore */ }
+    emit('perf:tier', { level: lvl, why });
+  };
+  Perf.init();
   function govern(ms) {
-    if (!(ms > 0) || ms > 250) return; // tab switches / breakpoints
-    Perf.ema += (ms - Perf.ema) * 0.05;
-    if (Perf.ema > 19.5) { Perf.slowT += ms; Perf.fastT = 0; } else if (Perf.ema < 17.5) { Perf.fastT += ms; Perf.slowT = 0; } else { Perf.slowT = 0; Perf.fastT = 0; }
-    if (Perf.slowT > 1500 && Perf.level > 0 && performance.now() - run.startT > 2500) { Perf.level--; Perf.max = Perf.level; Perf.slowT = 0; Perf.ema = 16.7; }
-    else if (Perf.fastT > 12000 && Perf.level < (Perf.max === undefined ? 2 : Perf.max)) { Perf.level++; Perf.fastT = 0; }
+    if (Perf.forced !== null || !(ms > 0) || ms > 250) return; // forced tier; tab switches / breakpoints
+    const buf = Perf.buf; if (!buf.length) Perf.winT = 0; buf.push(ms); Perf.winT += ms;
+    if (buf.length < 45 && !(Perf.winT >= 900 && buf.length >= 5)) return; // a window = 45 frames, or ~1 s on a slow device
+    const s = buf.slice().sort((x, y) => x - y), med = s[s.length >> 1], p95 = s[Math.floor(s.length * 0.95)];
+    Perf.ema = med; Perf.med = med; Perf.p95 = p95;
+    const t = performance.now(), age = t - run.startT; buf.length = 0;
+    if (age < 2500) return;
+    const bad = med > 21 || p95 > 45;
+    if (bad) {
+      Perf.goodT = 0;
+      if (++Perf.bad >= 2 && Perf.level > 0) {
+        Perf.downs[Perf.level] = (Perf.downs[Perf.level] || 0) + 1;
+        if (Perf.downs[Perf.level] >= 2) Perf.ceiling = Math.min(Perf.ceiling, Perf.level - 1);
+        Perf.holdUntil = t + 60000; Perf.set(Perf.level - 1, 'slow');
+      }
+    } else {
+      Perf.bad = 0;
+      if (med < 17.9 && p95 < 24) {
+        Perf.goodT += Perf.winT;
+        if (Perf.goodT > 20000 && t > Perf.holdUntil && Perf.level < Math.min(Perf.ceiling, Perf.cap())) Perf.set(Perf.level + 1, 'headroom');
+      } else Perf.goodT = 0;
+    }
   }
 
   function frame(now) {
