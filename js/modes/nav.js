@@ -377,7 +377,7 @@
     // ---- controls + HUD
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'gennaker' : 'spi',
-      hike: !cls.keel && !easy, autoTrim: controls.autoTrim, pauseButton: false,
+      hike: !easy, hikeKeel: !!cls.keel, autoTrim: controls.autoTrim, pauseButton: false,
     }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
     const aids = KOS.SailAids.create({ ctrl, boat, assist, coach: txt => { S.tipT = S.time; KOS.UI.coach(txt, { ms: 5600 }); } });
     ctrl.on('action', () => { if (card && card.primary) card.primary.click(); });

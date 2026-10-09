@@ -26,7 +26,7 @@
     da: {
       'input.left': 'Bagbord', 'input.right': 'Styrbord', 'input.leftHint': 'Drej til venstre', 'input.rightHint': 'Drej til højre',
       'input.sheet': 'Skøde', 'input.sheetIn': 'Hal ind', 'input.sheetOut': 'Fier ud', 'input.auto': 'AUTO',
-      'input.hike': 'Hæng ud', 'input.spi': 'Spiler', 'input.gennaker': 'Gennaker',
+      'input.hike': 'Hæng ud', 'input.rail': 'Ud på kanten', 'input.spi': 'Spiler', 'input.gennaker': 'Gennaker',
       'input.throttle': 'Gashåndtag', 'input.ahead': 'Frem', 'input.astern': 'Bak', 'input.neutral': 'N',
       'input.wheel': 'Rat', 'input.joystick': 'Styrepind', 'input.pause': 'Pause', 'input.action': 'Handling',
       'input.horn': 'Horn', 'input.flag': 'Flag', 'input.lifebuoy': 'Redningskrans', 'input.rope': 'Tov', 'input.anchor': 'Anker',
@@ -38,7 +38,7 @@
     en: {
       'input.left': 'Port', 'input.right': 'Starboard', 'input.leftHint': 'Turn left', 'input.rightHint': 'Turn right',
       'input.sheet': 'Sheet', 'input.sheetIn': 'Sheet in', 'input.sheetOut': 'Ease out', 'input.auto': 'AUTO',
-      'input.hike': 'Hike', 'input.spi': 'Spinnaker', 'input.gennaker': 'Gennaker',
+      'input.hike': 'Hike', 'input.rail': 'Hike out', 'input.spi': 'Spinnaker', 'input.gennaker': 'Gennaker',
       'input.throttle': 'Throttle', 'input.ahead': 'Ahead', 'input.astern': 'Astern', 'input.neutral': 'N',
       'input.wheel': 'Wheel', 'input.joystick': 'Joystick', 'input.pause': 'Pause', 'input.action': 'Action',
       'input.horn': 'Horn', 'input.flag': 'Flag', 'input.lifebuoy': 'Lifebuoy', 'input.rope': 'Rope', 'input.anchor': 'Anchor',
@@ -220,7 +220,7 @@
           '<div class="kc-track"><div class="kc-fill"></div><div class="kc-zone"></div><div class="kc-thumb"><i></i><i></i><i></i></div></div>' +
           '<span class="kc-sl-lbl kc-bot">' + ICON.sheetOut + '<b>' + tr('input.sheetOut') + '</b></span>' + keycap('↑ ↓') +
           (opts.letFly ? '<button class="kc-snap kc-letfly" type="button" aria-label="' + tr('input.letFlyHint') + '" title="' + tr('input.letFlyHint') + '">' + tr('input.letFly') + '</button>' : '') + '</div>';
-        if (opts.hike !== false) h += '<button class="kc-btn kc-round kc-hike" type="button" aria-label="' + tr('input.hike') + '">' + ICON.hike + '<b>' + tr('input.hike') + '</b>' + keycap('Space') + '</button>';
+        if (opts.hike !== false) h += '<button class="kc-btn kc-round kc-hike" type="button" aria-label="' + tr(opts.hikeKeel ? 'input.rail' : 'input.hike') + '">' + ICON.hike + '<b>' + tr(opts.hikeKeel ? 'input.rail' : 'input.hike') + '</b>' + keycap('Space') + '</button>';
         if (opts.spinnaker) h += '<button class="kc-btn kc-round kc-spi" type="button" aria-pressed="false" aria-label="' + tr(opts.spinnakerKind === 'asym' ? 'input.gennaker' : 'input.spi') + '">' + ICON.spi + '<b>' + (opts.spinnakerKind === 'asym' ? 'GEN' : 'SPI') + '</b>' + keycap('E') + '</button>';
         if (opts.jib) {
           h += '<div class="kc-slider kc-jib" role="slider" aria-label="' + tr('input.jibHint') + '" title="' + tr('input.jibHint') + '">' +
