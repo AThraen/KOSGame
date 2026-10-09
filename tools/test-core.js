@@ -69,6 +69,22 @@ test('U.rng is deterministic, in [0,1), different per seed', () => {
   ok(same && diff);
   ok(U.rng('abc')() === U.rng('abc')(), 'string seeds');
 });
+test('U.windVal / windTxt / setWindUnit (m/s default, knots option)', () => {
+  U.setWindUnit('ms');
+  ok(U.windUnit() === 'ms', 'default unit is ms');
+  ok(U.windUnitLabel() === 'm/s', 'label is m/s');
+  near(U.windVal(10), Math.round(10 * 0.514444), 1e-9, 'windVal(10) = 5 m/s');
+  ok(U.windVal(0) === 0, 'windVal(0) is 0');
+  ok(U.windTxt(10).includes('m/s'), 'windTxt(10) contains m/s');
+  U.setWindUnit('kn');
+  ok(U.windUnit() === 'kn', 'unit is kn');
+  ok(U.windUnitLabel() === 'kn', 'label is kn');
+  near(U.windVal(10), 10, 1e-9, 'windVal(10) = 10 kn');
+  ok(U.windTxt(10).includes('kn'), 'windTxt(10) contains kn');
+  U.setWindUnit('bogus');
+  ok(U.windUnit() === 'ms', 'bogus falls back to ms');
+  U.setWindUnit('ms'); // reset so other tests are unaffected
+});
 test('U.noise1 smooth in [-1,1], deterministic', () => {
   let prev = U.noise1(5, 0);
   for (let t = 0; t < 50; t += 0.05) {
