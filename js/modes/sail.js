@@ -727,7 +727,7 @@
       S.luffT -= dt;
       if (boat.luffing && !boat.inIrons && S.luffT <= 0) { sfx('luff', { vol: 0.35 }); S.luffT = 0.9; if (!controls.autoTrim) tip('luff'); }
       if (boat.stalled && !controls.autoTrim && Math.abs(boat.speed) > 0.3) tip('stall');
-      if (cls.keel && !controls.autoHike && boat.tws > U.ms(10) && Math.abs(boat.heel) > U.rad(cls.optHeel + 3) && boat.hike < 0.3) tip('rail');
+      if (cls.keel && !controls.autoHike && boat.tws > 10 && Math.abs(boat.heel) > U.rad(cls.optHeel + 3) && boat.hike < 0.3) tip('rail');
       const base = wind.base ? wind.base.speed : P.windKn;
       const gusty = boat.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.4 }); floatText(t('sail.fx.gust'), '#9fe7ff'); if (S.time > 8) tip('gust'); }

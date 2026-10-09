@@ -891,7 +891,7 @@
       const kn = U.kn(Math.abs(me.speed)); if (kn > S.topKn) S.topKn = kn;
       // gusts
       const base = wind.base ? wind.base.speed : P.windKn;
-      if (cls.keel && !controls.autoHike && me.tws > U.ms(10) && Math.abs(me.heel) > U.rad(cls.optHeel + 3) && me.hike < 0.3 && S.raceT > 10) tip('rail');
+      if (cls.keel && !controls.autoHike && me.tws > 10 && Math.abs(me.heel) > U.rad(cls.optHeel + 3) && me.hike < 0.3 && S.raceT > 10) tip('rail');
       const gusty = me.tws > base * 1.18;
       if (gusty && !S.gustOn) { S.gustOn = true; sfx('whoosh', { vol: 0.35 }); floatText(t('race.fx.gust'), '#9fe7ff'); if (S.raceT > 15) tip('gust'); }
       else if (!gusty && me.tws < base * 1.08) S.gustOn = false;
