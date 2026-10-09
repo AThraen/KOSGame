@@ -19,6 +19,7 @@
     SUN: { x: 0.20, y: 0.30 }, // world shadow offset per metre of height (light from NW, above), tunable
     BIAS: 0.06,          // chase-cam camera bias (fraction of h), §3.3
     ZOOM_MUL: 1.0,       // zoom multiplier under tilt (tunable, unused at 1)
+    BUOY_SCALE: 1.0,     // size of the upright buoy / mark sprite under tilt (tunable)
     HMAX: 12,            // tallest upright thing (m): J70 mast + spinnaker head, for viewItems
     force: null,         // dev override: true/false bypasses the setting (#tilt=on, KOS_TILT, perf --tilt)
     chase: false,        // dev flag #chase=1 (chase cam, step 4)

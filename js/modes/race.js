@@ -443,6 +443,8 @@
       showWindArrow: true, showNoGo: false, showLaylines: false });
     const pathLine = { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, kind: 'path' };
     scene.addOverlay(drawWorld);
+    // under tilt the committee boat is a depth-sorted scene prop (its mast must not paint over boats south of it); flat keeps the overlay call
+    scene.props.push({ x: com.x, y: com.y, draw(ctx, sc, tl) { if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: sc.t, windDir: wind.dir, flags: committeeFlags(), tilt: tl }); } });
     scene.addOverlay(drawTargetArrow, { screen: true });
     let userZoom = 1;
     function applyZoom() {
@@ -1106,14 +1108,17 @@
     }
 
     // ==================================================================== drawing
-    function drawWorld(ctx, sc) {
-      const mpp = sc.mpp, tm = sc.t;
-      // committee boat with the signal flags
+    function committeeFlags() {
       const fl = [];
       if (S.flags.cls) fl.push((CLASS_FLAG[clsId] || CLASS_FLAG.opti).bg);
       if (S.flags.P) fl.push('#1a5fd4');
       if (S.flags.X) fl.push('#ffffff');
-      if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: tm, windDir: wind.dir, flags: fl.length ? fl : ['#ff7a1a'] });
+      return fl.length ? fl : ['#ff7a1a'];
+    }
+    function drawWorld(ctx, sc) {
+      const mpp = sc.mpp, tm = sc.t;
+      // committee boat with the signal flags (tilted: drawn by the scene prop, depth-sorted)
+      if (!sc._tilt && KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: tm, windDir: wind.dir, flags: committeeFlags() });
       // favoured end sparkle (easy / normal, prestart)
       if (S.phase === 'pre' && assist !== 'pro' && Math.abs(P.bias || 0) >= 3 && S.sig.prep) {
         const e = P.bias > 0 ? pin : com, r = Math.max(4, 22 * mpp) * (1 + 0.15 * Math.sin(tm * 5));

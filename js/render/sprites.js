@@ -1189,6 +1189,7 @@
   // drawBuoy: ctx in world meters; draws upright (counter-rotates camera rot).
   function drawBuoy(ctx, kind, x, y, opts) {
     opts = opts || {};
+    if (opts.tilt) return drawBuoyTilted(ctx, kind, x, y, opts);
     const t = opts.t || 0, ppm = opts.ppm || 20, sc = opts.scale || 1.5;
     const def = buoyDef(kind);
     const ph = (x * 0.37 + y * 0.71) % 6.28;
@@ -1236,6 +1237,7 @@
 
   // committee boat (top view, anchored head to wind), with flags streaming downwind
   function drawCommittee(ctx, x, y, heading, opts) {
+    if (opts.tilt) return drawCommitteeTilted(ctx, x, y, heading, opts);
     const t = opts.t || 0, L = 9, B = 3.1;
     const g = { L, B, bowW: 0, pb: 0.55, maxAt: 0.55, sternW: 0.85, bowArc: 0.02, sternArc: 0.02 };
     const yaw = Math.sin(t * 0.3 + x) * 0.06;
@@ -1269,6 +1271,144 @@
     for (let i = N; i >= 0; i--) { const s = i / N, wave = Math.sin(s * 6 - t * 9) * 0.12 * s; ctx.lineTo(w / 2 + wave, -s * len); }
     ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.04; ctx.stroke();
     if (pattern === 'P') { ctx.fillStyle = '#fff'; ctx.fillRect(-w * 0.22, -len * 0.7, w * 0.44, len * 0.4); }
+    ctx.restore();
+  }
+
+  // ---- Tilted view: buoys, marks, committee boat, flags, flagpole (docs/specs/tilt-camera.md §4) -----------------------
+  // Buoys / marks: the upright sprite is a billboard at the projected foot point, same pixel size as flat (Z*scale px per
+  // sprite unit, times KOS.Tilt.BUOY_SCALE), no rotate (camera rot is in the projection). The ring and the shadow lie on the
+  // squashed ground (world transform still active), the shadow stretched along SUN by the sprite height. Flag and light code
+  // mirror drawBuoy; keep both in sync.
+  const tB = { x: 0, y: 0 };
+  function drawBuoyTilted(ctx, kind, x, y, opts) {
+    const T = opts.tilt, TL = KOS.Tilt;
+    const t = opts.t || 0, ppm = opts.ppm || 20, sc = opts.scale || 1.5;
+    const def = buoyDef(kind);
+    const ph = (x * 0.37 + y * 0.71) % 6.28;
+    const bob = Math.sin(t * 1.9 + ph) * 0.06, tilt = Math.sin(t * 1.3 + ph * 1.7) * 0.07;
+    ctx.save();
+    // ground, in sprite units scaled to metres: ring + shadow along SUN (the pole tip lands at SUN * height)
+    ctx.translate(x, y); ctx.scale(sc, sc);
+    const H = -def.top, S3 = TL.SUN, fr = 0.5 + 0.5 * Math.sin(t * 2.4 + ph);
+    ctx.fillStyle = 'rgba(0,25,60,0.22)'; ctx.beginPath();
+    ctx.ellipse(S3.x * H * 0.5, S3.y * H * 0.5, Math.hypot(S3.x, S3.y) * H * 0.5 + def.w * 0.3, def.w * 0.28, Math.atan2(S3.y, S3.x), 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.35 + 0.3 * fr) + ')'; ctx.lineWidth = 0.07;
+    ctx.beginPath(); ctx.arc(0, 0, def.w * (0.5 + 0.07 * fr), 0, TAU); ctx.stroke();
+    // the billboard, in screen space
+    const p = TL.project(T, x, y, 0, tB), d = T.dpr, zs = T.Z * sc * (TL.BUOY_SCALE || 1);
+    ctx.setTransform(d * zs, 0, 0, d * zs, d * (p.x + T.shx), d * (p.y + T.shy));
+    ctx.translate(0, bob); ctx.rotate(tilt);
+    const s = buoySprite(kind, ppm * sc);
+    if (s) ctx.drawImage(s.canvas, s.x0, s.y0, s.w, s.h); else paintShapes(ctx, def.shapes);
+    if (def.flag) { // side-view flag streaming downwind (screen side from the projected wind)
+      const dir = opts.windDir != null ? (Math.sin(opts.windDir + PI - (opts.rot || 0)) >= 0 ? 1 : -1) : 1;
+      ctx.beginPath(); ctx.moveTo(0, -2.4);
+      for (let i = 1; i <= 6; i++) { const u = i / 6; ctx.lineTo(dir * u * 0.95, -2.4 + Math.sin(u * 5 - t * 8) * 0.07 * u + u * 0.04); }
+      for (let i = 6; i >= 0; i--) { const u = i / 6; ctx.lineTo(dir * u * 0.95, -1.95 + Math.sin(u * 5 - t * 8 + 0.4) * 0.07 * u - u * 0.04); }
+      ctx.closePath(); ctx.fillStyle = def.flag; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.03; ctx.stroke();
+    }
+    const L = parseLight(opts.light);
+    if (L) {
+      const lv = lightLevel(L, t + (ph % 1.3));
+      if (lv > 0) { // glow at the sprite top = project(x, y, top)
+        const night = opts.night || 0, r = 0.6 + night * 2.4;
+        ctx.globalCompositeOperation = 'lighter';
+        const gr = ctx.createRadialGradient(0, def.top, 0, 0, def.top, r);
+        const c = LIGHT_COL[L.col] || LIGHT_COL.W;
+        gr.addColorStop(0, rgba(c, 0.95)); gr.addColorStop(0.25, rgba(c, 0.55 + night * 0.3)); gr.addColorStop(1, rgba(c, 0));
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, def.top, r, 0, TAU); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, def.top, 0.09, 0, TAU); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+  // sprite height in sprite units (metres = this * the draw scale): scene.drawNight puts glows at light height with it
+  function buoyTop(kind) { return -buoyDef(kind).top; }
+
+  // An upright flag hanging from (X0, Y0) (screen CSS px, shake included), streaming along the world direction
+  // (-sin dir, cos dir): `dir` is the wind-from heading, so the flag points downwind. The cloth is a vertical plane: length
+  // along the projected ground direction, width straight down the screen, ripple sideways on the ground. amp/freq/spd shape
+  // the ripple (metres at the free end). Geometry mirrors drawFlag (same ripple, same P-flag block).
+  const tFl = { x: 0, y: 0 };
+  function flagPt(T, X0, Y0, ex, ey, s, a, wv, len, w) { // s 0..1 along, a 0 (top edge) .. 1 (bottom edge)
+    const Z = T.Z, cr = T.cr, sr = T.sr, al = s * len;
+    tFl.x = X0 + Z * ((ex * cr - ey * sr) * al + (-ey * cr - ex * sr) * wv);
+    tFl.y = Y0 + Z * (((ex * sr + ey * cr) * al + (-ey * sr + ex * cr) * wv) * T.k + a * w * T.s);
+    return tFl;
+  }
+  function drawFlagUp(ctx, T, X0, Y0, dir, col, t, len, w, amp, freq, spd, pattern) {
+    const ex = -Math.sin(dir), ey = Math.cos(dir), N = 8;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const s = i / N, p = flagPt(T, X0, Y0, ex, ey, s, 0, Math.sin(s * freq - t * spd) * amp * s, len, w); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+    for (let i = N; i >= 0; i--) { const s = i / N, p = flagPt(T, X0, Y0, ex, ey, s, 1, Math.sin(s * freq - t * spd) * amp * s, len, w); ctx.lineTo(p.x, p.y); }
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+    if (pattern === 'P') { // white centre block (0.3..0.7 along, 0.28..0.72 across, as drawFlag)
+      ctx.fillStyle = '#fff'; ctx.beginPath();
+      for (let i = 0; i < 4; i++) { const s = i === 0 || i === 3 ? 0.3 : 0.7, p = flagPt(T, X0, Y0, ex, ey, s, i < 2 ? 0.28 : 0.72, Math.sin(s * freq - t * spd) * amp * s, len, w); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+      ctx.closePath(); ctx.fill();
+    } else if (pattern === 'DK') { // Dannebrog: white cross, vertical bar at 0.36 of the length
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, 0.45 * T.Z * T.s); ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const s = i / N, p = flagPt(T, X0, Y0, ex, ey, s, 0.5, Math.sin(s * freq - t * spd) * amp * s, len, w); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+      const sv = 0.36, wv = Math.sin(sv * freq - t * spd) * amp * sv, p0 = flagPt(T, X0, Y0, ex, ey, sv, 0, wv, len, w), ax = p0.x, ay = p0.y, p1 = flagPt(T, X0, Y0, ex, ey, sv, 1, wv, len, w);
+      ctx.moveTo(ax, ay); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    }
+  }
+  // club flagpole: a post to z=8 with the Dannebrog upright at the top; the shadow lies along SUN (world transform active on entry)
+  function drawFlagpoleTilted(ctx, l, windDir, t, T) {
+    const TL = KOS.Tilt, S3 = TL.SUN, h = 8;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(40,40,30,0.25)'; ctx.lineWidth = 0.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(l.x + S3.x * h, l.y + S3.y * h); ctx.stroke();
+    ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.arc(l.x, l.y, 0.45, 0, TAU); ctx.fill();
+    const p0 = TL.project(T, l.x, l.y, 0, {}), p1 = TL.project(T, l.x, l.y, h, {}), d = T.dpr;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    const pw = Math.max(2, T.Z * 0.3); ctx.beginPath(); ctx.moveTo(p0.x + T.shx, p0.y + T.shy); ctx.lineTo(p1.x + T.shx, p1.y + T.shy);
+    ctx.strokeStyle = 'rgba(90,85,70,0.55)'; ctx.lineWidth = pw + 1.5; ctx.stroke(); ctx.strokeStyle = '#f2f2f2'; ctx.lineWidth = pw; ctx.stroke(); // outlined: pale post on sand
+    drawFlagUp(ctx, T, p1.x + T.shx, p1.y + T.shy, windDir, '#c8102e', t, 4.2, 3, 0.35, 5, 8, 'DK');
+    ctx.restore();
+  }
+
+  // Committee boat in the tilted view: flat hull with a freeboard band (0.6 m), cabin box, stern mast post (z=4) with upright
+  // flags, shadows along SUN. Race runs it as a scene prop (§4.6) so it depth-sorts with the boats. The deck mirrors
+  // drawCommittee; keep both in sync.
+  const cBoat = { x: 0, y: 0, heading: 0 };
+  function drawCommitteeTilted(ctx, x, y, heading, opts) {
+    const T = opts.tilt, TL = KOS.Tilt, t = opts.t || 0, L = 9, B = 3.1, FB = 0.6, MH = 4, my = 2.6;
+    const g = { L, B, bowW: 0, pb: 0.55, maxAt: 0.55, sternW: 0.85, bowArc: 0.02, sternArc: 0.02 };
+    const yaw = Math.sin(t * 0.3 + x) * 0.06, Hd = heading + yaw, cH = Math.cos(Hd), sH = Math.sin(Hd), dpr = T.dpr, Zp = T.Z;
+    cBoat.x = x; cBoat.y = y; cBoat.heading = Hd;
+    const M = TL.boatMatrix(null, T, cBoat, 0, tM), SM = TL.shadowMatrix(null, T, cBoat, 0, tSM);
+    tW[0] = cH; tW[1] = sH; tW[2] = 0; tW[3] = -sH; tW[4] = cH; tW[5] = 0; tW[6] = 0; tW[7] = 0; tW[8] = 1;
+    const hull = path2d(outlineD(g, 0));
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    // shadows through P·S·W
+    deckT(ctx, SM, FB, T); ctx.fillStyle = SHADOW_T; ctx.fill(hull);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawPost(ctx, SM, T, 0, my, FB, 0, my, MH, SHADOW_T, Math.max(1.5, 0.1 * Zp));
+    // anchor line forward, on the water
+    deckT(ctx, M, 0, T);
+    ctx.strokeStyle = 'rgba(30,30,30,0.5)'; ctx.lineWidth = 0.05; ctx.setLineDash([0.3, 0.2]); ctx.beginPath(); ctx.moveTo(0, -L / 2); ctx.lineTo(0, -L / 2 - 4); ctx.stroke(); ctx.setLineDash([]);
+    // side band: z=0 and a middle slice, plus a px-wide stroke between them (no bow/stern notches)
+    ctx.fillStyle = '#c3ccd8'; ctx.fill(hull);
+    deckT(ctx, M, FB / 2, T); ctx.fill(hull);
+    const op = outlinePts(g);
+    ctx.beginPath(); ctx.moveTo(op[0][0], op[0][1]); for (let i = 1; i < op.length; i++) ctx.lineTo(op[i][0], op[i][1]); ctx.closePath();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.strokeStyle = '#c3ccd8'; ctx.lineWidth = FB * Zp * T.s; ctx.stroke();
+    // deck plane at z = FB: the flat deck of drawCommittee
+    deckT(ctx, M, FB, T);
+    ctx.fillStyle = '#ffffff'; ctx.fill(hull); ctx.strokeStyle = '#1c3f7a'; ctx.lineWidth = 0.18; ctx.stroke(path2d(outlineD(g, 0.08)));
+    ctx.fillStyle = '#eef1f5'; ctx.fill(path2d(outlineD(g, 0.3)));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sternNear = depthOf(tW, T, 0, 1, 0) > 0; // stern toward the viewer: the mast is drawn after the cabin, else before
+    if (!sternNear) drawPost(ctx, M, T, 0, my, FB, 0, my, MH, '#5b6470', Math.max(1.5, 0.1 * Zp));
+    box3(ctx, M, T, tW, 0, 0, 1.0, 1.6, 0, FB, FB + 1.1, '#c7ced8', '#b3bcc8', '#d9dfe6');
+    if (depthOf(tW, T, 0, -1, 0) > 0) quad3(ctx, M, T, -0.85, -1.6, FB + 0.55, 0.85, -1.6, FB + 0.55, 0.85, -1.6, FB + 0.95, -0.85, -1.6, FB + 0.95, 'rgba(60,100,140,0.75)');
+    if (sternNear) drawPost(ctx, M, T, 0, my, FB, 0, my, MH, '#5b6470', Math.max(1.5, 0.1 * Zp));
+    // flags hang from the mast top, streaming downwind (windDir is the wind-from heading)
+    const top = prj(M, T, 0, my, MH), fx = top.x, fy = top.y, wdir = opts.windDir || 0;
+    const flags = opts.flags || ['#ff7a1a', '#1a7fd4'];
+    for (let i = 0; i < flags.length; i++) drawFlagUp(ctx, T, fx, fy + i * 0.15 * Zp * T.s, wdir + (i - 0.5) * 0.25, flags[i], t + i * 0.7, 1.6, 1.04, 0.12, 6, 9, i === 1 ? 'P' : null);
     ctx.restore();
   }
 
@@ -1463,7 +1603,7 @@
   KOS.Sprites = {
     GEO, CLASS_IDS, geo, halfW, colorsOf, outlineD,
     boat: boatSvg, rib: ribSvg, buoy: buoySvg, mark: markSvg, sail, boatCard, avatar, icon,
-    drawBoat, drawBoatTilted, drawBuoy, drawMark, drawCommittee, drawFlag, drawSailor,
+    drawBoat, drawBoatTilted, drawBuoy, drawMark, drawCommittee, drawFlag, drawSailor, buoyTop, drawFlagUp, drawFlagpoleTilted,
     hullSprite, buoySprite, parseLight, lightLevel, buoyKinds: Object.keys(BUOYS),
     shapesToSvg, paintShapes, shade, rgba, palettes: { JACKETS, HAIR, SKIN, HELMETS },
     clearCache() { hullCache.clear(); buoySpriteCache.clear(); },

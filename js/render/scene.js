@@ -69,6 +69,7 @@
     const TL = KOS.Tilt;
     this._tiltWant = TL && TL.force != null ? (TL.force ? 1 : 0) : opts.tilt ? 1 : 0;
     this._tiltT = this._tiltWant; this._tilt = null; this._tiltBuf = {};
+    this.props = []; // depth-sorted extras from modes: { x, y, draw(ctx, scene, tilt) }; iterated only under tilt (§4.6)
     this.kY = 1; this.viewItems = this.view; this.chase = !!(TL && TL.chase);
     if (opts.follow) this.follow(opts.follow);
     else if (this.venue && this.venue.spawn) { this.camera.x = this.venue.spawn.x; this.camera.y = this.venue.spawn.y; }
@@ -240,6 +241,7 @@
       if (this.venue && this.venue.buoys) for (const b of this.venue.buoys) if (b.x > v.x0 - 10 && b.x < v.x1 + 10 && b.y > v.y0 - 10 && b.y < v.y1 + 10) items.push({ y: dep(TL, b.x, b.y), k: 0, o: b });
       for (const m of this.marks) if (m && m.x > v.x0 - 20 && m.x < v.x1 + 20 && m.y > v.y0 - 20 && m.y < v.y1 + 20) items.push({ y: dep(TL, m.x, m.y), k: 1, o: m });
       for (const b of this.boats) if (b && !b.hidden && b.x > v.x0 - 30 && b.x < v.x1 + 30 && b.y > v.y0 - 30 && b.y < v.y1 + 30) items.push({ y: dep(TL, b.x, b.y), k: 2, o: b });
+      for (const p of this.props) if (p && p.x > v.x0 - 30 && p.x < v.x1 + 30 && p.y > v.y0 - 30 && p.y < v.y1 + 30) items.push({ y: dep(TL, p.x, p.y), k: 3, o: p });
     } else {
     const v = this.view;
     if (this.venue && this.venue.buoys) for (const b of this.venue.buoys) if (b.x > v.x0 - 10 && b.x < v.x1 + 10 && b.y > v.y0 - 10 && b.y < v.y1 + 10) items.push({ y: b.y, k: 0, o: b });
@@ -247,11 +249,13 @@
     for (const b of this.boats) if (b && !b.hidden && b.x > v.x0 - 30 && b.x < v.x1 + 30 && b.y > v.y0 - 30 && b.y < v.y1 + 30) items.push({ y: b.y, k: 2, o: b });
     }
     items.sort((a, b) => a.y - b.y);
+    this._items = items; // (debug handle: last frame's depth-sorted list)
     const S2 = KOS.Sprites, wd = wind.dir || 0, rot = this.camera.rot;
     for (const it of items) {
       if (!S2) break;
-      if (it.k === 0) S2.drawBuoy(ctx, it.o.kind, it.o.x, it.o.y, { t, ppm, light: it.o.light, night: this.night, rot, scale: 1.5 });
-      else if (it.k === 1) { S2.drawMark(ctx, it.o, { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night }); this.drawMarkExtras(ctx, it.o, t); }
+      if (it.k === 3) { ctx.save(); try { it.o.draw(ctx, this, this._tilt); } catch (e) { if (!this._ovErr) { this._ovErr = 1; console.error(e); } } ctx.restore(); }
+      else if (it.k === 0) S2.drawBuoy(ctx, it.o.kind, it.o.x, it.o.y, this._tilt ? { t, ppm, light: it.o.light, night: this.night, rot, scale: 1.5, windDir: wd, tilt: this._tilt } : { t, ppm, light: it.o.light, night: this.night, rot, scale: 1.5 });
+      else if (it.k === 1) { S2.drawMark(ctx, it.o, this._tilt ? { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night, tilt: this._tilt } : { t, ppm, windDir: wd, rot, scale: it.o.scale || 1.6, night: this.night }); this.drawMarkExtras(ctx, it.o, t); }
       else {
         const b = it.o, isT = b === this.target;
         if (this._tilt) S2.drawBoat(ctx, b, { t, ppm, highlight: isT && this.opts.highlightPlayer !== false, alpha: b.ghost ? 0.45 : undefined, tilt: this._tilt, target: isT });
@@ -264,6 +268,7 @@
     if (this.night > 0) this.drawNight(ctx, t);
     if (this.showWindArrow && this.target) this.drawWindArrow(ctx, t);
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this._tilt) this.drawHaze(ctx); // under the HUD / target arrows, over the world
     for (const fn of this.screenOverlays) { try { ctx.save(); fn(ctx, this); ctx.restore(); } catch (e) {} }
     // soft vignette
     if (!this._vig || this._vig.w !== this.w || this._vig.h !== this.h) {
@@ -271,6 +276,21 @@
       g.addColorStop(0, 'rgba(5,15,35,0)'); g.addColorStop(1, 'rgba(5,15,35,0.28)'); this._vig = { w: this.w, h: this.h, g };
     }
     ctx.fillStyle = this._vig.g; ctx.fillRect(0, 0, this.w, this.h);
+  };
+
+  // Tilted view: sky haze at the top of the screen for depth (§3.5): a vertical gradient over the top 22% plus a 2 px glint at
+  // y=0, strength T*zoomFade (0 at the venue overview). Gradient cached per (h, alpha step, night).
+  S.drawHaze = function (ctx) {
+    const T = this._tilt, a = T.T * T.zf; if (a < 0.02) return;
+    const q = Math.round(a * 20), nt = this.night > 0.3 ? 1 : 0, h = this.h, key = h + ':' + q + ':' + nt;
+    let hz = this._haze;
+    if (!hz || hz.key !== key) {
+      const n = nt ? '20,30,60' : '200,225,245', aa = q / 20, g = ctx.createLinearGradient(0, 0, 0, h * 0.22);
+      g.addColorStop(0, 'rgba(' + n + ',' + 0.55 * aa + ')'); g.addColorStop(1, 'rgba(' + n + ',0)');
+      hz = this._haze = { key, g, glint: 'rgba(255,255,255,' + 0.1 * aa + ')' };
+    }
+    ctx.fillStyle = hz.g; ctx.fillRect(0, 0, this.w, h * 0.22);
+    ctx.fillStyle = hz.glint; ctx.fillRect(0, 0, this.w, 2);
   };
 
   S._soundHooks = function () {
@@ -571,6 +591,7 @@
     for (const l of v.landmarks || []) {
       if (l.x < vw.x0 - 20 || l.x > vw.x1 + 20 || l.y < vw.y0 - 20 || l.y > vw.y1 + 20) continue;
       if (l.kind === 'flagpole') {
+        if (this._tilt && KOS.Sprites) { KOS.Sprites.drawFlagpoleTilted(ctx, l, wd, t, this._tilt); continue; } // post to z=8, flag upright
         ctx.fillStyle = 'rgba(40,40,30,0.3)'; ctx.beginPath(); ctx.arc(l.x + 1.2, l.y + 1.5, 0.5, 0, TAU); ctx.fill();
         ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.arc(l.x, l.y, 0.45, 0, TAU); ctx.fill();
         if (KOS.Sprites) this.drawDannebrog(ctx, l.x, l.y, wd + PI, t);
@@ -765,8 +786,10 @@
   // night: darken and re-light buoys, lighthouses and boats' navigation lights
   S.drawNight = function (ctx, t) {
     const k = clamp(this.night, 0, 1), vw = this.view;
+    const TL = this._tilt; // tilted: darken in screen space, glows sit at light height (§5)
     ctx.save(); ctx.fillStyle = 'rgba(6,12,38,' + 0.72 * k + ')';
-    ctx.fillRect(vw.x0 - 5, vw.y0 - 5, vw.x1 - vw.x0 + 10, vw.y1 - vw.y0 + 10);
+    if (TL) { ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); ctx.fillRect(0, 0, this.w, this.h); }
+    else ctx.fillRect(vw.x0 - 5, vw.y0 - 5, vw.x1 - vw.x0 + 10, vw.y1 - vw.y0 + 10);
     ctx.globalCompositeOperation = 'lighter';
     const S2 = KOS.Sprites; if (!S2) { ctx.restore(); return; }
     const glow = (x, y, col, r, a) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, S2.rgba(col, a)); g.addColorStop(0.2, S2.rgba(col, a * 0.5)); g.addColorStop(1, S2.rgba(col, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); };
@@ -774,16 +797,24 @@
     const lightsAt = [];
     const v = this.venue;
     if (v) { for (const b of v.buoys || []) if (b.light) lightsAt.push(b); for (const l of v.lights || []) lightsAt.push(l); for (const l of v.landmarks || []) if (l.kind === 'lighthouse') lightsAt.push(l); }
-    const R = 40 * this.mpp;
+    const R = 40 * this.mpp, lz = (L) => (L.kind === 'lighthouse' ? 12 : S2.buoyTop && L.kind && L.light ? S2.buoyTop(L.kind) * 1.5 : 3); // light height under tilt: lighthouse 12 m, buoy sprite top, else 3 m
     for (const L of lightsAt) {
       if (L.x < vw.x0 - 30 || L.x > vw.x1 + 30 || L.y < vw.y0 - 30 || L.y > vw.y1 + 30) continue;
       const pl = S2.parseLight(L.light); if (!pl) continue;
       const on = S2.lightLevel(pl, t + ((L.x * 0.37 + L.y * 0.71) % 6.28) % 1.3);
-      if (on) glow(L.x, L.y - 3, COL[L.color] || COL[pl.col] || COL.W, Math.max(6, R), 0.9 * k);
+      if (on) {
+        if (TL) { const q = this.project(L.x, L.y, lz(L)); glow(q.x + TL.shx, q.y + TL.shy, COL[L.color] || COL[pl.col] || COL.W, Math.max(6 * TL.Z, 40), 0.9 * k); }
+        else glow(L.x, L.y - 3, COL[L.color] || COL[pl.col] || COL.W, Math.max(6, R), 0.9 * k);
+      }
     }
     for (const b of this.boats) {
       if (!b || b.hidden || b.x < vw.x0 - 20 || b.x > vw.x1 + 20 || b.y < vw.y0 - 20 || b.y > vw.y1 + 20) continue;
       const L = boatLen(b), h = b.heading || 0, fx = Math.sin(h), fy = -Math.cos(h), rx = Math.cos(h), ry = Math.sin(h);
+      if (TL) { // nav lights at ~0.8 m, glow radius in px
+        const r = Math.max(2.5 * TL.Z, 14), gl = (x, y, col, a) => { const q = this.project(x, y, 0.8); glow(q.x + TL.shx, q.y + TL.shy, col, r, a); };
+        gl(b.x + fx * L * 0.4 - rx * 0.4, b.y + fy * L * 0.4 - ry * 0.4, COL.R, 0.9 * k); gl(b.x + fx * L * 0.4 + rx * 0.4, b.y + fy * L * 0.4 + ry * 0.4, COL.G, 0.9 * k); gl(b.x - fx * L * 0.5, b.y - fy * L * 0.5, COL.W, 0.8 * k);
+        continue;
+      }
       const r = Math.max(2.5, 14 * this.mpp);
       glow(b.x + fx * L * 0.4 - rx * 0.4, b.y + fy * L * 0.4 - ry * 0.4, COL.R, r, 0.9 * k);
       glow(b.x + fx * L * 0.4 + rx * 0.4, b.y + fy * L * 0.4 + ry * 0.4, COL.G, r, 0.9 * k);
