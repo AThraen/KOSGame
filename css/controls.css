@@ -295,3 +295,74 @@
 .kc-narrow { --kc-jw: 44px; }
 .kc-landscape.kc-nopause.kc-hasboard .kc-extras { right: var(--kc-sl-right); } /* no Input pause button: use its corner */
 .kc-slider.kc-jib .kc-key { right: auto; left: -18px; }
+
+/* ======================================================================================================================
+   Two-thumb layout ("Rorpind + skøde", js: layoutMode() === 'tiller'; the phone default). Left thumb = the tiller drag field,
+   right thumb = the sheet slider at the right edge with SPI / HÆNG UD / FOK / SVÆRD beside it. Sail layouts only; the RIB keeps
+   its wheel (left) and throttle (right).
+   ====================================================================================================================== */
+.kc-tillermode {
+  --kc-tl-w: clamp(190px, 52vw, 250px); --kc-tl-h: 92px; --kc-rb: clamp(58px, 16vw, 70px); --kc-sl-w: 72px;
+  --kc-sl-h: clamp(170px, 27vh, 240px);
+}
+.kc-tiller {
+  position: absolute; box-sizing: border-box; left: var(--kc-sl-left); bottom: var(--kc-sl-bot); width: var(--kc-tl-w); height: var(--kc-tl-h);
+  border-radius: 46px; background: var(--kc-glass); border: 1px solid var(--kc-line); cursor: ew-resize; outline: none;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+.kc-tiller::before { content: ""; position: absolute; inset: -14px -10px -14px -14px; } /* a generous touch area around the pill */
+.kc-tl-track { position: absolute; left: 14px; right: 14px; top: 50%; height: 12px; margin-top: -6px; border-radius: 8px; background: rgba(0, 0, 0, .45);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .5), 0 1px 0 rgba(255, 255, 255, .1); }
+.kc-tl-track i { position: absolute; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 4px; opacity: .8; pointer-events: none; font-style: normal; }
+.kc-tl-track i svg { display: none; }
+.kc-tl-track .kc-tl-l { left: 2px; top: -32px; transform: none; } .kc-tl-track .kc-tl-r { right: 2px; top: -32px; transform: none; }
+.kc-tl-track i b { font-size: 10px; }
+.kc-tl-knob {
+  position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe0a0, var(--kc-hot1) 40%, var(--kc-hot2));
+  border: 2px solid rgba(255, 236, 200, .9); box-shadow: 0 8px 16px rgba(0, 0, 0, .45), inset 0 2px 0 rgba(255, 255, 255, .5);
+  display: flex; align-items: center; justify-content: center; gap: 5px; pointer-events: none;
+  transition: transform .22s cubic-bezier(.3, 1.7, .5, 1);
+}
+.kc-tl-knob i { display: block; width: 4px; height: 24px; border-radius: 2px; background: rgba(60, 25, 5, .45); }
+.kc-tiller.kc-on { box-shadow: 0 0 0 6px rgba(255, 160, 70, .25), 0 8px 22px rgba(0, 0, 0, .35); }
+.kc-tiller.kc-on .kc-tl-knob { transition: none; }
+
+/* the right-thumb cluster, portrait: the sheet at the bottom-right edge, FOK beside it, SPI / HÆNG UD stacked above it */
+.kc-tillermode.kc-sail .kc-sheet { right: var(--kc-sl-right); bottom: var(--kc-sl-bot); }
+.kc-tillermode.kc-sail .kc-jib { right: calc(var(--kc-sl-right) + var(--kc-sl-w) + 8px); bottom: var(--kc-sl-bot); }
+.kc-tillermode.kc-sail .kc-round { width: var(--kc-rb); height: var(--kc-rb); }
+.kc-tillermode.kc-sail .kc-hike { left: auto; right: calc(var(--kc-sl-right) + (var(--kc-sl-w) - var(--kc-rb)) / 2); bottom: calc(var(--kc-sl-bot) + var(--kc-sl) + 30px); }
+.kc-tillermode.kc-sail .kc-spi { left: auto; right: calc(var(--kc-sl-right) + (var(--kc-sl-w) - var(--kc-rb)) / 2 + var(--kc-rb) + 10px); bottom: calc(var(--kc-sl-bot) + var(--kc-sl) + 30px); }
+.kc-tillermode.kc-sail .kc-slider .kc-key, .kc-tillermode.kc-sail .kc-slider.kc-jib .kc-key { display: none; }
+.kc-tillermode.kc-sail .kc-sheet .kc-auto { min-width: 64px; }
+.kc-sheet.kc-nudge .kc-thumb { background: linear-gradient(180deg, #b9f3d3, var(--kc-good)); border-color: #d7ffe9; }
+.kc-sheet.kc-nudge .kc-thumb i { background: rgba(4, 50, 28, .5); }
+.kc-sheet.kc-nudged .kc-auto { background: #fff; color: #06301b; }
+.kc-sheet.kc-nudge .kc-track::after { /* the nudge spring: a little centre notch showing it springs back to auto */
+  content: ""; position: absolute; left: 14px; right: 14px; top: 50%; height: 0; border-top: 1px dashed rgba(62, 224, 143, .0);
+}
+.kc-sheet:not(.kc-autoon) .kc-auto { background: rgba(13, 19, 33, .85); color: rgba(255, 255, 255, .7); }
+
+/* landscape: the sheet moves up into the free top-right corner under the HUD's right end (below the extras row), shorter but
+   still thumb-friendly; HÆNG UD / SPI stack at the bottom, left of it; FOK sits between */
+.kc-landscape.kc-tillermode { --kc-rb: clamp(52px, 16vh, 68px); --kc-tl-w: clamp(190px, 29vw, 250px); --kc-tl-h: clamp(78px, 24vh, 92px); }
+.kc-landscape.kc-tillermode.kc-sail .kc-sheet {
+  top: calc(var(--kc-sl-top) + 80px); bottom: var(--kc-sl-bot); height: auto; max-height: 250px;
+}
+.kc-landscape.kc-tillermode.kc-sail.kc-noextras .kc-sheet { top: calc(var(--kc-sl-top) + 22px); }
+.kc-landscape.kc-tillermode.kc-sail .kc-jib {
+  top: calc(var(--kc-sl-top) + 80px); bottom: var(--kc-sl-bot); height: auto; max-height: 215px; right: calc(var(--kc-sl-right) + var(--kc-sl-w) + 8px);
+}
+.kc-landscape.kc-tillermode.kc-sail.kc-noextras .kc-jib { top: calc(var(--kc-sl-top) + 22px); }
+.kc-landscape.kc-tillermode.kc-sail .kc-hike { left: auto; right: calc(var(--kc-sl-right) + var(--kc-sl-w) + 12px); bottom: calc(var(--kc-sl-bot) + 2px); }
+.kc-landscape.kc-tillermode.kc-sail .kc-spi { left: auto; right: calc(var(--kc-sl-right) + var(--kc-sl-w) + 12px); bottom: calc(var(--kc-sl-bot) + var(--kc-rb) + 10px); }
+.kc-landscape.kc-tillermode.kc-sail.kc-hasjib .kc-hike, .kc-landscape.kc-tillermode.kc-sail.kc-hasjib .kc-spi { right: calc(var(--kc-sl-right) + var(--kc-sl-w) + var(--kc-jw) + 20px); }
+.kc-landscape.kc-tillermode .kc-extras { right: var(--kc-sl-right); }
+.kc-tillermode.kc-sail.kc-short .kc-extra { height: 48px; }
+.kc-narrow.kc-tillermode { --kc-tl-w: 170px; --kc-rb: 56px; }
+@media (prefers-reduced-motion: reduce) { .kc-tl-knob { transition: none; } }
+/* kapsejlads: the flag / standings panel and navigation: the mini chart own the top-right corner (height ~110), so the sheet starts below them */
+.mode-race .kc-landscape.kc-tillermode.kc-sail .kc-sheet, .mode-race .kc-landscape.kc-tillermode.kc-sail .kc-jib,
+.mode-nav .kc-landscape.kc-tillermode.kc-sail .kc-sheet, .mode-nav .kc-landscape.kc-tillermode.kc-sail .kc-jib { top: calc(var(--kc-sl-top) + 130px); }

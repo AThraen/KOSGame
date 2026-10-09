@@ -33,6 +33,7 @@
       'input.camera': 'Kamera', 'input.help': 'Hjælp', 'input.look': 'Kig', 'input.turn': 'Strafrunde', 'input.tow': 'Slæb',
       'input.board': 'Sværd', 'input.boardDown': 'Ned', 'input.boardHalf': 'Halvt', 'input.boardUp': 'Op', 'input.boardHint': 'Sværdet ned, halvt op eller op (B)',
       'input.jib': 'Fok', 'input.jibHint': 'Fokkeskøde: hal ind / fier ud (Q / Z)',
+      'input.tiller': 'Rorpind', 'input.manual': 'MANUEL', 'input.autoHint': 'Skødet trimmer selv – skub for at justere, tryk for manuel',
       'input.neutralHint': 'Frigear – stop motoren (N)', 'input.letFly': 'Slip', 'input.letFlyHint': 'Slip skødet helt, så sejlet blafrer og båden bremser (N)',
     },
     en: {
@@ -45,6 +46,7 @@
       'input.camera': 'Camera', 'input.help': 'Help', 'input.look': 'Look', 'input.turn': 'Penalty turn', 'input.tow': 'Tow',
       'input.board': 'Board', 'input.boardDown': 'Down', 'input.boardHalf': 'Half', 'input.boardUp': 'Up', 'input.boardHint': 'Daggerboard down, half up or up (B)',
       'input.jib': 'Jib', 'input.jibHint': 'Jib sheet: in / out (Q / Z)',
+      'input.tiller': 'Tiller', 'input.manual': 'MANUAL', 'input.autoHint': 'The sheet trims itself – nudge it to adjust, tap for manual',
       'input.neutralHint': 'Neutral – stop the engine (N)', 'input.letFly': 'Let go', 'input.letFlyHint': 'Let the sheet fly so the sail flaps and the boat slows down (N)',
     },
   };
@@ -128,6 +130,34 @@
     } catch (e) { return false; }
   };
 
+  // A phone = a touch device whose short side is under 500 CSS px (or a landscape screen under 900 px wide).
+  // Phones get the two-thumb layout ('tiller': a tiller drag field for the left thumb, the sheet + buttons on the right).
+  function isPhone(env) {
+    env = env || {};
+    const w = env.w != null ? env.w : (typeof window !== 'undefined' ? window.innerWidth : 0);
+    const h = env.h != null ? env.h : (typeof window !== 'undefined' ? window.innerHeight : 0);
+    const touch = env.touch != null ? env.touch : isTouchDevice();
+    if (!touch || !(w > 0) || !(h > 0)) return false;
+    return Math.min(w, h) < 500 || (w > h && w < 900);
+  }
+  // the controls setting ('auto' | 'tiller' | 'buttons' | 'joystick') -> the layout actually used. auto = tiller on phones, buttons elsewhere
+  function resolveControls(setting, env) {
+    if (setting === 'tiller' || setting === 'buttons' || setting === 'joystick') return setting;
+    return isPhone(env) ? 'tiller' : 'buttons';
+  }
+  // Normal assist: the sail trims itself and the sheet slider only nudges (c.trimBias) – this is the nudge -> bias mapping
+  const NUDGE_MAX = 0.45;       // largest trimBias (a fraction of the sheet travel; + = eased out, - = pulled in)
+  const NUDGE_HOLD = 0.9;       // seconds the nudge stays after the finger lifts, then it springs back
+  const NUDGE_TAU = 3.2;        // spring-back time constant (s)
+  function nudgeBias(b0, v0, v) { return clamp(b0 + (v - v0), -NUDGE_MAX, NUDGE_MAX); }
+  function nudgeDecay(b, dt) { b *= Math.exp(-dt / NUDGE_TAU); return Math.abs(b) < 0.004 ? 0 : b; }
+
+  // how far the right-hand controls reach into a landscape screen (edge arrows to targets keep clear of that)
+  function sideR(ctrl) {
+    const el = ctrl && ctrl.el;
+    return el && el.classList.contains('kc-tillermode') && el.classList.contains('kc-sail') ? (el.classList.contains('kc-hasjib') ? 260 : 215) : 150;
+  }
+
   let active = null; // only one ctrl listens to the keyboard at a time
 
   // ---------------------------------------------------------------- attach
@@ -138,14 +168,14 @@
       board: false, jib: false, autoJib: true }, opts || {});
     const listeners = {};
     const state = { steer: 0, sheet: 0.5, sheetDelta: 0, hike: 0, spinnaker: false, throttle: 0, action: false,
-      autoTrim: !!opts.autoTrim, buttons: {}, board: 1, jib: 0.5, autoJib: opts.autoJib !== false };
+      autoTrim: !!opts.autoTrim, trimBias: 0, buttons: {}, board: 1, jib: 0.5, autoJib: opts.autoJib !== false };
     const BOARD_STEPS = [1, 0.5, 0.15];
     let boardIdx = 0, boardShown = 1, idealJ = null;
     // inputs that combine into state
     const keys = new Set();
     const src = { padL: new Set(), padR: new Set(), joyX: 0, wheel: 0, wheelHeld: false, hikeHeld: new Set(),
-      sheetDrag: null, jibDrag: null, thrDrag: null, keyHike: false, keyAction: false, detentHold: false };
-    let ideal = null, enabled = {}, lastSteerSign = 0, raf = 0, lastT = 0, dead = false;
+      sheetDrag: null, nudge: null, nudgeHold: 0, jibDrag: null, thrDrag: null, keyHike: false, keyAction: false, detentHold: false };
+    let curLayout = null, ideal = null, enabled = {}, lastSteerSign = 0, raf = 0, lastT = 0, dead = false;
 
     const ctrl = {
       state, el: null, opts,
@@ -185,27 +215,43 @@
     rootEl.addEventListener('contextmenu', e => e.preventDefault());
 
     function find(id) {
-      const map = { left: '.kc-steer-l', right: '.kc-steer-r', steer: '.kc-steer', sheet: '.kc-sheet', hike: '.kc-hike', spi: '.kc-spi',
+      const map = { left: '.kc-steer-l', right: '.kc-steer-r', steer: '.kc-steer', tiller: '.kc-tiller', sheet: '.kc-sheet', hike: '.kc-hike', spi: '.kc-spi',
         throttle: '.kc-throttle', wheel: '.kc-wheel', joystick: '.kc-joy', pause: '.kc-pause', board: '.kc-board', jib: '.kc-jib' };
       return rootEl.querySelector(map[id] || '[data-btn="' + id + '"]');
     }
     const isOn = id => enabled[id] !== false;
 
     // ------------------------------------------------ DOM
-    function mode() {
-      let m = opts.joystick;
-      if (m == null) { try { const s = KOS.Storage && KOS.Storage.settings && KOS.Storage.settings(); m = s && s.controls === 'joystick'; } catch (e) { m = false; } }
-      return !!m;
+    // the effective layout: 'tiller' | 'buttons' | 'joystick' (opts.controls / opts.joystick override the setting; tests use them)
+    function layoutMode() {
+      if (opts.controls) return resolveControls(opts.controls);
+      if (opts.joystick != null) return opts.joystick ? 'joystick' : 'buttons';
+      let c = 'auto';
+      try { const s = KOS.Storage && KOS.Storage.settings && KOS.Storage.settings(); if (s && s.controls) c = s.controls; } catch (e) {}
+      return resolveControls(c);
     }
+    function mode() { return layoutMode() === 'joystick'; }
+    const tillerOn = () => opts.layout === 'sail' && layoutMode() === 'tiller';
+    // Normal assist: auto-trim stays on and the slider nudges it (opts.nudge overrides the assist setting)
+    function nudgeWanted() {
+      if (opts.nudge != null) return !!opts.nudge;
+      try { const s = KOS.Storage && KOS.Storage.settings && KOS.Storage.settings(); return !!s && s.assist === 'normal'; } catch (e) { return false; }
+    }
+    const nudgeOn = () => opts.layout === 'sail' && state.autoTrim && nudgeWanted();
     function keycap(t) { return '<span class="kc-key">' + t + '</span>'; }
     function render() {
-      const L = opts.layout, joy = mode();
-      rootEl.className = 'kc kc-' + L + (joy ? ' kc-joymode' : '') + (isTouchDevice() ? ' kc-touch' : ' kc-fine') + (opts.pauseButton === false ? ' kc-nopause' : '') + (L === 'sail' && opts.board ? ' kc-hasboard' : '');
+      const L = opts.layout, joy = mode(), tl = tillerOn();
+      curLayout = layoutMode();
+      rootEl.className = 'kc kc-' + L + (joy ? ' kc-joymode' : '') + (tl ? ' kc-tillermode' : '') + (tl && isPhone() ? ' kc-phone' : '') +
+        (opts.jib && L === 'sail' ? ' kc-hasjib' : '') + (!(opts.extraButtons && opts.extraButtons.length) && !(L === 'sail' && opts.board) ? ' kc-noextras' : '') + (isTouchDevice() ? ' kc-touch' : ' kc-fine') + (opts.pauseButton === false ? ' kc-nopause' : '') + (L === 'sail' && opts.board ? ' kc-hasboard' : '');
       let h = '';
       if (opts.pauseButton !== false) h += '<button class="kc-btn kc-pause" type="button" aria-label="' + tr('input.pause') + '">' + ICON.pause + keycap('P') + '</button>';
       if (L === 'sail' || L === 'rib') {
         if (joy) {
           h += '<div class="kc-joy" role="slider" aria-label="' + tr('input.joystick') + '"><div class="kc-joy-base"><i></i><i></i></div><div class="kc-joy-knob"></div>' + keycap('A D') + '</div>';
+        } else if (tl) {
+          h += '<div class="kc-tiller" role="slider" aria-label="' + tr('input.tiller') + '"><div class="kc-tl-track"><i class="kc-tl-l">' + ICON.left + '<b>' + tr('input.left') + '</b></i>' +
+            '<i class="kc-tl-r"><b>' + tr('input.right') + '</b>' + ICON.right + '</i></div><div class="kc-tl-knob"><i></i><i></i><i></i></div>' + keycap('← →') + '</div>';
         } else if (L === 'sail') {
           h += '<div class="kc-pad kc-steer kc-steer-l" role="button" aria-label="' + tr('input.leftHint') + '">' + ICON.left + '<b>' + tr('input.left') + '</b>' + keycap('←') + '</div>';
           h += '<div class="kc-pad kc-steer kc-steer-r" role="button" aria-label="' + tr('input.rightHint') + '">' + ICON.right + '<b>' + tr('input.right') + '</b>' + keycap('→') + '</div>';
@@ -303,6 +349,23 @@
           up: (e, ptrs) => { if (ptrs.size) return; src.joyX = 0; joy.classList.remove('kc-on'); joy.querySelector('.kc-joy-knob').style.transform = ''; },
         });
       }
+      // tiller (phones): a horizontal drag field for the left thumb. The offset from where the thumb landed is the rudder
+      // (proportional, full lock at R px), lifting the thumb centres it.
+      const tl = q('.kc-tiller');
+      if (tl) {
+        let x0 = 0, R = 80;
+        const knob = tl.querySelector('.kc-tl-knob');
+        const upd = e => {
+          const dx = e.clientX - x0, x = clamp(dx / R, -1, 1);
+          knob.style.transform = 'translate(-50%,-50%) translateX(' + (x * R).toFixed(1) + 'px)';
+          src.joyX = Math.abs(x) < 0.05 ? 0 : Math.sign(x) * (Math.abs(x) - 0.05) / 0.95;
+        };
+        press(tl, {
+          down: e => { if (!isOn('steer')) return; x0 = e.clientX; R = clamp(tl.clientWidth * 0.33, 52, 96); tl.classList.add('kc-on'); haptic(8); upd(e); },
+          move: upd,
+          up: (e, ptrs) => { if (ptrs.size) return; src.joyX = 0; tl.classList.remove('kc-on'); knob.style.transform = ''; },
+        });
+      }
       // wheel
       const wh = q('.kc-wheel');
       if (wh) {
@@ -325,16 +388,27 @@
         const track = sh.querySelector('.kc-track');
         const val = e => { const r = track.getBoundingClientRect(), th = 40; const v = clamp((e.clientY - r.top - th / 2) / Math.max(1, r.height - th), 0, 1); return v > 0.93 ? 1 : v; }; // sticky 'all out' end
         press(sh.querySelector('.kc-letfly'), { down: () => { if (isOn('sheet')) letFly(); } });
-        press(sh.querySelector('.kc-auto'), { down: () => { state.autoTrim = !state.autoTrim; haptic(15); sfx('rigClick'); paintSheet(); ctrl.emit('autotrim', state.autoTrim); } });
+        press(sh.querySelector('.kc-auto'), { down: () => {
+          state.autoTrim = !state.autoTrim; state.trimBias = 0; src.nudge = null; haptic(15); sfx('rigClick'); paintSheet(); ctrl.emit('autotrim', state.autoTrim);
+        } });
+        const raw = e => { const r = track.getBoundingClientRect(), th = 40; return clamp((e.clientY - r.top - th / 2) / Math.max(1, r.height - th), 0, 1); };
         press(track, {
           down: e => {
             if (!isOn('sheet')) return;
             src.sheetDrag = e.pointerId; sh.classList.add('kc-on'); haptic(8);
+            if (nudgeOn()) { // Normal: auto-trim stays on, the finger moves the sheet relative to where auto has it
+              src.nudge = { v0: raw(e), s0: state.sheet, b0: state.trimBias };
+              return;
+            }
             if (state.autoTrim) { state.autoTrim = false; ctrl.emit('autotrim', false); }
             setSheetFrom(val(e));
           },
-          move: e => { if (src.sheetDrag === e.pointerId) setSheetFrom(val(e)); },
-          up: e => { if (src.sheetDrag === e.pointerId) { src.sheetDrag = null; sh.classList.remove('kc-on'); state.sheetDelta = keySheetDelta(); } },
+          move: e => {
+            if (src.sheetDrag !== e.pointerId) return;
+            if (src.nudge) { const n = src.nudge, v = raw(e); setNudge(nudgeBias(n.b0, n.v0, v), clamp(n.s0 + (v - n.v0), 0, 1)); return; }
+            setSheetFrom(val(e));
+          },
+          up: e => { if (src.sheetDrag === e.pointerId) { src.sheetDrag = null; if (src.nudge) { src.nudge = null; src.nudgeHold = NUDGE_HOLD; } sh.classList.remove('kc-on'); state.sheetDelta = keySheetDelta(); } },
         });
       }
       // jib slider
@@ -402,6 +476,14 @@
       if (Math.floor(v * 10) !== Math.floor(prev * 10)) sfx('rigClick', { vol: 0.25, pitch: 1.4 - v * 0.6 });
       paintSheet();
     }
+    // nudge: state.trimBias goes to the physics (c.trimBias); the thumb follows the finger meanwhile
+    function setNudge(b, thumb) {
+      const prev = state.trimBias;
+      state.trimBias = b;
+      if (thumb != null) state.sheet = thumb;
+      if (Math.floor(b * 10) !== Math.floor(prev * 10)) { haptic(6); sfx('rigClick', { vol: 0.2, pitch: 1.2 - b * 0.6 }); }
+      paintSheet();
+    }
     function jibManual() { if (state.autoJib) { state.autoJib = false; ctrl.emit('autojib', false); } ctrl.emit('jib', state.jib); }
     function setJibFrom(v) {
       const prev = state.jib;
@@ -452,7 +534,15 @@
       else z.style.display = 'none';
       sh.classList.toggle('kc-good', !!ideal && Math.abs(v - ideal.c) <= ideal.h);
       sh.classList.toggle('kc-autoon', !!state.autoTrim); sh.classList.toggle('kc-out', !state.autoTrim && v >= 1);
-      const a = sh.querySelector('.kc-auto'); if (a) a.setAttribute('aria-pressed', state.autoTrim ? 'true' : 'false');
+      const nu = nudgeOn(), bias = nu ? state.trimBias : 0;
+      sh.classList.toggle('kc-nudge', nu); sh.classList.toggle('kc-nudged', nu && Math.abs(bias) >= 0.03);
+      const a = sh.querySelector('.kc-auto');
+      if (a) {
+        a.setAttribute('aria-pressed', state.autoTrim ? 'true' : 'false'); a.title = tr('input.autoHint');
+        // AUTO (green) = the sail trims itself; AUTO + arrow = you are nudging it (up = pulled in, down = eased out); MANUEL (grey) = all yours
+        const txt = !state.autoTrim ? tr('input.manual') : nu && bias <= -0.03 ? tr('input.auto') + ' ▲' : nu && bias >= 0.03 ? tr('input.auto') + ' ▼' : tr('input.auto');
+        if (a.textContent !== txt) a.textContent = txt;
+      }
     }
     function paintJib() {
       const jb = rootEl.querySelector('.kc-jib'); if (!jb) return;
@@ -487,6 +577,11 @@
       if (r) r.classList.toggle('kc-on', src.padR.size > 0 || kr);
       const w = rootEl.querySelector('.kc-wheel-rot');
       if (w) w.style.transform = 'rotate(' + (state.steer * 135).toFixed(1) + 'deg)';
+      const tlr = rootEl.querySelector('.kc-tiller');
+      if (tlr && !tlr.classList.contains('kc-on')) { // keys / external steering: show the tiller where the rudder is
+        const kx = (kr ? 1 : 0) - (kl ? 1 : 0);
+        tlr.querySelector('.kc-tl-knob').style.transform = kx ? 'translate(-50%,-50%) translateX(' + (kx * tlr.clientWidth * 0.3).toFixed(1) + 'px)' : '';
+      }
       const j = rootEl.querySelector('.kc-joy');
       if (j && !j.classList.contains('kc-on')) {
         const knob = j.querySelector('.kc-joy-knob');
@@ -539,7 +634,7 @@
         const id = k.slice(2);
         if (isOn(id)) { state.buttons[id] = down; if (down) { flashBtn(id); if (id !== 'action') { ctrl.emit(id); ctrl.emit('button', id); } else { state.action = true; ctrl.emit('action'); ctrl.emit('button', id); } } else if (id === 'action') state.action = src.keyAction; }
       } else if ((k === 'U' || k === 'D') && opts.layout === 'sail') {
-        if (down && state.autoTrim) { state.autoTrim = false; ctrl.emit('autotrim', false); paintSheet(); }
+        if (down && state.autoTrim && !nudgeOn()) { state.autoTrim = false; ctrl.emit('autotrim', false); paintSheet(); }
         if (src.sheetDrag == null) state.sheetDelta = keySheetDelta();
       } else if ((k === 'U' || k === 'D') && opts.layout === 'rib') {
         if (!down) src.detentHold = false;
@@ -578,7 +673,17 @@
       const sg = Math.sign(state.steer);
       if (sg !== lastSteerSign) { lastSteerSign = sg; }
 
-      if (opts.layout === 'sail' && src.sheetDrag == null) {
+      if (state.trimBias && !nudgeOn()) { state.trimBias = 0; paintSheet(); }
+      if (nudgeOn() && src.sheetDrag == null) {
+        // nudge with the keys, or let go and the sheet eases back to auto, slowly
+        const d = keySheetDelta();
+        state.sheetDelta = d;
+        if (d) { src.nudgeHold = NUDGE_HOLD; setNudge(clamp(state.trimBias + d * 0.4 * dt, -NUDGE_MAX, NUDGE_MAX), null); }
+        else if (state.trimBias) {
+          if (src.nudgeHold > 0) src.nudgeHold -= dt;
+          else { const b = nudgeDecay(state.trimBias, dt); state.trimBias = b; paintSheet(); }
+        }
+      } else if (opts.layout === 'sail' && src.sheetDrag == null) {
         const d = keySheetDelta();
         state.sheetDelta = d;
         if (d) { const prev = state.sheet; state.sheet = clamp(state.sheet + d * 0.55 * dt, 0, 1); if (state.sheet !== prev) setSheetFrom(state.sheet); state.sheetDelta = d; }
@@ -600,7 +705,7 @@
       paintSteer();
     }
 
-    function onResize() { orient(); }
+    function onResize() { orient(); if (layoutMode() !== curLayout) render(); } // e.g. a rotation that turns a tablet-size window into a phone one
     let ro = null;
     if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(onResize); ro.observe(layer); }
     window.addEventListener('resize', onResize);
@@ -655,11 +760,12 @@
     c.spinnaker = !!state.spinnaker;
     if (state.throttle != null) c.throttle = clamp(state.throttle, -1, 1);
     if (state.autoTrim != null) c.autoTrim = !!state.autoTrim;
+    if (state.trimBias != null) c.trimBias = state.autoTrim ? clamp(+state.trimBias, -NUDGE_MAX, NUDGE_MAX) : 0; // the Normal-assist nudge (auto-trim + bias)
     if (state.board != null) c.board = clamp(+state.board, 0, 1);
     if (state.jib != null) c.jib = clamp(+state.jib, 0, 1);
     if (state.autoJib != null) c.autoJib = !!state.autoJib;
     return c;
   }
 
-  KOS.Input = { attach, toControls, haptic, icons: ICON, isTouchDevice, get active() { return active; } };
+  KOS.Input = { attach, toControls, haptic, icons: ICON, isTouchDevice, isPhone, resolveControls, sideR, nudgeBias, nudgeDecay, NUDGE_MAX, get active() { return active; } };
 })(typeof window !== 'undefined' ? window : globalThis);

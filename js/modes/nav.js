@@ -1279,7 +1279,7 @@
       const color = kind === 'night' ? '#fffbe0' : '#ffb547';
       const p = sc.worldToScreen(tg.x, tg.y), W = sc.w, H = sc.h;
       const hb = hud.el.getBoundingClientRect(), land = H < 500;
-      const m = { l: land ? 150 : 34, r: land ? 150 : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
+      const m = { l: land ? 150 : 34, r: land ? KOS.Input.sideR(ctrl) : 34, t: Math.max(60, hb.bottom + 34), b: land ? 60 : W < 700 ? 190 : 130 };
       const d = Math.round(Math.hypot(tg.x - boat.x, tg.y - boat.y));
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (p.x > m.l && p.x < W - m.r && p.y > m.t && p.y < H - m.b) {
