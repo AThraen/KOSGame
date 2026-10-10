@@ -106,6 +106,8 @@ run in progress and waits until you are back on a menu. Progress, stars and sett
 After changing or adding game files, refresh the offline file list (`node tools/gen-precache.js`) so players get the
 new version.
 
+**Version number.** `js/version.js` holds `KOS.BUILD` (`dev` locally). The Deploy workflow rewrites it before building the precache: a `v*` tag gives e.g. `v0.4.0` (channel `prod`), a push to `main` gives `<latest tag>+<short sha>` (channel `test`). It is shown on the About and Settings screens and included in feedback e-mails.
+
 ## Anonymous usage statistics
 
 So the club can see whether the game is used, it reports anonymous usage to the club's own Matomo server: which screens are opened, which activities

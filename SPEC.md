@@ -329,7 +329,8 @@ hike, boom & sail angle, luff flutter, spinnaker), `buoy(kind)`, `mark(kind)`, `
 Screens (DOM sections in index.html): `title`, `hub`, `area` (activity list for an area), `play`, `results`,
 `settings`, `profile`, `garage` (boat ladder / "Sejlerpas"), `credits`.
 `KOS.App.show(screen, params)`, `KOS.App.play(activityId)`, `KOS.App.back()`. Main loop with fixed step and
-pause on `visibilitychange`. Handles the PWA install prompt and update toast.
+pause on `visibilitychange`.
+`credits` (Om spillet) names the author ("Idé og udvikling: Allan Thraen", a volunteer project for KØS Sejlsport) and, like `settings`, shows the build version (`KOS.BUILD`, js/version.js, stamped by the deploy workflow: `dev` / `v0.4.0` on prod / `<tag>+<sha>` on test) and a feedback block (`KOS.Feedback`, js/ui/feedback.js): "Rapportér en fejl" / "Ønsk en funktion" open a prefilled `mailto:` (version, screen, perf tier, activity, language, settings), "Vis adresse" reveals the address with a copy button. The address is scrambled in source and only assembled on a click (no harvestable literal, no network). Handles the PWA install prompt and update toast.
 Implemented: `KOS.App.suggest()` → the activity a player should do next (curated beginner path `KOS.App.PATH`, then the easiest
 unfinished unlocked activity) — used by the hub's "Næste udfordring" card. `KOS.App.rankOf(xp)` → `{level, key, frac, toNext}`
 (shared by the hub top bar and the Sejlerpas). `KOS.App.BADGES` / `addBadges(defs)`: badge definitions; milestones are checked
