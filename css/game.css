@@ -308,6 +308,11 @@ body.phone-ui.mode-sea .pc-panel.pc-open { top: calc(var(--pc-top) + 42px) !impo
   /* the HUD slides right of the single ⋯ button (right edge 54) and leaves the top-right corner for the extras row */
   body.phone-ui.mode-sea .hud { transform: translateX(max(-50%, calc(var(--safe-l) + 62px - 50vw))); max-width: calc(100% - 72px - var(--safe-l) - var(--safe-r) - 150px); gap: 4px; padding: 4px; }
 }
+/* portrait phones: with only the ⋯ button top-left the HUD fits beside it, at the very top (the goals chip moves up under ⋯) */
+@media (orientation: portrait) and (max-width: 520px) and (min-width: 360px) {
+  body.phone-ui.mode-sea { --pc-top: calc(var(--safe-t) + 68px); }
+  body.phone-ui.mode-sea .hud { top: calc(var(--safe-t) + 10px); transform: translateX(max(-50%, calc(var(--safe-l) + 62px - 50vw))); max-width: calc(100% - 72px - var(--safe-l) - var(--safe-r)); }
+}
 @media (prefers-reduced-motion: reduce) { .play-menu { animation: none; } }
 body.phone-ui.mode-sea .pc-chip.pc-none { display: none; }
 .pc-chip.pc-warn { border-color: var(--bad, #ff4d5e); }
