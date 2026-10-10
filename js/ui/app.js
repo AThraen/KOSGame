@@ -444,8 +444,12 @@
       const row = (act, icon, label, extra) => '<button type="button" class="pm-row' + (extra && extra.on ? ' on' : '') + '" data-pm="' + act + '">' + ico(icon) + '<span>' + esc(label) + '</span>' + ((extra && extra.badge) || '') + '</button>';
       menuScrim = doc.createElement('div'); menuScrim.className = 'play-menu-scrim';
       menuEl = doc.createElement('div'); menuEl.className = 'play-menu glass'; menuEl.setAttribute('role', 'menu');
+      // mode-provided items (host.menuItems: {id, icon, labelKey, show(), on(), run()}), portrait phones only: they replace round
+      // buttons that would otherwise sit over the sailing area (race: spol frem, laylines)
+      const mItems = (run.host && run.host.menuItems && root.matchMedia && root.matchMedia('(orientation: portrait)').matches ? run.host.menuItems : []).filter(it => { try { return !it.show || it.show(); } catch (e) { return false; } });
       menuEl.innerHTML =
         row('pause', 'pause', t('app.pause.title')) +
+        mItems.map((it, i) => row('item' + i, it.icon, t(it.labelKey), { on: it.on && it.on(), badge: it.on ? '<i class="pm-state">' + esc(t(it.on() ? 'app.menu.on' : 'app.menu.off')) + '</i>' : '' })).join('') +
         row('overview', 'map', t('app.menu.overview'), { on: V.overview, badge: '<i class="pm-state">' + esc(t(V.overview ? 'app.menu.on' : 'app.menu.off')) + '</i>' }) +
         '<div class="pm-tilt"><span class="pm-lbl">' + ico('tilt') + '<span>' + esc(t('app.menu.tilt')) + '</span></span><span class="pm-seg" role="group">' +
         [['off', 'app.tilt.off'], ['on', 'app.tilt.on'], ['auto', 'app.tilt.auto']].map(o => '<button type="button" data-tilt="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '"' + (cur === o[0] ? ' class="on"' : '') + '>' + esc(t(o[1])) + '</button>').join('') + '</span></div>' +
@@ -463,7 +467,9 @@
         const b = e.target.closest('[data-pm]'); if (!b) return;
         const act = b.getAttribute('data-pm'); sfx('click');
         menuClose();
-        if (act === 'pause') setPaused(true);
+        const mi = /^item(\d+)$/.exec(act);
+        if (mi && mItems[+mi[1]]) { try { mItems[+mi[1]].run(); } catch (er) { console.error(er); } }
+        else if (act === 'pause') setPaused(true);
         else if (act === 'overview') toggle();
         else if (act === 'install') { setPaused(true); App.install(); }
       });

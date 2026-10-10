@@ -477,10 +477,16 @@
     ctrl.on('turn', () => { if (S.pen) { S.pen.auto = true; sfx('tap'); } });
     ctrl.highlight('layl', S.laylines);
     host.layer.classList.add('race-layer');
+    // portrait phones: spol frem / laylines live in the ⋯ menu (css hides the round buttons there); 'turn' stays on screen while a penalty is owed
+    host.menuItems = [
+      { id: 'ff', icon: 'forward', labelKey: 'race.btn.ff', show: () => S.phase === 'pre' && S.clock < -14, on: () => S.ff, run: () => ctrl.emit('ff') },
+      { id: 'layl', icon: 'compass', labelKey: 'race.btn.layl', on: () => S.laylines, run: () => ctrl.emit('layl') },
+    ];
 
     const hud = KOS.UI.hud(host.layer, ['wind', 'speed', 'timer', 'place']);
     const panel = document.createElement('div');
     panel.className = 'race-panel glass';
+    panel.addEventListener('click', () => panel.classList.toggle('rp-open')); // portrait phones: the one-line chip expands to the full panel (css)
     host.layer.appendChild(panel);
     const card = document.createElement('div');
     card.className = 'race-card';

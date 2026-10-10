@@ -318,27 +318,42 @@ body.phone-ui.mode-sea .pc-chip.pc-none { display: none; }
 .pc-chip.pc-warn { border-color: var(--bad, #ff4d5e); }
 .pc-chip.pc-warn .pc-ico { color: var(--bad, #ff4d5e); }
 
-/* coach bubble with the two-thumb layout, portrait: tall phones park it above the tiller (left of the sheet column); short ones under the chip (above the boat) */
+/* trainer bubble, portrait phones: WIDE and short (full width, ~3 lines) at the top under the HUD, so it never stands as a tall column
+   over the boat. Under the goals chip / race chip row when one is showing. The second slot (.coach-dodge: KOS.UI.coach hops the
+   bubble there when it would cover the player's boat; .coach-ghost when the boat is under both) is low, above the tiller bar and left
+   of the right-thumb column. Desktop / landscape rules are further down and untouched. */
 @media (max-width: 600px) and (orientation: portrait) {
-  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { left: 10px; width: calc(100vw - 20px - 150px); bottom: calc(var(--safe-b) + 128px); top: auto; }
-  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode.kc-hasjib) .coach-bottom { width: calc(100vw - 20px - 150px); }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom { left: 10px; right: auto; width: calc(100vw - 20px); bottom: auto; top: calc(var(--safe-t) + 64px); }
+  body.phone-ui.mode-sea[data-screen="play"]:has(.race-panel, .pc-chip:not(.pc-none)) .coach-bottom { top: calc(var(--safe-t) + 108px); }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bubble { padding: 6px 12px 8px; margin-bottom: 4px; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-name { font-size: .7rem; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-text { font-size: .9rem; line-height: 1.25; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-long .coach-text { font-size: .85rem; line-height: 1.2; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 128px) !important; width: calc(100vw - 20px - 150px) !important; }
 }
-@media (max-width: 600px) and (orientation: portrait) and (max-height: 699px) {
-  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 176px); width: calc(100vw - 20px); }
+/* short phones (iPhone SE class): the low slot is cramped, keep the bubble a little narrower there */
+@media (max-width: 600px) and (orientation: portrait) and (max-height: 620px) {
+  body.phone-ui.mode-sea[data-screen="play"] .coach-avatar { width: 40px; height: 40px; }
 }
-/* the bubble's second slot: KOS.UI.coach hops it here (.coach-dodge) when it would cover the player's boat, and ghosts it
-   (.coach-ghost) when the boat is under both slots. Desktop and tall portrait: up under the HUD (and the goals chip) */
+/* desktop / non-phone: the bubble's second slot is up under the HUD */
 body[data-screen="play"] .coach-bottom.coach-dodge { bottom: auto !important; top: calc(var(--safe-t) + 84px) !important; }
-@media (max-width: 600px) and (orientation: portrait) {
-  body[data-screen="play"] .coach-bottom.coach-dodge { top: calc(var(--safe-t) + 176px) !important; }
-}
-/* short portrait phones park the bubble high by default, so the second slot is low, above the tiller */
-@media (max-width: 600px) and (orientation: portrait) and (max-height: 699px) {
-  body[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 128px) !important; width: calc(100vw - 20px - 150px) !important; }
-}
 /* landscape phones: the bubble lives under the HUD, so the second slot is low between the tiller pad and the sheet column */
 @media (orientation: landscape) and (max-height: 520px) {
   body[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 10px) !important; left: calc(var(--safe-l) + 272px) !important;
     width: min(calc(100vw - 382px - var(--safe-l) - var(--safe-r)), 440px) !important; min-width: 0 !important; transform: none !important; }
 }
 body[data-screen="play"] .coach.coach-ghost { opacity: .12 !important; transition: opacity .2s; }
+@media (max-width: 359px) and (orientation: portrait) {
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom, body.phone-ui.mode-sea[data-screen="play"]:has(.race-panel, .pc-chip:not(.pc-none)) .coach-bottom { top: calc(var(--safe-t) + 172px); }
+}
+/* tiny phones have no room for a low second slot (the right-thumb cluster fills it): the bubble keeps its top slot and just ghosts when the boat is under it */
+@media (orientation: portrait) and (max-width: 359px), (orientation: portrait) and (max-height: 620px) {
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge { top: calc(var(--safe-t) + 108px) !important; bottom: auto !important; width: calc(100vw - 20px) !important; }
+}
+@media (orientation: portrait) and (max-width: 359px) {
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge { top: calc(var(--safe-t) + 172px) !important; }
+}
+/* a goals / lesson panel that is expanded for a few seconds sits under the chip: the bubble waits below it */
+@media (min-width: 360px) and (max-width: 600px) and (orientation: portrait) {
+  body.phone-ui.mode-sea[data-screen="play"]:has(.pc-panel.pc-open) .coach-bottom { top: calc(var(--safe-t) + 168px); }
+}

@@ -366,3 +366,16 @@
 /* kapsejlads: the flag / standings panel and navigation: the mini chart own the top-right corner (height ~110), so the sheet starts below them */
 .mode-race .kc-landscape.kc-tillermode.kc-sail .kc-sheet, .mode-race .kc-landscape.kc-tillermode.kc-sail .kc-jib,
 .mode-nav .kc-landscape.kc-tillermode.kc-sail .kc-sheet, .mode-nav .kc-landscape.kc-tillermode.kc-sail .kc-jib { top: calc(var(--kc-sl-top) + 130px); }
+
+/* portrait two-thumb layout: the extra buttons (SVÆRD, the race penalty turn) leave the top edge (the HUD and the goals / race chips own it)
+   and join the right-thumb cluster as a row of round buttons beside GEN / HÆNG UD, third slot from the sheet (second when the boat has no spinnaker) */
+.kc.kc-portrait.kc-tillermode.kc-sail .kc-extras {
+  top: auto; left: auto; flex-direction: row-reverse; align-items: flex-end; gap: 10px;
+  right: calc(var(--kc-sl-right) + (var(--kc-sl-w) - var(--kc-rb)) / 2 + 2 * (var(--kc-rb) + 10px));
+  bottom: calc(var(--kc-sl-bot) + var(--kc-sl) + 30px);
+}
+.kc.kc-portrait.kc-tillermode.kc-sail:not(:has(.kc-spi)) .kc-extras { right: calc(var(--kc-sl-right) + (var(--kc-sl-w) - var(--kc-rb)) / 2 + var(--kc-rb) + 10px); }
+.kc.kc-portrait.kc-tillermode.kc-sail .kc-extras .kc-extra { height: var(--kc-rb); min-width: var(--kc-rb); padding: 0 6px; justify-content: center; }
+.kc.kc-portrait.kc-tillermode.kc-sail .kc-extras .kc-extra b { display: none; }
+.kc.kc-portrait.kc-tillermode.kc-sail .kc-extras .kc-board { padding: 3px 4px 4px; }
+.kc.kc-portrait.kc-tillermode.kc-sail .kc-extras .kc-board .kc-bd-txt b { display: block; }

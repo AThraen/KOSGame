@@ -353,7 +353,7 @@
     if (coachCur) coachCur.close(true);
     const host = opts.host || (doc.getElementById('screen-play') && !doc.getElementById('screen-play').hidden ? doc.getElementById('screen-play') : doc.body);
     const pos = opts.pos || 'bottom';
-    const node = el('div', 'coach coach-' + pos + (opts.ms === 0 || opts.tapToClose ? ' coach-tapclose' : '') + (opts.mood === 'yell' ? ' coach-yell' : ''));
+    const node = el('div', 'coach coach-' + pos + (opts.ms === 0 || opts.tapToClose ? ' coach-tapclose' : '') + (opts.mood === 'yell' ? ' coach-yell' : '') + (String(text).length > 105 ? ' coach-long' : ''));
     node.setAttribute('role', 'status');
     node.innerHTML = '<div class="coach-avatar">' + (opts.avatar && opts.avatar !== 'coach' ? opts.avatar : coachSvg(opts.mood, opts.coach)) + '</div>' +
       '<div class="coach-bubble"><div class="coach-name">' + esc(opts.name || coachName(opts.coach)) + '</div><div class="coach-text">' + esc(text) + '</div>' +
