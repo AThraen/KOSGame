@@ -356,4 +356,7 @@ body[data-screen="play"] .coach.coach-ghost { opacity: .12 !important; transitio
 /* a goals / lesson panel that is expanded for a few seconds sits under the chip: the bubble waits below it */
 @media (min-width: 360px) and (max-width: 600px) and (orientation: portrait) {
   body.phone-ui.mode-sea[data-screen="play"]:has(.pc-panel.pc-open) .coach-bottom { top: calc(var(--safe-t) + 168px); }
+  /* Søslag: the wet-score card moves up under the HUD, and the bubble waits below it */
+  body.phone-ui.mode-sea[data-screen="play"] .soslag-panel { top: calc(var(--safe-t) + 66px); }
+  body.phone-ui.mode-sea[data-screen="play"]:has(.soslag-panel) .coach-bottom { top: calc(var(--safe-t) + 176px); }
 }
