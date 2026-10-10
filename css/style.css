@@ -511,6 +511,24 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
   .boat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .bc-art { height: 86px; }
 }
+/* title top bar on narrow phones: the right-hand buttons keep their size, the left pills give way
+   (no "/ max" stars, a slimmer xp pill, rank name ellipsed; under 380px only the level badge) */
+@media (max-width: 460px) {
+  .topbar, .topbar-left, .topbar-right { gap: 6px; }
+  .topbar-left { flex: 1 1 auto; position: relative; }
+  .topbar-right { flex: none; }
+  .topbar .pill { padding: 0 10px; }
+  .topbar .pill-dim { display: none; }
+  .topbar .pill-xp { padding: 0 10px 0 4px; min-width: 0; }
+  .topbar .pill-xp-txt { min-width: 0; }
+  .topbar .pill-xp-txt b { max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .xpbar { width: 56px; }
+  .topbar .god-pill { position: absolute; left: 4px; bottom: -12px; height: 18px; padding: 0 6px; font-size: 9.5px; }
+}
+@media (max-width: 380px) {
+  .topbar .pill-xp { padding: 0 4px; }
+  .topbar .pill-xp-txt { display: none; }
+}
 @media (min-width: 900px) {
   .profile-wrap { grid-template-columns: 300px 1fr; align-items: start; }
   .profile-preview { position: sticky; top: 0; grid-template-columns: 1fr; grid-template-areas: "av" "boat" "name" "sail" "rnd"; justify-items: center; }
