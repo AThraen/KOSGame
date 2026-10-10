@@ -331,7 +331,18 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 .hold-btn > :not(.hold-fill) { position: relative; }
 .hold-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(62,224,143,.35), rgba(62,224,143,.7)); }
 .hold-btn.holding { border-color: var(--good); }
-.version { text-align: center; color: var(--text-dim); font-size: .8rem; font-weight: 600; }
+.version { text-align: center; color: var(--text-dim); font-size: .8rem; font-weight: 600; opacity: .8; }
+.credit-author { margin: 12px 0 0; font-weight: 800; }
+.credit-volunteer { margin: 4px 0 0; color: var(--text-dim); font-size: .9rem; }
+.feedback { display: flex; flex-direction: column; gap: 10px; }
+.feedback h2 { margin: 0; }
+.fb-hint { margin: 0; color: var(--text-dim); font-size: .9rem; }
+.fb-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.fb-btns .btn { flex: 1 1 160px; }
+.fb-show { align-self: flex-start; }
+.fb-reveal { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.fb-reveal[hidden] { display: none; }
+.fb-addr { font-weight: 800; user-select: all; word-break: break-all; }
 
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field > span:first-child { font-weight: 800; font-size: .9rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }

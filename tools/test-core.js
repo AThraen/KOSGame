@@ -1,7 +1,7 @@
 // Node tests for the simulation core: node tools/test-core.js
 // Covers KOS.U, KOS.Events, KOS.Boats, KOS.Wind, KOS.Physics, KOS.Rules, KOS.AI (and KOS.World helpers if present),
 // plus the mobile controls maths in js/ui/input.js (tests named 'mobile:'), the tilted-camera math in js/render/tilt.js (tests named 'tilt:', run alone with: node tools/test-core.js tilt).
-const KOS = require('./harness').load(['js/core/boatpick.js', 'js/render/tilt.js', 'js/ui/input.js']);
+const KOS = require('./harness').load(['js/core/boatpick.js', 'js/render/tilt.js', 'js/ui/input.js', 'js/version.js', 'js/ui/feedback.js']);
 const U = KOS.U, P = KOS.Physics;
 const R = d => d * Math.PI / 180;
 
@@ -1086,6 +1086,35 @@ test('boatpick: resolve falls back to the default when the stored boat is not (o
   ok(BP.resolve(undefined, ['opti', 'zest'], 'opti') === 'opti', 'nothing stored');
   ok(BP.resolve('j70', ['zest'], 'opti') === 'zest', 'default not offered -> first offered');
   ok(BP.resolve(null, [], 'opti') === 'opti', 'empty list -> default');
+});
+
+test('feedback: the address assembles correctly', () => {
+  ok(KOS.Feedback.address() === ['thraen', 'gmail.com'].join(String.fromCharCode(64)), 'got ' + KOS.Feedback.address());
+});
+test('feedback: no source file contains the plain address', () => {
+  const fs = require('fs'), path = require('path');
+  const files = [];
+  (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|html|css|webmanifest)$/.test(e.name)) files.push(p); } })(path.join(__dirname, '..', 'js'));
+  files.push(path.join(__dirname, '..', 'index.html'), path.join(__dirname, '..', 'sw.js'));
+  const at = String.fromCharCode(64);
+  for (const f of files) {
+    const src = fs.readFileSync(f, 'utf8');
+    ok(!src.includes('thraen' + at + 'gmail.com'), 'plain address in ' + f);
+    ok(!src.includes('thraen' + at), 'thraen + at-sign in ' + f);
+    ok(!/mailto:[^'"\s]*@/.test(src), 'mailto with address in ' + f);
+  }
+});
+test('feedback: mailto url is well-formed and the body is bounded', () => {
+  const info = { version: 'v0.4.0+abc1234', channel: 'test', screen: '393x852', dpr: 3, ua: 'x'.repeat(5000), perf: 2, activity: 'sail.rings', lang: 'da', tilt: 'auto', controls: 'auto' };
+  for (const kind of ['bug', 'wish']) {
+    const u = KOS.Feedback.mailtoUrl(kind, info), m = KOS.Feedback.compose(kind, info);
+    ok(u.startsWith('mailto:' + KOS.Feedback.address() + '?subject='), 'prefix ' + u.slice(0, 40));
+    ok(/^mailto:[^?\s]+\?subject=[^&\s]+&body=[^&\s]+$/.test(u), 'shape');
+    ok(decodeURIComponent(u.split('&body=')[1]) === m.body, 'body round-trips');
+    ok(m.body.length <= KOS.Feedback.BODY_MAX && m.body.length <= 1500, 'body length ' + m.body.length);
+    ok(m.subject.includes('v0.4.0+abc1234'), 'version in subject');
+  }
+  ok(KOS.Feedback.versionText() === 'dev', 'dev version text ' + KOS.Feedback.versionText());
 });
 
 // ====================================================================== summary

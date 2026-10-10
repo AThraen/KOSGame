@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags, so git describe can find the latest release tag
 
       - uses: actions/setup-node@v4
         with:
@@ -42,6 +44,26 @@ jobs:
       # fast, dependency-free checks (the browser suites need Chrome and run locally)
       - name: Core simulation tests
         run: node tools/test-core.js
+
+      # stamp the build version into js/version.js (shown on the About/Settings screens and in feedback e-mails):
+      # tag v* -> production ('v0.4.0', channel prod); main / manual run -> '<latest tag>+<short sha>', channel test
+      - name: Stamp version
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME}"; CHANNEL=prod
+          else
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo v0)
+            VERSION="${TAG}+${SHA}"; CHANNEL=test
+          fi
+          cat > js/version.js <<EOF
+          (function (g) {
+            const KOS = g.KOS = g.KOS || {};
+            KOS.BUILD = { version: '$VERSION', channel: '$CHANNEL', sha: '$SHA', date: '$DATE' };
+          })(typeof window !== 'undefined' ? window : globalThis);
+          EOF
+          cat js/version.js
 
       # refresh the service worker's precache list + version so the deploy always matches its files
       - name: Generate precache
