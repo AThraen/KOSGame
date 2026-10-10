@@ -48,15 +48,16 @@
 (function () {
   const P = new URLSearchParams(location.search);
   const layout = P.get('layout') || 'sail';
-  const extras = P.get('extras') === '0' ? [] : [{ id: 'horn', icon: 'horn' }, { id: 'action', icon: 'lifebuoy', labelKey: 'input.lifebuoy' }];
+  const fireX = [{ id: 'fire', icon: 'drop', labelKey: 'input.fire', key: 'K', keyLabel: 'Space', codes: ['Space'] }]; // Søslag's gun button
+  const extras = P.get('extras') === '0' ? [] : P.get('extras') === 'fire' ? fireX : [{ id: 'horn', icon: 'horn' }, { id: 'action', icon: 'lifebuoy', labelKey: 'input.lifebuoy' }];
   const ctrl = KOS.Input.attach(document.getElementById('layer'), {
-    layout, spinnaker: P.get('spi') !== '0', spinnakerKind: P.get('kind') || 'asym', hike: true,
+    layout, spinnaker: P.get('spi') !== '0', spinnakerKind: P.get('kind') || 'asym', hike: P.get('extras') !== 'fire',
     autoTrim: P.get('auto') === '1', joystick: P.get('joy') === '1', extraButtons: extras,
     board: P.get('board') === '1', jib: P.get('jib') === '1',
   });
   window.ctrl = ctrl;
   window.events = [];
-  ['action', 'pause', 'spinnaker', 'hike', 'autotrim', 'gear', 'button', 'horn', 'board', 'jib', 'autojib'].forEach(ev =>
+  ['action', 'pause', 'spinnaker', 'hike', 'autotrim', 'gear', 'button', 'horn', 'fire', 'board', 'jib', 'autojib'].forEach(ev =>
     ctrl.on(ev, v => { events.push(ev + (v === undefined ? '' : ':' + v)); document.getElementById('log').textContent = ev + (v === undefined ? '' : ' ' + v); }));
   let controls = KOS.Input.toControls(ctrl.state, null, null), heading = 0.6, last = performance.now(), acc = 0;
   const boat = { cls: { id: layout === 'rib' ? 'rib' : 'opti' } };

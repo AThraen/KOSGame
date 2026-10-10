@@ -1168,6 +1168,36 @@ test('Soslag: the pool never exceeds 64 in 60 s of two-boat fire, and recycles t
   for (let i = 0; i < 20; i++) { const j = SL.launch(p8, sh, 0, R(30), sh); eq(j.seq, i + 1); }
   eq(p8.n, 8, 'pool stays at 8'); eq(Math.min(...p8.jets.map(j => j.seq)), 13, 'the oldest were recycled (seq 13..20 left)'); eq(p8.jets.length, 8, 'never allocated');
 });
+test('Soslag: one gun, one stream per boat (a single nozzle spot, a gap-free train of jets, at most one nozzle-connected stream, a tail after the release)', () => {
+  const wind = { dir: 0, speed: 9 }, pool = SL.createPool(), a = fakeBoat({ heading: 0 }), b = fakeBoat({ x: 3, y: 12, heading: Math.PI });
+  const buf = [], spots = new Set();
+  let maxA = 0, maxB = 0, maxRunsA = 0, tailSeen = false;
+  const check = (t) => {
+    maxA = Math.max(maxA, SL.activeStreams(pool, a, buf)); maxB = Math.max(maxB, SL.activeStreams(pool, b, buf));
+    const n = SL.streamJets(pool, a, buf); let runs = 0; for (let i = 0; i < n; i = SL.streamRunEnd(buf, n, i)) runs++;
+    maxRunsA = Math.max(maxRunsA, runs);
+    for (let i = 1; i < n; i++) if (buf[i].age < buf[i - 1].age) throw new Error('streamJets not sorted newest first');
+    return n;
+  };
+  for (let i = 0; i < 300; i++) { // 5 s: a fires continuously, b fires the first 2 s only
+    for (let k = SL.accTake(a, DT); k > 0; k--) { const j = SL.launch(pool, a, Math.PI, R(25), a); spots.add(j.px.toFixed(3) + ',' + j.py.toFixed(3)); }
+    if (i < 120) for (let k = SL.accTake(b, DT); k > 0; k--) SL.launch(pool, b, 0, R(25), b);
+    SL.stepPool(pool, wind, DT); check();
+  }
+  eq(spots.size, 1, 'all jets of boat a leave the one gun spot (the boat is still)');
+  eq(maxA, 1, 'a never has more than one connected stream'); eq(maxB, 1, 'b never has more than one connected stream');
+  eq(maxRunsA, 1, 'a held burst is ONE gap-free train of jets (no parallel streams)');
+  // after b stopped firing (2 s), its water falls as a spent tail: not connected to the nozzle any more, nothing new is launched
+  for (let i = 0; i < 20; i++) { SL.stepPool(pool, wind, DT); }
+  const nb = SL.streamJets(pool, b, buf); eq(SL.activeStreams(pool, b, buf), 0, 'b: a released gun has no connected stream');
+  ok(nb === 0 || !SL.streamLive(buf, nb), 'b: the rest is a falling tail');
+  // two bursts with a pause in between: the old water is a separate run (tail), the new burst is the single connected stream
+  const pool2 = SL.createPool(), c = fakeBoat({ heading: 0 }); let runs2 = 0;
+  for (let i = 0; i < 90; i++) { if (i < 30 || i >= 60) for (let k = SL.accTake(c, DT); k > 0; k--) SL.launch(pool2, c, Math.PI, R(25), c); else SL.resetFire(c); SL.stepPool(pool2, wind, DT); }
+  const nc = SL.streamJets(pool2, c, buf); for (let i = 0; i < nc; i = SL.streamRunEnd(buf, nc, i)) runs2++;
+  eq(SL.activeStreams(pool2, c, buf), 1, 'second burst: one connected stream'); eq(runs2, 2, 'old burst is a separate falling tail');
+  eq(c.gunAz, Math.PI, 'the barrel remembers the last azimuth');
+});
 test('Soslag: tank maths (cost 1.8, passive 7/s, dip 20/s only below 1.2 m/s and not in a penalty, nothing while firing, hysteresis at 10)', () => {
   const b = { tank: 100, speed: 3 }; SL.spend(b, 10); near(b.tank, 82, 1e-9, 'cost');
   b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'passive 7/s'); b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT, true); near(b.tank, 50, 0.01, 'no refill while firing');

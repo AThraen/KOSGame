@@ -38,14 +38,14 @@
         l2: 'Vinden bærer vandstrålen: sejl op i luv og skyd ned mod vinden.',
         l3: 'Luv-båden skal holde sig fri. Vig, når det er dig, der skal.',
         l4: 'Er du i læ, så slå væk fra ham, eller sejl helt tæt på.',
-        wind: 'Vind i dag: {wind}.',
+        wind: 'Vind i dag: {wind}.', keys: 'Tastatur: hold MELLEMRUM (eller K) nede for at skyde. Slip for at stoppe.',
       },
       hud: { m: '{n} m', luv: 'Luv', lae: 'Læ', out: 'Tilbage til banen!', time: 'Tid', you: 'Du', tank: 'Vand', dip: 'Luf op og sænk farten for at fylde', far: 'For langt!' },
       pen: { auto: 'Båden tager strafrunden for dig, og skyderen er låst imens - husk reglen næste gang!', locked: 'Skyderen er låst, mens strafrunden tages', hard: 'Hård kollision - to strafrunder (720°)' },
       count: { go: 'Af sted!' },
       card: { end: 'Slut!', endSub: 'Tiden er gået', first: 'Venligt skud!', soaked: 'Gennemblødt!', soakedMe: 'Du er gennemblødt!' },
       tip: { giveway: 'Du er luv-båd lige nu - hold dig fri af ham!', windward: 'Kom op i luv af ham! Vinden bærer vandet langt ned mod vinden - men husk: luv-båden viger.', out: 'Tilbage til banen! Hold dig inde i den stiplede ring.', last: 'Sidste chance!',
-        shoot: 'Hold SKYD, når du er tæt nok på.', tank: 'Vandet er ved at slippe op.', dip: 'Luf op mod vinden og sænk farten, så fylder du spanden.',
+        shoot: 'Hold SKYD, når du er tæt nok på.', shootKey: 'Hold SKYD (mellemrum), når du er tæt nok på.', tank: 'Vandet er ved at slippe op.', dip: 'Luf op mod vinden og sænk farten, så fylder du spanden.',
         short: 'Strålen når ikke - skyd ned mod vinden eller kom tættere på.', win: 'Flot skudt! Prøv at komme endnu hurtigere op i luv næste gang.', lose: 'Næste gang: kom op i luv af ham og skyd ned mod vinden.' },
       msg: { win: 'Du vandt søslaget!', lose: 'Han var våddere end dig denne gang.', draw: 'Uafgjort - flot kamp!', soaked: 'Du gennemblødte hele holdet!', soakedMe: 'Du blev gennemblødt - godt kæmpet!', idle: 'Du skød næsten ikke - prøv igen!' },
       stat: { wetOpp: 'Modstander våd', wetMe: 'Du er våd', hits: 'Træffere', acc: 'Præcision', fouls: 'Vigefejl' },
@@ -61,14 +61,14 @@
         l2: 'The wind carries the jet: sail to windward and shoot downwind.',
         l3: 'The windward boat must keep clear. Give way when it is you.',
         l4: 'If you are to leeward, tack away from him, or close in right next to him.',
-        wind: 'Wind today: {wind}.',
+        wind: 'Wind today: {wind}.', keys: 'Keyboard: hold SPACE (or K) to squirt. Let go to stop.',
       },
       hud: { m: '{n} m', luv: 'Windward', lae: 'Leeward', out: 'Back to the arena!', time: 'Time', you: 'You', tank: 'Water', dip: 'Luff up and slow down to refill', far: 'Too far!' },
       pen: { auto: 'The boat takes the penalty turn for you, and the gun is locked meanwhile - remember the rule next time!', locked: 'The gun is locked while the turn is taken', hard: 'Hard collision - two penalty turns (720°)' },
       count: { go: 'Go!' },
       card: { end: 'Time!', endSub: 'The clock ran out', first: 'Nice shot!', soaked: 'Soaked!', soakedMe: 'You are soaked!' },
       tip: { giveway: 'You are the windward boat now - keep clear of him!', windward: 'Get to windward of him! The wind carries the water far downwind - but remember, the windward boat gives way.', out: 'Back to the arena! Stay inside the dashed ring.', last: 'Last chance!',
-        shoot: 'Hold SQUIRT when you are close enough.', tank: 'The water is running low.', dip: 'Luff up into the wind and slow down to fill the bucket.',
+        shoot: 'Hold SQUIRT when you are close enough.', shootKey: 'Hold SQUIRT (space bar) when you are close enough.', tank: 'The water is running low.', dip: 'Luff up into the wind and slow down to fill the bucket.',
         short: 'The jet does not reach - shoot downwind or get closer.', win: 'Well shot! Try to get to windward even faster next time.', lose: 'Next time: get to windward of him and shoot downwind.' },
       msg: { win: 'You won the water fight!', lose: 'He got you wetter this time.', draw: 'A draw - great match!', soaked: 'You soaked the whole crew!', soakedMe: 'You got soaked - well fought!', idle: 'You hardly fired - try again!' },
       stat: { wetOpp: 'Opponent wet', wetMe: 'You wet', hits: 'Hits', acc: 'Accuracy', fouls: 'Fouls' },
@@ -199,7 +199,7 @@
     controls.autoHike = assist === 'easy';
 
     // ---------------------------------------------------------------- scene, input, HUD
-    const scene = new KOS.SailScene(host.canvas, { venue, wind, boats, follow: me, marks: [], lines: [], showWindArrow: true, showNoGo: false, showLaylines: false });
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: me, marks: [], lines: [], showWindArrow: true, showNoGo: false, showLaylines: false });
     scene.addOverlay(drawWorld);
     scene.addOverlay(drawJets, { screen: true });
     scene.addOverlay(drawOppArrow, { screen: true });
@@ -214,8 +214,8 @@
     const fitArena = () => { scene.resize(); if (scene.w > 160 && scene.h > 160) scene.fit({ x0: O.x - AR - 10, y0: O.y - AR - 10, x1: O.x + AR + 10, y1: O.y + AR + 10 }, Math.min(40, scene.w * 0.08)); };
     const followMe = () => { scene.fixedZoom = null; scene.target = me; applyZoom(); }; // no snap: the camera eases back to following (a hard cut would jump)
 
-    // the gun button (hold, K / 1) and the penalty-turn button (T / 2: wired up with the rules in step 4, greyed out until then)
-    const extra = [{ id: 'fire', icon: 'drop', labelKey: 'input.fire', key: 'K' }, { id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' }];
+    // the gun button (hold: Space, K or 1) and the penalty-turn button (T / 2: wired up with the rules in step 4, greyed out until then)
+    const extra = [{ id: 'fire', icon: 'drop', labelKey: 'input.fire', key: 'K', keyLabel: 'Space', codes: ['Space'] }, { id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' }];
     const ctrl = KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: false, hike: !cls.keel && assist !== 'easy', autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
     }, KOS.SailAids.inputOpts(cls, assist)));
@@ -258,11 +258,12 @@
     // cosmetic particles / floating text only at full quality and without reduced motion (gameplay never depends on them); S.fxCount counts what was spawned
     const cosmetic = () => !KOS.UI.reduced() && (!KOS.Perf || KOS.Perf.level >= 2) && !!scene.effects;
     function fx(fn) { if (!cosmetic()) return; S.fxCount++; fn(scene.effects); }
+    const isTouch = () => (KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false);
     function tip(key, force) {
       if (S.tips[key] && !force) return;
       if (env.t - S.tipT < 8 && !force) return;
       S.tips[key] = true; S.tipT = env.t;
-      say(t('soslag.tip.' + key), 5600);
+      say(t('soslag.tip.' + (key === 'shoot' && !isTouch() ? 'shootKey' : key)), 5600);
     }
     function say(text, ms, mood) { S.tipT = env.t; coachH = KOS.UI.coach(text, { ms: ms || 5600, mood, coach: 'nicolas', name: t('soslag.trainer') }); }
     function hideCoach() { try { if (coachH && coachH.close) coachH.close(true); } catch (e) { /* optional */ } }
@@ -422,7 +423,10 @@
       opp.plan = { target: { x: c.x, y: c.y, r: 0.5 }, mode: 'race' }; // a fresh object every time
       return opp.plan;
     }
-    const jitAi = s => (randAi() + randAi() + randAi() - 1.5) * 2 * s * D2R;
+    // the spread of the aim is a slowly wandering error (AR(1), correlation 0.7 per jet, same sigma as independent noise): the stream sweeps and wobbles as one hose instead of every jet jumping on its own
+    const wob = (r, s, st, k) => { st[k] = 0.7 * st[k] + 0.714 * (r() + r() + r() - 1.5) * 2; return st[k] * s * D2R; };
+    const wobAi = { az: 0, el: 0 };
+    const jitAi = (s, k) => wob(randAi, s, wobAi, k);
     function aiFire(dt) {
       const ai = opp.ai, duel = S.phase === 'duel';
       ai.modeT[ai.mode] += dt;
@@ -440,7 +444,7 @@
       else if (ai.burst > 0) {
         const rm = (assist === 'easy' && S.clock < 30 ? 0.5 : 1) * (me.wet >= 85 ? 0.5 : 1); // kindness: easy starts slowly; a crew >= 85 % wet gets half the fire
         for (let n = SL.accTake(opp, dt * rm); n > 0 && SL.gunReady(opp); n--) {
-          const a = ai.aim, az = a.az + jitAi(aiSigma), el = U.clamp(a.el + jitAi(aiSigmaEl), 0.05, 1.3);
+          const a = ai.aim, az = a.az + jitAi(aiSigma, 'az'), el = U.clamp(a.el + jitAi(aiSigmaEl, 'el'), 0.05, 1.3);
           SL.launch(S.pool, opp, az, el, opp); SL.spend(opp, 1); ai.fired++; ai.lastFire = env.t;
           if (env.t - S.sprayAiT >= 0.4 && dist < 50) { S.sprayAiT = env.t; sfx('spray', { vol: 0.12, pitch: 0.8 + randAi() * 0.16 }); }
         }
@@ -538,10 +542,11 @@
       if (a.ok) { const c = SL.crewCenter(opp); S.land = { x: c.x + (opp.vx || 0) * a.T, y: c.y + (opp.vy || 0) * a.T, hit: true }; }
       else { S.land = landing(a.az, a.el); S.land.hit = false; }
     }
-    const jit = s => (rand() + rand() + rand() - 1.5) * 2 * s * D2R;
+    const wobMe = { az: 0, el: 0 };
+    const jit = (s, k) => wob(rand, s, wobMe, k);
     function shoot() {
       const a = S.aim, kid = autopilot && !S.held ? AP_SLOPPY : 1; // the test autopilot is 'a kid with a thumb on the button': a wider spread than the real auto-aim
-      const az = a.az + jit((SIGMA[assist] || 5) * kid), el = U.clamp(a.el + jit(3 * kid), 0.05, 1.3);
+      const az = a.az + jit((SIGMA[assist] || 5) * kid, 'az'), el = U.clamp(a.el + jit(3 * kid, 'el'), 0.05, 1.3);
       SL.launch(S.pool, me, az, el, me);
       SL.spend(me, 1); S.fired++;
       if (env.t - S.sprayT >= 0.25) { S.sprayT = env.t; sfx('spray', { vol: 0.25, pitch: 0.92 + rand() * 0.16 }); } // limited on SIM time, never the wall clock
@@ -779,50 +784,98 @@
       drawStreams(ctx, sc, zm, red);
       drawImpacts(ctx, sc, zm, red);
     }
-    // ---- the water: every jet is drawn as a ~0.17 s piece of its own arc; jets leave 0.12 s apart, so the pieces overlap into one continuous, arcing stream.
-    // Three strokes in one path (soft edge, cyan body, white core), droplets break away from the falling end. Cosmetic tiers: KOS.Perf.level (3 full .. 0 minimal) and reduced motion.
-    const TRAIL = 0.3;
+    // ---- the water: ONE gun per boat, so ONE stream per boat. The jets of a boat leave one nozzle 0.12 s apart; they are the sampled water parcels of the stream
+    // (the hits come from them) and are drawn here as a single smooth hose: nozzle -> parcels (Catmull-Rom) -> a short extension of the oldest parcel to where it lands.
+    // The width follows the AGE of the water (thick and bright at the nozzle, thin and fading towards the end), droplets break away from the old water, seeded per parcel
+    // so nothing flickers. After the release the hose detaches and its tail falls. Cosmetic tiers: KOS.Perf.level (3 full .. 0 minimal) and reduced motion.
     const hash = (a, b) => { const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return x - Math.floor(x); };
     function dropCount(red) { const L = KOS.Perf ? KOS.Perf.level : 3; return red ? Math.min(1, L) : L >= 3 ? 3 : L === 2 ? 2 : L === 1 ? 1 : 0; }
+    const SBUF = [[], []];                                      // per boat: the sorted jets (newest first), reused every frame
+    const SJ = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, px: 0, py: 0, pz: 0, age: 0 }; // scratch jet for the extension
+    const CN = 80, CX = new Float32Array(CN), CY = new Float32Array(CN), CA = new Float32Array(CN), SX = new Float32Array(CN), SY = new Float32Array(CN);
+    const DM = CN * 4, DX = new Float32Array(DM), DY = new Float32Array(DM), DA = new Float32Array(DM);
+    function endPoint(j, tgt) { // the oldest parcel flown on for one launch interval (or less, to the water / the crew that stops it): where the stream ends
+      SJ.x = j.x; SJ.y = j.y; SJ.z = j.z; SJ.vx = j.vx; SJ.vy = j.vy; SJ.vz = j.vz; SJ.px = j.x; SJ.py = j.y; SJ.pz = j.z; SJ.age = j.age;
+      let t = 0;
+      for (let k = 0; k < 9 && t < C.RATE_DT; k++) {
+        const r = SL.stepJet(SJ, wind, 1 / 60);
+        if (r === 1) { const u = SJ.pz / Math.max(SJ.pz - SJ.z, 1e-9); SJ.x = SJ.px + (SJ.x - SJ.px) * u; SJ.y = SJ.py + (SJ.y - SJ.py) * u; SJ.z = 0; t += u / 60; break; }
+        t += 1 / 60;
+        if (r || (tgt && SL.hitTest(SJ, tgt) === 'crew')) break;
+      }
+      return t;
+    }
     function drawStreams(ctx, sc, zm, red) {
-      const pool = S.pool, n = pool.n;
-      if (!n) return;
-      const lw = Math.max(3, 0.36 * zm), nd = dropCount(red);
+      const pool = S.pool;
+      if (!pool.n) return;
+      const L = KOS.Perf ? KOS.Perf.level : 3, nd = dropCount(red), SUB = L >= 3 ? 3 : L === 2 ? 2 : 1;
+      const lw = Math.max(3.2, 0.32 * zm), now = env.t;
       ctx.save();
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      const tail = (j, tau) => { const k = Math.min(tau, j.age); return proj(sc, j.x - j.vx * k, j.y - j.vy * k, Math.max(0, j.z - j.vz * k - 0.5 * C.G * k * k)); };
-      ctx.beginPath();
-      for (let i = 0; i < n; i++) {
-        const j = pool.jets[i];
-        let p = tail(j, TRAIL); ctx.moveTo(p.x, p.y);
-        p = tail(j, TRAIL * 0.5); ctx.lineTo(p.x, p.y);
-        p = proj(sc, j.x, j.y, Math.max(0, j.z)); ctx.lineTo(p.x, p.y);
-      }
-      ctx.lineWidth = lw * 3; ctx.strokeStyle = 'rgba(70,160,235,0.22)'; ctx.stroke();       // soft edge
-      ctx.lineWidth = lw * 1.7; ctx.strokeStyle = 'rgba(120,205,255,0.6)'; ctx.stroke();    // cyan body
-      ctx.lineWidth = lw * 0.8; ctx.strokeStyle = 'rgba(255,255,255,0.98)'; ctx.stroke();   // white core
-      // droplets break away from the falling end (the last metre of the arc): seeded per jet, so nothing flickers
-      if (nd) {
-        ctx.fillStyle = 'rgba(225,245,255,0.95)';
-        ctx.beginPath();
-        const r = Math.max(1.3, 0.1 * zm);
-        for (let i = 0; i < n; i++) {
-          const j = pool.jets[i];
-          if (j.vz >= 0 || j.z > 1.8) continue;
-          const sp = Math.hypot(j.vx, j.vy) || 1, nx = -j.vy / sp, ny = j.vx / sp;
-          for (let k = 0; k < nd; k++) {
-            const tau = 0.03 + 0.05 * k + 0.04 * hash(j.seq, k), off = (hash(j.seq, k + 7) - 0.5) * 1.1;
-            const p = proj(sc, j.x - j.vx * tau + nx * off, j.y - j.vy * tau + ny * off, Math.max(0, j.z - j.vz * tau - 0.5 * C.G * tau * tau + (hash(j.seq, k + 3) - 0.3) * 0.5));
-            ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, TAU);
+      for (let bi = 0; bi < 2; bi++) {
+        const b = bi ? opp : me, tgt = bi ? me : opp, buf = SBUF[bi], n = SL.streamJets(pool, b, buf);
+        for (let i0 = 0; i0 < n;) {
+          const i1 = SL.streamRunEnd(buf, n, i0);
+          let m = 0, p;
+          if (i0 === 0 && SL.streamLive(buf, n)) { const g = SL.gunPos(b); p = proj(sc, g.x, g.y, C.Z0); CX[m] = p.x; CY[m] = p.y; CA[m] = 0; p = proj(sc, g.x, g.y, 0); SX[m] = p.x; SY[m] = p.y; m++; } // the nozzle
+          for (let i = i0; i < i1 && m < CN - 2; i++) {
+            const j = buf[i]; p = proj(sc, j.x, j.y, Math.max(0, j.z)); CX[m] = p.x; CY[m] = p.y; CA[m] = j.age; p = proj(sc, j.x, j.y, 0); SX[m] = p.x; SY[m] = p.y; m++;
           }
+          const old = buf[i1 - 1], te = endPoint(old, tgt);       // the end of the stream: the oldest parcel flown on a little
+          p = proj(sc, SJ.x, SJ.y, Math.max(0, SJ.z)); CX[m] = p.x; CY[m] = p.y; CA[m] = old.age + te; p = proj(sc, SJ.x, SJ.y, 0); SX[m] = p.x; SY[m] = p.y; m++;
+          if (m >= 2) {
+            // Catmull-Rom between the control points -> the dense polyline (screen xy + age)
+            let d = 0;
+            for (let i = 0; i < m - 1; i++) {
+              const a = Math.max(0, i - 1), c = Math.min(m - 1, i + 2);
+              for (let k = 0; k < SUB; k++) {
+                const u = k / SUB, u2 = u * u, u3 = u2 * u;
+                DX[d] = 0.5 * (2 * CX[i] + (-CX[a] + CX[i + 1]) * u + (2 * CX[a] - 5 * CX[i] + 4 * CX[i + 1] - CX[c]) * u2 + (-CX[a] + 3 * CX[i] - 3 * CX[i + 1] + CX[c]) * u3);
+                DY[d] = 0.5 * (2 * CY[i] + (-CY[a] + CY[i + 1]) * u + (2 * CY[a] - 5 * CY[i] + 4 * CY[i + 1] - CY[c]) * u2 + (-CY[a] + 3 * CY[i] - 3 * CY[i + 1] + CY[c]) * u3);
+                DA[d++] = CA[i] + (CA[i + 1] - CA[i]) * u;
+              }
+            }
+            DX[d] = CX[m - 1]; DY[d] = CY[m - 1]; DA[d++] = CA[m - 1];
+            // faint shadow of the whole stream on the water, so the height of the arc reads (tilted view especially)
+            ctx.beginPath(); ctx.moveTo(SX[0], SY[0]); for (let i = 1; i < m; i++) ctx.lineTo(SX[i], SY[i]);
+            ctx.lineWidth = Math.max(2, lw * 0.5); ctx.strokeStyle = 'rgba(10,40,80,0.13)'; ctx.stroke();
+            // the hose: soft edge, cyan body, white core; thick and bright at the nozzle, thinning and fading with the age of the water
+            for (let pass = L >= 1 ? 0 : 1; pass < 3; pass++) {
+              for (let i = 0; i < d - 1; i++) {
+                const tau = (DA[i] + DA[i + 1]) * 0.5, f = Math.min(1, tau / 1.25);
+                let fade = 1 - 0.75 * Math.max(0, (tau - 0.6) / 0.6);
+                if (tau > 0.5) fade *= 0.4 + 0.6 * hash(Math.floor((now - tau) * 16), 5) * Math.min(1, 1.6 - tau); // the old water breaks up into streaks: the pattern is tied to the BIRTH time of the water, so it travels with it (no strobing)
+                const w = lw * (1.15 - 0.4 * f * f - 0.4 * f);
+                ctx.beginPath(); ctx.moveTo(DX[i], DY[i]); ctx.lineTo(DX[i + 1], DY[i + 1]);
+                if (pass === 0) { ctx.lineWidth = w * 2.4; ctx.strokeStyle = 'rgba(70,160,235,' + (0.22 * fade).toFixed(3) + ')'; }
+                else if (pass === 1) { ctx.lineWidth = w * 1.5; ctx.strokeStyle = 'rgba(120,205,255,' + (0.6 * fade).toFixed(3) + ')'; }
+                else { ctx.lineWidth = w * 0.62; ctx.strokeStyle = 'rgba(255,255,255,' + (0.95 * fade).toFixed(3) + ')'; }
+                ctx.stroke();
+              }
+            }
+            // droplets breaking away from the older water (stable per parcel: they travel with it)
+            if (nd) {
+              ctx.fillStyle = 'rgba(225,245,255,0.92)'; ctx.beginPath();
+              for (let i = i0; i < i1; i++) {
+                const j = buf[i]; if (j.age < 0.45) continue;
+                const spread = Math.min(1.4, (j.age - 0.35) * 0.9), sp = Math.hypot(j.vx, j.vy) || 1, nx = -j.vy / sp, ny = j.vx / sp, r = Math.max(1.2, 0.085 * zm * (1.15 - 0.3 * Math.min(1, j.age)));
+                for (let k = 0; k < nd; k++) {
+                  const off = (hash(j.seq, k + 7) - 0.5) * 2 * spread, dz = (hash(j.seq, k + 3) - 0.5) * spread * 0.9, dl = (hash(j.seq, k + 11) - 0.5) * 1.4;
+                  const q = proj(sc, j.x + nx * off + (j.vx / sp) * dl, j.y + ny * off + (j.vy / sp) * dl, Math.max(0, j.z + dz));
+                  ctx.moveTo(q.x + r, q.y); ctx.arc(q.x, q.y, r, 0, TAU);
+                }
+              }
+              ctx.fill();
+            }
+          }
+          i0 = i1;
         }
-        ctx.fill();
+        // the gun itself: a short barrel at the one gun spot, pointing where the last jet went
+        const g = SL.gunPos(b), az = b.gunAz === undefined ? b.heading + Math.PI / 2 : b.gunAz, dv = U.vec(az);
+        const q0 = proj(sc, g.x - dv.x * 0.25, g.y - dv.y * 0.25, 1.05), x0 = q0.x, y0 = q0.y, q1 = proj(sc, g.x + dv.x * 0.45, g.y + dv.y * 0.45, 1.2);
+        ctx.lineWidth = Math.max(4, 0.3 * zm); ctx.strokeStyle = '#2b3a4d'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(q1.x, q1.y); ctx.stroke();
+        ctx.lineWidth = Math.max(2, 0.14 * zm); ctx.strokeStyle = '#9fd3ff'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(q1.x, q1.y); ctx.stroke();
       }
-      // faint ground shadows so the height of the arc reads
-      ctx.fillStyle = 'rgba(10,40,80,0.2)';
-      ctx.beginPath();
-      for (let i = 0; i < n; i++) { const j = pool.jets[i], p = proj(sc, j.x, j.y, 0); ctx.moveTo(p.x + 1.8, p.y); ctx.arc(p.x, p.y, 1.8, 0, TAU); }
-      ctx.fill();
       ctx.restore();
     }
     // ---- impacts: splash rings where a jet lands, a bigger ring + a burst of droplets + a flash on the crew when it hits (ring buffers: no allocation per frame)
@@ -897,7 +950,7 @@
         '<div class="sc-kicker">' + KOS.UI.iconSvg('drop') + '<span>' + esc(t('soslag.intro.kicker')) + '</span></div>' +
         '<h2 class="sc-title">' + esc(t('soslag.intro.title')) + '</h2>' +
         '<p class="sc-intro soslag-trainer"><b>' + esc(t('soslag.trainer')) + '</b></p>' +
-        '<ul class="soslag-lines">' + ['l1', 'l2', 'l3', 'l4'].map(k => '<li>' + esc(t('soslag.intro.' + k)) + '</li>').join('') + '</ul>' +
+        '<ul class="soslag-lines">' + ['l1', 'l2', 'l3', 'l4'].concat(isTouch() ? [] : ['keys']).map(k => '<li>' + esc(t('soslag.intro.' + k)) + '</li>').join('') + '</ul>' +
         '<p class="sc-intro" style="opacity:.85;font-size:.9em">' + esc(t('soslag.intro.wind', { wind: U.windTxt(P.windKn, true) })) + ' ' + esc(t('soslag.fun')) + '</p>' +
         '<button type="button" class="btn btn-primary btn-big sc-go">' + KOS.UI.iconSvg('play') + '<span>' + esc(t('race.card.go')) + '</span></button>' +
         '</div>';
