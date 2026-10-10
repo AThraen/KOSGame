@@ -644,7 +644,7 @@
   // ================================================================== AREA
   renderers.area = function (sec, params) {
     const area = params.area || 'bay';
-    const list = KOS.Activities ? KOS.Activities.byArea(area) : [];
+    const list = KOS.Activities ? KOS.Activities.byArea(area).filter(a => !a.pickHidden) : []; // free sailing: one card, the per-boat ids stay registered
     const st = KOS.Activities ? KOS.Activities.areaStars(area) : { have: 0, max: 0 };
     sec.innerHTML = header(t('area.' + area + '.name'), esc(t('area.' + area + '.desc')),
       '<div class="pill"><span class="pill-ico star-ico">' + ico('star') + '</span><b>' + st.have + '</b><span class="pill-dim">/ ' + st.max + '</span></div>') +
@@ -663,6 +663,8 @@
           return;
         }
         sfx('click');
+        const a = KOS.Activities.get(id);
+        if (a && a.pick) { startPick(a); return; }
         App.play(id);
       },
     });
@@ -673,17 +675,100 @@
     if (r.after) return t('app.area.needAfter', { name: tt(r.after.title) });
     return t('common.locked');
   }
+  // ------------------------------------------------------------------ boat on the level cards / boat picker (docs/specs/boat-pick.md)
+  const MINI_BOAT = {};   // class id -> blob URL (or data URI) of the side-view boat card, built once
+  function boatThumb(id) {
+    if (!MINI_BOAT[id]) {
+      let svg = boatCardSvg(id), url = '';
+      try {
+        if (svg.indexOf('xmlns') < 0) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        url = (root.URL && root.Blob) ? root.URL.createObjectURL(new root.Blob([svg], { type: 'image/svg+xml' })) : '';
+      } catch (e) { url = ''; }
+      MINI_BOAT[id] = url || ('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+    }
+    return '<img class="boat-thumb" alt="" draggable="false" src="' + MINI_BOAT[id] + '">';
+  }
+  function favBoat() { const f = S().get('boat', 'opti'); return boatGet(f) && !boatGet(f).motor ? f : 'opti'; }
+  function sailedBoat(id) {
+    return KOS.Activities.list().some(x => x.boat === id && (S().progress(x.id).stars > 0 || S().progress(x.id).done));
+  }
+  // {a, key, free, offered, chosen, def, actId} for a pick card, else null. actId = the activity that is really played.
+  function pickInfo(a) {
+    if (!a || !a.pick || a.pickHidden || !KOS.BoatPick) return null;
+    const BP = KOS.BoatPick, free = a.pick.group === 'free';
+    const cands = free ? BP.FREE_BOATS : BP.SAIL_BOATS;
+    const def = free ? (a.boat || 'opti') : favBoat();
+    const list = BP.offered(cands, { def, unlockAll: !!settings().unlockAll,
+      sailed: sailedBoat, allow: free ? (id => KOS.Activities.isUnlocked('sail.free.' + id)) : null });
+    const key = a.pick.key || a.id;
+    const chosen = BP.resolve(S().boatPicks()[key], list, def);
+    return { a, key, free, offered: list, chosen, def, actId: free ? 'sail.free.' + chosen : a.id };
+  }
+  // the boat a level really sails (nothing for knots, quiz, shed, theory)
+  function cardBoat(a) {
+    const pk = pickInfo(a);
+    if (pk) return pk.chosen;
+    if (a.boat) return a.boat;
+    if (a.mode === 'school' || a.mode === 'nav') return favBoat();   // those modes sail the favourite boat (never the RIB)
+    return null;
+  }
+  App.cardBoat = cardBoat;
+  App.pickInfo = pickInfo;
+  function startPick(a) {
+    const pk = pickInfo(a);
+    if (!pk) { App.play(a.id); return; }
+    const go = boat => {
+      S().setBoatPick(pk.key, boat);
+      track('Boat', 'pick', pk.a.id + ':' + boat);
+      if (pk.free) App.play('sail.free.' + boat); else App.play(a.id, { boat });
+    };
+    if (pk.offered.length < 2) { go(pk.chosen); return; }
+    let sel = pk.chosen;
+    const tiles = pk.offered.map(id => {
+      const b = boatGet(id);
+      return '<button type="button" class="pick-tile' + (id === sel ? ' on' : '') + '" role="radio" aria-checked="' + (id === sel ? 'true' : 'false') + '" tabindex="' + (id === sel ? '0' : '-1') + '" data-boat="' + esc(id) + '">' +
+        '<span class="pick-art">' + boatThumb(id) + '</span><span class="pick-name">' + esc(b ? b.name : id) + '</span></button>';
+    }).join('');
+    const dlg = UI().dialog({
+      title: tt(a.pickTitle || a.title), icon: 'boat', cls: 'boat-pick-dialog',
+      body: '<p class="pick-hint">' + esc(t('app.pick.hint')) + '</p><div class="pick-grid" role="radiogroup" aria-label="' + esc(t('app.pick.label')) + '">' + tiles + '</div>',
+      buttons: [{ labelKey: 'common.cancel' }, { labelKey: 'app.pick.start', kind: 'primary', icon: 'play', onClick: () => { go(sel); } }],
+    });
+    if (!dlg || !dlg.el) return;
+    const grid = dlg.el.querySelector('.pick-grid');
+    const all = () => Array.prototype.slice.call(grid.querySelectorAll('.pick-tile'));
+    const choose = (btn, focus) => {
+      sel = btn.getAttribute('data-boat');
+      all().forEach(x => { const on = x === btn; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); x.tabIndex = on ? 0 : -1; });
+      if (focus) btn.focus();
+    };
+    grid.addEventListener('click', e => { const b = e.target.closest('.pick-tile'); if (b) { sfx('click'); choose(b, false); } });
+    grid.addEventListener('keydown', e => {
+      const b = e.target.closest('.pick-tile'); if (!b) return;
+      const L = all(), i = L.indexOf(b);
+      let n = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = (i + 1) % L.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = (i + L.length - 1) % L.length;
+      else if (e.key === 'Home') n = 0; else if (e.key === 'End') n = L.length - 1;
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); choose(b, false); return; }
+      if (n >= 0) { e.preventDefault(); choose(L[n], true); }
+    });
+    setTimeout(() => { const on = grid.querySelector('.pick-tile.on'); if (on) { try { on.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }, 60);
+  }
   function actCard(a, i) {
+    const pk = pickInfo(a);
     const unlocked = KOS.Activities.isUnlocked(a.id);
-    const pr = S().progress(a.id);
-    const boat = a.boat ? boatGet(a.boat) : null;
+    const pr = S().progress(pk ? pk.actId : a.id);
+    const bid = cardBoat(a), boat = bid ? boatGet(bid) : null;
+    const canPick = !!(pk && unlocked && pk.offered.length > 1);
+    const title = pk && a.pickTitle ? a.pickTitle : a.title, desc = pk && a.pickDesc ? a.pickDesc : a.desc;
     return '<button type="button" class="card act-card' + (unlocked ? '' : ' locked') + (pr.stars === 3 ? ' perfect' : '') + '" data-act="act" data-id="' + esc(a.id) + '" style="--i:' + i + '">' +
       '<span class="act-num">' + (i + 1) + '</span>' +
       '<span class="act-ico">' + ico(unlocked ? (a.icon || 'sail') : 'lock') + '</span>' +
-      '<span class="act-txt"><b>' + esc(tt(a.title)) + '</b><small>' + esc(tt(a.desc, a.params && a.params.windKn ? { wind: KOS.U.windTxt(a.params.windKn, true) } : undefined)) + '</small>' +
+      '<span class="act-txt"><b>' + esc(tt(title)) + '</b><small>' + esc(tt(desc, a.params && a.params.windKn ? { wind: KOS.U.windTxt(a.params.windKn, true) } : undefined)) + '</small>' +
       '<span class="act-meta">' + difficultyDots(a.difficulty || 1) +
       '<span class="meta-chip">' + ico('clock') + (a.minutes || 3) + ' ' + esc(t('common.min')) + '</span>' +
-      (boat ? '<span class="meta-chip">' + ico('boat') + esc(boat.name) + '</span>' : '') +
+      (boat ? '<span class="boat-chip' + (canPick ? ' can-pick' : '') + '">' + boatThumb(boat.id) + '<span class="boat-chip-name">' + esc(boat.name) + '</span>' + (canPick ? '<span class="boat-chip-change">' + esc(t('app.pick.change')) + ' ▾</span>' : '') + '</span>' : '') +
       '</span></span>' +
       '<span class="act-side">' + (unlocked ? UI().stars(pr.stars) : '<span class="lock-tag">' + ico('lock') + esc(lockShort(a.id)) + '</span>') + '</span>' +
       '</button>';
@@ -712,6 +797,13 @@
     stopRun();
     run.act = a;
     run.mode = mode;
+    run.boatPick = null;
+    if (a.pick && !a.pickHidden) { // chosen boat for a pick activity (docs/specs/boat-pick.md); force:true without a boat keeps the old behaviour
+      let b = opts.boat;
+      if (!b && !opts.force) { const pk = pickInfo(a); if (pk && !pk.free && pk.chosen !== pk.def) b = pk.chosen; }
+      const bb = b && boatList().find(x => x.id === b);
+      if (bb && !(bb.motor && a.pick.group !== 'free')) run.boatPick = b;
+    }
     App.show('play', { id });
     return true;
   };
@@ -757,7 +849,7 @@
       settings: st,
       tilt: !!(KOS.Tilt && KOS.Tilt.resolve(st.tilt, a, Perf.level)), tiltAuto: st.tilt === 'auto', // Skrå visning: resolved once at play start (scene applies the override, overview and perf-drop rules)
       profile: S().profile() || {},
-      boat: a.boat || S().get('boat', 'opti'),
+      boat: run.boatPick || a.boat || S().get('boat', 'opti'),
       finish: result => finish(result),
       quit: () => quit(),
       setPaused: b => setPaused(!!b),
@@ -780,7 +872,7 @@
     run.startT = run.last; Perf.reset();
     cancelAnimationFrame(run.raf);
     run.raf = requestAnimationFrame(frame);
-    emit('play:start', { id: a.id, boat: a.boat || S().get('boat', 'opti') });
+    emit('play:start', { id: a.id, boat: host.boat });
   };
   leave.play = function () { stopRun(); if (UI().setCoach) UI().setCoach('jesper'); };
   leave.results = function () { doc.body.classList.remove('mode-sea', 'mode-dom', 'results-over-sea'); };
@@ -950,7 +1042,7 @@
       sfx('click');
       const k = b.getAttribute('data-p');
       if (k === 'resume') setPaused(false);
-      else if (k === 'restart') App.play(run.act.id, { force: true });
+      else if (k === 'restart') App.play(run.act.id, { force: true, boat: run.boatPick });
       else if (k === 'quit') quit();
       else if (k.indexOf('win') === 0) { const n = +k.slice(3); setPaused(false); finish({ stars: n, success: true, score: n * 1000, timeMs: 60000, stats: { godmode: true } }); }
       else if (k === 'sound') {
@@ -1057,7 +1149,7 @@
     }
     lr.shown = true;
     bind(sec, {
-      retry: () => { sfx('click'); App.play(a.id, { force: true }); },
+      retry: () => { sfx('click'); App.play(a.id, { force: true, boat: run.boatPick }); },
       next: () => { sfx('click'); if (next) App.play(next.id); },
       map: () => { sfx('click'); App.stack = App.stack.filter(s => s.screen === 'title'); App.show('hub', {}, { replace: true }); },
     });
@@ -1534,6 +1626,9 @@
         difficulty: 'Sværhed', empty: 'Her kommer snart nye opgaver. Kig forbi igen!',
         needStars: 'Du skal bruge {n} ★ for at låse op (du har {have}).', needAfter: 'Klar først: {name}',
       },
+      pick: {
+        hint: 'Vælg den båd, du vil sejle i.', label: 'Vælg båd', start: 'Sejl af sted', change: 'Skift båd',
+      },
       view: { overview: 'Oversigt – se hele farvandet', tilt: 'Skrå visning (V)' },
       menu: { more: 'Menu', overview: 'Overblik', tilt: 'Skrå visning', on: 'Til', off: 'Fra', install: 'Føj til hjemmeskærm for fuld skærm' },
       tilt: { auto: 'Automatisk', on: 'Til', off: 'Fra', help: 'Se bådene skråt fra siden, så du kan se dem krænge. Automatisk: til i kapsejlads, fri sejlads og RIB, fra i sejlerskolen, regelskolen, navigation og havnemanøvrer.' },
@@ -1609,6 +1704,9 @@
       area: {
         difficulty: 'Difficulty', empty: 'New challenges are coming soon. Check back later!',
         needStars: 'You need {n} ★ to unlock this (you have {have}).', needAfter: 'Finish first: {name}',
+      },
+      pick: {
+        hint: 'Choose the boat you want to sail.', label: 'Choose boat', start: 'Set sail', change: 'Change boat',
       },
       view: { overview: 'Overview – see the whole area', tilt: 'Tilted view (V)' },
       menu: { more: 'Menu', overview: 'Overview', tilt: 'Tilted view', on: 'On', off: 'Off', install: 'Add to home screen for full screen' },

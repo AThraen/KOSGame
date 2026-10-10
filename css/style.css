@@ -264,6 +264,24 @@ body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { dis
 .act-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 2px; }
 .meta-chip { display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; font-weight: 700; color: var(--text-dim); }
 .meta-chip .ico { width: 14px; height: 14px; }
+.boat-thumb { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.boat-chip { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 800; color: var(--text); min-width: 0; max-width: 100%; }
+.boat-chip .boat-thumb { width: 56px; height: 42px; flex: none; border-radius: 8px; box-shadow: 0 0 0 1px rgba(255,255,255,.22); }
+.boat-chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.boat-chip.can-pick { padding: 2px 8px 2px 2px; border-radius: 10px; background: rgba(255,181,71,.16); box-shadow: 0 0 0 1px rgba(255,181,71,.5); }
+.boat-chip-change { color: var(--primary); font-weight: 900; white-space: nowrap; }
+.act-card.locked .boat-chip { opacity: .6; }
+.boat-pick-dialog { width: min(100%, 520px); }
+.pick-hint { margin: 0 0 12px; color: var(--text-dim); font-weight: 700; }
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.pick-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 44px; padding: 8px 6px 10px; border-radius: 16px; border: 2px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: var(--text); font: inherit; cursor: pointer; }
+.pick-tile:hover { background: rgba(255,255,255,.1); }
+.pick-tile.on { border-color: var(--primary); background: rgba(255,181,71,.16); box-shadow: 0 0 14px rgba(255,181,71,.3); }
+.pick-tile:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.pick-art { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; }
+.pick-name { font-size: .88rem; font-weight: 800; line-height: 1.15; }
+@media (max-width: 480px) { .pick-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } .boat-pick-dialog { padding: 16px; } }
+@media (max-height: 520px) { .boat-pick-dialog { width: min(100%, 700px); padding: 12px 16px; } .boat-pick-dialog .dialog-icon, .boat-pick-dialog .pick-hint { display: none; } .boat-pick-dialog .pick-grid { grid-template-columns: repeat(5, 1fr); gap: 6px; } .boat-pick-dialog .pick-art { aspect-ratio: 16 / 9; } .boat-pick-dialog .pick-tile { padding: 5px 4px 6px; gap: 3px; } .boat-pick-dialog .dialog-title { margin: 0 0 8px; font-size: 1.1rem; } }
 .diff { display: inline-flex; gap: 3px; }
 .diff i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.18); }
 .diff i.on { background: var(--primary); box-shadow: 0 0 6px rgba(255,181,71,.6); }

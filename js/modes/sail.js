@@ -120,18 +120,20 @@
   // Activity text is inline {da, en} (KOS.tt picks the language). order = position in the area list.
   const acts = [
     { id: 'sail.free.opti', order: 10, boat: 'opti', icon: 'sail', minutes: 4, difficulty: 1,
+      pick: { group: 'free', key: 'sail.free' }, pickTitle: { da: 'Fri sejlads', en: 'Free sail' },
+      pickDesc: { da: 'Sejl frit i bugten med den båd, du vælger, og klar tre små mål.', en: 'Sail freely in the bay in the boat you choose and complete three small goals.' },
       title: { da: 'Fri sejlads · Optimist', en: 'Free sail · Optimist' },
       desc: { da: 'Sejl frit i bugten og klar tre små mål undervejs.', en: 'Sail freely in the bay and complete three small goals.' },
       params: { kind: 'free', windDeg: 240, windKn: 8, gust: 0.45, shift: 0.3, seed: 11 } },
-    { id: 'sail.rings', order: 20, icon: 'star', minutes: 4, difficulty: 2, unlock: null,
+    { id: 'sail.rings', pick: { group: 'challenge' }, order: 20, icon: 'star', minutes: 4, difficulty: 2, unlock: null,
       title: { da: 'Ringjagt', en: 'Ring hunt' },
       desc: { da: 'Saml alle de gyldne ringe så hurtigt du kan. Brug vinden smart!', en: 'Collect all the golden rings as fast as you can. Use the wind smartly!' },
       params: { kind: 'rings', windDeg: 230, windKn: 9, gust: 0.5, shift: 0.3, seed: 21, count: 8 } },
-    { id: 'sail.cleanup', order: 30, icon: 'trash', minutes: 5, difficulty: 2, unlock: { after: 'sail.rings' },
+    { id: 'sail.cleanup', pick: { group: 'challenge' }, order: 30, icon: 'trash', minutes: 5, difficulty: 2, unlock: { after: 'sail.rings' },
       title: { da: 'Ryd op i bugten', en: 'Clean up the bay' },
       desc: { da: 'Der flyder skrald i vandet. Saml det op – men hold dig ude af badezonen.', en: 'Rubbish is floating in the water. Pick it up – but keep out of the swim zone.' },
       params: { kind: 'cleanup', windDeg: 265, windKn: 7, gust: 0.4, shift: 0.4, seed: 31, count: 7 } },
-    { id: 'sail.timetrial', order: 40, icon: 'timer', minutes: 5, difficulty: 3, unlock: { after: 'sail.cleanup' },
+    { id: 'sail.timetrial', pick: { group: 'challenge' }, order: 40, icon: 'timer', minutes: 5, difficulty: 3, unlock: { after: 'sail.cleanup' },
       title: { da: 'Tidsløb om mærkerne', en: 'Time trial round the marks' },
       desc: { da: 'Kryds op til mærke 1, videre til mærke 2 og hjem over mållinjen. Rund om bagbord!', en: 'Beat up to mark 1, on to mark 2 and home across the line. Leave the marks to port!' },
       params: { kind: 'timetrial', windDeg: 250, windKn: 10, gust: 0.55, shift: 0.35, seed: 41, course: { up: 100, wing: 85 } } },
@@ -141,7 +143,7 @@
     const rib = id === 'rib', n = boatName(id);
     acts.push({
       id: 'sail.free.' + id, order: 50 + i, boat: id, icon: rib ? 'rib' : 'boat', minutes: 4, difficulty: Math.min(5, 1 + Math.ceil(i / 2)),
-      unlock: { stars: BOAT_STARS[id] || 0 },
+      unlock: { stars: BOAT_STARS[id] || 0 }, pick: { group: 'free', key: 'sail.free' }, pickHidden: true,
       title: rib ? { da: 'Fri tur · RIB', en: 'Free ride · RIB' } : { da: 'Fri sejlads · ' + n, en: 'Free sail · ' + n },
       desc: rib ? { da: 'Kør klubbens orange RIB rundt i bugten og klar tre mål.', en: 'Drive the club\'s orange RIB around the bay and complete three goals.' }
         : { da: 'Sejl frit i bugten med ' + n + ' og klar tre små mål.', en: 'Sail freely in the bay in the ' + n + ' and complete three small goals.' },
