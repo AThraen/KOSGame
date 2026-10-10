@@ -1,0 +1,123 @@
+/* css/modes/soslag.css — Søslag i bugten (js/modes/soslag.js). Scoped to .soslag-* classes; cards reuse race.css (.race-card, .race-intro-card). */
+
+/* ---- opponent panel: top-right on desktop, under the HUD on phones */
+.soslag-panel {
+  position: absolute; z-index: 21; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t) + 12px);
+  width: 196px; padding: 9px 12px; border-radius: 16px; color: #fff; pointer-events: none;
+  background: rgba(13, 19, 33, .7); border: 1px solid var(--glass-border, rgba(255,255,255,.12));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.28);
+}
+/* wet bars (you, the opponent), the tank gauge, distance + windward/leeward, one hint line */
+.sl-bar { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 6px; margin-bottom: 5px; }
+.sl-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; color: rgba(255,255,255,.82); }
+.sl-bar.op .sl-n { color: var(--primary, #ffb547); }
+.sl-p { font-size: .9rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sl-track { grid-column: 1 / -1; height: 7px; margin-top: 2px; border-radius: 6px; background: rgba(255,255,255,.14); overflow: hidden; }
+.sl-track i { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #3aa0ff, #7fd0ff); transition: width .18s linear; }
+.sl-bar.hot .sl-track i { background: linear-gradient(90deg, #2d7bff, #b46bff); }
+.sl-tank { display: grid; grid-template-columns: 16px 1fr; align-items: center; gap: 0 6px; margin: 6px 0 2px; }
+.sl-tank .sl-ico svg, .sl-tank .ico { width: 16px; height: 16px; color: #7fd0ff; }
+.sl-tank .sl-track { grid-column: 1 / -1; height: 6px; }
+.sl-tank .sl-track i { background: #49c6f2; }
+.sl-tank.low .sl-track i { background: #ff9a3d; }
+.sl-tank.dip .sl-track i { background: #3ee08f; }
+.sl-tank.pulse { animation: sl-pulse 1s ease-in-out infinite; }
+.sl-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.sl-row b { font-size: 1.05rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sl-hint { display: none; margin-top: 5px; font-size: .74rem; font-weight: 900; line-height: 1.2; }
+.sl-hint.on { display: block; }
+.sl-hint.far, .sl-hint.out { color: #ffb38a; } .sl-hint.dip { color: #7dffb5; }
+.sl-hint.pulse { animation: sl-pulse 1s ease-in-out infinite; }
+@keyframes sl-pulse { 50% { opacity: .55; } }
+.sl-row em { font-style: normal; font-size: .74rem; font-weight: 900; padding: 1px 8px; border-radius: 8px; background: rgba(255,255,255,.1); }
+.sl-row em.luv { background: rgba(255,154,61,.25); color: #ffb38a; } /* he is windward of you */
+.sl-row em.lae { background: rgba(62,224,143,.22); color: #7dffb5; } /* you are windward of him */
+.has-intro-card .soslag-panel { opacity: .15; pointer-events: none; transition: opacity .25s; }
+
+/* ---- intro card lines */
+.soslag-lines { margin: 4px 0 8px; padding-left: 1.15em; text-align: left; font-weight: 700; line-height: 1.35; }
+.soslag-lines li { margin: 3px 0; }
+.soslag-trainer { margin-bottom: 2px; }
+
+/* ---- 3-2-1 countdown */
+.soslag-count {
+  position: absolute; z-index: 22; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.6); pointer-events: none; opacity: 0;
+  font-size: 5.5rem; font-weight: 900; color: #fff; text-shadow: 0 4px 18px rgba(0,0,0,.55); transition: opacity .2s, transform .35s var(--ease-pop, ease-out);
+}
+.soslag-count.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.soslag-count.go { color: #7dffb5; font-size: 3.6rem; }
+
+/* ---- results: the two wet bars before the stats */
+.soslag-rbars { width: 100%; box-sizing: border-box; margin: 10px 0 6px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.07); text-align: left; }
+.srb-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: .78rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; }
+.srb-head .ico { width: 18px; height: 18px; color: #7fd0ff; }
+.srb-row { display: grid; grid-template-columns: minmax(70px, 34%) 1fr 3.4em; align-items: center; gap: 8px; margin: 5px 0; font-weight: 800; }
+.srb-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.srb-track { height: 10px; border-radius: 8px; background: rgba(255,255,255,.16); overflow: hidden; }
+.srb-track i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, #3aa0ff, #7fd0ff); }
+.srb-row.op .srb-track i { background: linear-gradient(90deg, #ffb547, #ff9a3d); }
+
+/* ---- gun / turn buttons. Desktop: top-left under the pause button, SKYD larger than the rest; the wet panel is top-right.
+   Phones (two-thumb layout): the extras column leaves the top-left (the ⋯ menu lives there) and joins the RIGHT-THUMB cluster: SKYD is a big round button in SPI's slot
+   (above the sheet, portrait) or beside the sheet (landscape); the TURN button (only while a penalty turn is owed) stacks above it. */
+.soslag-layer .kc .kc-extras, .soslag-layer .kc.kc-landscape .kc-extras { right: auto; left: calc(var(--safe-l, 0px) + 12px); top: calc(var(--safe-t) + 66px); flex-direction: row; align-items: flex-start; }
+.soslag-layer .kc .kc-extra b { display: none; }
+.soslag-layer .kc .kc-extra { padding: 0 10px; min-width: 52px; height: 52px; }
+.soslag-layer .kc .kc-extra[data-btn="fire"] { min-width: 76px; height: 60px; padding: 0 12px; gap: 6px; border-color: rgba(127, 208, 255, .75); }
+.soslag-layer .kc .kc-extra[data-btn="fire"] b { display: block; font-size: 13px; letter-spacing: .02em; }
+.soslag-layer .kc .kc-extra[data-btn="fire"] svg { width: 26px; height: 26px; }
+.soslag-layer .kc .kc-extra[data-btn="fire"].kc-on { background: rgba(40, 140, 255, .55); border-color: #bfe6ff; box-shadow: 0 0 0 6px rgba(127, 208, 255, .3), 0 8px 22px rgba(0, 0, 0, .35); }
+@media (min-width: 900px) and (min-height: 600px) {
+  .soslag-layer .kc .kc-extras { left: calc(var(--safe-l, 0px) + 12px); top: calc(var(--safe-t) + 66px); }
+}
+/* the right-thumb cluster (js: .kc-tillermode) */
+.soslag-layer .kc-tillermode .kc-extras, .soslag-layer .kc-tillermode.kc-landscape .kc-extras {
+  left: auto; top: auto; flex-direction: column-reverse; align-items: flex-end; gap: 10px;
+  right: var(--kc-sl-right); bottom: calc(var(--kc-sl-bot) + var(--kc-sl) + 30px);
+}
+.soslag-layer .kc-tillermode .kc-extra { height: var(--kc-rb); min-width: var(--kc-rb); }
+.soslag-layer .kc-tillermode .kc-extra[data-btn="fire"] {
+  flex-direction: column; justify-content: center; gap: 3px; width: calc(var(--kc-rb) + 18px); height: calc(var(--kc-rb) + 18px); min-width: 0; padding: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(150, 215, 255, .75), rgba(34, 120, 220, .75) 55%, rgba(16, 70, 160, .8));
+  border: 2px solid rgba(200, 236, 255, .9);
+}
+.soslag-layer .kc-tillermode .kc-extra[data-btn="fire"] svg { width: 30px; height: 30px; }
+.soslag-layer .kc-tillermode .kc-extra[data-btn="fire"] b { font-size: 12px; }
+.soslag-layer .kc-tillermode .kc-extra[data-btn="fire"] .kc-key { display: none; }
+.soslag-layer .kc-tillermode .kc-extra[data-btn="fire"][disabled], .soslag-layer .kc-tillermode .kc-extra[data-btn="fire"].kc-disabled { filter: grayscale(.9); opacity: .55; }
+.soslag-layer .kc-tillermode .kc-extra[data-btn="turn"] { width: var(--kc-rb); border-radius: 50%; padding: 0; justify-content: center; }
+.soslag-layer .kc-tillermode.kc-landscape .kc-extras { right: calc(var(--kc-sl-right) + var(--kc-sl-w) + 14px); bottom: var(--kc-sl-bot); }
+.soslag-layer .kc-tillermode.kc-landscape.kc-hasjib .kc-extras { right: calc(var(--kc-sl-right) + var(--kc-sl-w) + var(--kc-jw, 72px) + 22px); }
+/* landscape: nothing at the top-right but the sheet, which can start at the top edge (no extras row above it) */
+.soslag-layer .kc-landscape.kc-tillermode.kc-sail .kc-sheet, .soslag-layer .kc-landscape.kc-tillermode.kc-sail .kc-jib { top: calc(var(--kc-sl-top) + 22px); }
+.soslag-layer .kc-narrow.kc-tillermode { --kc-tl-w: 150px; }
+
+/* ---- phones, portrait: the wet panel is a slim two-column card under the HUD (you | him, water | distance), centred; the toast under it */
+@media (max-width: 560px) and (orientation: portrait) {
+  .soslag-panel {
+    top: calc(var(--safe-t) + 124px); right: auto; left: 50%; transform: translateX(-50%); width: min(94vw, 340px); box-sizing: border-box;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; padding: 7px 11px 8px; border-radius: 14px;
+  }
+  .soslag-panel .sl-bar, .soslag-panel .sl-tank, .soslag-panel .sl-row { margin: 0; }
+  .soslag-panel .sl-hint, .soslag-panel .sl-pen { grid-column: 1 / -1; margin-top: 3px; }
+  .sl-row b { font-size: 1rem; }
+  .soslag-count { font-size: 4rem; } .soslag-count.go { font-size: 2.6rem; }
+  .soslag-layer .race-card, .soslag-layer .race-card.show { top: calc(var(--safe-t) + 204px); left: 50%; max-width: 92vw; transform: translate(-50%, -12px) scale(.9); }
+  .soslag-layer .race-card.show { transform: translate(-50%, 0) scale(1); }
+}
+@media (max-width: 380px) { .sl-pre { display: none; } } /* 'Træner Anton' -> 'Anton' on the narrowest phones */
+
+/* ---- phones, landscape: the panel sits top-left under the ⋯ button, clear of the sheet (right) and the HUD (centre) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .soslag-panel { top: calc(var(--safe-t) + 70px); right: auto; left: calc(var(--safe-l, 0px) + 10px); width: 156px; padding: 5px 9px; }
+  .sl-bar { margin-bottom: 3px; } .sl-tank { margin-top: 4px; }
+  .soslag-count { font-size: 3.6rem; top: 42%; } .soslag-count.go { font-size: 2.4rem; }
+  .soslag-layer .race-card, .soslag-layer .race-card.show { top: calc(var(--safe-t) + 214px); left: calc(var(--safe-l, 0px) + 10px); max-width: 220px; transform: translate(0, -12px) scale(.9); }
+  .soslag-layer .race-card.show { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .soslag-count, .sl-track i { transition: none; } .sl-tank.pulse, .sl-hint.pulse { animation: none; } }
+
+/* ---- penalty turn (step 4): the TURN button only while a turn is owed (it pulses via .kc-highlight on normal / pro, not on easy: the boat turns itself); progress bar in the panel */
+.soslag-layer:not(.soslag-pen) .kc [data-btn="turn"] { display: none; }
+.soslag-panel .sl-pen:empty { display: none; }
+.soslag-panel .rp-pen { margin-top: 5px; }

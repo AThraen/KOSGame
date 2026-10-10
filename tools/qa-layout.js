@@ -28,6 +28,7 @@ const INDEX = url.pathToFileURL(path.resolve(__dirname, '..', 'index.html')).hre
 const QA_DIR = path.resolve(__dirname, '..', '.tmp', 'qa');
 
 const VIEWPORTS = [
+  { w: 320, h: 568, touch: true },
   { w: 390, h: 844, touch: true },
   { w: 844, h: 390, touch: true },
   { w: 768, h: 1024, touch: true },

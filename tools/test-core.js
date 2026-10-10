@@ -1117,6 +1117,207 @@ test('feedback: mailto url is well-formed and the body is bounded', () => {
   ok(KOS.Feedback.versionText() === 'dev', 'dev version text ' + KOS.Feedback.versionText());
 });
 
+// ====================================================================== Soslag (pure jet core, docs/specs/soslag.md sections 5-9)
+const SL = KOS.Soslag, DT = KOS.DT;
+function eq(a, b, m) { if (a !== b) throw new Error((m || 'eq') + `: ${a} !== ${b}`); }
+function fakeBoat(o) { return Object.assign({ x: 0, y: 0, heading: 0, vx: 0, vy: 0, speed: 0, cls: KOS.Boats.get('hboat') }, o); }
+function jetFlight(boat, az, el, wind) { // fly one jet to the splash, interpolated landing {x, y}
+  const j = SL.launch(null, boat, az, el); let t = 0, r = 0;
+  while (!r && t < 6) { r = SL.stepJet(j, wind, DT); t += DT; }
+  const u = j.pz / Math.max(j.pz - j.z, 1e-9);
+  return { x: j.px + (j.x - j.px) * u, y: j.py + (j.y - j.py) * u, t, j };
+}
+function bestRange(tws, azRel) { // wind from north (dir 0) blows towards south (heading PI); azRel 0 = downwind
+  let best = 0;
+  for (let e = 8; e <= 40; e += 0.5) { const f = jetFlight(fakeBoat({ cls: { length: 0 } }), Math.PI + azRel, R(e), { dir: 0, speed: tws }); best = Math.max(best, Math.hypot(f.x, f.y)); }
+  return best;
+}
+test('Soslag: range table at 6/9/12 kn (downwind, still, upwind) within +-1 m of the spec', () => {
+  const tab = { 6: [16, 11, 8.5], 9: [18.7, 11, 7.5], 12: [21.3, 11, 6.7] };
+  for (const k of [6, 9, 12]) {
+    const [dn, zero, upw] = tab[k];
+    near(bestRange(k, 0), dn, 1, k + ' kn downwind'); near(bestRange(k, Math.PI), upw, 1, k + ' kn upwind');
+    near(bestRange(0, 0), zero, 1, 'still air'); near(SL.downwindRange(k), dn, 1, 'downwindRange ' + k); near(SL.upwindRange(k), upw, 1, 'upwindRange ' + k);
+  }
+  const d = bestRange(9, 0), u = bestRange(9, Math.PI);
+  ok(d / u >= 2.4, 'downwind/upwind ' + (d / u).toFixed(2)); ok(u >= 7.0, 'upwind ' + u.toFixed(2));
+});
+test('Soslag: crosswind drift of a 20 degree shot (+-1 m of 2.3 / 3.5 / 4.6), towards dir + PI', () => {
+  for (const [k, want] of [[6, 2.3], [9, 3.5], [12, 4.6]]) {
+    const f = jetFlight(fakeBoat({ cls: { length: 0 } }), Math.PI / 2, R(20), { dir: 0, speed: k }); // shooting east, wind from the north: drifts south (y +)
+    near(f.y, want, 1, k + ' kn drift');
+  }
+  for (const d of [0, 90, 180, 270]) {
+    const w = SL.windMs({ dir: R(d), speed: 10 }, 0, 0), to = U.vec(R(d) + Math.PI);
+    ok(w.x * to.x + w.y * to.y > 0.99 * U.ms(10) * SL.CFG.KW, 'wind dir ' + d);
+  }
+});
+test('Soslag: the boat velocity is inherited by the jet', () => {
+  const b = fakeBoat({ heading: 0, vx: 0, vy: -3, speed: 3 }), still = fakeBoat({ heading: 0 });
+  const a = SL.launch(null, b, 0, R(20), b), c = SL.launch(null, still, 0, R(20), still);
+  near(a.vy - c.vy, -3, 1e-9, 'vy inherited'); near(a.vz, c.vz, 1e-12);
+});
+test('Soslag: hit test (crew disc yes, hull outside the disc no points, too high no, passing by no)', () => {
+  const tg = fakeBoat({ heading: 0 }), cc = SL.crewCenter(tg), mk = (x, y, z, px, py, pz) => ({ x, y, z, px, py, pz });
+  ok(cc.y > tg.y, 'crew sits aft of the centre (heading north, so aft is south, y grows)');
+  eq(SL.hitTest(mk(cc.x + 0.2, cc.y, 1.2, cc.x - 0.2, cc.y, 1.3), tg), 'crew', 'through the crew disc');
+  eq(SL.hitTest(mk(tg.x + 0.2, tg.y - 3.2, 0.5, tg.x - 0.2, tg.y - 3.0, 0.6), tg), 'hull', 'bow of the hull, outside the disc');
+  eq(SL.hitTest(mk(cc.x + 0.2, cc.y, 3.4, cc.x - 0.2, cc.y, 3.4), tg), null, 'too high above hull and crew');
+  eq(SL.hitTest(mk(cc.x + 9.2, cc.y, 1, cc.x + 8.8, cc.y, 1), tg), null, 'passes beside');
+  const low = SL.hitTest(mk(cc.x + 0.2, cc.y, 0.03, cc.x - 0.2, cc.y, 0.05), tg); ok(low !== 'crew', 'too low is no crew hit');
+});
+// zero-sigma replay of solveAim against a constant-velocity target with the same swept test the game uses
+function replay(sh, tg, wind, a) {
+  const j = SL.launch(null, sh, a.az, a.el), c = Object.assign({}, tg); let t = 0, r = 0;
+  while (!r && t < 6) { r = SL.stepJet(j, wind, DT); t += DT; c.x = tg.x + (tg.vx || 0) * t; c.y = tg.y + (tg.vy || 0) * t; if (SL.hitTest(j, c) === 'crew') return true; }
+  return false;
+}
+test('Soslag: solveAim ok implies a zero-sigma crew hit (z in band) at wind 0/90/180/270, still and 3 m/s crossing targets', () => {
+  let oks = 0, total = 0;
+  for (const wd of [0, 90, 180, 270]) {
+    const wind = { dir: R(wd), speed: 9 };
+    for (const rel of [0, 90, 180, 270]) for (const dist of [4, 6, 10, 14]) for (const cross of [0, 3]) {
+      const brg = R(wd + rel), sh = fakeBoat({ x: 5, y: -7, heading: R(wd + 90) });
+      const g = SL.gunPos(sh), v = U.vec(brg, dist), th = brg + Math.PI / 2, tv = U.vec(th, cross);
+      const tg = fakeBoat({ x: g.x + v.x, y: g.y + v.y, heading: th, vx: tv.x, vy: tv.y, speed: cross });
+      const a = SL.solveAim(sh, tg, wind); total++;
+      if (a.ok) { oks++; ok(replay(sh, tg, wind, a), `ok but no hit: wind ${wd} rel ${rel} dist ${dist} cross ${cross}`); between(a.zHit, SL.CFG.CREW_Z0, SL.CFG.CREW_Z1, 'zHit'); }
+      else if (rel === 180 || dist === 6 || (dist === 10 && rel !== 0 && !cross)) throw new Error(`expected ok: wind ${wd} rel ${rel} (target bearing from the wind-from line, 0 = upwind) dist ${dist} cross ${cross} miss ${a.miss.toFixed(2)}`);
+    }
+  }
+  ok(oks / total > 0.6, 'most shots solvable: ' + oks + '/' + total);
+});
+test('Soslag: solveAim hits stationary targets at 6/10/14 m downwind and 4 m upwind, 25 m upwind is out of reach, and it leads a 3 m/s crosser', () => {
+  const wind = { dir: 0, speed: 9 }; // from the north: downwind = south = heading PI
+  for (const [d, rel] of [[6, Math.PI], [10, Math.PI], [14, Math.PI], [4, 0]]) {
+    const sh = fakeBoat({ heading: 0 }), g = SL.gunPos(sh), v = U.vec(rel, d), tg = fakeBoat({ x: g.x + v.x, y: g.y + v.y });
+    const a = SL.solveAim(sh, tg, wind); ok(a.ok && replay(sh, tg, wind, a), `${d} m heading ${rel.toFixed(1)}: miss ${a.miss.toFixed(2)}`);
+  }
+  const sh = fakeBoat({ heading: 0 }), g = SL.gunPos(sh), far = fakeBoat({ x: g.x, y: g.y - 25 });
+  eq(SL.solveAim(sh, far, wind).ok, false, '25 m upwind');
+  const tg = fakeBoat({ x: g.x + 10, y: g.y + 8, heading: 0, vx: 0, vy: -3, speed: 3 }), a = SL.solveAim(sh, tg, wind);
+  ok(a.ok && replay(sh, tg, wind, a), 'crossing target hit');
+  const lead = SL.solveAim(sh, Object.assign({}, tg, { vy: 0 }), wind);
+  ok(Math.abs(U.angDiff(a.az, lead.az)) > R(1.5), 'aimed ahead of a moving target (az differs by ' + U.deg(U.angDiff(a.az, lead.az)).toFixed(1) + ' deg)');
+});
+test('Soslag: a 0.5 m aim offset still hits at 27 and 54 degrees of descent', () => {
+  const wind = { dir: 0, speed: 9 }; // wind from the north; targets downwind (south): short shots come down at ~27 degrees, near-maximum lobs at ~54
+  for (const [lo, hi] of [[25, 29], [52, 58]]) {
+    let found = null;
+    for (let d = 7; d <= 17 && !found; d += 0.25) { // first distance whose solution has the wanted descent angle
+      const sh = fakeBoat({ heading: 0 }), g = SL.gunPos(sh), tg = fakeBoat({ x: g.x, y: g.y + d + 1 }), a = SL.solveAim(sh, tg, wind);
+      if (a.ok && a.descent >= lo && a.descent <= hi) found = { sh, tg, descent: a.descent };
+    }
+    ok(found, 'a solution with ' + lo + '-' + hi + ' degrees of descent exists');
+    for (const [ox, oy] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) { // aim 0.5 m beside the crew centre
+      const a = SL.solveAim(found.sh, fakeBoat({ x: found.tg.x + ox, y: found.tg.y + oy, heading: 0 }), wind);
+      ok(replay(found.sh, found.tg, wind, a), `offset ${ox},${oy} at ${found.descent.toFixed(0)} deg missed`);
+    }
+  }
+});
+test('Soslag: the fire accumulator gives 500 +- 1 jets in 60 s and carries the remainder', () => {
+  const b = {}; let n = 0; for (let i = 0; i < 3600; i++) n += SL.accTake(b, DT);
+  between(n, 499, 501, 'jets in 60 s');
+  const c = {}; let m = 0; for (let i = 0; i < 120; i++) m += SL.accTake(c, DT); between(m, 16, 17, '2 s held');
+  // 0.05 s taps (3 steps) each followed by a release that does NOT drop the remainder: 10 taps = 0.5 s lose no shot when carried
+  const d = {}; let q = 0; for (let k = 0; k < 10; k++) for (let i = 0; i < 3; i++) q += SL.accTake(d, DT); between(q, 4, 5, '1.5 s of held steps');
+});
+test('Soslag: the pool never exceeds 64 in 60 s of two-boat fire, and recycles the oldest jet when forced to 8', () => {
+  const wind = { dir: 0, speed: 9 }, pool = SL.createPool(), a = fakeBoat({ heading: 0 }), b = fakeBoat({ x: 3, y: 5, heading: Math.PI }); let maxLive = 0;
+  for (let i = 0; i < 3600; i++) {
+    for (const [sh, az] of [[a, Math.PI], [b, 0]]) for (let k = SL.accTake(sh, DT); k > 0; k--) SL.launch(pool, sh, az, R(30), sh);
+    SL.stepPool(pool, wind, DT); maxLive = Math.max(maxLive, pool.n);
+  }
+  ok(maxLive <= SL.CFG.MAX_JETS && maxLive > 20, 'peak live jets ' + maxLive);
+  const p8 = SL.createPool(8), sh = fakeBoat({ heading: 0 });
+  for (let i = 0; i < 20; i++) { const j = SL.launch(p8, sh, 0, R(30), sh); eq(j.seq, i + 1); }
+  eq(p8.n, 8, 'pool stays at 8'); eq(Math.min(...p8.jets.map(j => j.seq)), 13, 'the oldest were recycled (seq 13..20 left)'); eq(p8.jets.length, 8, 'never allocated');
+});
+test('Soslag: tank maths (cost 1.8, passive 7/s, dip 20/s only below 1.2 m/s and not in a penalty, nothing while firing, hysteresis at 10)', () => {
+  const b = { tank: 100, speed: 3 }; SL.spend(b, 10); near(b.tank, 82, 1e-9, 'cost');
+  b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'passive 7/s'); b.tank = 50; for (let i = 0; i < 60; i++) SL.tankStep(b, DT, true); near(b.tank, 50, 0.01, 'no refill while firing');
+  b.tank = 50; b.speed = 1.1; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 70, 0.01, 'dip 20/s');
+  b.tank = 50; b.speed = 1.3; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'above 1.2 m/s no dip');
+  b.tank = 50; b.speed = 0.5; b.pen = { turns: 1 }; for (let i = 0; i < 60; i++) SL.tankStep(b, DT); near(b.tank, 57, 0.01, 'no dip in a penalty');
+  const h = { tank: 3 }; ok(SL.gunReady(h), '3 units: ready'); SL.spend(h, 2); ok(!SL.gunReady(h), 'empty: grey'); h.tank = 9.9; ok(!SL.gunReady(h), '9.9: still grey'); h.tank = 10; ok(SL.gunReady(h), '10: ready again');
+  const f = { tank: 0, speed: 3 }; let t = 0; while (f.tank < 100) { SL.tankStep(f, DT); t += DT; } between(t, 14.1, 14.5, 'from empty 14.3 s passively');
+  const g = { tank: 100, speed: 3 }; let n = 0; while (SL.gunReady(g)) { g.tank -= 0; SL.spend(g, 1); n++; } between(n * SL.CFG.RATE_DT, 6, 8, 'a full tank lasts 6-8 s of continuous fire');
+});
+test('Soslag: wet gain (CFG.WET_GAIN) per hit, clamped at 100', () => {
+  near(SL.wetGain(10, 1), 10 + SL.CFG.WET_GAIN, 1e-9); eq(SL.wetGain(99.9, 1), 100); let w = 0; for (let i = 0; i < 400; i++) w = SL.wetGain(w, 1); eq(w, 100);
+});
+test('Soslag: draw / knock-out / clock edge cases and the 5-point rule', () => {
+  eq(SL.endCheck(100, 100, false).outcome, 'draw', 'both 100 in one step'); eq(SL.endCheck(100, 100, true).outcome, 'draw');
+  let r = SL.endCheck(40, 100, true); eq(r.outcome, 'win', '100 on the clock step: the 100 % rule decides'); eq(r.why, 'soaked');
+  r = SL.endCheck(100, 90, true); eq(r.outcome, 'lose'); eq(r.why, 'soakedMe');
+  eq(SL.endCheck(50, 60, false), null, 'duel goes on');
+  eq(SL.endCheck(50, 54.9, true).outcome, 'draw', '4.9 apart'); eq(SL.endCheck(50, 55, true).outcome, 'win', '5.0 apart'); eq(SL.endCheck(55, 50, true).outcome, 'lose');
+  eq(SL.endCheck(50, 45, true).outcome, 'lose'); eq(SL.endCheck(50.1, 45.2, true).outcome, 'draw');
+});
+test('Soslag: stars table (idle 0, lost 1, draw 1, win 2, win by 15 with 1 foul 3, win by 20 with 2 fouls 2) and score', () => {
+  const st = (fired, w, fouls) => SL.stars({ fired, outcome: w.outcome, diff: w.diff, fouls });
+  const win = d => ({ outcome: 'win', diff: d });
+  eq(st(19, win(30), 0), 0, 'idle'); eq(st(20, { outcome: 'lose', diff: -10 }, 0), 1); eq(st(60, { outcome: 'draw', diff: 2 }, 0), 1);
+  eq(st(60, win(6), 0), 2); eq(st(60, win(15), 1), 3); eq(st(60, win(14.9), 0), 2); eq(st(60, win(20), 2), 2);
+  eq(SL.score(60, 30, 1), Math.round(600 + 210 - 50)); eq(SL.score(0, 100, 20), 0);
+});
+test('Soslag: station() is to windward of the opponent, 9..16 m, on the requested side', () => {
+  for (const wd of [0, 90, 200, 240]) for (const side of [1, -1]) {
+    const opp = { x: 30, y: -10 }, s = SL.station(opp, R(wd), 9, side);
+    ok(Math.abs(U.wrapPi(U.bearing(opp, s) - R(wd))) < R(60), 'within the windward sector'); between(U.dist(opp, s), 9, 16, 'distance');
+  }
+  const a = SL.station({ x: 0, y: 0 }, 0, 9, 1), b = SL.station({ x: 0, y: 0 }, 0, 9, -1); ok(a.x > 0 && b.x < 0, 'sides');
+});
+test('Soslag: deterministic (the same seed gives the same hit count)', () => {
+  const run = seed => {
+    const rand = U.rng(seed), wind = { dir: R(240), speed: 9 }, sh = fakeBoat({ heading: R(90) }), tg = fakeBoat({ x: 8, y: 6, heading: R(90) }); let hits = 0;
+    for (let n = 0; n < 150; n++) {
+      const a = SL.solveAim(sh, tg, wind, { sigma: R(5), sigmaEl: R(3), rand }), j = SL.launch(null, sh, a.az, a.el); let r = 0;
+      while (!r) { r = SL.stepJet(j, wind, DT); if (SL.hitTest(j, tg) === 'crew') { hits++; break; } }
+    }
+    return hits;
+  };
+  eq(run(7), run(7)); ok(run(7) > 0 && run(7) < 150, 'some hit, some miss: ' + run(7));
+});
+// Headless duel: the player boat holds a fixed course, the AI is the only helm and sails to the windward station (4 Hz {target} plan, as the mode does).
+function holdCourse(b, hd, c) { // a fixed-course "player": steer to a fixed heading, auto sheet
+  c.autoTrim = true; c.autoHike = true; c.rudder = U.clamp(U.angDiff(b.heading, hd) * 2.5 - (b.yawRate || 0) * 1.2, -1, 1); return c;
+}
+test('Soslag: duel sim, 20 seeds: AI within 25 m from 30 s (>= 95 %), windward in >= 60 % of samples, never idles', () => {
+  const wd = R(240), right = U.vec(wd + Math.PI / 2);
+  let minWind = 1, sumWind = 0, minNear = 1; const dists = [];
+  for (let seed = 1; seed <= 20; seed++) {
+    const wind = KOS.Wind.create({ dir: wd, speed: 9, gust: 0.4, shift: 0.25, seed }), rnd = U.rng(seed * 13);
+    for (let i = 0; i < 240; i++) wind.update(0.5);
+    const hd = U.wrapPi([wd - Math.PI / 2, wd + Math.PI / 2, wd - R(110), wd + R(110)][seed % 4]); // a fixed course: beam or broad reach, either tack
+    const me = P.createBoat('hboat', { x: 0, y: 0, heading: hd, speed: 2.5, isPlayer: true });
+    const ab = U.vec(hd, 45), opp = P.createBoat('hboat', { x: ab.x, y: ab.y, heading: hd, speed: 2.5 }); // 45 m ahead on the same course (the mode's start: a line across the wind, both heading along it)
+    const fsk = KOS.AI.fleetSkill({}, 'normal', 0), skill = U.clamp(U.lerp(fsk.lo, fsk.hi, 0.5) + 0.04 + 0.04 * (rnd() - 0.5), 0.05, 0.98); // as the mode: mid fleet skill + 0.04
+    opp.helm = KOS.AI.createHelm(opp, { skill, aggression: 0.5, seed: seed * 31 + 1 }); opp.pace = KOS.AI.paceFor(skill, fsk);
+    const env = { wind, t: 0, assist: 'normal' }, mc = P.controls(); let side = 1, jit = 1.5, samples = 0, near25 = 0, wnd = 0, idle = 0;
+    for (let k = 0; k < 60 * 120; k++) {
+      env.t += DT; wind.update(DT);
+      P.step(me, holdCourse(me, hd, mc), env, DT);
+      if (k % 15 === 0 || opp.helm.finished) {
+        const sd = (opp.x - me.x) * right.x + (opp.y - me.y) * right.y; if (Math.abs(sd) > 4) side = sd > 0 ? 1 : -1; jit = -jit || 1.5;
+        const s = SL.station(me, wd, 9, side, 5); // the windward station aimed 5 s ahead of the moving opponent (the mode's LEAD_S 3 is too short for a runaway reach: 3 -> 58 % within 25 m)
+        opp.plan = { target: { x: s.x + right.x * jit, y: s.y + right.y * jit, r: 0.5 }, mode: 'race' };
+      }
+      const oc = opp.helm.think(env, opp.plan, [me, opp]); if (opp.helm.finished) idle++; // still finished after the replan: it would idle
+      P.step(opp, oc, env, DT);
+      P.collide([me, opp], null, []);
+      if (k % 60 === 0 && env.t >= 30) {
+        samples++; const d = U.dist(me, opp); dists.push(d); if (d <= 25) near25++;
+        if (Math.abs(U.wrapPi(U.bearing(me, opp) - wd)) < R(60)) wnd++;
+      }
+    }
+    minWind = Math.min(minWind, wnd / samples); sumWind += wnd / samples; minNear = Math.min(minNear, near25 / samples);
+    if (idle || near25 / samples < 0.95 || wnd / samples < 0.6) throw new Error(`seed ${seed}: idle steps ${idle}, within 25 m ${(near25 / samples * 100).toFixed(0)} %, windward ${(wnd / samples * 100).toFixed(0)} %`);
+  }
+  dists.sort((a, b) => a - b);
+  if (only) console.log(`\n  soslag windward% min/mean ${(minWind * 100).toFixed(0)}/${(sumWind / 20 * 100).toFixed(0)}  within25 min ${(minNear * 100).toFixed(0)}  dist p95 ${dists[Math.floor(dists.length * 0.95)].toFixed(1)}`);
+});
+
 // ====================================================================== summary
 console.log('\n');
 if (failures.length) console.log('FAILURES:\n  ' + failures.join('\n  '));
