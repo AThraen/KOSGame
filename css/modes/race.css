@@ -161,3 +161,33 @@
   .rb-row { padding: 3px 8px; font-size: .82rem; }
 }
 .race-rtable tr.me td { background: rgba(255,181,71,.26); }
+
+/* ---- portrait phones: calm top. The round extras leave the sailing area (spol frem and laylines live in the ⋯ menu, the penalty
+   turn button sits in the right-thumb cluster and only exists while a penalty is owed), and the flag / leg panel is a one-line chip
+   top-right under the HUD; tap it for the full details. Keys (G / L / T) are unchanged. */
+@media (orientation: portrait) and (max-width: 520px) {
+  body.phone-ui .race-layer .kc [data-btn="ff"], body.phone-ui .race-layer .kc [data-btn="layl"] { display: none; }
+  body.phone-ui .race-panel { top: calc(var(--safe-t) + 68px); right: calc(var(--safe-r, 0px) + 8px); pointer-events: auto; cursor: pointer; touch-action: manipulation; }
+  body.phone-ui .race-panel:not(.rp-open) {
+    display: flex; align-items: center; gap: 8px; width: auto; max-width: calc(100vw - 16px); height: 34px; padding: 0 12px; border-radius: 17px; overflow: hidden; white-space: nowrap;
+  }
+  body.phone-ui .race-panel:not(.rp-open) .rp-head { gap: 8px; align-items: center; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-head > span { font-size: .68rem; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-clock { font-size: 1.15rem; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-leg { font-size: .95rem; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-flags { margin: 0; min-height: 0; gap: 4px; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-flags.x { margin: 0; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-flag i { display: none; }
+  body.phone-ui .race-panel:not(.rp-open) .race-flagsvg { width: 22px; height: 16px; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-flags { order: 2; }
+  body.phone-ui .race-panel:not(.rp-open) .rp-steps, body.phone-ui .race-panel:not(.rp-open) .rp-list, body.phone-ui .race-panel:not(.rp-open) .rp-shift,
+  body.phone-ui .race-panel:not(.rp-open) .rp-lap, body.phone-ui .race-panel:not(.rp-open) .rp-pen { display: none; }
+  body.phone-ui .race-panel.rp-open { z-index: 26; width: 176px; }
+  body.phone-ui .play-layer.race-pen .race-panel:not(.rp-open) { border-color: var(--bad, #ff4d5e); }
+  body.phone-ui .race-card { top: calc(var(--safe-t) + 212px); }
+}
+/* very narrow portrait phones (< 360): the HUD wraps to its own row under the ⋯ button, so the chip sits below it */
+@media (orientation: portrait) and (max-width: 359px) {
+  body.phone-ui .race-panel { top: calc(var(--safe-t) + 128px); }
+  body.phone-ui .race-card { top: calc(var(--safe-t) + 262px); }
+}
