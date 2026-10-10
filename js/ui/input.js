@@ -2,7 +2,7 @@
 // KOS.Input: keyboard, mouse and multi-touch controls for the sea modes.
 //
 //   const ctrl = KOS.Input.attach(layer, {layout: 'sail'|'rib'|'none', spinnaker, spinnakerKind, hike, autoTrim,
-//                                         joystick, extraButtons: [{id, icon, labelKey, key}], pauseButton})
+//                                         joystick, extraButtons: [{id, icon, labelKey, key, keyLabel?, codes?: ['Space']}], pauseButton})
 //   ctrl.state  = {steer -1..1, sheet 0..1, sheetDelta -1|0|1, hike 0..1, spinnaker, throttle -1..1, action, autoTrim, buttons{}}
 //   ctrl.on('action'|'pause'|'spinnaker'|'hike'|'autotrim'|'gear'|'button'|<extra id>, fn) → off()
 //   ctrl.setSheet(v)                 sync the sheet thumb (e.g. from auto-trim)
@@ -290,7 +290,7 @@
         (opts.extraButtons || []).forEach((b, i) => {
           const lbl = b.labelKey ? tr(b.labelKey) : (b.label || tr('input.' + (b.icon || b.id)));
           h += '<button class="kc-btn kc-extra" type="button" data-btn="' + b.id + '" aria-label="' + lbl + '" title="' + lbl + '">' + iconFor(b.icon || b.id) +
-            '<b>' + lbl + '</b>' + keycap(b.key || (i < 9 ? String(i + 1) : '')) + '</button>';
+            '<b>' + lbl + '</b>' + keycap(b.keyLabel || b.key || (i < 9 ? String(i + 1) : '')) + '</button>';
         });
         h += '</div>';
       }
@@ -613,6 +613,7 @@
       if ((k === 'BOARD' && !(opts.board && opts.layout === 'sail')) || ((k === 'JU' || k === 'JD') && !jibKeys())) k = null; // free for extra buttons
       if (e.shiftKey && (k === 'U' || k === 'D') && jibKeys()) k = k === 'U' ? 'JU' : 'JD'; // Shift+↑/↓ = jib sheet
       if (!down && (e.code === 'ArrowUp' || e.code === 'ArrowDown')) { keys.delete(e.code === 'ArrowUp' ? 'JU' : 'JD'); }
+      if (opts.extraButtons) { const cb = opts.extraButtons.find(x => x.codes && x.codes.indexOf(e.code) >= 0); if (cb) k = 'X:' + cb.id; } // an extra button may claim a physical key (Søslag: Space = SKYD; that mode has no hike button)
       if (!k && /^Digit[1-9]$/.test(e.code) && opts.extraButtons) {
         const idx = +e.code.slice(5) - 1, b = opts.extraButtons[idx];
         if (b) k = 'X:' + b.id;

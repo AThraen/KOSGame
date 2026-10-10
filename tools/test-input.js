@@ -201,6 +201,22 @@ async function keyboardSuite(browser) {
   const t3 = (await st(page)).throttle;
   ok(t1 > 0.4 && t2 === 0 && t3 < -0.2, 'rib throttle keys with neutral detent (' + [t1, t2, t3].map(v => v.toFixed(2)) + ')');
   if (SHOTS) await page.screenshot({ path: 'shot-input-desktop-rib.png' });
+  // Søslag's gun button: Space (an extra button claiming the code) and K (the alias) HOLD the button; key repeat makes no extra presses; release lets go
+  await page.goto(demo('?layout=sail&spi=0&extras=fire'));
+  await page.waitForTimeout(300);
+  ok(await page.evaluate(() => document.querySelector('[data-btn=fire] .kc-key').textContent === 'Space' && getComputedStyle(document.querySelector('[data-btn=fire] .kc-key')).display !== 'none'), 'fire button shows its key (Space) on desktop');
+  for (const [code, name] of [['Space', 'Space'], ['KeyK', 'K']]) {
+    await page.evaluate(() => { window.events.length = 0; });
+    await page.keyboard.down(code); await page.waitForTimeout(80);
+    ok((await st(page)).buttons.fire === true, name + ': fire held');
+    for (let i = 0; i < 5; i++) await page.keyboard.down(code); // auto-repeat keydowns
+    await page.waitForTimeout(80);
+    ok((await st(page)).buttons.fire === true, name + ': still held after key repeat');
+    await page.keyboard.up(code); await page.waitForTimeout(80);
+    ok((await st(page)).buttons.fire === false, name + ': release lets go');
+    const nFire = await page.evaluate(() => window.events.filter(e => e === 'fire').length);
+    ok(nFire === 1, name + ': one press event for one hold, repeats ignored (' + nFire + ')');
+  }
   ok(errs.length === 0, 'no page errors ' + errs.join(' | '));
   await ctx.close();
 }

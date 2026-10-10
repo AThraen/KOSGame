@@ -10,6 +10,7 @@
 //   launch(pool, boat, az, el, owner) -> jet     (pool may be null: returns a free jet)
 //   stepJet(j, wind, dt) -> 0 live | 1 splash (z <= 0) | 2 too old (> 3 s); keeps the previous position in j.px/py/pz
 //   stepPool(pool, wind, dt, onEnd) steps every live jet, calls onEnd(jet, why) and removes the finished ones
+//   streamJets(pool, owner, out) / streamRunEnd / streamLive / activeStreams(pool, owner): the ONE stream of a boat's one gun (jets newest first, runs, 0|1 connected stream)
 //   crewCenter(boat) -> {x, y}   the cockpit disc centre; hitTest(j, target) -> 'crew' | 'hull' | null (swept, against the CURRENT target)
 //   solveAim(shooter, target, wind, opts) -> {az, el, ok, miss, T, zHit, descent}   (opts.sigma / opts.rand: radians, seeded rng)
 //   accTake(b, dt) -> n jets due this step (0.12 s accumulator that carries the remainder); b.acc resets with resetFire(b)
@@ -24,7 +25,7 @@
   const CFG = {
     V0: 16, Z0: 1.2, G: 9.8, K: 1.0, KW: 1.3, EL_MIN: 8, EL_MAX: 40,
     HULL_Z: 0.9, CREW_R: 1.4, CREW_Z0: 0.1, CREW_Z1: 2.8, AIM_Z: 1.2,
-    RATE_DT: 0.12, MAX_JETS: 64, MAX_AGE: 3,
+    RATE_DT: 0.12, MAX_JETS: 64, MAX_AGE: 3, STREAM_GAP: 0.2,
     GUN_FWD: 0.15, CREW_BACK: 0.12,                     // gun and crew positions as a fraction of the boat length (forward / aft of centre)
     TANK_MAX: 100, SHOT_COST: 1.8, PASSIVE: 7, DIP: 20, DIP_SPEED: 1.2, REFILL_MIN: 10,
     WET_GAIN: 0.7, DRAW_DIFF: 5, STAR_MARGIN: 15, MIN_JETS: 20,
@@ -60,6 +61,7 @@
     j.x = j.px = g.x; j.y = j.py = g.y; j.z = j.pz = CFG.Z0;
     j.vx = d.x * h + (boat.vx || 0); j.vy = d.y * h + (boat.vy || 0); j.vz = CFG.V0 * Math.sin(el);
     j.age = 0; j.owner = owner === undefined ? boat : owner; j.live = true; j.seq = pool ? ++pool.seq : 0;
+    boat.gunAz = az; // the barrel points where the last jet went (drawn by the mode)
     return j;
   }
   function stepJet(j, wind, dt) {
@@ -80,6 +82,32 @@
       } else i++;
     }
   }
+
+  // ---------------------------------------------------------------- one gun, one stream
+  // A boat has ONE gun at ONE spot (gunPos) with ONE fire accumulator, so its jets leave in a single train 0.12 s apart: that train IS the stream.
+  // The jets are the sampled water parcels of the stream (the hits are computed from them); the mode draws them as one continuous hose.
+  /** The owner's live jets, NEWEST first (ascending age), written into `out` (an array reused by the caller). Returns the count. */
+  function streamJets(pool, owner, out) {
+    let n = 0;
+    for (let i = 0; i < pool.n; i++) {
+      const j = pool.jets[i];
+      if (j.owner !== owner) continue;
+      let k = n++;
+      while (k > 0 && out[k - 1].age > j.age) { out[k] = out[k - 1]; k--; }
+      out[k] = j;
+    }
+    return n;
+  }
+  /** End index (exclusive) of the run that starts at `from`: jets whose age differs by at most STREAM_GAP from the previous one belong to the same stream piece. */
+  function streamRunEnd(out, n, from) {
+    let i = from + 1;
+    while (i < n && out[i].age - out[i - 1].age <= CFG.STREAM_GAP) i++;
+    return i;
+  }
+  /** True while the boat's gun is connected to its newest water (a burst is on); older water, in flight after a release or between two bursts, is a spent tail. */
+  function streamLive(out, n) { return n > 0 && out[0].age <= CFG.STREAM_GAP; }
+  /** How many nozzle-connected streams does this owner have: 0 or 1 by construction (a tail falling after the release is not a stream). */
+  function activeStreams(pool, owner, buf) { const out = buf || []; const n = streamJets(pool, owner, out); return streamLive(out, n) ? 1 : 0; }
 
   // ---------------------------------------------------------------- hit test
   function crewCenter(boat) { const f = U.vec(boat.heading + PI, CFG.CREW_BACK * boat.cls.length); return { x: boat.x + f.x, y: boat.y + f.y }; }
@@ -237,6 +265,6 @@
   }
   function score(oppWet, myWet, fouls) { return Math.max(0, Math.round(oppWet * 10 + Math.max(0, 100 - myWet) * 3 - (fouls || 0) * 50)); }
 
-  KOS.Soslag = { CFG, windMs, createPool, launch, stepJet, stepPool, gunPos, crewCenter, hitTest, solveAim, accTake, resetFire, gunReady, canFire, spend, tankStep,
+  KOS.Soslag = { CFG, windMs, createPool, launch, stepJet, stepPool, gunPos, crewCenter, hitTest, streamJets, streamRunEnd, streamLive, activeStreams, solveAim, accTake, resetFire, gunReady, canFire, spend, tankStep,
     wetGain, endCheck, stars, score, downwindRange, upwindRange, bestElevation, reach, station };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
