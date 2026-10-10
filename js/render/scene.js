@@ -131,6 +131,19 @@
   // masthead height in metres for the tilted tag anchor (RIB / motor boats: console height)
   function boatMastH(b) { const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g && g.mastH ? g.mastH : 1.4; }
   function boatLen(b) { if (b.cls && typeof b.cls === 'object' && b.cls.length) return b.cls.length; const g = KOS.Sprites && KOS.Sprites.geo ? KOS.Sprites.geo(b.cls || 'opti') : null; return g ? g.L : 4; }
+  // the followed boat's on-screen box in viewport CSS px (hull + sail/mast, padded), or null. The trainer bubble uses it
+  // to move out of the way (KOS.UI.coach).
+  S.targetBox = function () {
+    const b = this.target;
+    if (!b || b.hidden || !this.canvas) return null;
+    const L = boatLen(b), r = L * 0.6, z = this.camera.zoom || 1;
+    const pts = [this.project(b.x - r, b.y - r, 0), this.project(b.x + r, b.y - r, 0), this.project(b.x - r, b.y + r, 0), this.project(b.x + r, b.y + r, 0), this.project(b.x, b.y, boatMastH(b))];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of pts) { if (!p || !isFinite(p.x) || !isFinite(p.y)) return null; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    if (!this._tilt) y0 -= L * 0.9 * z; // the flat sprite's sail still stands up the screen a little
+    const rc = this.canvas.getBoundingClientRect();
+    return { x0: rc.left + x0, y0: rc.top + y0, x1: rc.left + x1, y1: rc.top + y1 };
+  };
 
   // zoom that fits the whole venue on screen (the "overview")
   S.fitZoom = function () {

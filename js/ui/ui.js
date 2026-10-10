@@ -362,11 +362,31 @@
     requestAnimationFrame(() => node.classList.add('in'));
     sfx('pop', { vol: 0.45, pitch: 1.2 });
     let timer = null;
+    // during play the bubble must never hide the boat: if it covers the followed boat it hops to the other slot
+    // (.coach-dodge); if the boat is under both slots it ghosts out (.coach-ghost) until the boat moves on
+    let dodge = null;
+    if (pos === 'bottom' && host.id === 'screen-play') {
+      let lastHop = 0;
+      const hits = (a, b) => a.left < b.x1 + 10 && a.right > b.x0 - 10 && a.top < b.y1 + 10 && a.bottom > b.y0 - 10;
+      dodge = setInterval(() => {
+        if (!node.parentNode) { clearInterval(dodge); return; }
+        const sc = KOS.SailScene && KOS.SailScene.current;
+        const box = sc && sc.targetBox ? sc.targetBox() : null;
+        if (!box) { node.classList.remove('coach-ghost'); return; }
+        const over = hits(node.getBoundingClientRect(), box), tNow = Date.now();
+        if (!over) { if (tNow - lastHop > 600) node.classList.remove('coach-ghost'); return; }
+        if (tNow - lastHop < 1200) { node.classList.add('coach-ghost'); return; } // just hopped and still covering it
+        node.classList.toggle('coach-dodge');
+        node.classList.remove('coach-ghost');
+        lastHop = tNow;
+      }, 150);
+    }
     const api = {
       el: node,
       close(instant) {
         if (!node.parentNode) return;
         clearTimeout(timer);
+        clearInterval(dodge);
         if (coachCur === api) coachCur = null;
         if (instant) { node.remove(); return; }
         node.classList.remove('in');

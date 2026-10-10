@@ -313,11 +313,27 @@ body.phone-ui.mode-sea .pc-chip.pc-none { display: none; }
 .pc-chip.pc-warn { border-color: var(--bad, #ff4d5e); }
 .pc-chip.pc-warn .pc-ico { color: var(--bad, #ff4d5e); }
 
-/* coach bubble with the two-thumb layout, portrait: tall phones park it above the tiller (left of the sheet column); short ones under the chip */
+/* coach bubble with the two-thumb layout, portrait: tall phones park it above the tiller (left of the sheet column); short ones under the chip (above the boat) */
 @media (max-width: 600px) and (orientation: portrait) {
   body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { left: 10px; width: calc(100vw - 20px - 150px); bottom: calc(var(--safe-b) + 128px); top: auto; }
   body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode.kc-hasjib) .coach-bottom { width: calc(100vw - 20px - 150px); }
 }
 @media (max-width: 600px) and (orientation: portrait) and (max-height: 699px) {
-  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 262px); width: calc(100vw - 20px); }
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-tillermode) .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 176px); width: calc(100vw - 20px); }
 }
+/* the bubble's second slot: KOS.UI.coach hops it here (.coach-dodge) when it would cover the player's boat, and ghosts it
+   (.coach-ghost) when the boat is under both slots. Desktop and tall portrait: up under the HUD (and the goals chip) */
+body[data-screen="play"] .coach-bottom.coach-dodge { bottom: auto !important; top: calc(var(--safe-t) + 84px) !important; }
+@media (max-width: 600px) and (orientation: portrait) {
+  body[data-screen="play"] .coach-bottom.coach-dodge { top: calc(var(--safe-t) + 176px) !important; }
+}
+/* short portrait phones park the bubble high by default, so the second slot is low, above the tiller */
+@media (max-width: 600px) and (orientation: portrait) and (max-height: 699px) {
+  body[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 128px) !important; width: calc(100vw - 20px - 150px) !important; }
+}
+/* landscape phones: the bubble lives under the HUD, so the second slot is low between the tiller pad and the sheet column */
+@media (orientation: landscape) and (max-height: 520px) {
+  body[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 10px) !important; left: calc(var(--safe-l) + 272px) !important;
+    width: min(calc(100vw - 382px - var(--safe-l) - var(--safe-r)), 440px) !important; min-width: 0 !important; transform: none !important; }
+}
+body[data-screen="play"] .coach.coach-ghost { opacity: .12 !important; transition: opacity .2s; }
