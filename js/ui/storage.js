@@ -32,6 +32,7 @@
 
   function emit(name, payload) { if (KOS.Events && KOS.Events.emit) KOS.Events.emit(name, payload); }
 
+  const knownBoat = id => !KOS.Boats || !Array.isArray(KOS.Boats.list) || KOS.Boats.list.some(b => b.id === id); // Boats.get() falls back to opti, so check the list
   const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 
   const Storage = {
@@ -76,6 +77,18 @@
     defaultSettings() { return Object.assign({}, DEFAULT_SETTINGS); },
 
     profile() { return Storage.get('profile', null, isObj); },
+    // last boat chosen per pick activity (docs/specs/boat-pick.md): {pickKey: boatId}, invalid entries dropped
+    boatPicks() {
+      const raw = Storage.get('boatPick', {}, isObj) || {};
+      return KOS.BoatPick ? KOS.BoatPick.cleanChoices(raw, knownBoat) : {};
+    },
+    setBoatPick(key, boatId) {
+      const all = Storage.boatPicks();
+      if (typeof key !== 'string' || !key || typeof boatId !== 'string' || !knownBoat(boatId)) return all;
+      all[key] = boatId;
+      Storage.set('boatPick', all);
+      return all;
+    },
     saveProfile(p) {
       const prev = Storage.profile() || {};
       const next = Object.assign({ createdAt: Date.now() }, prev, p || {});
@@ -139,7 +152,7 @@
 
     // wipe progress (keeps settings unless all = true)
     reset(all) {
-      ['progress', 'xp', 'badges', 'profile', 'boat'].forEach(rawDel);
+      ['progress', 'xp', 'badges', 'profile', 'boat', 'boatPick'].forEach(rawDel);
       if (all) rawDel('settings');
       emit('progress', { reset: true });
     },

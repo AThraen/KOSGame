@@ -1,7 +1,7 @@
 // Node tests for the simulation core: node tools/test-core.js
 // Covers KOS.U, KOS.Events, KOS.Boats, KOS.Wind, KOS.Physics, KOS.Rules, KOS.AI (and KOS.World helpers if present),
 // plus the mobile controls maths in js/ui/input.js (tests named 'mobile:'), the tilted-camera math in js/render/tilt.js (tests named 'tilt:', run alone with: node tools/test-core.js tilt).
-const KOS = require('./harness').load(['js/render/tilt.js', 'js/ui/input.js']);
+const KOS = require('./harness').load(['js/core/boatpick.js', 'js/render/tilt.js', 'js/ui/input.js']);
 const U = KOS.U, P = KOS.Physics;
 const R = d => d * Math.PI / 180;
 
@@ -1050,6 +1050,42 @@ test('mobile: physics - trimBias eases (+) or tightens (-) the auto-trimmed shee
   ok(out.sheet > base.sheet + 0.15, 'eased out: ' + out.sheet.toFixed(2) + ' vs ' + base.sheet.toFixed(2));
   ok(tight.sheet < base.sheet - 0.1, 'pulled in: ' + tight.sheet.toFixed(2) + ' vs ' + base.sheet.toFixed(2));
   ok(base.speed > tight.speed * 1.02, 'the auto trim is faster than being sheeted in hard (so the stall tip in nudge mode is warranted)');
+});
+
+// ====================================================================== boat pick (docs/specs/boat-pick.md)
+test('boatpick: offered = default + boats sailed before; nothing else', () => {
+  const BP = KOS.BoatPick, sailed = new Set(['zest']);
+  const o = BP.offered(BP.SAIL_BOATS, { def: 'opti', sailed: id => sailed.has(id) });
+  ok(JSON.stringify(o) === JSON.stringify(['opti', 'zest']), 'got ' + o);
+  const o2 = BP.offered(BP.SAIL_BOATS, { def: 'feva', sailed: () => false });
+  ok(JSON.stringify(o2) === JSON.stringify(['feva']), 'the default is always offered: ' + o2);
+  ok(BP.offered(BP.SAIL_BOATS, { def: 'opti', sailed: () => true }).length === 8, 'every sailed boat');
+});
+test('boatpick: unlockAll offers every candidate; the RIB is never a sailing-challenge candidate', () => {
+  const BP = KOS.BoatPick;
+  ok(BP.offered(BP.SAIL_BOATS, { def: 'opti', unlockAll: true, sailed: () => false }).length === 8, 'all 8');
+  ok(BP.SAIL_BOATS.indexOf('rib') < 0, 'no RIB in the challenge list');
+  ok(BP.FREE_BOATS.indexOf('rib') >= 0 && BP.FREE_BOATS.length === 9, 'free sailing keeps the RIB');
+  ok(BP.offered(BP.FREE_BOATS, { def: 'opti', unlockAll: true }).indexOf('rib') >= 0, 'RIB offered with unlockAll');
+});
+test('boatpick: free sailing uses the per-boat unlock gate (allow) instead of "sailed"', () => {
+  const BP = KOS.BoatPick, open = new Set(['opti', 'tera', 'rib']);
+  const o = BP.offered(BP.FREE_BOATS, { def: 'opti', allow: id => open.has(id), sailed: () => true });
+  ok(JSON.stringify(o) === JSON.stringify(['opti', 'tera', 'rib']), 'got ' + o);
+});
+test('boatpick: stored choices are validated (non-objects, non-strings and unknown boats are dropped)', () => {
+  const BP = KOS.BoatPick, known = id => KOS.Boats.list.some(b => b.id === id);
+  ok(JSON.stringify(BP.cleanChoices(null, known)) === '{}' && JSON.stringify(BP.cleanChoices([1], known)) === '{}' && JSON.stringify(BP.cleanChoices('zest', known)) === '{}', 'junk -> {}');
+  const c = BP.cleanChoices({ 'sail.rings': 'zest', 'sail.cleanup': 'sunfish', 'sail.timetrial': 7, 'sail.free': 'rib' }, known);
+  ok(JSON.stringify(c) === JSON.stringify({ 'sail.rings': 'zest', 'sail.free': 'rib' }), 'got ' + JSON.stringify(c));
+});
+test('boatpick: resolve falls back to the default when the stored boat is not (or no longer) offered', () => {
+  const BP = KOS.BoatPick;
+  ok(BP.resolve('zest', ['opti', 'zest'], 'opti') === 'zest', 'stored and offered');
+  ok(BP.resolve('j70', ['opti', 'zest'], 'opti') === 'opti', 'stored but not offered -> default');
+  ok(BP.resolve(undefined, ['opti', 'zest'], 'opti') === 'opti', 'nothing stored');
+  ok(BP.resolve('j70', ['zest'], 'opti') === 'zest', 'default not offered -> first offered');
+  ok(BP.resolve(null, [], 'opti') === 'opti', 'empty list -> default');
 });
 
 // ====================================================================== summary
