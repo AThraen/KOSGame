@@ -17,7 +17,7 @@
   // ======================================================================== 1. parts (names + what they are)
   // name.da / name.en are the part's Danish and English names (shown together in both languages); desc is per language.
   const PARTS = {
-    vest: ['Redningsvest', 'Life jacket', 'Tag redningsvesten på, før du går ned til vandet – og lyn den helt op. Det er regel nummer ét. Sikkerhed først!', 'Put your life jacket on before you go down to the water – and zip it right up. That\'s rule number one. Safety first!'],
+    vest: ['Redningsvest', 'Life jacket', 'Tag redningsvesten på, før du går ned til broen eller bådene – og lyn den helt op. Det er regel nummer ét. Sikkerhed først!', 'Put your life jacket on before you go down to the pontoon or the boats – and zip it right up. That\'s rule number one. Safety first!'],
     optiRig: ['Mast med sejl og bom', 'Mast with sail and boom', 'I KØS bliver optimistens sejl siddende bundet til mast og bom. Hele riggen sættes i mastefoden på én gang – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'At KØS the Optimist\'s sail stays tied to the mast and boom. The whole rig goes into the mast step in one go – remember the mast clip so it can\'t fall out if you capsize.'],
     mast: ['Mast', 'Mast', 'Den lange stang, sejlet sidder på. Masten står i mastefoden – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'The tall pole the sail is set on. It stands in the mast step – remember the mast clip so it can\'t fall out if you capsize.'],
     mastBottom: ['Undermast', 'Bottom mast section', 'ILCA-masten er i to dele. Den nederste, tykke del står i mastefoden og kommer først.', 'The ILCA mast comes in two parts. The thick bottom section sits in the mast step and goes in first.'],
@@ -119,7 +119,7 @@
         doneRigKeel: 'Alt er klar – kast los og sejl ud!',
         doneUnrig: 'Flot pakket! Vesten af og hæng den til tørre – båden er klar til næste tur.',
         vestOn: 'Redningsvesten på – altid, før du går på vandet!',
-        vestGate: 'Båden er klar! Men først: redningsvesten på – det er regel nummer ét.',
+        vestGate: 'Først af alt: redningsvesten på – før du går ned til broen eller bådene. Det er regel nummer ét!',
         water: 'Vesten er på, og båden flyder! Gør det sidste klar herude i vandet.',
         retrieve: 'Nu hiver vi båden op ad slæbestedet.',
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
@@ -171,7 +171,7 @@
         doneRigKeel: 'All set – cast off and sail out!',
         doneUnrig: 'Nicely packed! Life jacket off and hang it up to dry – the boat is ready for next time.',
         vestOn: 'Life jacket on – always, before you go afloat!',
-        vestGate: 'The boat is ready! But first: life jacket on – that\'s rule number one.',
+        vestGate: 'First things first: life jacket on – before you go anywhere near the pontoon or the boats. That\'s rule number one!',
         water: 'Life jacket on and she\'s floating! Do the last jobs out here in the water.',
         retrieve: 'Now pull the boat up the slipway.',
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
@@ -201,7 +201,7 @@
   // [part, group, type?, where?]  group: all steps of a lower group must be done first; same group = any order.
   // type 'off' = a removal job while rigging (sail cover off, cast off, fenders in). where 'w' = done afloat (dinghies:
   // after the launch the boat floats at the foot of the slipway and the rest is done there).
-  // The life jacket is not a job: the sailor puts it on by itself just before launching / boarding.
+  // The life jacket is not a job: the player puts it on the sailor before anything else (the gate, see createRigging).
   const RIG = {
     // KØS Optis are stored with the sail tied to mast and boom; mainsheet, painter and bailer live in the boat
     opti: [['optiRig', 1], ['optiSprit', 2], ['mastLock', 3], ['optiKicker', 4], ['stow', 4],
@@ -988,8 +988,8 @@
     // the tray shows jobs shuffled (seeded), so the order isn't given away
     const cards = steps.concat(decoys).map(s => s);
     for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const tmp = cards[i]; cards[i] = cards[j]; cards[j] = tmp; }
-    // the life jacket gate: when the land jobs (dinghies) / pontoon jobs (keelboats) are done, the player puts the life
-    // jacket on the sailor before the launch / boarding can start. Not a job: not counted, never a mistake.
+    // the life jacket gate: the very first thing, before going anywhere near the pontoon or the boats (KØS rule), the
+    // player puts the life jacket on the sailor; the jobs open up after that. Not a job: not counted, never a mistake.
     const gate = unrig ? [] : [{ k: 'vest', i: 200, type: 'on', w: 'gate', gate: true, done: false }];
     gate.forEach(v => cards.push(v));
     const zoned = steps.concat(gate);
@@ -1003,11 +1003,11 @@
     else base.forEach(s => { inst[s[0]] = s[2] === 'off'; });
     // keelboats keep their mast stepped and the boom and standing rigging on all season; KEEP_ON lists the rest per class
     (g.keelboat ? ['mast', 'boom', 'shrouds', 'forestay'] : []).concat(KEEP_ON[clsId] || []).forEach(k => { inst[k] = true; });
-    inst.vest = unrig; // the sailor puts it on by itself just before launching / boarding, and takes it off at the very end
+    inst.vest = unrig; // put on at the gate before the first job, taken off at the very end of unrigging
     let groundSail = null; // null | 'flat' | 'rolled'
 
     const S = {
-      phase: 'play', time: 0, started: false, penalty: 0, mistakes: 0, streak: 0, bestStreak: 0, doneN: 0,
+      phase: 'play', gate: !unrig, time: 0, started: false, penalty: 0, mistakes: 0, streak: 0, bestStreak: 0, doneN: 0,
       endT: 0, result: null, hudT: 0, ambT: 0, gullT: 6, botT: 0, tips: {}, sel: null, drag: null, finishing: false,
       // stage: where the current jobs are done ('land' | 'water'); poseT: launch-timeline time while the boat is off the trolley
       stage: unrig && water ? 'water' : 'land', poseT: null, launchT: 0, clk: 0,
@@ -1404,7 +1404,7 @@
       if (S.streak === 5) tip('streak', 'rigging.coach.streak');
       else if (left === Math.floor(steps.length / 2) && steps.length >= 8) tip('half', 'rigging.coach.half');
       else if (left === 1) tip('last', 'rigging.coach.last');
-      if (!unrig && !inst.vest && (left === 0 || (!stageLeft() && S.stage === 'land'))) openGate();
+      if (!unrig && S.stage === 'land' && (left === 0 || !stageLeft())) { if (g.keelboat) finishRun(); else startLaunch(); } // the boarding / launch film
       else if (left === 0) finishRun();
       else if (!stageLeft()) {
         // all the jobs here are done: launch (land -> water) or bring her up the slipway (water -> land)
@@ -1448,9 +1448,10 @@
       setTimeout(() => sfx('coin', { vol: 0.35 }), 120);
       sparkle(v.zx, v.zy);
       floatText(pname('vest') + ' ✓', z ? z.x : null, z ? z.y : null, 'good');
-      // a moment to see it zipped up, then the launch / boarding film (sim-time, see update)
-      S.phase = 'vesting'; S.vestT = 0.7;
+      // now the jobs open up
       refresh();
+      setTimeout(() => { if (S.phase === 'play') KOS.UI.coach(t(introKey, { boat: boatName }), { pos: 'top', ms: 9000 }); }, 700);
+      if (!S.dragged && !autopilot) { S.demoDone = false; setTimeout(() => { if (!S.doneN) startDemo(); }, 1600); }
     }
     function scrollCard(c) { try { c.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); } catch (e) { /* old browsers */ } }
     function tip(id, key, vars) {
@@ -1544,10 +1545,10 @@
     function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 
     // ---- the launch timeline (sim-time driven; pose(T) is pure, side effects happen in applyPose)
-    // Dinghies are backed down the slipway STERN FIRST: the sailor puts the life jacket on, holds the trolley handle at the
+    // Dinghies are backed down the slipway STERN FIRST: the sailor (life jacket on since the start) holds the trolley handle at the
     // bow and pushes the boat backwards into the water until it floats; hops in; the in-water jobs are done there (T held
     // at LT.afloat); then the boat turns round and sails away. Unrigging plays the same film backwards up to the land jobs.
-    // Keelboats: the sailor puts the life jacket on, steps aboard and the boat leaves the pontoon.
+    // Keelboats: the sailor steps aboard and the boat leaves the pontoon.
     const slope = 0.18;
     const groundAt = x => (x >= g.xW ? 0 : (g.xW - x) * slope); // ramp runs down to the left
     let viewCx = 0; // world x at the centre of the view (set by layout)
@@ -1659,7 +1660,7 @@
           '<path d="M' + f(P.bx + g.xb - 10) + ' ' + f(wy) + 'q10 -8 22 -2" stroke="#fff" stroke-width="3" fill="none"/>';
       } else wakeG.innerHTML = '';
     }
-    // land jobs done: the sailor puts the life jacket on and backs the boat into the water
+    // land jobs done: the sailor (life jacket already on) backs the boat into the water
     function startLaunch() {
       S.phase = 'launch'; S.launchT = reduceNow() ? LT.afloat : 0; S.poseT = S.launchT;
       hideInfo(); S.sel = null;
@@ -1741,8 +1742,6 @@
       if (S.phase === 'play') {
         if (S.started) S.time += dt;
         if (autopilot && (S.botT -= dt) <= 0) { S.botT = 0.45; doNext(); }
-      } else if (S.phase === 'vesting') {
-        if ((S.vestT -= dt) <= 0) { if (g.keelboat) finishRun(); else { startLaunch(); refresh(); } }
       } else if (S.phase === 'launch') {
         S.launchT = red ? LT.afloat : S.launchT + dt;
         S.poseT = Math.min(S.launchT, LT.afloat);
@@ -1805,7 +1804,7 @@
     if (unrig && S.stage === 'water') { S.poseT = LT.afloat; applyPose(S.poseT); refresh(); }
 
     return {
-      start() { KOS.UI.coach(t(introKey, { boat: boatName }), { pos: 'top', ms: 9000 }); setTimeout(zoneScale, 50); setTimeout(() => { if (!S.demoDone) startDemo(); }, 900); },
+      start() { if (!unrig) openGate(); else KOS.UI.coach(t(introKey, { boat: boatName }), { pos: 'top', ms: 9000 }); setTimeout(zoneScale, 50); setTimeout(() => { if (!S.demoDone) startDemo(); }, 900); },
       update, render, destroy,
       pause() { try { KOS.Audio.ambient(null); } catch (e) { /* optional */ } },
       resume() {},
