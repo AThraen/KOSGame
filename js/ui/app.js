@@ -1406,7 +1406,7 @@
       '</div></div>';
     bind(sec, {
       back: () => { sfx('click'); App.back(); },
-      boat: btn => { sfx('click'); boatDialog(btn.getAttribute('data-id')); },
+      boat: btn => { sfx('click'); track('Boat', 'card', btn.getAttribute('data-id')); App.show('boatcard', { id: btn.getAttribute('data-id') }); },
       badge: btn => {
         sfx('click');
         const b = BADGES.find(x => x.id === btn.getAttribute('data-id'));
@@ -1415,25 +1415,23 @@
       },
     });
   };
-  function boatDialog(id) {
+  // ================================================================== BÅDKORT (boat card)
+  renderers.boatcard = function (sec, params) {
+    const id = boatGet(params && params.id) ? boatGet(params.id).id : 'opti';
     const b = boatGet(id);
-    if (!b) return;
     const un = boatUnlocked(id);
+    const fav = S().get('boat', 'opti');
     const need = BOAT_STARS[id] || 0;
-    const bar = (label, v) => '<div class="stat-row"><span>' + esc(label) + '</span><span class="stat-bar"><i style="width:' + Math.round(Math.max(0.08, Math.min(1, v)) * 100) + '%"></i></span></div>';
-    const maxKn = b.maxKn || (b.motor && b.motor.maxKn) || 6;
-    const stab = b.keel ? 1 : b.canCapsize === false ? 0.95 : b.capsizeHeel ? Math.min(1, b.capsizeHeel / 1.0) : 0.5;
-    const body = '<div class="boat-dialog-art">' + boatCardSvg(id) + '</div>' +
-      (b.desc ? '<p>' + esc(tt(b.desc)) + '</p>' : '') +
-      (b.ageHint ? '<p class="dim">' + ico('user') + ' ' + esc(tt(b.ageHint)) + '</p>' : '') +
-      '<div class="stats">' + bar(t('app.garage.statSpeed'), maxKn / 22) + bar(t('app.garage.statStab'), stab) + bar(t('app.garage.statCrew'), (b.crew || 1) / 4) + '</div>' +
-      (un ? '' : '<p class="lock-txt">' + ico('lock') + ' ' + esc(t('app.garage.needStars', { n: need, have: S().totalStars() })) + '</p>');
-    UI().dialog({
-      title: b.name, body, cls: 'boat-dialog',
-      buttons: un ? [{ labelKey: 'common.close' }, { labelKey: 'app.garage.choose', kind: 'primary', icon: 'heart', onClick: () => { S().set('boat', id); track('Boat', 'chosen', id); sfx('coin'); UI().toast(t('app.garage.chosen', { name: b.name }), { kind: 'good', icon: 'boat' }); App.refresh(); } }]
-        : [{ labelKey: 'common.close', kind: 'primary' }],
+    sec.innerHTML = header(b.name, esc(t('boatcard.title')), starPill()) +
+      '<div class="scroll"><div class="bcard-col">' +
+      KOS.BoatCard.html(id, { esc, ico, art: boatCardSvg, unlocked: un, need, have: S().totalStars(), fav: fav === id }) +
+      (un ? '<div class="bcard-actions"><button type="button" class="btn btn-primary" data-act="choose">' + ico('heart') + '<span>' + esc(t('app.garage.choose')) + '</span></button></div>' : '') +
+      '</div></div>';
+    bind(sec, {
+      back: () => { sfx('click'); App.back(); },
+      choose: () => { S().set('boat', id); track('Boat', 'chosen', id); sfx('coin'); UI().toast(t('app.garage.chosen', { name: b.name }), { kind: 'good', icon: 'boat' }); },
     });
-  }
+  };
 
   // ================================================================== CREDITS
   renderers.credits = function (sec) {

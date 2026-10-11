@@ -61,7 +61,7 @@ h1, h2, h3, p { margin: 0; }
 @media (orientation: landscape) { .mbg-photo { background-image: url("../assets/bg/title-land.jpg"); background-position: center 70%; } }
 body[data-screen="hub"] .mbg-photo, body[data-screen="area"] .mbg-photo { background-image: url("../assets/bg/hub-port.jpg"); }
 @media (orientation: landscape) { body[data-screen="hub"] .mbg-photo, body[data-screen="area"] .mbg-photo { background-image: url("../assets/bg/hub-land.jpg"); background-position: center; } }
-body[data-area="club"] .mbg-photo, body[data-screen="garage"] .mbg-photo, body[data-screen="profile"] .mbg-photo { background-image: url("../assets/bg/club.jpg") !important; background-position: center !important; }
+body[data-area="club"] .mbg-photo, body[data-screen="garage"] .mbg-photo, body[data-screen="boatcard"] .mbg-photo, body[data-screen="profile"] .mbg-photo { background-image: url("../assets/bg/club.jpg") !important; background-position: center !important; }
 body[data-area="race"] .mbg-photo, body[data-area="rules"] .mbg-photo { background-image: url("../assets/bg/race.jpg") !important; background-position: center !important; }
 body[data-screen="results"] .mbg-photo { background-image: url("../assets/bg/results.jpg") !important; background-position: center !important; }
 body[data-screen="settings"] .mbg-photo, body[data-screen="credits"] .mbg-photo { background-image: url("../assets/bg/winter.jpg") !important; background-position: center !important; }
@@ -595,3 +595,50 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus { outline: none; }
 body.modes-wait, body.modes-wait * { cursor: progress; }
 body.modes-wait .btn-play { opacity: .75; animation: modes-wait-pulse .9s ease-in-out infinite alternate; }
 @keyframes modes-wait-pulse { to { opacity: 1; } }
+
+/* ------------------------------------------------------------------ Bådkort (boat card) */
+.bcard-col { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
+.bcard { display: flex; flex-direction: column; gap: 14px; }
+.bcard-hero { padding: 14px; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.bcard-art-wrap { display: block; height: clamp(170px, 34vh, 300px); border-radius: 16px; overflow: hidden; background: radial-gradient(120% 90% at 50% 100%, rgba(73,198,242,.35), rgba(73,198,242,.05) 70%); }
+.bcard-art-wrap svg { width: 100%; height: 100%; display: block; transform-origin: 50% 80%; animation: bcardBob 5.5s ease-in-out infinite; }
+.bcard-art-wrap.locked svg { animation: none; filter: brightness(0) opacity(.8); }
+@keyframes bcardBob { 0%, 100% { transform: translateY(0) rotate(-.8deg); } 50% { transform: translateY(-4px) rotate(.8deg); } }
+@media (prefers-reduced-motion: reduce) { .bcard-art-wrap svg { animation: none; } }
+.reduce-motion .bcard-art-wrap svg { animation: none; }
+.bcard-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-lite { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.1); border: 1px solid var(--glass-border); font-weight: 800; font-size: .85rem; }
+.chip-lite .ico { width: 16px; height: 16px; color: var(--primary); }
+.chip-lite.lock { color: var(--primary); }
+.bcard-desc { font-size: 1.02rem; font-weight: 600; line-height: 1.4; }
+.bcard-sec { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.bcard-sec h2 { font-size: 1.1rem; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+.bcard-sec h2 .ico { color: var(--primary); }
+.fact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px 16px; margin: 0; }
+.fact-grid div { display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-bottom: 1px solid var(--glass-border); }
+.fact-grid dt { font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+.fact-grid dd { margin: 0; font-weight: 800; font-size: 1rem; }
+.fun-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.fun-list li { position: relative; padding-left: 26px; line-height: 1.4; font-weight: 600; }
+.fun-list li::before { content: "★"; position: absolute; left: 2px; top: 0; color: var(--star); }
+.club-sec .fun-list li::before { content: "⚓"; color: var(--blue); font-size: .9em; }
+.polar-wrap { max-width: 460px; width: 100%; margin: 0 auto; }
+.polar-svg { width: 100%; height: auto; display: block; }
+.pc-ring { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 1; }
+.pc-axis { stroke: rgba(255,255,255,.35); stroke-width: 1.2; fill: none; }
+.pc-tick { fill: rgba(236,241,255,.7); font-size: 10px; font-weight: 700; }
+.pc-end { fill: rgba(236,241,255,.85); font-size: 11px; font-weight: 800; }
+.pc-unit { fill: rgba(236,241,255,.6); font-size: 10px; font-weight: 700; }
+.pc-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.pc-line.pc-kite { stroke-dasharray: 6 5; }
+.pc-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-weight: 800; font-size: .9rem; }
+.pc-legend li { display: flex; align-items: center; gap: 6px; }
+.pc-legend i { width: 18px; height: 5px; border-radius: 3px; display: inline-block; }
+.pc-note { text-align: center; font-size: .85rem; font-weight: 700; color: var(--text-dim); }
+.pc-sw { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--text-dim); vertical-align: middle; margin-right: 4px; }
+.pc-sw.dash { border-top-style: dashed; }
+.topspeed { display: flex; align-items: baseline; justify-content: center; gap: 8px; font-size: 3rem; font-weight: 900; color: var(--primary); }
+.topspeed span { font-size: 1.2rem; color: var(--text-dim); }
+.next-boat { font-size: 1.1rem; }
+.bcard-actions { display: flex; justify-content: center; }
+@media (max-width: 420px) { .bcard-art-wrap { height: clamp(150px, 26vh, 220px); } .fact-grid { grid-template-columns: 1fr 1fr; gap: 6px 12px; } }

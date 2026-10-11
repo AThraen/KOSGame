@@ -1,7 +1,7 @@
 // Node tests for the simulation core: node tools/test-core.js
 // Covers KOS.U, KOS.Events, KOS.Boats, KOS.Wind, KOS.Physics, KOS.Rules, KOS.AI (and KOS.World helpers if present),
 // plus the mobile controls maths in js/ui/input.js (tests named 'mobile:'), the tilted-camera math in js/render/tilt.js (tests named 'tilt:', run alone with: node tools/test-core.js tilt).
-const KOS = require('./harness').load(['js/core/boatpick.js', 'js/render/tilt.js', 'js/ui/input.js', 'js/version.js', 'js/ui/feedback.js']);
+const KOS = require('./harness').load(['js/core/boatpick.js', 'js/core/boatfacts.js', 'js/ui/boatcard.js', 'js/render/tilt.js', 'js/ui/input.js', 'js/version.js', 'js/ui/feedback.js']);
 const U = KOS.U, P = KOS.Physics;
 const R = d => d * Math.PI / 180;
 
@@ -1346,6 +1346,66 @@ test('Soslag: duel sim, 20 seeds: AI within 25 m from 30 s (>= 95 %), windward i
   }
   dists.sort((a, b) => a - b);
   if (only) console.log(`\n  soslag windward% min/mean ${(minWind * 100).toFixed(0)}/${(sumWind / 20 * 100).toFixed(0)}  within25 min ${(minNear * 100).toFixed(0)}  dist p95 ${dists[Math.floor(dists.length * 0.95)].toFixed(1)}`);
+});
+
+
+// ====================================================================== Bådkort (boat card)
+const BC = KOS.BoatCard;
+const bcEnv = (un) => ({ esc: s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])), ico: n => '<i data-ico="' + n + '"></i>', art: id => '<svg data-art="' + id + '"></svg>', unlocked: un, need: 40, have: 3 });
+test('boatcard: every boat has facts, club lines and teasers in both languages (no invented club counts)', () => {
+  for (const b of KOS.Boats.list) {
+    const f = KOS.BoatFacts.get(b.id);
+    ok(f, b.id + ' has facts');
+    ok(f.facts.length >= 3 && f.facts.length <= 6, b.id + ' has 3-6 fun facts');
+    ok(f.teaser.length >= 1 && f.teaser.length <= 2 && f.teaser.every(i => f.facts[i]), b.id + ' teasers');
+    for (const x of f.facts.concat(f.club || [], [f.country, f.status, f.sailor].filter(Boolean))) {
+      ok(x.da && x.en && x.da !== x.en || /^[A-Z/ ]+$/.test(x.en) || x.da && x.en, b.id + ' both languages');
+      ok(!/coach/i.test(x.da), b.id + ': Danish says Træner, not Coach');
+    }
+    for (const c of f.club || []) ok(!/d{2,}s*(både|boats)/i.test(c.da + c.en), b.id + ' club line has no boat counts');
+  }
+});
+test('boatcard: speed chart renders for every sailing boat with no NaN, in both wind units', () => {
+  for (const unit of ['ms', 'kn']) {
+    KOS.U.setWindUnit(unit);
+    for (const b of KOS.Boats.list.filter(x => !x.isMotor)) {
+      const svg = BC.polarSvg(b, { windTxt: k => KOS.U.windTxt(k) });
+      ok(svg.startsWith('<svg') && !/NaN|undefined|Infinity/.test(svg), b.id + ' ' + unit + ' svg is clean');
+      ok((svg.match(/class="pc-line"/g) || []).length === 3, b.id + ' has 3 wind curves');
+      const kite = (svg.match(/pc-kite/g) || []).length;
+      ok(b.hasSpinnaker === 'none' ? kite === 0 : kite >= 1, b.id + ' kite curve only where a kite exists');
+    }
+  }
+  KOS.U.setWindUnit('ms');
+});
+test('boatcard: unlocked card has fact box + chart + next step; RIB shows top speed and no chart', () => {
+  for (const lang of ['da', 'en']) {
+    KOS.I18n.setLang(lang);
+    for (const b of KOS.Boats.list) {
+      const h = BC.html(b.id, bcEnv(true));
+      ok(h.includes('fact-grid') && h.includes('fun-list'), b.id + ' ' + lang + ' fact box');
+      ok(!/NaN|undefined|boatcard./.test(h), b.id + ' ' + lang + ' no NaN / missing keys');
+      if (b.isMotor) ok(h.includes('topspeed') && !h.includes('polar-svg'), 'rib: top speed, no polar');
+      else ok(h.includes('polar-svg') && h.includes('next-boat') || b.id === 'j70', b.id + ' chart + next');
+    }
+  }
+  KOS.I18n.setLang('da');
+});
+test('boatcard: locked boat shows silhouette, teasers and star need, but no fact box, chart or next step', () => {
+  for (const b of KOS.Boats.list) {
+    const h = BC.html(b.id, bcEnv(false));
+    ok(h.includes('bcard-art-wrap locked'), b.id + ' silhouette');
+    ok(!h.includes('fact-grid') && !h.includes('polar-svg') && !h.includes('topspeed') && !h.includes('next-boat'), b.id + ' hides facts/chart');
+    ok(h.includes('lock-txt'), b.id + ' needs stars');
+    ok(h.includes('data-art="' + b.id + '"'), b.id + ' still draws the boat');
+  }
+});
+test('boatcard: next step follows the ladder and names what is new', () => {
+  const n = id => BC.nextOnLadder(id);
+  ok(n('opti').id === 'tera' && n('29er').id === 'hboat' && n('j70') === null && n('rib') === null, 'ladder order');
+  ok(BC.newInNext(KOS.Boats.get('tera'), KOS.Boats.get('feva')).some(a => a[0] === 'boatcard.newGennaker'), 'feva brings a gennaker');
+  ok(BC.newInNext(KOS.Boats.get('ilca'), KOS.Boats.get('29er')).some(a => a[0] === 'boatcard.newTrapeze'), '29er brings a trapeze');
+  ok(BC.newInNext(KOS.Boats.get('29er'), KOS.Boats.get('hboat')).some(a => a[0] === 'boatcard.newKeel'), 'h-boat brings a keel');
 });
 
 // ====================================================================== summary

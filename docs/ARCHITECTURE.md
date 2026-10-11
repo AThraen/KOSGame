@@ -38,6 +38,7 @@ Exact order from `index.html` (each file attaches to the shared `KOS` global):
 core    js/core/kos.js          KOS.U, KOS.DT, KOS.Events
         js/core/i18n.js         KOS.I18n, KOS.t, KOS.tt
         js/core/boats.js        KOS.Boats
+        js/core/boatfacts.js    KOS.BoatFacts (researched facts per boat; sources in docs/reference/boat-facts.md)
         js/core/wind.js         KOS.Wind
         js/core/physics.js      KOS.Physics
         js/core/rules.js        KOS.Rules

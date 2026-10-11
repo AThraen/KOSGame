@@ -363,6 +363,9 @@ measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. 
   first capsize recovery, all knots, perfect docking, rules master, navigator...).
 - **Sejlerpas** (sailing passport): boats unlock by total stars: opti 0, tera 6, feva 15, zest 25, ilca 40,
   29er 55, hboat 70, j70 90, rib 20. `settings.unlockAll` (coach/parent switch) unlocks everything.
+  Tapping a boat opens its **Bådkort** (screen `boatcard`, `js/ui/boatcard.js` + `js/core/boatfacts.js`): big picture, fact box, 3-5 sourced fun facts,
+  "I KØS" lines (only from Club facts), a speed half-circle from the polar (6/12/18 kn wind in the wind unit setting), and the next boat on the ladder.
+  Locked boats show a silhouette, the name, 1-2 teaser facts and the star need only. RIB: top speed instead of a chart.
 - Within an area, activities unlock by `unlock` rules; the first activity of each area is always open.
 - Assist levels: **Let** (easy: auto-trim, no capsize, ghost hints, generous scoring; daggerboard and jib automatic),
   **Normal** (+ Sværd button and Fok slider, jib on AUTO), **Pro** (manual trim incl. the jib, capsize, penalty turns,
