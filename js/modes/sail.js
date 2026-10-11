@@ -25,11 +25,12 @@
       hud: { rings: 'Ringe', trash: 'Skrald', mark: 'Mærke', goals: 'Mål', start: 'Start', finish: 'Mål' },
       goal: {
         dist: 'Sejl {n} m', distRib: 'Kør {n} m', tacks: 'Lav {n} vendinger', gybes: 'Lav {n} bomninger',
-        plane: 'Kom i planing i {n} sek', circles: 'Kør {n} hele cirkler', done: 'Klaret!',
+        plane: 'Kom i planing i {n} sek', circles: 'Kør {n} hele cirkler', dry: 'Sejl {n} sek uden at kæntre', done: 'Klaret!',
       },
       btn: { done: 'Afslut tur' },
       intro: {
         free: 'Velkommen på vandet! Sejl rundt og klar de tre mål. Tryk ✓, når du vil i land.',
+        heavy: 'Hård vind! {range} med kraftige vindstød. Fier skødet i stødene og læg lidt væk fra vinden, så båden ikke vælter. Hæng ud, så hårdt du kan. Kæntrer du, så bliv ved båden! Klar de tre mål – tryk ✓, når du vil i land.',
         freeRib: 'Gas op med håndtaget og styr med rattet. Klar de tre mål – og pas på bølgerne fra din egen RIB!',
         rings: 'Saml alle {n} ringe! Pilen viser vej til den nærmeste. Husk: du kan ikke sejle direkte op mod vinden.',
         cleanup: 'Hjælp med at holde bugten ren! Saml {n} stykker skrald op. Badezonen ved stranden (gule bøjer) er forbudt område.',
@@ -47,6 +48,7 @@
         ground: 'Av, grundt vand! Styr ud mod det mørkeblå vand – der er dybere.',
         swim: 'Badezone! Her må der ikke sejles – ud igen, folk bader.',
         capsize: 'Kæntret! Bare rolig – båden bliver rejst igen om lidt.',
+        capsizeHeavy: 'Kæntret! Bliv ved båden og hold fast i den – den bliver rejst igen om lidt. Fier skødet i næste vindstød.',
         plane: 'Planing! Nu glider båden oven på vandet. Wiii!',
         allGoals: 'Alle mål klaret – flot sejlet! Tryk ✓ for at afslutte, eller sejl videre.',
         wrongSide: 'Hov – mærket skal rundes om bagbord, altså med mærket på din venstre side.',
@@ -70,11 +72,12 @@
       hud: { rings: 'Rings', trash: 'Rubbish', mark: 'Mark', goals: 'Goals', start: 'Start', finish: 'Finish' },
       goal: {
         dist: 'Sail {n} m', distRib: 'Drive {n} m', tacks: 'Do {n} tacks', gybes: 'Do {n} gybes',
-        plane: 'Plane for {n} sec', circles: 'Drive {n} full circles', done: 'Done!',
+        plane: 'Plane for {n} sec', circles: 'Drive {n} full circles', dry: 'Sail {n} sec without capsizing', done: 'Done!',
       },
       btn: { done: 'End trip' },
       intro: {
         free: 'Welcome on the water! Sail around and complete the three goals. Tap ✓ when you want to go ashore.',
+        heavy: 'Strong wind! {range} with big gusts. Ease the sheet in the gusts and bear away a little so the boat does not go over. Hike out as hard as you can. If you capsize, stay with the boat! Complete the three goals – tap ✓ when you want to go ashore.',
         freeRib: 'Throttle up with the lever and steer with the wheel. Complete the three goals – and mind your own wake!',
         rings: 'Collect all {n} rings! The arrow points to the nearest one. Remember: you can\'t sail straight into the wind.',
         cleanup: 'Help keep the bay clean! Pick up {n} pieces of rubbish. The swim zone by the beach (yellow buoys) is off limits.',
@@ -92,6 +95,7 @@
         ground: 'Ouch, shallow water! Steer towards the dark blue water – it is deeper.',
         swim: 'Swim zone! No sailing here – get out, people are swimming.',
         capsize: 'Capsized! Don\'t worry – the boat will be righted in a moment.',
+        capsizeHeavy: 'Capsized! Stay with the boat and hold on to it – it will be righted in a moment. Ease the sheet in the next gust.',
         plane: 'Planing! The boat is skimming on top of the water. Wheee!',
         allGoals: 'All goals done – well sailed! Tap ✓ to finish, or keep sailing.',
         wrongSide: 'Oops – leave the mark to port, that is with the mark on your left.',
@@ -150,6 +154,20 @@
       params: { kind: 'free', windDeg: 240, windKn: id === '29er' || id === 'j70' ? 12 : 9, gust: 0.55, shift: 0.3, seed: 60 + i },
     });
   });
+  // Strong-wind free sailing ("Hård vind"): same picker/goals as free sailing, 10-14 m/s with gusts. One visible card (sail.heavy.opti,
+  // order 15) routes to sail.heavy.<boat>; the per-boat ids are hidden like sail.free.*. Unlocked from 30 stars (and the boat's own Sejlerpas stars).
+  const HEAVY_STARS = 30, HEAVY_KN = 22.5;   // 22.5 kn = 11.6 m/s base; gusts/lulls take it to about 10-14 m/s (a few harder)
+  LADDER.slice(0, -1).forEach((id, i) => {
+    const n = boatName(id), first = id === 'opti';
+    acts.push(Object.assign({
+      id: 'sail.heavy.' + id, order: first ? 15 : 70 + i, boat: id, icon: 'wind', minutes: 4, difficulty: Math.min(5, 3 + Math.ceil(i / 3)),
+      unlock: { stars: Math.max(HEAVY_STARS, BOAT_STARS[id] || 0) }, pick: { group: 'free', key: 'sail.heavy', prefix: 'sail.heavy.', boats: 'sail' },
+      title: { da: 'Hård vind · ' + n, en: 'Strong wind · ' + n },
+      desc: { da: 'Sejl i hård vind, {wind} med kraftige vindstød. Fier, hæng ud og hold båden oprejst.', en: 'Sail in strong wind, {wind} with big gusts. Ease, hike and keep the boat upright.' },
+      params: { kind: 'free', heavy: true, windDeg: 240, windKn: HEAVY_KN, gust: 0.45, shift: 0.35, seed: 90 + i },
+    }, first ? { pickTitle: { da: 'Hård vind', en: 'Strong wind' },
+      pickDesc: { da: 'Frisk sejlads i {wind} vind med kraftige vindstød. Fier skødet, hæng ud og hold båden oprejst.', en: 'Wild sailing in {wind} wind with big gusts. Ease the sheet, hike out and keep the boat upright.' } } : { pickHidden: true }));
+  });
   KOS.Activities.add(acts.map(a => Object.assign({ mode: 'sail', area: 'bay' }, a)));
 
   // ======================================================================== helpers (pure)
@@ -199,7 +217,7 @@
       items: [], pops: [], collected: 0, combo: 0, lastPick: -99,
       marks: [], leg: 0, sweep: 0, penalty: 0, swims: 0, inSwim: false,
       goals: [], topKn: 0, planeT: 0, turn: 0, lastHeading: 0, hudT: 0, ambT: 0, luffT: 0, gustOn: false,
-      tips: {}, tipT: -99,
+      tips: {}, tipT: -99, dryT: 0,
     };
 
     // ---- world: wind. The gust area is kept small (600 m) and follows the boat (wind.recenter in update), so dark
@@ -284,7 +302,7 @@
       'boat:heelWarn': e => { if (e.boat !== boat || S.phase !== 'go') return; if (!controls.autoHike) { tip('heel'); ctrl.highlight('hike', true); setTimeout(() => ctrl.highlight('hike', false), 2500); } },
       'boat:plane': e => { if (e.boat !== boat) return; sfx('whoosh', { vol: 0.7 }); floatText(t('sail.fx.plane'), '#3ee08f'); tip('plane'); },
       'boat:ground': e => { if (e.boat !== boat) return; sfx(e.speed > 1.5 ? 'crash' : 'bump', { vol: Math.min(1, 0.4 + e.speed / 3) }); tip('ground'); },
-      'boat:capsize': e => { if (e.boat !== boat) return; sfx('splash'); tip('capsize', true); },
+      'boat:capsize': e => { if (e.boat !== boat) return; sfx('splash'); S.dryT = 0; tip(P.heavy ? 'capsizeHeavy' : 'capsize', true); },
       'boat:righted': e => { if (e.boat === boat) sfx('splash', { vol: 0.5 }); },
       'boat:collide': e => { if ((e.a === boat || e.b === boat) && e.type === 'mark') sfx('bump', { vol: 0.6 }); },
     };
@@ -366,9 +384,10 @@
 
     function buildFree() {
       const beamMs = isRib ? U.ms(cls.motor.maxKn * 0.6) : U.ms(cls.polar(Math.PI / 2, P.windKn));
-      const dist = Math.round(beamMs * 110 / 50) * 50;
+      const dist = Math.round(beamMs * (P.heavy ? 80 : 110) / 50) * 50;
       S.goals = isRib
         ? [{ id: 'dist', key: 'sail.goal.distRib', n: dist }, { id: 'plane', key: 'sail.goal.plane', n: 5 }, { id: 'circles', key: 'sail.goal.circles', n: 2 }]
+        : P.heavy ? [{ id: 'dist', key: 'sail.goal.dist', n: dist }, { id: 'tacks', key: 'sail.goal.tacks', n: 2 }, cls.canCapsize ? { id: 'dry', key: 'sail.goal.dry', n: 60 } : { id: 'gybes', key: 'sail.goal.gybes', n: 2 }]
         : [{ id: 'dist', key: 'sail.goal.dist', n: dist }, { id: 'tacks', key: 'sail.goal.tacks', n: 3 }, { id: 'gybes', key: 'sail.goal.gybes', n: 2 }];
       S.goals.forEach(g => { g.done = false; g.v = 0; });
       // a few bonus rings for score
@@ -478,7 +497,7 @@
       for (const g of S.goals) {
         if (g.done) continue;
         const v = g.id === 'dist' ? boat.distanceSailed : g.id === 'tacks' ? boat.tacks : g.id === 'gybes' ? boat.gybes
-          : g.id === 'plane' ? S.planeT : g.id === 'circles' ? Math.abs(S.turn) / TAU : 0;
+          : g.id === 'plane' ? S.planeT : g.id === 'dry' ? S.dryT : g.id === 'circles' ? Math.abs(S.turn) / TAU : 0;
         const nv = Math.min(g.n, Math.floor(v * 10) / 10);
         if (nv !== g.v) { g.v = nv; changed = true; }
         if (v >= g.n) {
@@ -658,7 +677,7 @@
     let introCd = null, coachIntro = null;
     function start() {
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
-      const intro = t('sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind), { n: S.items.length }) +
+      const intro = t('sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind === 'free' && P.heavy ? 'heavy' : P.kind), { n: S.items.length, range: U.windVal(U.kn(10)) + '–' + U.windTxt(U.kn(14)) }) +
         (touch ? '' : '  ' + t(isRib ? 'sail.keysRib' : 'sail.keys') + (aids ? aids.keys() : ''));
       coachIntro = KOS.UI.coach(intro, { ms: P.kind === 'free' ? 9000 : 7000 });
       paintGoals();
@@ -703,6 +722,7 @@
         const kn = U.kn(Math.abs(boat.speed));
         if (kn > S.topKn) S.topKn = kn;
         if (boat.planing) S.planeT += dt;
+        if (!boat.capsized) S.dryT += dt;
         S.turn += U.wrapPi(boat.heading - ph);
         if ((S.driftT = (S.driftT || 0) + dt) > 1) {   // trash drifts slowly downwind (checked once a second)
           S.driftT = 0;

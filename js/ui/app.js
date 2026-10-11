@@ -704,13 +704,14 @@
   function pickInfo(a) {
     if (!a || !a.pick || a.pickHidden || !KOS.BoatPick) return null;
     const BP = KOS.BoatPick, free = a.pick.group === 'free';
-    const cands = free ? BP.FREE_BOATS : BP.SAIL_BOATS;
+    const cands = free && a.pick.boats !== 'sail' ? BP.FREE_BOATS : BP.SAIL_BOATS;
+    const pfx = a.pick.prefix || 'sail.free.';
     const def = free ? (a.boat || 'opti') : favBoat();
     const list = BP.offered(cands, { def, unlockAll: !!settings().unlockAll,
-      sailed: sailedBoat, allow: free ? (id => KOS.Activities.isUnlocked('sail.free.' + id)) : null });
+      sailed: sailedBoat, allow: free ? (id => KOS.Activities.isUnlocked(pfx + id)) : null });
     const key = a.pick.key || a.id;
     const chosen = BP.resolve(S().boatPicks()[key], list, def);
-    return { a, key, free, offered: list, chosen, def, actId: free ? 'sail.free.' + chosen : a.id };
+    return { a, key, free, offered: list, chosen, def, actId: free ? pfx + chosen : a.id, pfx };
   }
   // the boat a level really sails (nothing for knots, quiz, shed, theory)
   function cardBoat(a) {
@@ -728,7 +729,7 @@
     const go = boat => {
       S().setBoatPick(pk.key, boat);
       track('Boat', 'pick', pk.a.id + ':' + boat);
-      if (pk.free) App.play('sail.free.' + boat); else App.play(a.id, { boat });
+      if (pk.free) App.play(pk.pfx + boat); else App.play(a.id, { boat });
     };
     if (pk.offered.length < 2) { go(pk.chosen); return; }
     let sel = pk.chosen;
