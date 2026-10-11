@@ -31,15 +31,18 @@
     // dev flags for Skrå visning: #tilt=on|off forces the tilted view (bypasses the setting), #chase=1 the chase cam
     if (KOS.Tilt && (h.tilt === 'on' || h.tilt === 'off')) KOS.Tilt.force = h.tilt === 'on';
     if (KOS.Tilt && h.chase === '1') KOS.Tilt.chase = true;
+    KOS.Diag && KOS.Diag.mark('core scripts ran, boot');
     KOS.App.init();
     KOS.App.show('title');
     document.documentElement.classList.add('title-ready');
+    KOS.Diag && KOS.Diag.mark('title shown');
   }
 
   function modesReady() {
     if (!KOS.App || !document.documentElement.classList.contains('title-ready')) return;
     const h = parseHash();
     KOS.modesReady = true;
+    KOS.Diag && KOS.Diag.mark('mode scripts ran');
     KOS.App.modesReady(); // plays a screen the player already asked for, or fills in the title
     if (h.play && KOS.Activities && KOS.Activities.get(h.play)) {
       KOS.App.show('title');

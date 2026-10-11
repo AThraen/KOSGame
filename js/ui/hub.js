@@ -605,6 +605,7 @@
     if (state) unmount();
     if (!KOS.World) { sectionEl.textContent = 'KOS.World missing'; return; }
     const mountT0 = performance.now();
+    KOS.Diag && KOS.Diag.mark('hub mount start');
     const dev = /hubsvg=1/.test((root.location && root.location.hash) || ''); // dev: rebuild the full vector map instead of the image
     const isLite = lite.effective();
     if (!mapCache) mapCache = buildMap(dev ? 'full' : 'live');
@@ -618,6 +619,7 @@
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
       <div class="hub-bottom"><div class="hub-next hub-glass" hidden><div class="hub-next-txt"><small data-k="hub.next"></small><b class="hub-next-title"></b></div><button type="button" class="hub-next-go" data-act="next">${icon('play')}<span data-k="hub.play"></span></button></div><div class="hub-hint" data-k="hub.hint"></div></div>`;
+    KOS.Diag && KOS.Diag.mark('hub html built');
     sectionEl.classList.add('hub-host');
     sectionEl.innerHTML = '';
     sectionEl.appendChild(rootEl);
@@ -639,6 +641,7 @@
       if (!state || state.root !== rootEl || rootEl.classList.contains('hub-lite')) return;
       rootEl.classList.add('hub-lite'); stopMap();
       state.liteWhy = why;
+      KOS.Diag && KOS.Diag.mark('hub -> still map (' + why + ')');
       if (remember) lite.remember(why);
     };
     state.goLite = goLite;
@@ -708,6 +711,7 @@
     state.listeners.push(() => root.removeEventListener('resize', ro));
     refresh();
     fit(true);
+    KOS.Diag && KOS.Diag.mark('hub mount end (JS done)');
     const hint = rootEl.querySelector('.hub-hint');
     const hideHint = () => hint && hint.classList.add('is-gone');
     const ht = setTimeout(hideHint, 7000);
@@ -715,13 +719,14 @@
     state.listeners.push(() => clearTimeout(ht));
     {
       let shown = false;
-      const show = () => {
+      const show = (how) => {
         if (shown) return; shown = true;
-        requestAnimationFrame(() => { if (state && state.root === rootEl) { rootEl.classList.add('hub-in'); probe(); } });
+        KOS.Diag && KOS.Diag.mark('hub map image ' + (how || 'decoded'));
+        requestAnimationFrame(() => { if (state && state.root === rootEl) { rootEl.classList.add('hub-in'); KOS.Diag && KOS.Diag.mark('hub first frame'); probe(); } });
       };
       const bi = rootEl.querySelector('.hub-base');
-      if (bi && bi.decode) { bi.decode().then(show, show); const t = setTimeout(show, 1500); state.listeners.push(() => clearTimeout(t)); }
-      else show();
+      if (bi && bi.decode) { bi.decode().then(() => show('decoded'), () => show('decode failed')); const t = setTimeout(() => show('not decoded after 1.5 s'), 1500); state.listeners.push(() => clearTimeout(t)); }
+      else show('(no decode API)');
     }
   }
 
