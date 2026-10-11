@@ -830,11 +830,12 @@
   function mainOpt(o, r, g, head) { const sp = !!g.sprit; o.upper = sp ? 0.15 : 0.72; o.roach = sp ? 0 : 0.08; o.twist = 0.42; o.flutter = r.flutter; o.depth = r.depth; o.clewDz = 0; o.peakDz = sp ? g.mastH * 0.95 - head : 0; }
   function jibOpt(o, r, boat) { o.upper = 0.9; o.roach = 0; o.twist = 0.2; o.flutter = r.jibFlutter; o.depth = r.depth * (boat.jibLuffing ? 0.45 : 0.95); o.clewDz = 0.15; o.peakDz = 0; }
 
-  // Spinnaker / gennaker in 3D. The footprint (tack, clew, bezier belly) is a COPY of drawSpinnaker's 2D geometry
-  // (keep in sync). The footprint arc is lifted: tack and clew at z = fb + 0.3 (sym tack at the pole, fb + 0.9), the
-  // arc middle at ~35% of the head height; the sail is the fan from that arc to the head at 0.88*mastH (grows with
-  // st.spi). Surface point P(u, f) = lerp(arc(u), head, f). Returns false when furled.
-  const tSpi = new Float64Array(16); // tack xyz, c1 xy, c2 xy, clew xyz, head xyz, zMid
+  // Spinnaker / gennaker in 3D: a three-cornered sail. The corners follow drawSpinnaker's 2D footprint (keep in sync):
+  // tack at the bowsprit end (sym: the pole end), clew out to leeward, head at 0.88*mastH (grows with st.spi). The
+  // three edges are quadratic curves that bulge along the 2D belly direction (forward + to leeward): the luff a lot,
+  // the leech a little, the foot in between. Surface point P(f, s): f = height (0 foot .. 1 head), s = across (0 luff
+  // .. 1 leech); each horizontal row bulges less towards the head. Returns false when furled.
+  const tSpi = new Float64Array(16); // tack xyz, belly xy, -, clew xyz, head xyz, zMid
   function spiGeom(g, boat, st, side, ang, t, fb) {
     const k = st.spi; if (k < 0.02) return false;
     const L = g.L, sym = g.spi === 'sym', mastY = yAt(g, g.mast);
@@ -854,37 +855,53 @@
     let nx = ey / el, ny = -ex / el; if (ny > 0) { nx = -nx; ny = -ny; }
     const wob = Math.sin(t * 6 + st.phase) * (boat.luffing ? 0.12 : 0.025);
     const belly = el * (0.42 + 0.1 * open) * kk * (1 + wob);
-    const S = tSpi, zc = fb + 0.3, hz = zc + (g.mastH * 0.88 - zc) * grow;
-    S[0] = tx; S[1] = ty; S[2] = sym ? fb + 0.9 : zc;
-    S[3] = tx + ex * 0.08 + nx * belly; S[4] = ty + ey * 0.08 + ny * belly;
-    S[5] = tx + ex * 0.92 + nx * belly * 0.95 + side * el * 0.12; S[6] = ty + ey * 0.92 + ny * belly * 0.95;
-    S[7] = cx; S[8] = cy; S[9] = zc;
+    const S = tSpi, z0 = fb + 0.3, hz = z0 + (g.mastH * 0.88 - z0) * grow;
+    S[0] = tx; S[1] = ty; S[2] = sym ? fb + 0.9 : z0;
+    S[3] = nx * belly; S[4] = ny * belly;
+    S[7] = cx; S[8] = cy; S[9] = z0 + (hz - z0) * 0.12; // the clew flies a little above the deck
     S[10] = 0; S[11] = mastY - 0.15; S[12] = hz;
-    S[13] = zc + (hz - zc) * 0.35;
+    S[13] = z0 + (hz - z0) * 0.35;
     return true;
   }
-  // P(u, f) of the spinnaker surface → screen into tPoly at vertex index vi
-  function spiPt(M, T, u, f, vi) {
-    const S = tSpi, a = 1 - u, b0 = a * a * a, b1 = 3 * a * a * u, b2 = 3 * a * u * u, b3 = u * u * u;
-    const x = b0 * S[0] + b1 * S[3] + b2 * S[5] + b3 * S[7], y = b0 * S[1] + b1 * S[4] + b2 * S[6] + b3 * S[8];
-    const z = lerp(S[2], S[9], u) + (S[13] - lerp(S[2], S[9], 0.5)) * Math.sin(PI * u);
-    prj(M, T, x + (S[10] - x) * f, y + (S[11] - y) * f, z + (S[12] - z) * f);
+  // quadratic edge point a -> b with the control at the middle pushed by bulge * belly (horizontal)
+  const tQ = new Float64Array(3);
+  function spiEdge(ax, ay, az, bx, by, bz, bulge, u) {
+    const S = tSpi, a = 1 - u, mx = (ax + bx) / 2 + S[3] * bulge, my = (ay + by) / 2 + S[4] * bulge, mz = (az + bz) / 2;
+    tQ[0] = a * a * ax + 2 * a * u * mx + u * u * bx; tQ[1] = a * a * ay + 2 * a * u * my + u * u * by; tQ[2] = a * a * az + 2 * a * u * mz + u * u * bz;
+  }
+  // P(f, s) of the sail surface -> screen into tPoly at vertex index vi
+  function spiPt(M, T, f, s, vi) {
+    const S = tSpi;
+    spiEdge(S[0], S[1], S[2], S[10], S[11], S[12], 0.75, f); const lx = tQ[0], ly = tQ[1], lz = tQ[2]; // luff
+    spiEdge(S[7], S[8], S[9], S[10], S[11], S[12], 0.12, f); // leech
+    spiEdge(lx, ly, lz, tQ[0], tQ[1], tQ[2], 0.8 * (1 - f), s); // the row across at height f
+    prj(M, T, tQ[0], tQ[1], tQ[2]);
     tPoly[vi * 2] = tP.x; tPoly[vi * 2 + 1] = tP.y;
   }
-  // the outline (arc + head) into tPoly; returns the vertex count
-  function spiOutline(M, T, m) { for (let i = 0; i <= m; i++) spiPt(M, T, i / m, 0, i); const S = tSpi; prj(M, T, S[10], S[11], S[12]); tPoly[(m + 1) * 2] = tP.x; tPoly[(m + 1) * 2 + 1] = tP.y; return m + 2; }
+  // the outline (luff up, leech down, foot back to the tack) into tPoly; returns the vertex count
+  function spiOutline(M, T, m) {
+    let v = 0;
+    for (let i = 0; i < m; i++) spiPt(M, T, i / m, 0, v++);
+    for (let i = 0; i < m; i++) spiPt(M, T, 1 - i / m, 1, v++);
+    for (let i = 0; i < m; i++) spiPt(M, T, 0, 1 - i / m, v++);
+    return v;
+  }
   function drawSpiTilted(ctx, M, T, W, g, boat, st, lee, fb, perf) {
-    const m = perf >= 2 ? 8 : 6, S = tSpi, cols = g.spiColors || ['#ff7a3d', '#ffd23f', '#ffffff'];
+    const m = perf >= 2 ? 8 : 5, S = tSpi, cols = g.spiColors || ['#ff7a3d', '#ffd23f', '#ffffff'];
     tS[0] = S[0]; tS[1] = S[1]; tS[2] = S[2]; tS[3] = S[7]; tS[4] = S[8]; tS[5] = S[9]; tS[6] = S[10]; tS[7] = S[11]; tS[8] = S[12];
     if (g.spi === 'sym') drawPost(ctx, M, T, 0, yAt(g, g.mast), fb + 1.0, S[0], S[1], S[2], '#8a8f99', Math.max(1, 0.07 * T.Z)); // pole
     const nv = spiOutline(M, T, m);
     fillPoly(ctx, nv, sailShade(W, cols[0]));
-    if (perf >= 2) { // horizontal colour bands: strips between two fan heights f0..f1
+    if (perf >= 2) { // colour bands across the sail, like the 2D drawing: white stripe, then the second colour to the head
       for (let bnd = 0; bnd < 2; bnd++) {
-        const f0 = bnd ? 0.5 : 0.4, f1 = bnd ? 1 : 0.5;
-        for (let i = 0; i <= m; i++) { spiPt(M, T, i / m, f0, i); spiPt(M, T, 1 - i / m, f1, m + 1 + i); }
+        const f0 = bnd ? 0.5 : 0.42, f1 = bnd ? 1 : 0.5;
+        for (let i = 0; i <= m; i++) { spiPt(M, T, f0, i / m, i); spiPt(M, T, f1, 1 - i / m, m + 1 + i); }
         polyPath(ctx, 2 * m + 2); ctx.fillStyle = sailShade(W, bnd ? cols[1] : cols[2] || '#ffffff'); ctx.fill();
       }
+      ctx.strokeStyle = 'rgba(30,50,80,0.18)'; ctx.lineWidth = 1; // a seam from the tack towards the leech: shows the curve
+      ctx.beginPath();
+      for (let i = 0; i <= m; i++) { spiPt(M, T, 0.5 * i / m, 0.15 + 0.6 * i / m, 0); i ? ctx.lineTo(tPoly[0], tPoly[1]) : ctx.moveTo(tPoly[0], tPoly[1]); }
+      ctx.stroke();
       spiOutline(M, T, m);
     }
     polyPath(ctx, nv); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke();
