@@ -8,7 +8,8 @@ body.results-over-sea #game-canvas { filter: blur(3px) brightness(.6) saturate(.
 #screen-play { padding: 0; touch-action: none; }
 body.mode-dom #screen-play { background: linear-gradient(180deg, rgba(8, 14, 32, .35), rgba(8, 14, 32, .6)); }
 #play-layer, .play-layer { position: absolute; inset: 0; overflow: hidden; }
-.play-chrome { position: absolute; z-index: 30; top: calc(var(--safe-t) + 10px); left: calc(var(--safe-l) + 10px); pointer-events: none; }
+/* above full-screen mode cards (nav briefing/quiz 36, school lesson card 38 earlier in DOM) so pause / ⋯ stays reachable; below the menu scrim (38, later in DOM), menu and pause card */
+.play-chrome { position: absolute; z-index: 38; top: calc(var(--safe-t) + 10px); left: calc(var(--safe-l) + 10px); pointer-events: none; }
 .play-chrome .icon-btn { pointer-events: auto; background: rgba(13, 19, 33, .62); }
 body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 
