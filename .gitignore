@@ -8,3 +8,5 @@ tools/tmp/
 
 # stray Windows temp paths written relative to the repo
 UsersALLANT*
+shot-*.cjs
+UsersALLANT*
