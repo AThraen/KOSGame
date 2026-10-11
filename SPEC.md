@@ -374,6 +374,11 @@ measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. 
   getting out of irons, hiking in gusts, man-overboard pick-up, "sail the figure-8", per boat lessons.
 - `bay` — Free sail in Svanemøllebugten with collectibles (rings, gulls, floating bottles of trash to clean up),
   any unlocked boat, time trials around the bay.
+  **Hård vind / Strong wind** (`sail.heavy.<boat>`, one card next to free sailing, same boat picker and goals): free sailing
+  in 10–14 m/s (base 22.5 kn ≈ 11.6 m/s, `gust` 0.45, shifts 0.35) with gusts that show as dark patches. Unlocks at 30 stars
+  (and the boat's own Sejlerpas stars; `unlockAll` opens all); the RIB is not offered. Goals: distance, 2 tacks, and 60 s
+  without capsizing (dinghies) or 2 gybes (keelboats). The trainer intro gives heavy-weather tips (ease the sheet in gusts,
+  bear away, hike hard, stay with the boat if you capsize). Capsizing only happens in Normal/Pro, as everywhere.
 - `race` — Kapsejlads: proper start sequence (5-4-1-0 with flags & horns: P flag, class flag), windward-leeward and
   triangle courses, AI fleets of the same class, gusts and shifts, mark rounding, penalty turns (720 / 360), protests
   shown as replays, championship series per boat class ("Klubmesterskab", "DM", "Optimist Holland Cup"-style fun names).
