@@ -894,9 +894,15 @@
       if (r.width && r.height) obst.push({ l: r.left - vr.left - 4, r: r.right - vr.left + 4, t: r.top - dy - vr.top - 4, b: r.bottom - dy - vr.top + 4 });
     });
     const pins = Array.from(s.root.querySelectorAll('.hub-pin')), np = pins.length;
+    const M8 = 8;
     const g = { np, pins, obst, vw: vr.width, vh: vr.height, ax: new Float64Array(np), ay: new Float64Array(np), el: new Float64Array(np), er: new Float64Array(np), et: new Float64Array(np), eb: new Float64Array(np) };
     pins.forEach((el, i) => {
-      const r = el.getBoundingClientRect();
+      let r = el.getBoundingClientRect();
+      { // the absolutely positioned tags (Start her, NY) are part of the pin's box
+        let L = r.left, R = r.right, T = r.top, B = r.bottom;
+        el.querySelectorAll('.hub-pin-start, .hub-pin-new').forEach(c => { if (c.hidden) return; const q = c.getBoundingClientRect(); if (q.width) { L = Math.min(L, q.left); R = Math.max(R, q.right); T = Math.min(T, q.top); B = Math.max(B, q.bottom); } });
+        r = { left: L, right: R, top: T, bottom: B };
+      }
       g.ax[i] = parseFloat(el.style.left) / 100 * PROJ.W; g.ay[i] = parseFloat(el.style.top) / 100 * PROJ.H;
       const sx = s.tx + g.ax[i] * s.s, sy = s.ty + g.ay[i] * s.s;
       g.el[i] = (r.left - vr.left - sx) / pkc; g.er[i] = (r.right - vr.left - sx) / pkc; g.et[i] = (r.top - vr.top - sy) / pkc; g.eb[i] = (r.bottom - vr.top - sy) / pkc;
@@ -905,6 +911,9 @@
     // free area for pins / indicators: the viewport minus bars docked to its top or bottom edge
     g.left = 8; g.right = g.vw - 8; g.top = 8; g.bot = g.vh - 8;
     for (const o of obst) { if (o.t < 24) g.top = Math.max(g.top, o.b); if (o.b > g.vh - 24) g.bot = Math.min(g.bot, o.t); }
+    // pills sit along the edge of the free area: the viewport minus wide bars (>= 60 % of the width) docked top or bottom
+    g.pTop = M8; g.pBot = g.vh - M8;
+    for (const o of obst) if (o.r - o.l >= g.vw * 0.6) { if (o.t < 24) g.pTop = Math.max(g.pTop, o.b); if (o.b > g.vh - 24) g.pBot = Math.min(g.pBot, o.t); }
     s.geo = g;
     return g;
   }
@@ -984,9 +993,10 @@
     // which pins are hidden; every pin box that is (partly) on screen is kept clear, seen or not
     const avoid = g.obst.slice(), hid = [], pinBoxes = new Map();
     for (let i = 0; i < g.np; i++) {
-      if (pinHidden(g, i, sc, tx, ty, pk, true)) hid.push(i);
+      const isHid = pinHidden(g, i, sc, tx, ty, pk, true);
+      if (isHid) hid.push(i);
       const bx = { l: tx + g.ax[i] * sc + g.el[i] * pk, r: tx + g.ax[i] * sc + g.er[i] * pk, t: ty + g.ay[i] * sc + g.et[i] * pk, b: ty + g.ay[i] * sc + g.eb[i] * pk };
-      if (bx.r > 0 && bx.l < vw && bx.b > 0 && bx.t < vh) { avoid.push(bx); pinBoxes.set(bx, i); }
+      if (!isHid && bx.r > 0 && bx.l < vw && bx.b > 0 && bx.t < vh) { avoid.push(bx); pinBoxes.set(bx, i); }
     }
     const clubI = g.pins.findIndex(el => el.dataset.area === 'club');
     const info = hid.map(i => {
@@ -998,8 +1008,8 @@
     // A pill sits AT a screen edge: the edge the pin lies beyond (or is nearest to), slid along that edge to the free
     // slot nearest the pin; an edge taken by overlays hands over to the next-nearest edge. Never in the map interior.
     const place = (px, py, W, own) => {
-      const H = EDGE_H, xmin = M, xmax = vw - M - W, ymin = M, ymax = vh - M - H;
-      const over = { l: -px, r: px - vw, t: -py, b: py - vh };
+      const H = EDGE_H, xmin = M, xmax = vw - M - W, ymin = g.pTop, ymax = g.pBot - H;
+      const over = { l: -px, r: px - vw, t: g.pTop - py, b: py - g.pBot };
       const order = Object.keys(over).sort((p, q) => over[q] - over[p]);
       for (const soft of [false]) {
         for (const e of order) {
