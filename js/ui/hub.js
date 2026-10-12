@@ -820,7 +820,8 @@
   // ------------------------------------------------------------------ pan / zoom
   // one style write per frame (pointermove can fire at 120+ Hz on phones); --inv only changes on zoom, and
   // rewriting it restyles every pin, which made the map flash while dragging on mobile
-  let applyRaf = 0, lastInv = '';
+  const PIN_K_MIN = 0.65; // smallest pin/label scale of the overview framing (13.5px names -> ~8.8px)
+  let applyRaf = 0, lastInv = '', lastPk = '';
   function applySoon() {
     if (applyRaf) return;
     applyRaf = requestAnimationFrame(() => { applyRaf = 0; apply(); });
@@ -839,6 +840,9 @@
     setTransform(s, true);
     const inv = (1 / s.s).toFixed(3);
     if (inv !== lastInv) { lastInv = inv; s.stage.style.setProperty('--inv', inv); }
+    // overview framing with shrunken pins: they grow back to full size between the framing zoom and "cover"
+    const pk = s.pk ? (s.pk.k0 + (1 - s.pk.k0) * Math.max(0, Math.min(1, (s.s - s.pk.a) / (s.pk.b - s.pk.a)))).toFixed(3) : '1';
+    if (pk !== lastPk) { lastPk = pk; s.stage.style.setProperty('--pk', pk); }
   }
   function clamp() {
     const s = state, vw = s.vp.clientWidth, vh = s.vp.clientHeight;
@@ -846,8 +850,10 @@
     const w = PROJ.W * s.s, h = PROJ.H * s.s;
     // keep a little room under the top bar
     const topPad = 0, botPad = 0;
-    s.tx = w <= vw ? (vw - w) / 2 : Math.min(0, Math.max(vw - w, s.tx));
-    s.ty = h <= vh ? (vh - h) / 2 : Math.min(topPad, Math.max(vh - h - botPad, s.ty));
+    // a map bigger than the screen can't leave an empty edge. A map smaller than the screen (only after the initial
+    // fit-all-pins framing, below cover) stays fully on screen but may sit anywhere, so overlays can be kept clear of pins.
+    s.tx = w <= vw ? Math.max(0, Math.min(vw - w, s.tx)) : Math.min(0, Math.max(vw - w, s.tx));
+    s.ty = h <= vh ? Math.max(0, Math.min(vh - h, s.ty)) : Math.min(topPad, Math.max(vh - h - botPad, s.ty));
   }
   function centerOn(wx, wy, scale, mapCoords) {
     const s = state, vw = s.vp.clientWidth, vh = s.vp.clientHeight;
@@ -861,8 +867,10 @@
     if (!state) return;
     const s = state, vw = s.vp.clientWidth || root.innerWidth, vh = s.vp.clientHeight || root.innerHeight;
     const cover = Math.max(vw / PROJ.W, vh / PROJ.H);
-    const old = s.min;
-    s.min = cover;
+    const oldCover = s.cover || cover;
+    // s.min may sit below cover after the initial fit-all-pins framing (map smaller than the screen): keep that ratio on resize
+    s.min = initial ? cover : cover * Math.min(1, (s.min || cover) / oldCover);
+    s.cover = cover;
     s.max = Math.max(cover * 3.2, 1.6);
     if (initial) {
       // phones: zoom so the bay + channel fill the screen; desktop: show (nearly) the whole map
@@ -880,51 +888,92 @@
         const sc = Math.max(cover, Math.min(vw / (x1 - x0), (vh - 70) / (y1 - y0)));
         centerOn((x0 + x1) / 2, (y0 + y1) / 2 - 35 / sc, sc, true);
       }
-      // keep the place pins clear of the top bar and the bottom card. The free area comes from the real element rects,
-      // then the shift that shows the most pins (and surely the suggested one, "Næste udfordring") wins.
+      // Frame ALL the place pins (locked and unlocked) so nobody misses an area. Pins and labels are counter-scaled
+      // (--inv) and keep their screen size at every zoom, so the pin boxes are measured once (screen px around their map
+      // anchor) and the scale is then searched: the largest zoom where every pin is inside the viewport and clear of the
+      // top bar / next-challenge card / zoom buttons / compass. If even "cover" is too tight (portrait phones) the map
+      // may be zoomed out below cover; s.min follows, so the user can pinch back out to exactly this view.
       {
         const vr = s.vp.getBoundingClientRect();
-        const top = vr.top + 8, bot = vr.bottom - 8, left = vr.left + 8, right = vr.right - 8;
-        const R_ = s.root;
-        // everything the pins must stay clear of: top bar cards, the next-challenge card, zoom buttons, compass
+        const top = 8, bot = vr.height - 8, left = 8, right = vr.width - 8;
         const obst = [];
-        R_.querySelectorAll('.hub-top .hub-glass, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
+        s.root.querySelectorAll('.hub-top .hub-glass, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
           if (el.hidden) return;
           const r = el.getBoundingClientRect();
-          if (r.width && r.height) obst.push({ l: r.left - 4, r: r.right + 4, t: r.top - 4, b: r.bottom + 4 });
+          // rise-in animation of the next card is still at its start offset on the first frame: use the resting position
+          let dy = 0;
+          try { dy = new DOMMatrixReadOnly(getComputedStyle(el).transform).m42 || 0; } catch (e) { /* ignore */ }
+          if (r.width && r.height) obst.push({ l: r.left - vr.left - 4, r: r.right - vr.left + 4, t: r.top - dy - vr.top - 4, b: r.bottom - dy - vr.top + 4 });
         });
-        const pins = Array.from(R_.querySelectorAll('.hub-pin'));
-        const rects = pins.map(el => el.getBoundingClientRect());
-        const nextEl = R_.querySelector('.hub-pin.is-next');
-        const nextI = nextEl ? pins.indexOf(nextEl) : -1;
-        const vw_ = s.vp.clientWidth, vh_ = s.vp.clientHeight, w_ = PROJ.W * s.s, h_ = PROJ.H * s.s;
-        const loX = w_ <= vw_ ? s.tx : vw_ - w_, hiX = w_ <= vw_ ? s.tx : 0, loY = h_ <= vh_ ? s.ty : vh_ - h_, hiY = h_ <= vh_ ? s.ty : 0;
-        // same search as before, as plain loops over flat arrays (6561 shifts x pins x obstacles: the closure version cost ~250 ms on a phone)
-        const np = rects.length, no = obst.length;
-        const pl = new Float64Array(np), pr = new Float64Array(np), pt = new Float64Array(np), pb = new Float64Array(np);
-        for (let i = 0; i < np; i++) { pl[i] = rects[i].left; pr[i] = rects[i].right; pt[i] = rects[i].top; pb[i] = rects[i].bottom; }
-        let best = null;
-        for (let dy = -320; dy <= 320; dy += 8) {
-          const ay = Math.max(loY, Math.min(hiY, s.ty + dy)) - s.ty;
-          for (let dx = -320; dx <= 320; dx += 8) {
-            const ax = Math.max(loX, Math.min(hiX, s.tx + dx)) - s.tx;
-            let n = 0, nextIn = false;
-            for (let i = 0; i < np; i++) {
-              const L_ = pl[i] + ax, R2 = pr[i] + ax, T_ = pt[i] + ay, B_ = pb[i] + ay;
-              if (L_ < left || R2 > right || T_ < top || B_ > bot) continue;
-              let hit = false;
-              for (let k = 0; k < no; k++) { const o = obst[k]; if (L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t) { hit = true; break; } }
-              if (hit) continue;
-              n++; if (i === nextI) nextIn = true;
+        const pins = Array.from(s.root.querySelectorAll('.hub-pin'));
+        const np = pins.length, no = obst.length;
+        if (np) {
+          const ax_ = new Float64Array(np), ay_ = new Float64Array(np), el_ = new Float64Array(np), er_ = new Float64Array(np), et_ = new Float64Array(np), eb_ = new Float64Array(np);
+          pins.forEach((el, i) => {
+            const r = el.getBoundingClientRect();
+            ax_[i] = parseFloat(el.style.left) / 100 * PROJ.W; ay_[i] = parseFloat(el.style.top) / 100 * PROJ.H;
+            const sx = s.tx + ax_[i] * s.s, sy = s.ty + ay_[i] * s.s;
+            el_[i] = r.left - vr.left - sx; er_[i] = r.right - vr.left - sx; et_[i] = r.top - vr.top - sy; eb_[i] = r.bottom - vr.top - sy;
+          });
+          const nextI = pins.findIndex(el => el.classList.contains('is-next'));
+          // lowest allowed zoom: the map stays at least ~60 % of the shorter screen side
+          const floor = Math.min(cover, Math.min(vw, vh) * 0.6 / Math.min(PROJ.W, PROJ.H));
+          const search = pk => {
+            let best = null;
+            for (let sc = s.max; ; sc = Math.max(floor, sc * 0.97)) {
+              const w = PROJ.W * sc, h = PROJ.H * sc;
+              let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+              for (let i = 0; i < np; i++) {
+                x0 = Math.min(x0, ax_[i] * sc + el_[i] * pk); x1 = Math.max(x1, ax_[i] * sc + er_[i] * pk);
+                y0 = Math.min(y0, ay_[i] * sc + et_[i] * pk); y1 = Math.max(y1, ay_[i] * sc + eb_[i] * pk);
+              }
+              const loX = w <= vw ? 0 : vw - w, hiX = w <= vw ? vw - w : 0, loY = h <= vh ? 0 : vh - h, hiY = h <= vh ? vh - h : 0;
+              const cx = (left + right) / 2 - (x0 + x1) / 2, cy = (top + bot) / 2 - (y0 + y1) / 2;
+              for (let dy = -200; dy <= 200; dy += 8) {
+                const ty = Math.max(loY, Math.min(hiY, cy + dy));
+                for (let dx = -200; dx <= 200; dx += 8) {
+                  const tx = Math.max(loX, Math.min(hiX, cx + dx));
+                  let n = 0, nextIn = false;
+                  for (let i = 0; i < np; i++) {
+                    const L_ = tx + ax_[i] * sc + el_[i] * pk, R2 = tx + ax_[i] * sc + er_[i] * pk, T_ = ty + ay_[i] * sc + et_[i] * pk, B_ = ty + ay_[i] * sc + eb_[i] * pk;
+                    if (L_ < left || R2 > right || T_ < top || B_ > bot) continue;
+                    let hit = false;
+                    for (let k = 0; k < no; k++) { const o = obst[k]; if (L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t) { hit = true; break; } }
+                    if (hit) continue;
+                    n++; if (i === nextI) nextIn = true;
+                  }
+                  const score = n * 1000 + (nextIn ? 400 : 0);
+                  if (!best || score > best.score) best = { score, n, sc, tx, ty, pk };
+                }
+              }
+              if (best.n === np || sc <= floor) break;
             }
-            const score = n * 100 + (nextIn ? 150 : 0) - (Math.abs(ax) + Math.abs(ay)) * 0.05;
-            if (!best || score > best.score) best = { score, ax, ay };
+            // pins covering each other (more than a sliver)
+            let ov = 0;
+            for (let i = 0; i < np; i++) for (let j = i + 1; j < np; j++) {
+              const xi = best.tx + ax_[i] * best.sc, xj = best.tx + ax_[j] * best.sc, yi = best.ty + ay_[i] * best.sc, yj = best.ty + ay_[j] * best.sc;
+              const dx = Math.min(xi + er_[i] * pk, xj + er_[j] * pk) - Math.max(xi + el_[i] * pk, xj + el_[j] * pk);
+              const dy = Math.min(yi + eb_[i] * pk, yj + eb_[j] * pk) - Math.max(yi + et_[i] * pk, yj + et_[j] * pk);
+              if (dx > 6 && dy > 6) ov++;
+            }
+            best.ov = ov;
+            return best;
+          };
+          // full-size pins first; on small screens the pins (and their labels) may shrink down to PIN_K_MIN to fit
+          // all of them. They grow back to full size as the user zooms in (see apply()).
+          let best = null;
+          for (let pk = 1; pk >= PIN_K_MIN - 1e-9; pk -= 0.07) {
+            best = search(pk);
+            if (best.n === np && best.ov === 0) break;
           }
+          s.min = Math.min(cover, best.sc);
+          s.pk = best.pk < 1 ? { k0: best.pk, a: best.sc, b: Math.max(cover, best.sc * 1.01) } : null;
+          s.s = best.sc; s.tx = best.tx; s.ty = best.ty;
+          clamp(); apply();
         }
-        if (best && (best.ax || best.ay)) { s.tx += best.ax; s.ty += best.ay; clamp(); apply(); }
       }
     } else {
-      s.s = s.s * (cover / (old || cover));
+      s.s = s.s * (cover / oldCover);
       clamp(); apply();
     }
   }

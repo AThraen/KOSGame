@@ -21,13 +21,14 @@
 .hub-star { fill: #ffd25e; stroke: #e0a020; stroke-width: 1.2; }
 
 /* ------------------------------------------------ map viewport */
-.hub-viewport { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+/* sea colour behind the map: shows only when the initial fit-all-pins framing leaves the map smaller than the screen */
+.hub-viewport { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; background: #2a6aae; }
 .hub-viewport.is-dragging { cursor: grabbing; }
 .hub-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; --inv: 1; }
 .hub-stage.is-moving { will-change: transform; }
 .hub-stage.is-easing { transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
 .hub-base { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; }
-.hub-stage { background: #2f78c0; }
+.hub-stage { background: #2f78c0; box-shadow: 0 0 calc(24px * var(--inv)) rgba(4, 20, 50, .45); }
 .hub-map { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: hidden; }
 .hub-fx { pointer-events: none; }
 .hub-cloud { animation: hub-cloud 90s linear infinite alternate; }
@@ -62,7 +63,7 @@
 .hub-pin {
   position: absolute; pointer-events: auto; border: 0; padding: 0; background: none; color: #fff; font: inherit;
   display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
-  transform: translate(-50%, -32px) scale(var(--inv)); transform-origin: 50% 32px;
+  transform: translate(-50%, -32px) scale(calc(var(--inv) * var(--pk, 1))); transform-origin: 50% 32px;
   transition: filter .2s; outline: none; -webkit-tap-highlight-color: transparent;
 }
 .hub-pin-badge {
@@ -172,7 +173,7 @@
   .hub-bottom { width: calc(100% - 24px); left: 12px; transform: none; bottom: calc(10px + var(--hub-safe-b)); }
   .hub-compass { bottom: auto; top: calc(72px + var(--hub-safe-t)); width: 46px; height: 46px; }
   .hub-pin-badge, .hub-pin-ring { width: 54px; height: 54px; }
-  .hub-pin { transform-origin: 50% 27px; transform: translate(-50%, -27px) scale(var(--inv)); }
+  .hub-pin { transform-origin: 50% 27px; transform: translate(-50%, -27px) scale(calc(var(--inv) * var(--pk, 1))); }
   .hub-pin-badge .hub-ico { width: 28px; height: 28px; }
   .hub-pin-name { font-size: 13.5px; }
   .hub-pin-label { padding: 4px 9px 5px; }
@@ -191,7 +192,7 @@
   .hub-next { padding: 4px 4px 4px 12px; }
   .hub-next-go { height: 40px; }
   .hub-pin-badge, .hub-pin-ring { width: 48px; height: 48px; }
-  .hub-pin { transform-origin: 50% 24px; transform: translate(-50%, -24px) scale(var(--inv)); }
+  .hub-pin { transform-origin: 50% 24px; transform: translate(-50%, -24px) scale(calc(var(--inv) * var(--pk, 1))); }
   .hub-pin-badge .hub-ico { width: 26px; height: 26px; }
   .hub-pin-name { font-size: 12.5px; }
   .hub-pin-stars { font-size: 11px; }
