@@ -268,3 +268,6 @@ body[data-screen="hub"]:has(#screen-hub.hub-host) #menu-bg { display: none; }
 .hub-edge.is-next { box-shadow: 0 0 0 2px #ffc65c, 0 4px 14px rgba(4, 10, 25, .4); }
 .hub-edge-name { flex: 1; min-width: 0; font-size: 10.5px; font-weight: 800; line-height: 1.1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hub-edge-arrow { flex: none; width: 14px; height: 14px; fill: none; stroke: #ffd25e; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.hub-edge-more { width: 66px; padding: 0 10px 0 3px; }
+.hub-edge-more .hub-edge-name { font-size: 12.5px; }
+.hub-pin.is-away { opacity: 0; pointer-events: none; transition: opacity .15s; }

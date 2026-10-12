@@ -618,7 +618,7 @@
     const rootEl = document.createElement('div');
     rootEl.className = 'hub' + (isLite ? ' hub-lite' : '');
     rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${dev ? '' : baseHtml(isLite)}${mapCache}<div class="hub-labels">${labelsHtml()}</div>${cloudsCache || ''}<div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
-      <div class="hub-edges">${AREAS.map(edgeHtml).join('')}</div>
+      <div class="hub-edges">${AREAS.map(edgeHtml).join('')}<button class="hub-edge hub-edge-more" type="button" data-act="places" hidden><span class="hub-edge-badge">${icon('list')}</span><span class="hub-edge-name"></span></button></div>
       ${topHtml()}
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
@@ -630,7 +630,7 @@
     const vp = rootEl.querySelector('.hub-viewport'), stage = rootEl.querySelector('.hub-stage');
     const edges = rootEl.querySelector('.hub-edges');
     lastInv = ''; if (applyRaf) { cancelAnimationFrame(applyRaf); applyRaf = 0; }
-    state = { host: sectionEl, root: rootEl, vp, stage, edges, edgeBtns: Array.from(edges.children), tx: 0, ty: 0, s: 1, min: 1, max: 4, pointers: new Map(), listeners: [], unsub: [] };
+    state = { host: sectionEl, root: rootEl, vp, stage, edges, edgeBtns: Array.from(edges.querySelectorAll('.hub-edge:not(.hub-edge-more)')), edgeMore: edges.querySelector('.hub-edge-more'), tx: 0, ty: 0, s: 1, min: 1, max: 4, pointers: new Map(), listeners: [], unsub: [] };
     // place pins
     for (const a of AREAS) {
       const w = KOS.World.poi[a.anchor];
@@ -835,7 +835,14 @@
   function setTransform(s, promoted) {
     s.stage.style.transform = (promoted ? `translate3d(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px, 0)` : `translate(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px)`) + ` scale(${s.s.toFixed(4)})`;
   }
-  function pkOf(s, sc) { return s.pk ? s.pk.k0 + (1 - s.pk.k0) * Math.max(0, Math.min(1, (sc - s.pk.a) / (s.pk.b - s.pk.a))) : 1; }
+  // pin/label scale as a function of the map scale: piecewise linear through s.pk.pts = [[mapScale, pinScale], ...] (ascending)
+  function pkOf(s, sc) {
+    const q = s.pk && s.pk.pts;
+    if (!q || !q.length) return 1;
+    if (sc <= q[0][0]) return q[0][1];
+    for (let i = 1; i < q.length; i++) if (sc <= q[i][0]) return q[i - 1][1] + (q[i][1] - q[i - 1][1]) * (sc - q[i - 1][0]) / (q[i][0] - q[i - 1][0]);
+    return q[q.length - 1][1];
+  }
   function apply() {
     const s = state;
     if (!s || !s.stage) return;
@@ -909,18 +916,28 @@
   };
   const pinHidden = (g, i, sc, tx, ty, pk, lenient) => boxHidden(g, tx + g.ax[i] * sc + g.el[i] * pk, tx + g.ax[i] * sc + g.er[i] * pk, ty + g.ay[i] * sc + g.et[i] * pk, ty + g.ay[i] * sc + g.eb[i] * pk, lenient);
   // best (tx, ty) near (cx, cy) for scale sc / pin scale pk: most pins visible, the next-challenge pin surely
-  function scan(g, sc, pk, cx, cy, R, must) {
+  function scan(g, sc, pk, cx, cy, R, musts, partialPen, step, overlapPen) {
     const vw = g.vw, vh = g.vh, w = PROJ.W * sc, h = PROJ.H * sc, np = g.np;
     const loX = w <= vw ? 0 : vw - w, hiX = w <= vw ? vw - w : 0, loY = h <= vh ? 0 : vh - h, hiY = h <= vh ? vh - h : 0;
     let best = null;
-    for (let dy = -R; dy <= R; dy += 8) {
+    step = step || 8;
+    for (let dy = -R; dy <= R; dy += step) {
       const ty = Math.max(loY, Math.min(hiY, cy + dy));
-      for (let dx = -R; dx <= R; dx += 8) {
+      for (let dx = -R; dx <= R; dx += step) {
         const tx = Math.max(loX, Math.min(hiX, cx + dx));
         let n = 0, nextIn = false;
-        if (must !== undefined && pinHidden(g, must, sc, tx, ty, pk)) continue;
-        for (let i = 0; i < np; i++) if (!pinHidden(g, i, sc, tx, ty, pk)) { n++; if (i === g.nextI) nextIn = true; }
-        const score = n * 1000 + (nextIn ? 400 : 0) - (Math.abs(tx - cx) + Math.abs(ty - cy)) * 0.5;
+        if (musts) { let bad = false; for (const m of musts) if (pinHidden(g, m, sc, tx, ty, pk)) { bad = true; break; } if (bad) continue; }
+        let part = 0;
+        for (let i = 0; i < np; i++) {
+          if (!pinHidden(g, i, sc, tx, ty, pk)) { n++; if (i === g.nextI) nextIn = true; }
+          else if (partialPen) { const X = tx + g.ax[i] * sc, Y = ty + g.ay[i] * sc; if (X + g.er[i] * pk > 0 && X + g.el[i] * pk < vw && Y + g.eb[i] * pk > 0 && Y + g.et[i] * pk < vh) part++; }
+        }
+        let ovl = 0;
+        if (overlapPen) for (let i = 0; i < np; i++) for (let j = i + 1; j < np; j++) {
+          const xi = tx + g.ax[i] * sc, xj = tx + g.ax[j] * sc, yi = ty + g.ay[i] * sc, yj = ty + g.ay[j] * sc;
+          if (Math.min(xi + g.er[i] * pk, xj + g.er[j] * pk) - Math.max(xi + g.el[i] * pk, xj + g.el[j] * pk) > 4 && Math.min(yi + g.eb[i] * pk, yj + g.eb[j] * pk) - Math.max(yi + g.et[i] * pk, yj + g.et[j] * pk) > 4) ovl++;
+        }
+        const score = n * 1000 + (nextIn ? 400 : 0) - part * (partialPen || 0) - ovl * (overlapPen || 0) - (Math.abs(tx - cx) + Math.abs(ty - cy)) * 0.5;
         if (!best || score > best.score) best = { score, n, nextIn, sc, tx, ty, pk };
       }
     }
@@ -958,59 +975,85 @@
   }
 
   // ---- edge indicators: a button at the screen edge for every pin that is off-screen or under an overlay
-  const EDGE_W = 142, EDGE_H = 32;
+  const EDGE_W = 142, EDGE_H = 32, MORE_W = 66, MAX_PILLS = 4;
   function updateEdges() {
     const s = state;
     if (!s || !s.edges || !s.geo || !s.geo.ax) return;
-    const g = s.geo, sc = s.s, pk = pkOf(s, sc), tx = s.tx, ty = s.ty;
-    const btns = s.edgeBtns;
-    // pass 1: which pins are hidden; the visible ones (and the overlays) are keep-clear boxes for the indicators
+    const g = s.geo, sc = s.s, pk = pkOf(s, sc), tx = s.tx, ty = s.ty, vw = g.vw, vh = g.vh, M = 8;
+    const btns = s.edgeBtns, more = s.edgeMore;
+    // which pins are hidden; every pin box that is (partly) on screen is kept clear, seen or not
     const avoid = g.obst.slice(), hid = [], pinBoxes = new Map();
     for (let i = 0; i < g.np; i++) {
       if (pinHidden(g, i, sc, tx, ty, pk, true)) hid.push(i);
-      // every pin box that is (partly) on screen is kept clear, seen or not
       const bx = { l: tx + g.ax[i] * sc + g.el[i] * pk, r: tx + g.ax[i] * sc + g.er[i] * pk, t: ty + g.ay[i] * sc + g.et[i] * pk, b: ty + g.ay[i] * sc + g.eb[i] * pk };
-      if (bx.r > 0 && bx.l < g.vw && bx.b > 0 && bx.t < g.vh) { avoid.push(bx); pinBoxes.set(bx, i); }
+      if (bx.r > 0 && bx.l < vw && bx.b > 0 && bx.t < vh) { avoid.push(bx); pinBoxes.set(bx, i); }
     }
-    const cx = (g.left + g.right) / 2, cy = (g.top + g.bot) / 2;
-    const xmin = g.left, xmax = g.right - EDGE_W, ymin = g.top, ymax = g.bot - EDGE_H;
-    const info = hid.map(i => { const px = tx + g.ax[i] * sc, py = ty + g.ay[i] * sc; return { i, px, py, d: Math.hypot(px - cx, py - cy) }; });
-    info.sort((a, b) => (b.i === g.nextI) - (a.i === g.nextI) || a.d - b.d);
-    const hit = (x, y, soft, own) => { for (const o of avoid) if (!(soft && pinBoxes.has(o) && pinBoxes.get(o) !== own) && x < o.r && x + EDGE_W > o.l && y < o.b && y + EDGE_H > o.t) return true; return false; };
-    const placed = new Set();
-    for (const f of info) {
-      // nearest point of the allowed rectangle to the pin; a pin inside it (hidden by an overlay) is pushed to its nearest side
-      let x = Math.max(xmin, Math.min(xmax, f.px - EDGE_W / 2)), y = Math.max(ymin, Math.min(ymax, f.py - EDGE_H / 2));
-      const inside = f.px > xmin + EDGE_W && f.px < xmax && f.py > ymin + EDGE_H && f.py < ymax;
-      let vertical;
-      if (inside) {
-        const dl = f.px - xmin, dr = xmax + EDGE_W - f.px, dt = f.py - ymin, db = ymax + EDGE_H - f.py, m = Math.min(dl, dr, dt, db);
-        vertical = m === dl || m === dr;
-        if (m === dl) x = xmin; else if (m === dr) x = xmax; else if (m === dt) y = ymin; else y = ymax;
-      } else vertical = f.px < xmin + EDGE_W / 2 || f.px > xmax + EDGE_W / 2;
-      // slide along the edge to the nearest free slot
-      let found = null;
-      // first clear of everything; failing that, allowed to sit over a visible pin (never over an overlay or another indicator)
-      for (const soft of [false, true]) {
-        for (let k = 0; k <= 160 && !found; k++) {
-          for (const sg of k ? [1, -1] : [1]) {
-            const nx = vertical ? x : x + sg * k * 4, ny = vertical ? y + sg * k * 4 : y;
-            if (nx < xmin || nx > xmax || ny < ymin || ny > ymax) continue;
-            if (!hit(nx, ny, soft, f.i)) { found = [nx, ny]; break; }
+    const clubI = g.pins.findIndex(el => el.dataset.area === 'club');
+    const info = hid.map(i => {
+      const px = tx + g.ax[i] * sc, py = ty + g.ay[i] * sc;
+      const rank = i === g.nextI ? 0 : i === clubI ? 1 : g.pins[i].classList.contains('is-locked') ? 3 : 2;
+      return { i, px, py, rank, d: Math.hypot(px - vw / 2, py - vh / 2) };
+    }).sort((p, q) => p.rank - q.rank || p.d - q.d);
+    const hit = (x, y, W, H, soft, own) => { for (const o of avoid) if (!(soft && pinBoxes.has(o) && pinBoxes.get(o) !== own) && x < o.r && x + W > o.l && y < o.b && y + H > o.t) return true; return false; };
+    // A pill sits AT a screen edge: the edge the pin lies beyond (or is nearest to), slid along that edge to the free
+    // slot nearest the pin; an edge taken by overlays hands over to the next-nearest edge. Never in the map interior.
+    const place = (px, py, W, own) => {
+      const H = EDGE_H, xmin = M, xmax = vw - M - W, ymin = M, ymax = vh - M - H;
+      const over = { l: -px, r: px - vw, t: -py, b: py - vh };
+      const order = Object.keys(over).sort((p, q) => over[q] - over[p]);
+      for (const soft of [false]) {
+        for (const e of order) {
+          const horiz = e === 't' || e === 'b';
+          const fixed = e === 'l' ? xmin : e === 'r' ? xmax : e === 't' ? ymin : ymax;
+          const ideal = horiz ? Math.max(xmin, Math.min(xmax, px - W / 2)) : Math.max(ymin, Math.min(ymax, py - H / 2));
+          const lo = horiz ? xmin : ymin, hi = horiz ? xmax : ymax;
+          for (let k = 0; k <= 400; k++) {
+            let any = false;
+            for (const sg of k ? [1, -1] : [1]) {
+              const v = ideal + sg * k * 4;
+              if (v < lo || v > hi) continue;
+              any = true;
+              const x = horiz ? v : fixed, y = horiz ? fixed : v;
+              if (!hit(x, y, W, H, soft, own)) return [x, y];
+            }
+            if (!any) break;
           }
         }
-        if (found) break;
       }
-      if (!found) continue;
-      const b = btns[f.i];
-      b.hidden = false;
-      b.style.transform = 'translate(' + found[0].toFixed(0) + 'px,' + found[1].toFixed(0) + 'px)';
-      const ang = Math.atan2(f.py - (found[1] + EDGE_H / 2), f.px - (found[0] + EDGE_W / 2)) * 180 / Math.PI;
-      b.lastChild.style.transform = 'rotate(' + ang.toFixed(0) + 'deg)';
-      avoid.push({ l: found[0], r: found[0] + EDGE_W, t: found[1], b: found[1] + EDGE_H });
-      placed.add(f.i);
+      return null;
+    };
+    const maxPills = vw < 340 ? 3 : MAX_PILLS, shown = new Set();
+    let overflow = info.slice(maxPills);
+    for (const f of info.slice(0, maxPills)) {
+      const pos = place(f.px, f.py, EDGE_W, f.i);
+      if (!pos) { overflow.push(f); continue; }
+      const bt = btns[f.i];
+      bt.hidden = false;
+      bt.style.transform = 'translate(' + pos[0].toFixed(0) + 'px,' + pos[1].toFixed(0) + 'px)';
+      const ang = Math.atan2(f.py - (pos[1] + EDGE_H / 2), f.px - (pos[0] + EDGE_W / 2)) * 180 / Math.PI;
+      bt.lastChild.style.transform = 'rotate(' + ang.toFixed(0) + 'deg)';
+      avoid.push({ l: pos[0], r: pos[0] + EDGE_W, t: pos[1], b: pos[1] + EDGE_H });
+      shown.add(f.i);
     }
-    for (let i = 0; i < g.np; i++) if (!placed.has(i)) btns[i].hidden = true;
+    // a pin that has a pill is treated as off-screen: a half-seen copy would only double it up
+    for (let i = 0; i < g.np; i++) {
+      if (!shown.has(i)) btns[i].hidden = true;
+      const away = shown.has(i) || overflow.some(f => f.i === i);
+      if (g.pins[i].classList.contains('is-away') !== away) g.pins[i].classList.toggle('is-away', away);
+    }
+    // the rest collapse into one "+N" pill that opens the area list
+    let moreOn = false;
+    if (overflow.length && more) {
+      const mx = overflow.reduce((p, f) => p + f.px, 0) / overflow.length, my = overflow.reduce((p, f) => p + f.py, 0) / overflow.length;
+      const pos = place(mx, my, MORE_W, -1);
+      if (pos) {
+        moreOn = true; more.hidden = false;
+        more.style.transform = 'translate(' + pos[0].toFixed(0) + 'px,' + pos[1].toFixed(0) + 'px)';
+        more.querySelector('.hub-edge-name').textContent = '+' + overflow.length;
+        more.setAttribute('aria-label', t('hub.places') + ' +' + overflow.length);
+      }
+    }
+    if (more && !moreOn) more.hidden = true;
   }
   function syncEdges() {
     const s = state;
@@ -1035,7 +1078,7 @@
       const tx = (g.left + g.right) / 2 - (g.ax[i] * sc + (g.el[i] + g.er[i]) / 2 * pk), ty = (g.top + g.bot) / 2 - (g.ay[i] * sc + (g.et[i] + g.eb[i]) / 2 * pk);
       v = clampView(sc, tx, ty);
       // the pin must end up clear of the overlays too: the best nearby position that shows it (and the most other pins)
-      const b = scan(g, v.s, pkOf(s, v.s), v.tx, v.ty, 320, i);
+      const b = scan(g, v.s, pkOf(s, v.s), v.tx, v.ty, 320, [i]);
       if (b) { v = { s: v.s, tx: b.tx, ty: b.ty }; break; }
       if (v.s <= s.min + 1e-6) break;
       sc = Math.max(s.min, sc * 0.88);
@@ -1106,20 +1149,48 @@
       const g = measureGeo();
       if (!g.np) return;
       // ...shifted so the most pins (and surely the suggested one, "Næste udfordring") are clear of the overlays
-      const nb = scan(g, s.s, 1, s.tx, s.ty, 320);
-      const normal = { s: s.s, tx: nb.tx, ty: nb.ty };
+      let normal;
+      if (portrait) {
+        const clubP = g.pins.findIndex(el => el.dataset.area === 'club');
+        const nb = scan(g, s.s, 1, s.tx, s.ty, 320, [clubP, g.nextI].filter(i => i >= 0), 400) || scan(g, s.s, 1, s.tx, s.ty, 320);
+        normal = { s: s.s, tx: nb.tx, ty: nb.ty, pk: 1, n: nb.n };
+      } else {
+        // landscape: pins must be FULLY visible, never half cut. The club and the next-challenge pin always are; a slightly
+        // lower zoom and pin scale (down to 0.85) beat cutting pins off.
+        const sc0 = s.s, cmx = (vw / 2 - s.tx) / sc0, cmy = (vh / 2 - s.ty) / sc0;
+        const clubI = g.pins.findIndex(el => el.dataset.area === 'club');
+        const musts = [clubI, g.nextI].filter(i => i >= 0);
+        let top = null;
+        for (const pk of [1, 0.92, 0.85]) {
+          for (let sc = sc0; sc >= Math.max(0.01, sc0 * 0.6) - 1e-9; sc *= 0.96) {
+            const b = scan(g, sc, pk, vw / 2 - cmx * sc, vh / 2 - cmy * sc, 320, musts, 1500, 12, 2500);
+            if (!b) continue;
+            const total = b.score - (1 - pk) * 2500 - Math.log(sc0 / sc) * 1800;
+            if (!top || total > top.total) top = { total, b };
+          }
+        }
+        if (!top) { const nb = scan(g, s.s, 1, s.tx, s.ty, 320); normal = { s: s.s, tx: nb.tx, ty: nb.ty, pk: 1, n: nb.n }; }
+        else normal = { s: top.b.sc, tx: top.b.tx, ty: top.b.ty, pk: top.b.pk, n: top.b.n };
+      }
       // the all-pins overview, and how far it is from the normal view
       const ov = overviewFrame(g, cover, s.max);
       const view = { s: ov.sc, tx: ov.tx, ty: ov.ty };
-      if (ov.n === g.np) {
-        s.min = Math.min(cover, ov.sc);
-        s.pk = ov.pk < 1 ? { k0: ov.pk, a: ov.sc, b: Math.max(cover, ov.sc * 1.01) } : null;
-      }
-      const easy = ov.n === g.np && (ov.pk >= 0.9 || ov.sc >= cover); // everything fits at a readable size: start there, no intro
+      // the overview only matters when it is more zoomed out than the normal view
+      const useOv = ov.n === g.np && ov.sc < normal.s - 1e-6;
+      s.min = Math.min(cover, normal.s, useOv ? ov.sc : 1e9);
+      const pts = [];
+      if (useOv && ov.pk < 1) pts.push([ov.sc, ov.pk]);
+      if (normal.pk < 1) pts.push([normal.s, normal.pk], [normal.s * 1.25, 1]);
+      else if (pts.length) pts.push([Math.max(ov.sc * 1.01, Math.min(cover, normal.s)), 1]);
+      s.pk = pts.length ? { pts } : null;
+      // everything fits at a readable size (the normal view already shows every pin, or the overview needs hardly any
+      // shrinking): start there, no intro
+      const allInNormal = normal.n === g.np && normal.pk >= 0.85;
+      const easy = allInNormal || (useOv && (ov.pk >= 0.9 || ov.sc >= cover));
       let first = false;
-      if (!easy && ov.n === g.np) { try { first = !KOS.Storage.get('hubIntro', false); if (first) KOS.Storage.set('hubIntro', 1); } catch (e) { first = false; } }
+      if (!easy && useOv) { try { first = !KOS.Storage.get('hubIntro', false); if (first) KOS.Storage.set('hubIntro', 1); } catch (e) { first = false; } }
       const use = (v) => { s.s = v.s; s.tx = v.tx; s.ty = v.ty; clamp(); apply(); };
-      if (easy) use(view);
+      if (easy) use(allInNormal ? normal : view);
       else if (first && !lite.reduced()) { use(view); startIntro(view, normal); }
       else use(normal);
       updateEdges();
