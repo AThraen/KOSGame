@@ -31,7 +31,7 @@
         next: 'Næste udfordring',
         play: 'Sejl!',
         hint: 'Træk i kortet for at kigge rundt · tryk på et sted',
-        zoomIn: 'Zoom ind', zoomOut: 'Zoom ud', recenter: 'Tilbage til klubben', edgeGo: 'Gå til {name}',
+        zoomIn: 'Zoom ind', zoomOut: 'Zoom ud', recenter: 'Tilbage til klubben',
         places: 'Alle steder', placesTitle: 'Hvor vil du hen?', startHere: 'Start her', close: 'Luk',
         wind: 'Vind {w} fra {dir}',
         level: 'Niveau {n}', toNext: '{n} XP til næste niveau',
@@ -59,7 +59,7 @@
         next: 'Next challenge',
         play: 'Sail!',
         hint: 'Drag the map to look around · tap a place',
-        zoomIn: 'Zoom in', zoomOut: 'Zoom out', recenter: 'Back to the club', edgeGo: 'Go to {name}',
+        zoomIn: 'Zoom in', zoomOut: 'Zoom out', recenter: 'Back to the club',
         places: 'All places', placesTitle: 'Where to?', startHere: 'Start here', close: 'Close',
         wind: 'Wind {w} from {dir}',
         level: 'Level {n}', toNext: '{n} XP to the next level',
@@ -562,9 +562,6 @@
   let mapCache = null, cloudsCache = null;
   const baseHtml = (small) => `<picture><source type="image/webp" srcset="${BASE}-1x.webp 1x${small ? '' : ', ' + BASE + '-2x.webp 2x'}"><img class="hub-base" alt="" width="${PROJ.W}" height="${PROJ.H}" decoding="async" draggable="false" src="${BASE}-1x.jpg"></picture>`;
 
-  function edgeHtml(a) {
-    return `<button class="hub-edge" type="button" data-act="edge" data-area="${a.id}" style="--c:${a.color}" hidden><span class="hub-edge-badge">${icon(a.icon)}<span class="hub-edge-lock">${icon('lock')}</span></span><span class="hub-edge-name"></span><svg class="hub-edge-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>`;
-  }
   function pinHtml(a) {
     return `<button class="hub-pin" type="button" data-area="${a.id}" style="--c:${a.color}">
       <span class="hub-pin-ring"></span>
@@ -618,7 +615,6 @@
     const rootEl = document.createElement('div');
     rootEl.className = 'hub' + (isLite ? ' hub-lite' : '');
     rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${dev ? '' : baseHtml(isLite)}${mapCache}<div class="hub-labels">${labelsHtml()}</div>${cloudsCache || ''}<div class="hub-pins">${AREAS.map(pinHtml).join('')}</div></div></div>
-      <div class="hub-edges">${AREAS.map(edgeHtml).join('')}<button class="hub-edge hub-edge-more" type="button" data-act="places" hidden><span class="hub-edge-badge">${icon('list')}</span><span class="hub-edge-name"></span></button></div>
       ${topHtml()}
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
@@ -628,9 +624,8 @@
     sectionEl.innerHTML = '';
     sectionEl.appendChild(rootEl);
     const vp = rootEl.querySelector('.hub-viewport'), stage = rootEl.querySelector('.hub-stage');
-    const edges = rootEl.querySelector('.hub-edges');
     lastInv = ''; if (applyRaf) { cancelAnimationFrame(applyRaf); applyRaf = 0; }
-    state = { host: sectionEl, root: rootEl, vp, stage, edges, edgeBtns: Array.from(edges.querySelectorAll('.hub-edge:not(.hub-edge-more)')), edgeMore: edges.querySelector('.hub-edge-more'), tx: 0, ty: 0, s: 1, min: 1, max: 4, pointers: new Map(), listeners: [], unsub: [] };
+    state = { host: sectionEl, root: rootEl, vp, stage, tx: 0, ty: 0, s: 1, min: 1, max: 4, pointers: new Map(), listeners: [], unsub: [] };
     // place pins
     for (const a of AREAS) {
       const w = KOS.World.poi[a.anchor];
@@ -737,7 +732,7 @@
 
   function unmount() {
     if (!state) return;
-    clearTimeout(state.moveT); clearTimeout(state.edgeT); cancelIntro();
+    clearTimeout(state.moveT);
     for (const off of state.listeners) off();
     for (const off of state.unsub) off();
     if (state.root && state.root.parentNode) state.root.parentNode.removeChild(state.root);
@@ -813,7 +808,6 @@
       if (startHere) { nb.hidden = true; nb.textContent = ''; }
       el.setAttribute('aria-label', t('hub.loc.' + a.id) + (locked ? ' — ' + t('hub.locked') : st.count ? ' — ' + st.have + '/' + st.max + ' ★' : ''));
     }
-    syncEdges();
     // next card
     const card = R.querySelector('.hub-next');
     if (next) {
@@ -826,22 +820,13 @@
   // ------------------------------------------------------------------ pan / zoom
   // one style write per frame (pointermove can fire at 120+ Hz on phones); --inv only changes on zoom, and
   // rewriting it restyles every pin, which made the map flash while dragging on mobile
-  const PIN_K_MIN = 0.65; // smallest pin/label scale of the overview framing (13.5px names -> ~8.8px)
-  let applyRaf = 0, lastInv = '', lastPk = '';
+  let applyRaf = 0, lastInv = '';
   function applySoon() {
     if (applyRaf) return;
     applyRaf = requestAnimationFrame(() => { applyRaf = 0; apply(); });
   }
   function setTransform(s, promoted) {
     s.stage.style.transform = (promoted ? `translate3d(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px, 0)` : `translate(${s.tx.toFixed(1)}px, ${s.ty.toFixed(1)}px)`) + ` scale(${s.s.toFixed(4)})`;
-  }
-  // pin/label scale as a function of the map scale: piecewise linear through s.pk.pts = [[mapScale, pinScale], ...] (ascending)
-  function pkOf(s, sc) {
-    const q = s.pk && s.pk.pts;
-    if (!q || !q.length) return 1;
-    if (sc <= q[0][0]) return q[0][1];
-    for (let i = 1; i < q.length; i++) if (sc <= q[i][0]) return q[i - 1][1] + (q[i][1] - q[i - 1][1]) * (sc - q[i - 1][0]) / (q[i][0] - q[i - 1][0]);
-    return q[q.length - 1][1];
   }
   function apply() {
     const s = state;
@@ -854,23 +839,15 @@
     setTransform(s, true);
     const inv = (1 / s.s).toFixed(3);
     if (inv !== lastInv) { lastInv = inv; s.stage.style.setProperty('--inv', inv); }
-    // overview framing with shrunken pins: they grow back to full size between the framing zoom and "cover"
-    const pk = pkOf(s, s.s).toFixed(3);
-    if (pk !== lastPk) { lastPk = pk; s.stage.style.setProperty('--pk', pk); }
-    // edge indicators: hidden while the view moves, recomputed once it settles (cheap, no layout work per frame)
-    if (s.edges) { s.edges.classList.add('is-stale'); clearTimeout(s.edgeT); s.edgeT = setTimeout(() => { if (state === s) { updateEdges(); s.edges.classList.remove('is-stale'); } }, 150); }
-  }
-  function clampView(sc, tx, ty) {
-    const s = state, vw = s.vp.clientWidth, vh = s.vp.clientHeight;
-    sc = Math.max(s.min, Math.min(s.max, sc));
-    const w = PROJ.W * sc, h = PROJ.H * sc;
-    // a map bigger than the screen can't leave an empty edge. A map smaller than the screen (only below cover, the
-    // all-pins overview) stays fully on screen but may sit anywhere, so overlays can be kept clear of pins.
-    return { s: sc, tx: w <= vw ? Math.max(0, Math.min(vw - w, tx)) : Math.min(0, Math.max(vw - w, tx)), ty: h <= vh ? Math.max(0, Math.min(vh - h, ty)) : Math.min(0, Math.max(vh - h, ty)) };
   }
   function clamp() {
-    const s = state, c = clampView(s.s, s.tx, s.ty);
-    s.s = c.s; s.tx = c.tx; s.ty = c.ty;
+    const s = state, vw = s.vp.clientWidth, vh = s.vp.clientHeight;
+    s.s = Math.max(s.min, Math.min(s.max, s.s));
+    const w = PROJ.W * s.s, h = PROJ.H * s.s;
+    // keep a little room under the top bar
+    const topPad = 0, botPad = 0;
+    s.tx = w <= vw ? (vw - w) / 2 : Math.min(0, Math.max(vw - w, s.tx));
+    s.ty = h <= vh ? (vh - h) / 2 : Math.min(topPad, Math.max(vh - h - botPad, s.ty));
   }
   function centerOn(wx, wy, scale, mapCoords) {
     const s = state, vw = s.vp.clientWidth, vh = s.vp.clientHeight;
@@ -880,269 +857,16 @@
     s.ty = vh * 0.5 - q[1] * s.s;
     clamp(); apply();
   }
-  // Pin geometry: map-px anchors and box extents (screen px around the anchor at pin scale 1), plus the overlays
-  // the pins must stay clear of. Measured from the DOM (call after layout / on resize / when labels change).
-  function measureGeo() {
-    const s = state, vr = s.vp.getBoundingClientRect(), pkc = pkOf(s, s.s) || 1;
-    const obst = [];
-    s.root.querySelectorAll('.hub-top .hub-glass, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
-      if (el.hidden) return;
-      const r = el.getBoundingClientRect();
-      // the next card's rise-in animation is still at its start offset on the first frame: use the resting position
-      let dy = 0;
-      try { dy = new DOMMatrixReadOnly(getComputedStyle(el).transform).m42 || 0; } catch (e) { /* ignore */ }
-      if (r.width && r.height) obst.push({ l: r.left - vr.left - 4, r: r.right - vr.left + 4, t: r.top - dy - vr.top - 4, b: r.bottom - dy - vr.top + 4 });
-    });
-    const pins = Array.from(s.root.querySelectorAll('.hub-pin')), np = pins.length;
-    const M8 = 8;
-    const g = { np, pins, obst, vw: vr.width, vh: vr.height, ax: new Float64Array(np), ay: new Float64Array(np), el: new Float64Array(np), er: new Float64Array(np), et: new Float64Array(np), eb: new Float64Array(np) };
-    pins.forEach((el, i) => {
-      let r = el.getBoundingClientRect();
-      { // the absolutely positioned tags (Start her, NY) are part of the pin's box
-        let L = r.left, R = r.right, T = r.top, B = r.bottom;
-        el.querySelectorAll('.hub-pin-start, .hub-pin-new').forEach(c => { if (c.hidden) return; const q = c.getBoundingClientRect(); if (q.width) { L = Math.min(L, q.left); R = Math.max(R, q.right); T = Math.min(T, q.top); B = Math.max(B, q.bottom); } });
-        r = { left: L, right: R, top: T, bottom: B };
-      }
-      g.ax[i] = parseFloat(el.style.left) / 100 * PROJ.W; g.ay[i] = parseFloat(el.style.top) / 100 * PROJ.H;
-      const sx = s.tx + g.ax[i] * s.s, sy = s.ty + g.ay[i] * s.s;
-      g.el[i] = (r.left - vr.left - sx) / pkc; g.er[i] = (r.right - vr.left - sx) / pkc; g.et[i] = (r.top - vr.top - sy) / pkc; g.eb[i] = (r.bottom - vr.top - sy) / pkc;
-    });
-    g.nextI = pins.findIndex(el => el.classList.contains('is-next'));
-    // free area for pins / indicators: the viewport minus bars docked to its top or bottom edge
-    g.left = 8; g.right = g.vw - 8; g.top = 8; g.bot = g.vh - 8;
-    for (const o of obst) { if (o.t < 24) g.top = Math.max(g.top, o.b); if (o.b > g.vh - 24) g.bot = Math.min(g.bot, o.t); }
-    // pills sit along the edge of the free area: the viewport minus wide bars (>= 60 % of the width) docked top or bottom
-    g.pTop = M8; g.pBot = g.vh - M8;
-    for (const o of obst) if (o.r - o.l >= g.vw * 0.6) { if (o.t < 24) g.pTop = Math.max(g.pTop, o.b); if (o.b > g.vh - 24) g.pBot = Math.min(g.pBot, o.t); }
-    s.geo = g;
-    return g;
-  }
-  const boxHidden = (g, L_, R2, T_, B_, lenient) => {
-    // strict (framing): inside the 8 px margin; lenient (indicators): just on screen, a hair of clipping still counts as seen
-    if (lenient ? (L_ < -14 || R2 > g.vw + 14 || T_ < -14 || B_ > g.vh + 14) : (L_ < g.left || R2 > g.right || T_ < 8 || B_ > g.vh - 8)) return true;
-    for (let k = 0; k < g.obst.length; k++) { const o = g.obst[k]; if (L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t) return true; }
-    return false;
-  };
-  const pinHidden = (g, i, sc, tx, ty, pk, lenient) => boxHidden(g, tx + g.ax[i] * sc + g.el[i] * pk, tx + g.ax[i] * sc + g.er[i] * pk, ty + g.ay[i] * sc + g.et[i] * pk, ty + g.ay[i] * sc + g.eb[i] * pk, lenient);
-  // best (tx, ty) near (cx, cy) for scale sc / pin scale pk: most pins visible, the next-challenge pin surely
-  function scan(g, sc, pk, cx, cy, R, musts, partialPen, step, overlapPen) {
-    const vw = g.vw, vh = g.vh, w = PROJ.W * sc, h = PROJ.H * sc, np = g.np;
-    const loX = w <= vw ? 0 : vw - w, hiX = w <= vw ? vw - w : 0, loY = h <= vh ? 0 : vh - h, hiY = h <= vh ? vh - h : 0;
-    let best = null;
-    step = step || 8;
-    for (let dy = -R; dy <= R; dy += step) {
-      const ty = Math.max(loY, Math.min(hiY, cy + dy));
-      for (let dx = -R; dx <= R; dx += step) {
-        const tx = Math.max(loX, Math.min(hiX, cx + dx));
-        let n = 0, nextIn = false;
-        if (musts) { let bad = false; for (const m of musts) if (pinHidden(g, m, sc, tx, ty, pk)) { bad = true; break; } if (bad) continue; }
-        let part = 0;
-        for (let i = 0; i < np; i++) {
-          if (!pinHidden(g, i, sc, tx, ty, pk)) { n++; if (i === g.nextI) nextIn = true; }
-          else if (partialPen) { const X = tx + g.ax[i] * sc, Y = ty + g.ay[i] * sc; if (X + g.er[i] * pk > 0 && X + g.el[i] * pk < vw && Y + g.eb[i] * pk > 0 && Y + g.et[i] * pk < vh) part++; }
-        }
-        let ovl = 0;
-        if (overlapPen) for (let i = 0; i < np; i++) for (let j = i + 1; j < np; j++) {
-          const xi = tx + g.ax[i] * sc, xj = tx + g.ax[j] * sc, yi = ty + g.ay[i] * sc, yj = ty + g.ay[j] * sc;
-          if (Math.min(xi + g.er[i] * pk, xj + g.er[j] * pk) - Math.max(xi + g.el[i] * pk, xj + g.el[j] * pk) > 4 && Math.min(yi + g.eb[i] * pk, yj + g.eb[j] * pk) - Math.max(yi + g.et[i] * pk, yj + g.et[j] * pk) > 4) ovl++;
-        }
-        const score = n * 1000 + (nextIn ? 400 : 0) - part * (partialPen || 0) - ovl * (overlapPen || 0) - (Math.abs(tx - cx) + Math.abs(ty - cy)) * 0.5;
-        if (!best || score > best.score) best = { score, n, nextIn, sc, tx, ty, pk };
-      }
-    }
-    return best;
-  }
-  // The all-pins overview: the largest zoom at which every pin fits (pins shrink down to PIN_K_MIN on small screens).
-  function overviewFrame(g, cover, max) {
-    const np = g.np, vw = g.vw, vh = g.vh;
-    const floor = Math.min(cover, Math.min(vw, vh) * 0.6 / Math.min(PROJ.W, PROJ.H));
-    const search = pk => {
-      let best = null;
-      for (let sc = max; ; sc = Math.max(floor, sc * 0.97)) {
-        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-        for (let i = 0; i < np; i++) {
-          x0 = Math.min(x0, g.ax[i] * sc + g.el[i] * pk); x1 = Math.max(x1, g.ax[i] * sc + g.er[i] * pk);
-          y0 = Math.min(y0, g.ay[i] * sc + g.et[i] * pk); y1 = Math.max(y1, g.ay[i] * sc + g.eb[i] * pk);
-        }
-        const b = scan(g, sc, pk, (g.left + g.right) / 2 - (x0 + x1) / 2, (g.top + g.bot) / 2 - (y0 + y1) / 2, 200);
-        if (!best || b.score > best.score) best = b;
-        if (best.n === np || sc <= floor) break;
-      }
-      let ov = 0; // pins covering each other (more than a sliver)
-      for (let i = 0; i < np; i++) for (let j = i + 1; j < np; j++) {
-        const xi = best.tx + g.ax[i] * best.sc, xj = best.tx + g.ax[j] * best.sc, yi = best.ty + g.ay[i] * best.sc, yj = best.ty + g.ay[j] * best.sc;
-        const dx = Math.min(xi + g.er[i] * pk, xj + g.er[j] * pk) - Math.max(xi + g.el[i] * pk, xj + g.el[j] * pk);
-        const dy = Math.min(yi + g.eb[i] * pk, yj + g.eb[j] * pk) - Math.max(yi + g.et[i] * pk, yj + g.et[j] * pk);
-        if (dx > 6 && dy > 6) ov++;
-      }
-      best.ov = ov;
-      return best;
-    };
-    let best = null;
-    for (let pk = 1; pk >= PIN_K_MIN - 1e-9; pk -= 0.07) { best = search(pk); if (best.n === np && best.ov === 0) break; }
-    return best;
-  }
-
-  // ---- edge indicators: a button at the screen edge for every pin that is off-screen or under an overlay
-  const EDGE_W = 142, EDGE_H = 32, MORE_W = 66, MAX_PILLS = 4;
-  function updateEdges() {
-    const s = state;
-    if (!s || !s.edges || !s.geo || !s.geo.ax) return;
-    const g = s.geo, sc = s.s, pk = pkOf(s, sc), tx = s.tx, ty = s.ty, vw = g.vw, vh = g.vh, M = 8;
-    const btns = s.edgeBtns, more = s.edgeMore;
-    // which pins are hidden; every pin box that is (partly) on screen is kept clear, seen or not
-    const avoid = g.obst.slice(), hid = [], pinBoxes = new Map();
-    for (let i = 0; i < g.np; i++) {
-      const isHid = pinHidden(g, i, sc, tx, ty, pk, true);
-      if (isHid) hid.push(i);
-      const bx = { l: tx + g.ax[i] * sc + g.el[i] * pk, r: tx + g.ax[i] * sc + g.er[i] * pk, t: ty + g.ay[i] * sc + g.et[i] * pk, b: ty + g.ay[i] * sc + g.eb[i] * pk };
-      if (!isHid && bx.r > 0 && bx.l < vw && bx.b > 0 && bx.t < vh) { avoid.push(bx); pinBoxes.set(bx, i); }
-    }
-    const clubI = g.pins.findIndex(el => el.dataset.area === 'club');
-    const info = hid.map(i => {
-      const px = tx + g.ax[i] * sc, py = ty + g.ay[i] * sc;
-      const rank = i === g.nextI ? 0 : i === clubI ? 1 : g.pins[i].classList.contains('is-locked') ? 3 : 2;
-      return { i, px, py, rank, d: Math.hypot(px - vw / 2, py - vh / 2) };
-    }).sort((p, q) => p.rank - q.rank || p.d - q.d);
-    const hit = (x, y, W, H, soft, own) => { for (const o of avoid) if (!(soft && pinBoxes.has(o) && pinBoxes.get(o) !== own) && x < o.r && x + W > o.l && y < o.b && y + H > o.t) return true; return false; };
-    // A pill sits AT a screen edge: the edge the pin lies beyond (or is nearest to), slid along that edge to the free
-    // slot nearest the pin; an edge taken by overlays hands over to the next-nearest edge. Never in the map interior.
-    const place = (px, py, W, own) => {
-      const H = EDGE_H, xmin = M, xmax = vw - M - W, ymin = g.pTop, ymax = g.pBot - H;
-      const over = { l: -px, r: px - vw, t: g.pTop - py, b: py - g.pBot };
-      const order = Object.keys(over).sort((p, q) => over[q] - over[p]);
-      for (const soft of [false]) {
-        for (const e of order) {
-          const horiz = e === 't' || e === 'b';
-          const fixed = e === 'l' ? xmin : e === 'r' ? xmax : e === 't' ? ymin : ymax;
-          const ideal = horiz ? Math.max(xmin, Math.min(xmax, px - W / 2)) : Math.max(ymin, Math.min(ymax, py - H / 2));
-          const lo = horiz ? xmin : ymin, hi = horiz ? xmax : ymax;
-          for (let k = 0; k <= 400; k++) {
-            let any = false;
-            for (const sg of k ? [1, -1] : [1]) {
-              const v = ideal + sg * k * 4;
-              if (v < lo || v > hi) continue;
-              any = true;
-              const x = horiz ? v : fixed, y = horiz ? fixed : v;
-              if (!hit(x, y, W, H, soft, own)) return [x, y];
-            }
-            if (!any) break;
-          }
-        }
-      }
-      return null;
-    };
-    const maxPills = vw < 340 ? 3 : MAX_PILLS, shown = new Set();
-    let overflow = info.slice(maxPills);
-    for (const f of info.slice(0, maxPills)) {
-      const pos = place(f.px, f.py, EDGE_W, f.i);
-      if (!pos) { overflow.push(f); continue; }
-      const bt = btns[f.i];
-      bt.hidden = false;
-      bt.style.transform = 'translate(' + pos[0].toFixed(0) + 'px,' + pos[1].toFixed(0) + 'px)';
-      const ang = Math.atan2(f.py - (pos[1] + EDGE_H / 2), f.px - (pos[0] + EDGE_W / 2)) * 180 / Math.PI;
-      bt.lastChild.style.transform = 'rotate(' + ang.toFixed(0) + 'deg)';
-      avoid.push({ l: pos[0], r: pos[0] + EDGE_W, t: pos[1], b: pos[1] + EDGE_H });
-      shown.add(f.i);
-    }
-    // a pin that has a pill is treated as off-screen: a half-seen copy would only double it up
-    for (let i = 0; i < g.np; i++) {
-      if (!shown.has(i)) btns[i].hidden = true;
-      const away = shown.has(i) || overflow.some(f => f.i === i);
-      if (g.pins[i].classList.contains('is-away') !== away) g.pins[i].classList.toggle('is-away', away);
-    }
-    // the rest collapse into one "+N" pill that opens the area list
-    let moreOn = false;
-    if (overflow.length && more) {
-      const mx = overflow.reduce((p, f) => p + f.px, 0) / overflow.length, my = overflow.reduce((p, f) => p + f.py, 0) / overflow.length;
-      const pos = place(mx, my, MORE_W, -1);
-      if (pos) {
-        moreOn = true; more.hidden = false;
-        more.style.transform = 'translate(' + pos[0].toFixed(0) + 'px,' + pos[1].toFixed(0) + 'px)';
-        more.querySelector('.hub-edge-name').textContent = '+' + overflow.length;
-        more.setAttribute('aria-label', t('hub.places') + ' +' + overflow.length);
-      }
-    }
-    if (more && !moreOn) more.hidden = true;
-  }
-  function syncEdges() {
-    const s = state;
-    if (!s || !s.edgeBtns) return;
-    Array.from(s.root.querySelectorAll('.hub-pin')).forEach((el, i) => {
-      const b = s.edgeBtns[i], name = el.querySelector('.hub-pin-name').textContent;
-      b.querySelector('.hub-edge-name').textContent = name;
-      b.setAttribute('aria-label', t('hub.edgeGo', { name }));
-      b.classList.toggle('is-locked', el.classList.contains('is-locked'));
-      b.classList.toggle('is-next', el.classList.contains('is-next'));
-    });
-  }
-  // tap on an indicator: pan (and zoom out only if needed) until that pin is in view
-  function revealArea(id) {
-    const s = state, g = s.geo;
-    if (!g || !g.ax) return;
-    const i = g.pins.findIndex(el => el.dataset.area === id);
-    if (i < 0) return;
-    let sc = s.s, v = null;
-    for (let k = 0; k < 12; k++) {
-      const pk = pkOf(s, sc);
-      const tx = (g.left + g.right) / 2 - (g.ax[i] * sc + (g.el[i] + g.er[i]) / 2 * pk), ty = (g.top + g.bot) / 2 - (g.ay[i] * sc + (g.et[i] + g.eb[i]) / 2 * pk);
-      v = clampView(sc, tx, ty);
-      // the pin must end up clear of the overlays too: the best nearby position that shows it (and the most other pins)
-      const b = scan(g, v.s, pkOf(s, v.s), v.tx, v.ty, 320, [i]);
-      if (b) { v = { s: v.s, tx: b.tx, ty: b.ty }; break; }
-      if (v.s <= s.min + 1e-6) break;
-      sc = Math.max(s.min, sc * 0.88);
-    }
-    const ease = !lite.reduced();
-    if (ease) s.stage.classList.add('is-easing');
-    s.s = v.s; s.tx = v.tx; s.ty = v.ty; apply();
-    if (ease) setTimeout(() => state === s && s.stage.classList.remove('is-easing'), 480);
-  }
-
-  // ---- first-visit intro: hold the all-pins overview, then glide into the normal framing
-  function cancelIntro() {
-    const s = state;
-    if (!s || !s.intro) return;
-    clearTimeout(s.intro.t); cancelAnimationFrame(s.intro.raf);
-    for (const [ev, fn] of s.intro.l) s.root.removeEventListener(ev, fn, true);
-    s.intro = null;
-  }
-  function startIntro(from, to) {
-    const s = state;
-    const cancel = () => cancelIntro();
-    const l = ['pointerdown', 'keydown', 'wheel', 'touchstart'].map(ev => [ev, cancel]);
-    l.forEach(([ev, fn]) => s.root.addEventListener(ev, fn, { capture: true, passive: true }));
-    const intro = s.intro = { l, t: 0, raf: 0 };
-    const vw = s.vp.clientWidth, vh = s.vp.clientHeight;
-    const cen = (v) => [(vw / 2 - v.tx) / v.s, (vh / 2 - v.ty) / v.s];
-    const c0 = cen(from), c1 = cen(to);
-    intro.t = setTimeout(() => {
-      const t0 = performance.now(), D = 1200;
-      const step = (now) => {
-        if (state !== s || s.intro !== intro) return;
-        const p = Math.min(1, (now - t0) / D), e = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-        if (p >= 1) { s.s = to.s; s.tx = to.tx; s.ty = to.ty; apply(); cancelIntro(); return; }
-        s.s = from.s * Math.pow(to.s / from.s, e);
-        const cx = c0[0] + (c1[0] - c0[0]) * e, cy = c0[1] + (c1[1] - c0[1]) * e;
-        s.tx = vw / 2 - cx * s.s; s.ty = vh / 2 - cy * s.s;
-        apply();
-        intro.raf = requestAnimationFrame(step);
-      };
-      intro.raf = requestAnimationFrame(step);
-    }, 2000);
-  }
-
   function fit(initial) {
     if (!state) return;
     const s = state, vw = s.vp.clientWidth || root.innerWidth, vh = s.vp.clientHeight || root.innerHeight;
     const cover = Math.max(vw / PROJ.W, vh / PROJ.H);
-    const oldCover = s.cover || cover;
-    // s.min may sit below cover after the initial all-pins framing (map smaller than the screen): keep that ratio on resize
-    s.min = initial ? cover : cover * Math.min(1, (s.min || cover) / oldCover);
-    s.cover = cover;
+    const old = s.min;
+    s.min = cover;
     s.max = Math.max(cover * 3.2, 1.6);
     if (initial) {
-      // normal framing. portrait shows the bay + club, landscape shows bay → Sound
+      // phones: zoom so the bay + channel fill the screen; desktop: show (nearly) the whole map
+      // map-px framing: portrait shows the bay + club, landscape shows bay → Sound
       const portrait = vh > vw * 1.1;
       const club = PROJ.p(KOS.World.poi.club.x, KOS.World.poi.club.y), race = PROJ.p(KOS.World.poi.race.x, KOS.World.poi.race.y), bay = PROJ.p(-600, -700);
       const school = PROJ.p(KOS.World.poi.school.x, KOS.World.poi.school.y), bayPin = PROJ.p(KOS.World.poi.bay.x, KOS.World.poi.bay.y);
@@ -1156,58 +880,52 @@
         const sc = Math.max(cover, Math.min(vw / (x1 - x0), (vh - 70) / (y1 - y0)));
         centerOn((x0 + x1) / 2, (y0 + y1) / 2 - 35 / sc, sc, true);
       }
-      const g = measureGeo();
-      if (!g.np) return;
-      // ...shifted so the most pins (and surely the suggested one, "Næste udfordring") are clear of the overlays
-      let normal;
-      if (portrait) {
-        const clubP = g.pins.findIndex(el => el.dataset.area === 'club');
-        const nb = scan(g, s.s, 1, s.tx, s.ty, 320, [clubP, g.nextI].filter(i => i >= 0), 400) || scan(g, s.s, 1, s.tx, s.ty, 320);
-        normal = { s: s.s, tx: nb.tx, ty: nb.ty, pk: 1, n: nb.n };
-      } else {
-        // landscape: pins must be FULLY visible, never half cut. The club and the next-challenge pin always are; a slightly
-        // lower zoom and pin scale (down to 0.85) beat cutting pins off.
-        const sc0 = s.s, cmx = (vw / 2 - s.tx) / sc0, cmy = (vh / 2 - s.ty) / sc0;
-        const clubI = g.pins.findIndex(el => el.dataset.area === 'club');
-        const musts = [clubI, g.nextI].filter(i => i >= 0);
-        let top = null;
-        for (const pk of [1, 0.92, 0.85]) {
-          for (let sc = sc0; sc >= Math.max(0.01, sc0 * 0.6) - 1e-9; sc *= 0.96) {
-            const b = scan(g, sc, pk, vw / 2 - cmx * sc, vh / 2 - cmy * sc, 320, musts, 1500, 12, 2500);
-            if (!b) continue;
-            const total = b.score - (1 - pk) * 2500 - Math.log(sc0 / sc) * 1800;
-            if (!top || total > top.total) top = { total, b };
+      // keep the place pins clear of the top bar and the bottom card. The free area comes from the real element rects,
+      // then the shift that shows the most pins (and surely the suggested one, "Næste udfordring") wins.
+      {
+        const vr = s.vp.getBoundingClientRect();
+        const top = vr.top + 8, bot = vr.bottom - 8, left = vr.left + 8, right = vr.right - 8;
+        const R_ = s.root;
+        // everything the pins must stay clear of: top bar cards, the next-challenge card, zoom buttons, compass
+        const obst = [];
+        R_.querySelectorAll('.hub-top .hub-glass, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
+          if (el.hidden) return;
+          const r = el.getBoundingClientRect();
+          if (r.width && r.height) obst.push({ l: r.left - 4, r: r.right + 4, t: r.top - 4, b: r.bottom + 4 });
+        });
+        const pins = Array.from(R_.querySelectorAll('.hub-pin'));
+        const rects = pins.map(el => el.getBoundingClientRect());
+        const nextEl = R_.querySelector('.hub-pin.is-next');
+        const nextI = nextEl ? pins.indexOf(nextEl) : -1;
+        const vw_ = s.vp.clientWidth, vh_ = s.vp.clientHeight, w_ = PROJ.W * s.s, h_ = PROJ.H * s.s;
+        const loX = w_ <= vw_ ? s.tx : vw_ - w_, hiX = w_ <= vw_ ? s.tx : 0, loY = h_ <= vh_ ? s.ty : vh_ - h_, hiY = h_ <= vh_ ? s.ty : 0;
+        // same search as before, as plain loops over flat arrays (6561 shifts x pins x obstacles: the closure version cost ~250 ms on a phone)
+        const np = rects.length, no = obst.length;
+        const pl = new Float64Array(np), pr = new Float64Array(np), pt = new Float64Array(np), pb = new Float64Array(np);
+        for (let i = 0; i < np; i++) { pl[i] = rects[i].left; pr[i] = rects[i].right; pt[i] = rects[i].top; pb[i] = rects[i].bottom; }
+        let best = null;
+        for (let dy = -320; dy <= 320; dy += 8) {
+          const ay = Math.max(loY, Math.min(hiY, s.ty + dy)) - s.ty;
+          for (let dx = -320; dx <= 320; dx += 8) {
+            const ax = Math.max(loX, Math.min(hiX, s.tx + dx)) - s.tx;
+            let n = 0, nextIn = false;
+            for (let i = 0; i < np; i++) {
+              const L_ = pl[i] + ax, R2 = pr[i] + ax, T_ = pt[i] + ay, B_ = pb[i] + ay;
+              if (L_ < left || R2 > right || T_ < top || B_ > bot) continue;
+              let hit = false;
+              for (let k = 0; k < no; k++) { const o = obst[k]; if (L_ < o.r && R2 > o.l && T_ < o.b && B_ > o.t) { hit = true; break; } }
+              if (hit) continue;
+              n++; if (i === nextI) nextIn = true;
+            }
+            const score = n * 100 + (nextIn ? 150 : 0) - (Math.abs(ax) + Math.abs(ay)) * 0.05;
+            if (!best || score > best.score) best = { score, ax, ay };
           }
         }
-        if (!top) { const nb = scan(g, s.s, 1, s.tx, s.ty, 320); normal = { s: s.s, tx: nb.tx, ty: nb.ty, pk: 1, n: nb.n }; }
-        else normal = { s: top.b.sc, tx: top.b.tx, ty: top.b.ty, pk: top.b.pk, n: top.b.n };
+        if (best && (best.ax || best.ay)) { s.tx += best.ax; s.ty += best.ay; clamp(); apply(); }
       }
-      // the all-pins overview, and how far it is from the normal view
-      const ov = overviewFrame(g, cover, s.max);
-      const view = { s: ov.sc, tx: ov.tx, ty: ov.ty };
-      // the overview only matters when it is more zoomed out than the normal view
-      const useOv = ov.n === g.np && ov.sc < normal.s - 1e-6;
-      s.min = Math.min(cover, normal.s, useOv ? ov.sc : 1e9);
-      const pts = [];
-      if (useOv && ov.pk < 1) pts.push([ov.sc, ov.pk]);
-      if (normal.pk < 1) pts.push([normal.s, normal.pk], [normal.s * 1.25, 1]);
-      else if (pts.length) pts.push([Math.max(ov.sc * 1.01, Math.min(cover, normal.s)), 1]);
-      s.pk = pts.length ? { pts } : null;
-      // everything fits at a readable size (the normal view already shows every pin, or the overview needs hardly any
-      // shrinking): start there, no intro
-      const allInNormal = normal.n === g.np && normal.pk >= 0.85;
-      const easy = allInNormal || (useOv && (ov.pk >= 0.9 || ov.sc >= cover));
-      let first = false;
-      if (!easy && useOv) { try { first = !KOS.Storage.get('hubIntro', false); if (first) KOS.Storage.set('hubIntro', 1); } catch (e) { first = false; } }
-      const use = (v) => { s.s = v.s; s.tx = v.tx; s.ty = v.ty; clamp(); apply(); };
-      if (easy) use(allInNormal ? normal : view);
-      else if (first && !lite.reduced()) { use(view); startIntro(view, normal); }
-      else use(normal);
-      updateEdges();
     } else {
-      s.s = s.s * (cover / oldCover);
+      s.s = s.s * (cover / (old || cover));
       clamp(); apply();
-      measureGeo(); updateEdges();
     }
   }
   function zoomAt(f, cx, cy) {
@@ -1357,9 +1075,8 @@
       sfx('click');
       if (act === 'zin') zoomAt(1.35, vp.clientWidth / 2, vp.clientHeight / 2);
       else if (act === 'zout') zoomAt(1 / 1.35, vp.clientWidth / 2, vp.clientHeight / 2);
-      else if (act === 'home') { state.stage.classList.add('is-easing'); centerOn(KOS.World.poi.club.x, KOS.World.poi.club.y - 200, Math.min(state.max, (state.cover || state.min) * 1.8)); setTimeout(() => state && state.stage.classList.remove('is-easing'), 450); }
+      else if (act === 'home') { state.stage.classList.add('is-easing'); centerOn(KOS.World.poi.club.x, KOS.World.poi.club.y - 200, Math.min(state.max, state.min * 1.8)); setTimeout(() => state && state.stage.classList.remove('is-easing'), 450); }
       else if (act === 'next') { const id = actEl.closest('.hub-next').dataset.id; if (id && KOS.App && KOS.App.play) KOS.App.play(id); else if (id) go('area', { area: KOS.Activities.get(id).area }); }
-      else if (act === 'edge') revealArea(actEl.getAttribute('data-area'));
       else if (act === 'places') togglePlaces(true);
       else if (act === 'places-close') togglePlaces(false);
       else go(act);
