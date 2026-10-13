@@ -31,6 +31,7 @@
         next: 'Næste udfordring',
         play: 'Sejl!',
         hint: 'Træk i kortet for at kigge rundt · tryk på et sted',
+        swipeTip: 'Swipe på kortet – der er flere steder at sejle!',
         zoomIn: 'Zoom ind', zoomOut: 'Zoom ud', recenter: 'Tilbage til klubben',
         places: 'Alle steder', placesTitle: 'Hvor vil du hen?', startHere: 'Start her', close: 'Luk',
         wind: 'Vind {w} fra {dir}',
@@ -59,6 +60,7 @@
         next: 'Next challenge',
         play: 'Sail!',
         hint: 'Drag the map to look around · tap a place',
+        swipeTip: 'Swipe the map – there are more places to sail!',
         zoomIn: 'Zoom in', zoomOut: 'Zoom out', recenter: 'Back to the club',
         places: 'All places', placesTitle: 'Where to?', startHere: 'Start here', close: 'Close',
         wind: 'Wind {w} from {dir}',
@@ -546,6 +548,7 @@
   // lowFx setting: null = automatic, true/false = the player's choice (settings screen). Automatic = reduced motion, a
   // remembered slow run (kos.hubLite, valid 30 days), a weak-looking device, or the game's frame governor already down.
   const LITE_KEY = 'hubLite', LITE_TTL = 30 * 864e5;
+  const TIP_KEY = 'hubSwipeTip'; // one-time "swipe the map" trainer tip seen
   const lite = {
     setting() { try { const v = KOS.Storage.settings().lowFx; return v === true || v === false ? v : null; } catch (e) { return null; } },
     reduced() { try { return !!((KOS.Storage && KOS.Storage.settings().reducedMotion) || root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } },
@@ -717,6 +720,25 @@
     const ht = setTimeout(hideHint, 7000);
     vp.addEventListener('pointerdown', hideHint, { once: true });
     state.listeners.push(() => clearTimeout(ht));
+    // one-time trainer tip when some place is not fully on screen: the small hint above is hidden on phones (next card)
+    // and in landscape. Shown until the first drag (or a tap on it), then never again (TIP_KEY).
+    {
+      const tt = setTimeout(() => {
+        try {
+          if (!state || state.root !== rootEl || KOS.Storage.get(TIP_KEY, false)) return;
+          if (document.querySelector('.coach, .dialog-wrap')) return; // welcome/onboarding first; try again next visit
+          const vr = vp.getBoundingClientRect();
+          const away = Array.from(rootEl.querySelectorAll('.hub-pin')).some(p => {
+            const r = p.getBoundingClientRect();
+            return r.left < vr.left || r.right > vr.right || r.top < vr.top || r.bottom > vr.bottom; // not fully on screen
+          });
+          if (!away || !KOS.UI || !KOS.UI.coach) return;
+          const seen = () => { try { KOS.Storage.set(TIP_KEY, true); } catch (e) { /* ignore */ } };
+          state.tip = KOS.UI.coach(t('hub.swipeTip'), { pos: 'bottom', ms: 0, coach: 'jesper', onClose: seen });
+        } catch (e) { /* the tip is optional */ }
+      }, 1200);
+      state.listeners.push(() => { clearTimeout(tt); if (state.tip) state.tip.close(true); });
+    }
     {
       let shown = false;
       const show = (how) => {
@@ -946,6 +968,7 @@
     const frozenByUs = () => s.root.classList.contains('hub-reduced') || s.root.classList.contains('hub-lite');
     const freeze = on => {
       vp.classList.toggle('is-dragging', on);
+      if (on && s.tip) { s.tip.close(); s.tip = null; } // the swipe tip has done its job
       const svg = s.root.querySelector('svg.hub-map');
       if (svg && !frozenByUs()) { try { if (on) svg.pauseAnimations(); else svg.unpauseAnimations(); } catch (e) { /* ignore */ } }
     };
