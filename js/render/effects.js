@@ -185,16 +185,17 @@
       // centre foam: one tapered ribbon, fading with age (gradient from the stern backwards)
       {
         const n = list.length, first = list[0], last = list[n - 1];
-        const Lft = [], Rgt = [];
+        // ribbon edges into one reused flat buffer (no per-point arrays each frame): [Lx, Ly, Rx, Ry] per point
+        const B = this._wakeBuf && this._wakeBuf.length >= n * 4 ? this._wakeBuf : (this._wakeBuf = new Float64Array(Math.max(64, n * 8)));
         for (let i = 0; i < n; i++) {
           const q = list[i], m = list[Math.max(0, i - 1)], o = list[Math.min(n - 1, i + 1)];
           let dx = o.x - m.x, dy = o.y - m.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
           const age = now - q.t, hw = q.w * (0.22 + Math.min(1.2, age * 0.35)) * (q.motor ? 1.3 : 1);
-          Lft.push([q.x - dy * hw, q.y + dx * hw]); Rgt.push([q.x + dy * hw, q.y - dx * hw]);
+          B[i * 4] = q.x - dy * hw; B[i * 4 + 1] = q.y + dx * hw; B[i * 4 + 2] = q.x + dy * hw; B[i * 4 + 3] = q.y - dx * hw;
         }
-        ctx.beginPath(); ctx.moveTo(Lft[0][0], Lft[0][1]);
-        for (let i = 1; i < n; i++) ctx.lineTo(Lft[i][0], Lft[i][1]);
-        for (let i = n - 1; i >= 0; i--) ctx.lineTo(Rgt[i][0], Rgt[i][1]);
+        ctx.beginPath(); ctx.moveTo(B[0], B[1]);
+        for (let i = 1; i < n; i++) ctx.lineTo(B[i * 4], B[i * 4 + 1]);
+        for (let i = n - 1; i >= 0; i--) ctx.lineTo(B[i * 4 + 2], B[i * 4 + 3]);
         ctx.closePath();
         const k = clamp(last.s / 3, 0.3, 1) * (last.motor ? 1.3 : 1), ageL = now - first.t, fadeAt = clamp(3.2 / Math.max(0.1, ageL), 0, 1);
         const g = ctx.createLinearGradient(last.x, last.y, first.x, first.y);
@@ -204,7 +205,7 @@
       // V arms
       for (let side = -1; side <= 1; side += 2) {
         for (let bkt = 0; bkt < 4; bkt++) {
-          ctx.beginPath(); let any = false, prev = null;
+          ctx.beginPath(); let any = false, hasPrev = false, ppx = 0, ppy = 0;
           for (let i = 0; i < list.length; i++) {
             const q = list[i], age = now - q.t, fb = Math.min(3, Math.floor(age / 1.0));
             let dx = 0, dy = 0;
@@ -212,8 +213,8 @@
             dx = n.x - m.x; dy = n.y - m.y; const l = Math.hypot(dx, dy) || 1;
             const off = q.w * 0.5 + age * (0.55 + q.s * 0.18);
             const px = q.x + (-dy / l) * off * side, py = q.y + (dx / l) * off * side;
-            if (fb === bkt && prev) { ctx.moveTo(prev[0], prev[1]); ctx.lineTo(px, py); any = true; }
-            prev = [px, py];
+            if (fb === bkt && hasPrev) { ctx.moveTo(ppx, ppy); ctx.lineTo(px, py); any = true; }
+            ppx = px; ppy = py; hasPrev = true;
           }
           if (!any) continue;
           const s = list[list.length - 1].s;

@@ -39,21 +39,17 @@
     }
     return inside;
   }
-  function nearestOnSeg(px, py, ax, ay, bx, by) {
-    const dx = bx - ax, dy = by - ay;
-    const L = dx * dx + dy * dy;
-    let t = L > 0 ? ((px - ax) * dx + (py - ay) * dy) / L : 0;
-    t = t < 0 ? 0 : t > 1 ? 1 : t;
-    return [ax + dx * t, ay + dy * t];
-  }
+  // inlined segment projection: called per land/pier polygon every physics step, so no [x, y] array per segment (garbage)
   function polyNearest(x, y, poly) {
-    let best = null, bd = Infinity;
+    let bx = 0, by = 0, bd = Infinity;
     for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const q = nearestOnSeg(x, y, poly[j][0], poly[j][1], poly[i][0], poly[i][1]);
-      const d = (q[0] - x) * (q[0] - x) + (q[1] - y) * (q[1] - y);
-      if (d < bd) { bd = d; best = q; }
+      const ax = poly[j][0], ay = poly[j][1], dx = poly[i][0] - ax, dy = poly[i][1] - ay, L = dx * dx + dy * dy;
+      let t = L > 0 ? ((x - ax) * dx + (y - ay) * dy) / L : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const qx = ax + dx * t, qy = ay + dy * t, d = (qx - x) * (qx - x) + (qy - y) * (qy - y);
+      if (d < bd) { bd = d; bx = qx; by = qy; }
     }
-    return { x: best[0], y: best[1], d: Math.sqrt(bd) };
+    return { x: bx, y: by, d: Math.sqrt(bd) };
   }
   function bboxOf(poly) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
