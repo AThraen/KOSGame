@@ -88,6 +88,11 @@ body:not([data-screen="title"]) .mbg-vignette { background: linear-gradient(180d
 .mbg-sunglow { animation: sunPulse 6s ease-in-out infinite alternate; transform-origin: 620px 520px; }
 @keyframes sunPulse { to { transform: scale(1.08); opacity: .85; } }
 body.mode-sea[data-screen="play"] #menu-bg, body.results-over-sea #menu-bg { display: none; }
+/* heat (KOS.Perf, js/ui/app.js): the SVG scene is only the fallback under the painted photo, which covers it, so its motion is
+   never seen - it stands still. The slow photo zoom (kenBurns) re-blurs every glass card above it each frame: phones
+   (html[data-mobile]) and tiers below 3 show the photo still. Desktop tier 3 is unchanged. */
+#menu-bg svg * { animation-play-state: paused !important; }
+html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: none; }
 
 /* ------------------------------------------------------------------ app + screens */
 #app { position: fixed; inset: 0; z-index: 2; }

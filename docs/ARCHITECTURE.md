@@ -182,11 +182,26 @@ never dropped.
 | Tier | Sea canvas DPR cap | Dropped (cumulative) |
 |---|---|---|
 | 3 full | 2 phones / 2.5 | nothing |
-| 2 | 2 | water sparkles, flag flutter, lapping shore foam, whitecap layer, 85% of cosmetic spray, 30% fewer particles, HUD backdrop blur over the sea, hub ambience (clouds, boat wobble, gull flap, smoke, blinking lights) |
+| 2 | 2 | water sparkles, flag flutter, lapping shore foam, whitecap layer, 85% of cosmetic spray, 30% fewer particles, HUD backdrop blur over the sea, hub ambience (clouds, boat wobble, gull flap, smoke, blinking lights), menu photo zoom, pause-card trainer bob, 60 fps cap on high-refresh screens |
 | 1 | 1.5 | 2nd wave layer, half the wind streaks, 60% of spray, coarser wakes, hub lite (still map) |
 | 0 | 1.15 | 75% of spray, 1 wave layer only, fewest rain streaks |
 
-Hub: lite mode (still map) at tier <= 1 or when its own first-frame probe is slow; see SPEC.md. Tests: `tools/test-perf-tier.js`.
+**Heat (phones).** A phone can hold 60 fps while its GPU runs flat out, so frame times alone never step down. `Perf.mobile`
+(the guess-2 devices: iPhone/iPad/Safari or a small touch screen, also with `#perf=N`) adds `<html data-mobile>` and:
+- **60 fps cap**: on a 90-144 Hz screen the game loop skips vsyncs so frames are drawn at ~60 fps (physics is a fixed 1/60 s
+  step, so 120 Hz only drew interpolated frames). Desktop tier 3 is uncapped; desktop below tier 3 is capped too.
+- **work budget**: the median JS time per frame (update + render) > 8 ms for 3 windows in a row steps down ('busy');
+  no 'headroom' step up while it is > 5 ms.
+- **long sessions**: active play time this session lowers the ceiling (4 min: tier 2, 15 min: tier 1). Reasons 'heat' and 'busy' are for this
+  session only, the remembered `perfTier` is not touched.
+- **CSS**: no backdrop blur over the sea canvas, no kenBurns zoom on the menu photo, no bobbing trainer on the pause card
+  (the same drops apply below tier 3 everywhere).
+
+Everywhere: the game loop and the input ramp loop park while paused (no rAF callbacks), the SVG menu scene under the photo
+stands still (it is covered), and the HUD controls only write the DOM when a value changes.
+
+Hub: lite mode (still map) at tier <= 1 or when its own first-frame probe is slow; see SPEC.md. Tests: `tools/test-perf-tier.js`
+(tiers, 30 fps cap, 120 Hz -> 60 fps on phones, paused = no rAF, no leaked loops after 5 level starts/exits, heat ceiling).
 
 ## 8. Testing
 

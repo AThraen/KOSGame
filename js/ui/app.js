@@ -429,7 +429,7 @@
       menuEl.remove(); menuScrim.remove(); menuEl = menuScrim = null; run.menuOpen = false; run.menuClose = null;
       dots.classList.remove('on'); dots.setAttribute('aria-expanded', 'false');
       if (run.running && run.paused) { // resume the game
-        run.paused = false; run.last = performance.now();
+        run.paused = false; kickFrame();
         try { run.inst && run.inst.resume && run.inst.resume(); } catch (e) { console.error(e); }
         emit('play:pause', false);
       }
@@ -880,6 +880,7 @@
     run.last = performance.now();
     run.startT = run.last; Perf.reset();
     cancelAnimationFrame(run.raf);
+    run.rafLast = 0;
     run.raf = requestAnimationFrame(frame);
     emit('play:start', { id: a.id, boat: host.boat });
   };
@@ -895,40 +896,61 @@
   // Then the governor measures: median/p95 of a rolling window of frame times steps DOWN fast (2 bad windows, ~1 s) and UP
   // slowly (20 s of good windows, never within 60 s of a drop, never above a tier that dropped twice this session).
   // Settings: lowFx=true caps the tier at 1.
+  // Heat (phones only, Perf.mobile): a phone can hold 60 fps while its GPU runs flat out, so frame times alone never step down.
+  // There the governor also (a) caps rendering at ~60 fps on 90-144 Hz screens, (b) watches the JS work per frame (median of a
+  // window > 8 ms for 3 windows in a row steps down, 'busy', not below tier 1, once a minute; no step up while it is > 5 ms) and (c) lowers the ceiling with the
+  // session's active play time (4 min: tier 2, 15 min: tier 1; 'heat', this session only, nothing remembered).
   const Perf = KOS.Perf = KOS.Perf || { level: 3 };
-  Object.assign(Perf, { buf: [], bad: 0, goodT: 0, holdUntil: 0, ceiling: 3, downs: {}, forced: null, ema: 16.7 });
+  Object.assign(Perf, { buf: [], work: [], bad: 0, busy: 0, goodT: 0, holdUntil: 0, ceiling: 3, downs: {}, forced: null, ema: 16.7, mobile: false, playMs: 0 });
+  Perf.busyUntil = 0;
+  Perf.HEAT = [[4 * 60000, 2], [15 * 60000, 1]]; // [active play ms this session, tier ceiling] on phones
+  Perf.heatCap = function () { let c = 3; if (Perf.mobile) for (const h of Perf.HEAT) if (Perf.playMs >= h[0]) c = Math.min(c, h[1]); return c; };
+  // 60 fps render cap on high-refresh screens: phones always, elsewhere below the top tier (desktop tier 3 is untouched)
+  Perf.capFps = function () { return Perf.mobile || Perf.level < 3; };
   Perf.cap = function () { try { return S().settings().lowFx === true ? 1 : 3; } catch (e) { return 3; } };
   Perf.init = function () {
-    let m = null; try { m = /[#&]perf=([0-3])/.exec(root.location.hash || ''); } catch (e) { /* no location */ }
-    if (m) { Perf.forced = +m[1]; Perf.level = Perf.forced; Perf.mark(); return; }
     let guess = 3;
     try {
       const n = root.navigator, small = Math.min(root.innerWidth, root.innerHeight) < 600 && root.matchMedia('(pointer: coarse)').matches;
       if (/iPhone|iPad|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1) || 'GestureEvent' in root || small) guess = 2;
     } catch (e) { /* keep 3 */ }
-    Perf.guess = guess;
+    Perf.guess = guess; Perf.mobile = guess < 3; // a phone / iPad: heat rules apply (also with a forced #perf=N)
+    let m = null; try { m = /[#&]perf=([0-3])/.exec(root.location.hash || ''); } catch (e) { /* no location */ }
+    if (m) { Perf.forced = +m[1]; Perf.level = Perf.forced; Perf.mark(); return; }
     let lvl = guess;
     try { const v = S().get('perfTier', null); if (v && v.level >= 0 && v.level <= 3) lvl = v.level | 0; } catch (e) { /* none */ }
     Perf.level = Math.min(lvl, Perf.cap()); Perf.mark();
   };
   // html[data-tier] lets CSS drop cosmetic work too (frosted-glass blur over the sea canvas below tier 3, see css/game.css)
-  Perf.mark = function () { try { doc.documentElement.setAttribute('data-tier', String(Perf.level)); } catch (e) { /* ignore */ } };
-  Perf.reset = function () { Perf.buf.length = 0; Perf.bad = 0; Perf.goodT = 0; if (Perf.forced === null) Perf.level = Math.min(Perf.level, Perf.cap()); Perf.mark(); };
+  // html[data-mobile] (phones / iPads): CSS drops decorative motion and blur that phones pay for in heat (css/style.css, game.css)
+  Perf.mark = function () { try { const h = doc.documentElement; h.setAttribute('data-tier', String(Perf.level)); if (Perf.mobile) h.setAttribute('data-mobile', ''); else h.removeAttribute('data-mobile'); } catch (e) { /* ignore */ } };
+  Perf.reset = function () { Perf.buf.length = 0; Perf.work.length = 0; Perf.bad = 0; Perf.busy = 0; Perf.goodT = 0; if (Perf.forced === null) { if (Perf.heatCap() < Math.min(Perf.level, Perf.cap())) Perf.why = 'heat'; Perf.level = Math.min(Perf.level, Perf.cap(), Perf.heatCap()); } Perf.mark(); };
+  // why 'heat' / 'busy' is this session only (a cool phone tomorrow gets the remembered tier back); 'slow' / 'headroom' are remembered
   Perf.set = function (lvl, why) {
     if (lvl === Perf.level) return;
-    Perf.level = lvl; Perf.buf.length = 0; Perf.bad = 0; Perf.goodT = 0; Perf.why = why; Perf.mark();
-    try { S().set('perfTier', { level: lvl, at: Date.now() }); } catch (e) { /* ignore */ }
+    Perf.level = lvl; Perf.buf.length = 0; Perf.work.length = 0; Perf.bad = 0; Perf.busy = 0; Perf.goodT = 0; Perf.why = why; Perf.mark();
+    if (why !== 'heat' && why !== 'busy') try { S().set('perfTier', { level: lvl, at: Date.now() }); } catch (e) { /* ignore */ }
     emit('perf:tier', { level: lvl, why });
   };
   Perf.init();
-  function govern(ms) {
+  // ms: time since the last drawn frame; work: JS ms this frame spent in update + render
+  function govern(ms, work) {
     if (Perf.forced !== null || !(ms > 0) || ms > 250) return; // forced tier; tab switches / breakpoints
-    const buf = Perf.buf; if (!buf.length) Perf.winT = 0; buf.push(ms); Perf.winT += ms;
+    Perf.playMs += ms;
+    const buf = Perf.buf; if (!buf.length) Perf.winT = 0; buf.push(ms); Perf.winT += ms; Perf.work.push(work || 0);
     if (buf.length < 45 && !(Perf.winT >= 900 && buf.length >= 5)) return; // a window = 45 frames, or ~1 s on a slow device
     const s = buf.slice().sort((x, y) => x - y), med = s[s.length >> 1], p95 = s[Math.floor(s.length * 0.95)];
-    Perf.ema = med; Perf.med = med; Perf.p95 = p95;
-    const t = performance.now(), age = t - run.startT; buf.length = 0;
+    const wk = Perf.work.slice().sort((x, y) => x - y)[Perf.work.length >> 1];
+    Perf.ema = med; Perf.med = med; Perf.p95 = p95; Perf.workMed = wk;
+    const t = performance.now(), age = t - run.startT; buf.length = 0; Perf.work.length = 0;
     if (age < 2500) return;
+    const heat = Perf.heatCap();
+    if (Perf.level > heat) { Perf.set(heat, 'heat'); return; }
+    // sustained JS cost: the phone keeps up but works hard (heat, battery). Never below tier 1 for this (a mode whose cost is
+    // its simulation gains little from fewer decorations) and at most one such step a minute.
+    if (Perf.mobile && Perf.level > 1 && !(t < Perf.busyUntil)) {
+      if (wk > 8) { if (++Perf.busy >= 3) { Perf.holdUntil = Perf.busyUntil = t + 60000; Perf.set(Perf.level - 1, 'busy'); return; } } else Perf.busy = 0;
+    }
     // a steady ~33 ms clock with little jitter is a 30 fps cap (iOS Low Power Mode, Android battery saver), not a struggling
     // device: 30 fps is then the target, and only frames clearly worse than the cap (median > 45 ms or p95 > 70 ms) count as bad
     const capped = Math.abs(med - 33.3) <= 3 && p95 - med <= 6;
@@ -945,19 +967,28 @@
       Perf.bad = 0;
       if (med < 17.9 && p95 < 24) {
         Perf.goodT += Perf.winT;
-        if (Perf.goodT > 20000 && t > Perf.holdUntil && Perf.level < Math.min(Perf.ceiling, Perf.cap())) Perf.set(Perf.level + 1, 'headroom');
+        if (Perf.goodT > 20000 && t > Perf.holdUntil && Perf.level < Math.min(Perf.ceiling, Perf.cap(), heat) && !(Perf.mobile && wk > 5)) Perf.set(Perf.level + 1, 'headroom');
       } else Perf.goodT = 0;
     }
   }
 
+  // The loop parks while paused (no 60-120 Hz wake-ups behind the pause card); kickFrame() restarts it.
+  function kickFrame() { run.last = performance.now(); run.rafLast = 0; if (run.running && !run.raf) run.raf = requestAnimationFrame(frame); }
+  App.kickFrame = kickFrame;
   function frame(now) {
     if (!run.running) return;
+    if (run.paused) { run.raf = 0; return; }
     run.raf = requestAnimationFrame(frame);
-    if (run.paused) { run.last = now; return; }
+    // display refresh (EMA of the rAF interval); on a 90-144 Hz screen skip vsyncs so frames are drawn at ~60 fps when
+    // Perf.capFps() (phones, or below tier 3). Physics is a fixed 1/60 s step, so 120 Hz only ever drew interpolated frames.
+    const raw = run.rafLast ? now - run.rafLast : 0; run.rafLast = now;
+    if (raw > 0 && raw < 50) run.rafMs = run.rafMs ? run.rafMs * 0.9 + raw * 0.1 : raw;
+    if (run.rafMs < 12 && Perf.capFps() && now - run.last < 15.7 - run.rafMs * 0.5) { run.skipped = (run.skipped || 0) + 1; return; }
     let dt = (now - run.last) / 1000;
     run.last = now;
     if (!(dt > 0)) dt = 0;
-    govern(dt * 1000);
+    run.drawn = (run.drawn || 0) + 1;
+    const w0 = performance.now();
     run.acc += Math.min(dt, 0.25);
     const step = DT();
     let n = 0;
@@ -971,6 +1002,7 @@
       if (run.running && run.inst && run.inst.render) run.inst.render(Math.min(1, run.acc / step));
       if (run.tiltSync) run.tiltSync();
     } catch (e) { crash(e); }
+    govern(dt * 1000, performance.now() - w0);
   }
 
   function crash(e) {
@@ -988,7 +1020,7 @@
   function stopRun() {
     run.running = false;
     if (run.viewOff) { run.viewOff(); run.viewOff = null; }
-    cancelAnimationFrame(run.raf);
+    cancelAnimationFrame(run.raf); run.raf = 0;
     if (run.inst) { const inst = run.inst; run.inst = null; try { inst.destroy && inst.destroy(); } catch (e) { console.error(e); } }
     hidePause();
     run.paused = false;
@@ -1018,7 +1050,7 @@
       audio('engine', null);
     } else {
       hidePause();
-      run.last = performance.now();
+      kickFrame();
       try { run.inst && run.inst.resume && run.inst.resume(); } catch (e) { console.error(e); }
     }
     emit('play:pause', b);
@@ -1093,7 +1125,7 @@
     run.playBadges = [];
     if (UI().coachClose) UI().coachClose();
     run.running = false;
-    cancelAnimationFrame(run.raf);
+    cancelAnimationFrame(run.raf); run.raf = 0;
     setTimeout(() => {
       stopRun();
       run.lastResult = { result, rec, activity: a, newBadges, capsized: run.capsized };

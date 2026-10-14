@@ -246,8 +246,11 @@ html.in-play, html.in-play body { touch-action: pan-x pan-y; } /* pan-x pan-y = 
   body.mode-sea .hud-wind-dial { width: 32px; height: 32px; }
 }
 
-/* quality tier < 3 (KOS.Perf): no frosted-glass blur over the live sea canvas - WebKit re-blurs the moving canvas behind every HUD pill/control each frame */
-html:not([data-tier="3"]) body.mode-sea * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+/* quality tier < 3 (KOS.Perf) or a phone (html[data-mobile]): no frosted-glass blur over the live sea canvas - the GPU re-blurs the
+   moving canvas behind every HUD pill/control each frame (about half the compositor's work per frame), a heat source on phones */
+html:not([data-tier="3"]) body.mode-sea *, html[data-mobile] body.mode-sea * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+/* the bobbing trainer on the pause card kept the compositor redrawing the blurred pause stack at 60 fps: phones and tiers < 3 hold still */
+html:not([data-tier="3"]) .pause-coach, html[data-mobile] .pause-coach { animation: none; }
 /* ------------------------------------------------------------------ phone UI (body.phone-ui: touch device, short side < 500 px or a landscape screen < 900 px wide)
    • pause / overview / tilt collapse into one small ⋯ button (top-left) with a slide-out menu
    • the goals / lesson panel collapses to a chip under it (js: KOS.UI.panelChip) so it never covers the sailing area */
