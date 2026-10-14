@@ -160,6 +160,12 @@
 
   let active = null; // only one ctrl listens to the keyboard at a time
 
+  // DOM writes only when the value changes: modes call setSheet/setIdealSheet every physics step, and the ramp loop paints
+  // every frame; same-value writes still queue style invalidation and mutation records (heat on phones)
+  function setVar(el, k, v) { const c = el.__kv || (el.__kv = {}); if (c[k] !== v) { c[k] = v; el.style.setProperty(k, v); } }
+  function setAttr(el, k, v) { if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
+  function setStyle(el, k, v) { if (el.style[k] !== v) el.style[k] = v; }
+
   // ---------------------------------------------------------------- attach
   function attach(layer, opts) {
     ensureStrings();
@@ -528,17 +534,17 @@
     function paintSheet() {
       const sh = rootEl.querySelector('.kc-sheet'); if (!sh) return;
       const v = state.sheet;
-      sh.style.setProperty('--v', v.toFixed(4));
+      setVar(sh, '--v', v.toFixed(4));
       const z = sh.querySelector('.kc-zone');
-      if (ideal) { z.style.display = 'block'; sh.style.setProperty('--z0', clamp(ideal.c - ideal.h, 0, 1).toFixed(4)); sh.style.setProperty('--z1', clamp(ideal.c + ideal.h, 0, 1).toFixed(4)); }
-      else z.style.display = 'none';
+      if (ideal) { setStyle(z, 'display', 'block'); setVar(sh, '--z0', clamp(ideal.c - ideal.h, 0, 1).toFixed(4)); setVar(sh, '--z1', clamp(ideal.c + ideal.h, 0, 1).toFixed(4)); }
+      else setStyle(z, 'display', 'none');
       sh.classList.toggle('kc-good', !!ideal && Math.abs(v - ideal.c) <= ideal.h);
       sh.classList.toggle('kc-autoon', !!state.autoTrim); sh.classList.toggle('kc-out', !state.autoTrim && v >= 1);
       const nu = nudgeOn(), bias = nu ? state.trimBias : 0;
       sh.classList.toggle('kc-nudge', nu); sh.classList.toggle('kc-nudged', nu && Math.abs(bias) >= 0.03);
       const a = sh.querySelector('.kc-auto');
       if (a) {
-        a.setAttribute('aria-pressed', state.autoTrim ? 'true' : 'false'); a.title = tr('input.autoHint');
+        setAttr(a, 'aria-pressed', state.autoTrim ? 'true' : 'false'); setAttr(a, 'title', tr('input.autoHint'));
         // AUTO (green) = the sail trims itself; AUTO + arrow = you are nudging it (up = pulled in, down = eased out); MANUEL (grey) = all yours
         const txt = !state.autoTrim ? tr('input.manual') : nu && bias <= -0.03 ? tr('input.auto') + ' ▲' : nu && bias >= 0.03 ? tr('input.auto') + ' ▼' : tr('input.auto');
         if (a.textContent !== txt) a.textContent = txt;
@@ -547,13 +553,13 @@
     function paintJib() {
       const jb = rootEl.querySelector('.kc-jib'); if (!jb) return;
       const v = state.jib;
-      jb.style.setProperty('--v', v.toFixed(4));
+      setVar(jb, '--v', v.toFixed(4));
       const z = jb.querySelector('.kc-zone');
-      if (idealJ && !state.autoJib) { z.style.display = 'block'; jb.style.setProperty('--z0', clamp(idealJ.c - idealJ.h, 0, 1).toFixed(4)); jb.style.setProperty('--z1', clamp(idealJ.c + idealJ.h, 0, 1).toFixed(4)); }
-      else z.style.display = 'none';
+      if (idealJ && !state.autoJib) { setStyle(z, 'display', 'block'); setVar(jb, '--z0', clamp(idealJ.c - idealJ.h, 0, 1).toFixed(4)); setVar(jb, '--z1', clamp(idealJ.c + idealJ.h, 0, 1).toFixed(4)); }
+      else setStyle(z, 'display', 'none');
       jb.classList.toggle('kc-good', !!idealJ && !state.autoJib && Math.abs(v - idealJ.c) <= idealJ.h);
       jb.classList.toggle('kc-autoon', !!state.autoJib);
-      const a = jb.querySelector('.kc-auto'); if (a) a.setAttribute('aria-pressed', state.autoJib ? 'true' : 'false');
+      const a = jb.querySelector('.kc-auto'); if (a) setAttr(a, 'aria-pressed', state.autoJib ? 'true' : 'false');
     }
     function paintBoard() {
       const bd = rootEl.querySelector('.kc-board'); if (!bd) return;
@@ -563,12 +569,12 @@
     }
     function paintThrottle() {
       const th = rootEl.querySelector('.kc-throttle'); if (!th) return;
-      th.style.setProperty('--v', ((1 - state.throttle) / 2).toFixed(4));
+      setVar(th, '--v', ((1 - state.throttle) / 2).toFixed(4));
       th.classList.toggle('kc-fwd', state.throttle > 0); th.classList.toggle('kc-rev', state.throttle < 0); th.classList.toggle('kc-n', state.throttle === 0);
     }
     function paintToggles() {
       const sp = rootEl.querySelector('.kc-spi');
-      if (sp) { sp.classList.toggle('kc-on', !!state.spinnaker); sp.setAttribute('aria-pressed', state.spinnaker ? 'true' : 'false'); }
+      if (sp) { sp.classList.toggle('kc-on', !!state.spinnaker); setAttr(sp, 'aria-pressed', state.spinnaker ? 'true' : 'false'); }
     }
     function paintSteer() {
       const l = rootEl.querySelector('.kc-steer-l'), r = rootEl.querySelector('.kc-steer-r');
@@ -576,17 +582,19 @@
       if (l) l.classList.toggle('kc-on', src.padL.size > 0 || kl);
       if (r) r.classList.toggle('kc-on', src.padR.size > 0 || kr);
       const w = rootEl.querySelector('.kc-wheel-rot');
-      if (w) w.style.transform = 'rotate(' + (state.steer * 135).toFixed(1) + 'deg)';
+      if (w) setStyle(w, 'transform', 'rotate(' + (state.steer * 135).toFixed(1) + 'deg)');
       const tlr = rootEl.querySelector('.kc-tiller');
       if (tlr && !tlr.classList.contains('kc-on')) { // keys / external steering: show the tiller where the rudder is
         const kx = (kr ? 1 : 0) - (kl ? 1 : 0);
-        tlr.querySelector('.kc-tl-knob').style.transform = kx ? 'translate(-50%,-50%) translateX(' + (kx * tlr.clientWidth * 0.3).toFixed(1) + 'px)' : '';
+        const kn = tlr.querySelector('.kc-tl-knob'), tv = kx ? 'translate(-50%,-50%) translateX(' + (kx * tlr.clientWidth * 0.3).toFixed(1) + 'px)' : '';
+        setStyle(kn, 'transform', tv);
       }
       const j = rootEl.querySelector('.kc-joy');
       if (j && !j.classList.contains('kc-on')) {
         const knob = j.querySelector('.kc-joy-knob');
         const kx = (kr ? 1 : 0) - (kl ? 1 : 0);
-        knob.style.transform = kx ? 'translate(-50%,-50%) translate(' + (kx * j.clientWidth * 0.3).toFixed(1) + 'px,0)' : '';
+        const tv = kx ? 'translate(-50%,-50%) translate(' + (kx * j.clientWidth * 0.3).toFixed(1) + 'px,0)' : '';
+        setStyle(knob, 'transform', tv);
       }
     }
     function orient() {
@@ -651,6 +659,7 @@
     // ------------------------------------------------ tick: combine sources, ramps
     function tick(now) {
       if (dead) return;
+      if (parked) { raf = 0; return; }
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.05, lastT ? (now - lastT) / 1000 : 0.016); lastT = now;
       step(dt);
@@ -715,10 +724,15 @@
     window.addEventListener('blur', blur);
     render();
     raf = requestAnimationFrame(tick);
+    // the game is paused (pause card, ⋯ menu): park the ramp loop instead of waking at the display rate for nothing
+    let parked = false;
+    const onPause = (b) => { parked = !!b; if (!parked && !dead && !raf) { lastT = 0; raf = requestAnimationFrame(tick); } };
+    if (KOS.Events && KOS.Events.on) KOS.Events.on('play:pause', onPause);
 
     function detach() {
       if (dead) return; dead = true;
       cancelAnimationFrame(raf);
+      if (KOS.Events && KOS.Events.off) KOS.Events.off('play:pause', onPause);
       if (ro) ro.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onKey);
