@@ -195,18 +195,23 @@ test('Physics: in irons — stops, drifts back, emits boat:irons, rudder reverse
   for (let i = 0; i < 30; i++) P.step(b, Object.assign(P.controls(), { rudder: 1 }), { wind, assist: 'pro' }, KOS.DT);
   ok(U.angDiff(h0, b.heading) < 0, 'reversed steering going backwards');
 });
-test('Physics: getting out of irons (reverse the tiller in sternway; easy assist just steer)', () => {
+test('Physics: getting out of irons (reverse the tiller in sternway, on every assist level)', () => {
   const wind = KOS.Wind.steady(0, 10);
-  for (const assist of ['normal', 'pro']) {
+  for (const assist of ['easy', 'normal', 'pro']) {
     const b = P.createBoat('opti', { heading: R(5) });
     sim(b, bb => Object.assign(P.controls(), { rudder: bb.speed < -0.05 ? -1 : 1 }), wind, 12, { assist });
     sim(b, bb => Object.assign(P.controls(), { rudder: U.clamp(U.angDiff(bb.heading, R(60)) * 2, -1, 1) }), wind, 8, { assist });
     ok(Math.abs(U.wrapPi(0 - b.heading)) > b.cls.noGo && !b.inIrons, assist + ' out of the no-go zone');
     ok(b.speed > 0.8, assist + ' sailing again ' + b.speed.toFixed(2));
   }
-  const e = P.createBoat('opti', { heading: R(5) });
-  sim(e, Object.assign(P.controls(), { rudder: 1 }), wind, 6, { assist: 'easy' });
-  ok(Math.abs(U.wrapPi(0 - e.heading)) > e.cls.noGo, 'easy: holding right steers out');
+  // easy too: with sternway, rudder right swings the bow LEFT (no 'friendly' forward steering going backwards)
+  const e = P.createBoat('opti', { heading: R(2) });
+  let back = false;
+  for (let i = 0; i < 60 * 12 && !back; i++) { e.heading = R(2); e.yawRate = 0; P.step(e, P.controls(), { wind, assist: 'easy' }, KOS.DT); back = e.speed < -0.05; }
+  ok(back, 'easy: sternway in irons');
+  const he = e.heading;
+  for (let i = 0; i < 30; i++) P.step(e, Object.assign(P.controls(), { rudder: 1 }), { wind, assist: 'easy' }, KOS.DT);
+  ok(U.angDiff(he, e.heading) < 0, 'easy: reversed steering going backwards');
   const free = P.createBoat('opti', { heading: R(60), speed: 1.5 });
   sim(free, P.controls(), wind, 30, { assist: 'normal' });
   ok(Math.abs(U.wrapPi(0 - free.heading)) < R(60), 'let go of the tiller => rounds up towards the wind (safety)');

@@ -34,7 +34,7 @@
         start: 'Start!', buoy: 'Bøje!', edge: 'Kanten!', free: 'Fri!', hoist: 'Gennaker!', oops: 'Ups!', irons: 'Vindøjet!' },
       call: { tack: 'Klar til at vende?', gybe: 'Klar til at bomme?', ready: 'Klar!', tacking: 'Ror i læ!', gybing: 'Bom over!' },
       tip: {
-        irons: 'Du ligger i vindøjet! Hold roret til den ene side, så falder båden af.',
+        irons: 'Du ligger i vindøjet! Hold roret til den ene side, så falder båden af. Driver du baglæns, virker roret omvendt.',
         straighten: 'Båden sejler fremad nu – ret roret op, ellers drejer du tilbage i vindøjet!',
         ironsTack: 'Du gik i stå i vindøjet. Drej lidt hurtigere igennem – og hav god fart på inden vendingen.',
         ground: 'Av, grundt vand! Styr ud mod det mørkere vand.',
@@ -176,7 +176,7 @@
         start: 'Start!', buoy: 'Buoy!', edge: 'The edge!', free: 'Free!', hoist: 'Gennaker!', oops: 'Oops!', irons: 'In irons!' },
       call: { tack: 'Ready about?', gybe: 'Ready to gybe?', ready: 'Ready!', tacking: 'Lee-ho!', gybing: 'Gybe-ho!' },
       tip: {
-        irons: 'You are in irons! Hold the helm to one side and the bow will fall off.',
+        irons: 'You are in irons! Hold the helm to one side and the bow will fall off. Drifting backwards, the helm works the other way round.',
         straighten: 'The boat is moving forwards now – straighten the helm, or you will turn back into irons!',
         ironsTack: 'You got stuck in irons. Turn through a bit faster – and have good speed before the tack.',
         ground: 'Ouch, shallow water! Steer towards the darker water.',
@@ -639,7 +639,7 @@
           sayVars() { return { side: t('school.side.' + (this.need > 0 ? 'left' : 'right')) }; },
           tick(dt) {
             if (Math.abs(boat.speed) < 0.1) this.stuck += dt;
-            if (!easy && boat.speed < -0.08 && this.stuck > 4) tip('backwards');
+            if (boat.speed < -0.08 && this.stuck > 4) tip('backwards');
             const ok = twaD() > ngD + 12 && moving(0.3) && (!this.need || side() === this.need);
             if (ok) { S.exitSide = side(); floatText(t('school.fx.free'), '#3ee08f'); return 1; }
             const sideOk = !this.need || side() === this.need || twaD() < 6;

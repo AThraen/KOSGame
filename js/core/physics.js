@@ -358,7 +358,7 @@
     const rud = U.clamp(c.rudder || 0, -1, 1);
     const auth = Math.pow(U.clamp(Math.abs(boat.speed) / cls.uRef, 0, 1), 0.75);
     const floor = assist === 'easy' ? 0.3 : assist === 'normal' ? 0.08 : 0;
-    const dirS = boat.speed < -0.05 && assist !== 'easy' ? -1 : 1; // easy: no confusing reversed steering
+    const dirS = boat.speed < -0.05 ? -1 : 1; // sternway: the rudder works the other way round, on every assist level (as on the water)
     let yawT = rud * cls.turnRate * Math.max(auth, floor) * dirS;
     if (leeHeel > opt && !boat.capsized) yawT += s * U.clamp((leeHeel - opt) / R(30), 0, 1) * 0.22 * cls.turnRate * auth; // weather helm (needs flow)
     if (!boat.capsized && aTwa < cls.noGo && Math.abs(boat.speed) < cls.uRef && tws > 1) {

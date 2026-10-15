@@ -39,7 +39,7 @@
       keys: 'Tastatur: ←/→ styr · ↑/↓ skøde · Mellemrum hæng ud',
       keysRib: 'Tastatur: ←/→ styr · ↑/↓ gas frem/bak',
       tip: {
-        irons: 'Du står i vindøjet! Læg roret til den ene side og vent – så falder båden af, og sejlet fylder igen.',
+        irons: 'Du står i vindøjet! Læg roret til den ene side og vent – så falder båden af, og sejlet fylder igen. Driver du baglæns, virker roret omvendt.',
         luff: 'Sejlet blafrer – hal skødet ind, til det holder op med at blafre.',
         stall: 'Skødet er for stramt. Fier lidt ud, så kører båden hurtigere.',
         heel: 'Båden krænger meget! Hæng ud – hold MELLEMRUM eller knappen HÆNG UD.',
@@ -86,7 +86,7 @@
       keys: 'Keyboard: ←/→ steer · ↑/↓ sheet · Space hike',
       keysRib: 'Keyboard: ←/→ steer · ↑/↓ throttle ahead/astern',
       tip: {
-        irons: 'You are in irons! Put the tiller to one side and wait – the bow falls off and the sail fills again.',
+        irons: 'You are in irons! Put the tiller to one side and wait – the bow falls off and the sail fills again. Drifting backwards, the rudder works the other way round.',
         luff: 'The sail is flapping – sheet in until it stops.',
         stall: 'The sheet is too tight. Ease a little and the boat goes faster.',
         heel: 'The boat is heeling a lot! Hike out – hold SPACE or the HIKE button.',

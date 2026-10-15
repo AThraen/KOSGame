@@ -389,7 +389,7 @@
       const e = U.angDiff(b.heading, U.wrapPi(H + wob));
       const kp = 2.6 * (0.7 + 0.3 * skill), kd = 0.9;
       let r = U.clamp(e * kp - b.yawRate * kd, -1, 1);
-      if (b.speed < -0.05 && helm._assist !== 'easy') r = -r; // steering reverses in sternway (not in easy assist, see Physics)
+      if (b.speed < -0.05) r = -r; // steering reverses in sternway (see Physics)
       return r;
     }
 
