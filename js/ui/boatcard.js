@@ -32,6 +32,13 @@
       newJib: 'fok', newGennaker: 'gennaker', newSpinnaker: 'spinnaker', newTrapeze: 'trapez', newKeel: 'køl', newNoCapsize: 'kan ikke kæntre',
       newCrew: 'flere ombord ({n})', newSail: 'mere sejl ({n} m²)', newLonger: 'længere ({n} m)',
       newSimple: 'lidt mere fart og fart i pusten',
+      weightTitle: 'Hvilken vægt passer?', weightIntro: 'Vægten på sejlerne afgør mest, hvilken båd der passer bedst. Vinduerne er en vejledning, ikke et facit. I hård vind er et mindre sejl bedst, i let vind et større.',
+      weightUnit1: 'kg', weightUnit2: 'kg pr. sejler', weightTotal: 'Besætning i alt {a}–{b} kg',
+      legCore: 'Kerne: optimal vægt', legExt: 'Udvidet zone: her er de fleste', legEdge: 'Randzone ±2,5 kg: virker fint, koster lidt fart',
+      weightLabel: '{name}: kerne {c1}–{c2} kg, udvidet zone {e1}–{e2} kg.', weightSrc: 'Kilde: KØS Sejlsport, “Vores jolleflåde”.',
+      clubFigure: 'klubbens tal', gennakerArea: 'Gennaker-areal', rigs: 'Rig i klassen', kg: 'ca. {a}–{b} kg', kgPer: 'ca. {a}–{b} kg pr. sejler',
+      nextPhilo: 'Ny båd er sjovt – men du bliver bedst af at sejle den samme båd i mange slags vejr, sammen med andre i samme båd.',
+      nextWhen: 'Hvis du vokser ud af den, passer disse til din vægt:', nextNewIn: 'Nyt',
     },
   });
   KOS.I18n.add('en', {
@@ -54,6 +61,13 @@
       newJib: 'a jib', newGennaker: 'a gennaker', newSpinnaker: 'a spinnaker', newTrapeze: 'a trapeze', newKeel: 'a keel', newNoCapsize: 'it cannot capsize',
       newCrew: 'more people aboard ({n})', newSail: 'more sail ({n} m²)', newLonger: 'longer ({n} m)',
       newSimple: 'a bit more speed and more power in the gusts',
+      weightTitle: 'Which weight fits?', weightIntro: 'The sailors’ weight mostly decides which boat fits best. The windows are guidance, not an exact answer. In strong wind a smaller sail is better, in light wind a bigger one.',
+      weightUnit1: 'kg', weightUnit2: 'kg per sailor', weightTotal: 'Crew total {a}–{b} kg',
+      legCore: 'Core: optimal weight', legExt: 'Extended zone: most sailors are here', legEdge: 'Edge zone ±2.5 kg: works, costs a little speed',
+      weightLabel: '{name}: core {c1}–{c2} kg, extended zone {e1}–{e2} kg.', weightSrc: 'Source: KØS Sejlsport, “Vores jolleflåde”.',
+      clubFigure: 'club figure', gennakerArea: 'Gennaker area', rigs: 'Rigs in the class', kg: 'about {a}–{b} kg', kgPer: 'about {a}–{b} kg per sailor',
+      nextPhilo: 'A new boat is fun – but you get best by sailing the same boat in many kinds of weather, together with others in the same boat.',
+      nextWhen: 'If you grow out of it, these fit your weight:', nextNewIn: 'New',
     },
   });
 
@@ -75,6 +89,48 @@
     return out;
   }
 
+  const fmtM = v => fmt(v, (String(v).split('.')[1] || '').length);
+  const rng = r => r[0] + '–' + r[1];
+  /** Typical sailor in kg from the club weight windows (core). Empty when the boat has none. */
+  function kgText(facts) {
+    const w = facts && facts.weight;
+    if (!w) return '';
+    if (w.rows.length === 1) return t(w.twoPerson ? 'boatcard.kgPer' : 'boatcard.kg', { a: w.rows[0].core[0], b: w.rows[0].core[1] });
+    return w.rows.map(r => r.label.replace(/^RS Tera /, '') + ' ' + t('boatcard.kg', { a: r.core[0], b: r.core[1] })).join(' · ');
+  }
+  /** Weight window chart: 30-80 kg axis, core solid, extended hatched, edge (extended +-2.5) faint dashed. */
+  function weightSvg(facts) {
+    const w = facts.weight, two = !!w.twoPerson;
+    const W = 340, x0 = 8, x1 = 332, k = (x1 - x0) / 50, X = kg => Math.round((x0 + (Math.max(30, Math.min(80, kg)) - 30) * k) * 10) / 10;
+    const rowH = 44, top = 22, H = top + w.rows.length * rowH + 4;
+    const cls = two ? ' two' : '';
+    const hid = 'wt-hatch' + (two ? '2' : '1');
+    const p = ['<defs><pattern id="' + hid + '" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="wt-hl' + cls + '"/></pattern></defs>'];
+    for (let g = 30; g <= 80; g += 10) {
+      p.push('<line class="wt-grid" x1="' + X(g) + '" x2="' + X(g) + '" y1="' + (top - 6) + '" y2="' + (H - 2) + '"/>');
+      p.push('<text class="wt-tick" x="' + X(g) + '" y="11" text-anchor="' + (g === 30 ? 'start' : g === 80 ? 'end' : 'middle') + '">' + g + '</text>');
+    }
+    w.rows.forEach((r, i) => {
+      const y = top + i * rowH, by = y + 20, bh = 14;
+      p.push('<text class="wt-name" x="' + x0 + '" y="' + (y + 12) + '">' + esc0(r.label) + '</text>');
+      p.push('<text class="wt-sail" x="' + x1 + '" y="' + (y + 12) + '" text-anchor="end">' + esc0(fmtM(r.sail) + ' m² · ' + rng(r.core) + ' kg') + '</text>');
+      p.push('<rect class="wt-edge' + cls + '" x="' + X(r.ext[0] - 2.5) + '" y="' + by + '" width="' + (X(r.ext[1] + 2.5) - X(r.ext[0] - 2.5)) + '" height="' + bh + '" rx="3"/>');
+      p.push('<rect class="wt-ext' + cls + '" x="' + X(r.ext[0]) + '" y="' + by + '" width="' + (X(r.ext[1]) - X(r.ext[0])) + '" height="' + bh + '" fill="url(#' + hid + ')"/>');
+      p.push('<rect class="wt-core' + cls + '" x="' + X(r.core[0]) + '" y="' + by + '" width="' + (X(r.core[1]) - X(r.core[0])) + '" height="' + bh + '" rx="2"/>');
+    });
+    const label = w.rows.map(r => t('boatcard.weightLabel', { name: r.label, c1: r.core[0], c2: r.core[1], e1: r.ext[0], e2: r.ext[1] })).join(' ');
+    return '<svg class="wt-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc0(label) + '">' + p.join('') + '</svg>';
+  }
+  function weightHtml(facts) {
+    const w = facts.weight, two = !!w.twoPerson, c2 = two ? ' two' : '';
+    let h = '<p class="dim">' + esc0(t('boatcard.weightIntro')) + '</p>';
+    h += '<p class="wt-unit' + c2 + '">' + esc0(t(two ? 'boatcard.weightUnit2' : 'boatcard.weightUnit1')) + '</p>';
+    h += '<div class="wt-wrap">' + weightSvg(facts) + '</div>';
+    if (two && w.total) h += '<p class="wt-total">' + esc0(t('boatcard.weightTotal', { a: w.total[0], b: w.total[1] })) + '</p>';
+    h += '<ul class="wt-legend"><li><i class="wt-sw core' + c2 + '"></i>' + esc0(t('boatcard.legCore')) + '</li><li><i class="wt-sw ext' + c2 + '"></i>' + esc0(t('boatcard.legExt')) + '</li><li><i class="wt-sw edge"></i>' + esc0(t('boatcard.legEdge')) + '</li></ul>';
+    return h + '<p class="pc-note">' + esc0(t('boatcard.weightSrc')) + '</p>';
+  }
+
   /** Fact box rows: from the boat definition first, then the researched fields. Rows without a value are left out. */
   function rows(def, facts) {
     const out = [];
@@ -82,7 +138,12 @@
     if (def.length) out.push([t('boatcard.length'), fmt(def.length, 2) + ' m']);
     if (def.beam) out.push([t('boatcard.beam'), fmt(def.beam, 2) + ' m']);
     if (facts && facts.hull) out.push([t('boatcard.hull'), Math.round(facts.hull).toLocaleString(KOS.I18n.lang === 'da' ? 'da-DK' : 'en-GB') + ' kg']);
-    if (!motor && def.sailArea) out.push([t('boatcard.sailArea'), fmt(def.sailArea, def.sailArea % 1 ? 1 : 0) + ' m²']);
+    if (!motor && facts && facts.sails) {
+      const v = facts.sails.map(x => (x.label ? tt(x.label) + ' ' : '') + fmtM(x.m2)).join(' · ') + ' m²' + (facts.sailNoteClub ? ' (' + t('boatcard.clubFigure') + ')' : '');
+      out.push([t('boatcard.sailArea'), v]);
+      if (facts.gennaker) out.push([t('boatcard.gennakerArea'), fmt(facts.gennaker, 1) + ' m²']);
+      if (facts.rigs) out.push([t('boatcard.rigs'), tt(facts.rigs)]);
+    } else if (!motor && def.sailArea) out.push([t('boatcard.sailArea'), fmt(def.sailArea, def.sailArea % 1 ? 1 : 0) + ' m²']);
     if (!motor) out.push([t('boatcard.crew'), def.crew > 1 ? t('boatcard.persons', { n: def.crew }) : t('boatcard.person1')]);
     if (!motor) out.push([t('boatcard.sails'), sailNames(def).join(' · ')]);
     if (!motor) {
@@ -95,7 +156,8 @@
       if (facts.year) out.push([t('boatcard.year'), String(facts.year)]);
       if (facts.country) out.push([t('boatcard.country'), tt(facts.country)]);
       if (facts.status) out.push([t('boatcard.status'), tt(facts.status)]);
-      if (facts.sailor) out.push([t('boatcard.sailor'), tt(facts.sailor)]);
+      const sl = [facts.sailor ? tt(facts.sailor) : '', kgText(facts)].filter(Boolean).join(' · ');
+      if (sl) out.push([t('boatcard.sailor'), sl]);
     }
     return out;
   }
@@ -239,20 +301,36 @@
     }
     h += '</section>';
 
-    // next step on the ladder
+    // weight windows (club sheet): never asks the player for a weight
+    if (facts && facts.weight) h += '<section class="bcard-sec glass wt-sec"><h2>' + ico('user') + esc(t('boatcard.weightTitle')) + '</h2>' + weightHtml(facts) + '</section>';
+
+    // next step: club philosophy first, then boats that fit the weight window (or the game ladder for the keelboats)
     h += '<section class="bcard-sec glass"><h2>' + ico('flag') + esc(t('boatcard.next')) + '</h2>';
     if (def.isMotor) h += '<p>' + esc(t('boatcard.nextRib')) + '</p>';
     else {
-      const nx = nextOnLadder(id);
-      if (!nx) h += '<p>' + esc(t('boatcard.nextTop')) + '</p>';
+      const picks = facts && facts.next ? facts.next.map(n => ({ id: n.id, name: tt(n.name), why: tt(n.why) })) : null;
+      const nx = picks ? null : nextOnLadder(id);
+      if (!picks && !nx) h += '<p>' + esc(t('boatcard.nextTop')) + '</p>';
       else {
-        const list = newInNext(def, nx).map(a => t(a[0], a[1])).join(', ');
-        h += '<p class="next-boat"><b>' + esc(t('boatcard.nextBoat', { name: nx.name })) + '</b></p><p>' + esc(t('boatcard.nextNew', { list })) + '</p>';
+        h += '<p class="next-philo">' + esc(t('boatcard.nextPhilo')) + '</p>';
+        if (picks) {
+          h += '<p class="dim">' + esc(t('boatcard.nextWhen')) + '</p><ul class="next-list">';
+          for (const n of picks) {
+            const tg = KOS.Boats.get(n.id);
+            const skip = ['boatcard.newSail', 'boatcard.newSimple', 'boatcard.newLonger'];
+            const nw = tg && tg.id !== def.id ? newInNext(def, tg).filter(x => !skip.includes(x[0])) : [];
+            h += '<li class="next-boat"><b>' + esc(n.name) + '</b> – ' + esc(n.why) + (nw.length ? ' <span class="next-new">' + esc(t('boatcard.nextNewIn')) + ': ' + esc(nw.map(x => t(x[0], x[1])).join(', ')) + '.</span>' : '') + '</li>';
+          }
+          h += '</ul>';
+        } else {
+          const list = newInNext(def, nx).map(x => t(x[0], x[1])).join(', ');
+          h += '<p class="next-boat"><b>' + esc(t('boatcard.nextBoat', { name: nx.name })) + '</b></p><p>' + esc(t('boatcard.nextNew', { list })) + '</p>';
+        }
       }
     }
     h += '</section>';
     return h + '</div>';
   }
 
-  KOS.BoatCard = { html, polarSvg, rows, newInNext, nextOnLadder, WINDS };
+  KOS.BoatCard = { weightSvg, kgText, html, polarSvg, rows, newInNext, nextOnLadder, WINDS };
 })(typeof window !== 'undefined' ? window : globalThis);

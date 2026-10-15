@@ -1408,6 +1408,35 @@ test('boatcard: next step follows the ladder and names what is new', () => {
   ok(BC.newInNext(KOS.Boats.get('29er'), KOS.Boats.get('hboat')).some(a => a[0] === 'boatcard.newKeel'), 'h-boat brings a keel');
 });
 
+test('boatcard: club weight windows are valid and shown (never asks for a weight)', () => {
+  const withData = ['opti', 'tera', 'ilca', 'feva', '29er'];
+  for (const id of KOS.BoatFacts.ids) {
+    const w = KOS.BoatFacts.get(id).weight;
+    ok(!!w === withData.includes(id), id + ' weight data only on club dinghies');
+    if (!w) continue;
+    for (const r of w.rows) {
+      ok(r.core[0] < r.core[1] && r.ext[0] <= r.core[0] && r.core[1] <= r.ext[1], id + ' ' + r.label + ' core inside extended');
+      ok([r.core[0], r.core[1], r.ext[0], r.ext[1]].every(v => v >= 30 && v <= 80), id + ' ' + r.label + ' within 30-80 kg axis');
+    }
+    ok(!w.twoPerson || (w.total && w.total[0] < w.total[1]), id + ' two-person has crew total');
+  }
+  for (const lang of ['da', 'en']) {
+    KOS.I18n.setLang(lang);
+    for (const id of withData) {
+      const h = BC.html(id, bcEnv(true));
+      ok(h.includes('wt-svg') && h.includes('wt-legend') && !/NaN|undefined|boatcard\./.test(h), id + ' ' + lang + ' weight chart');
+      ok(h.includes('next-philo') && h.includes('next-list'), id + ' ' + lang + ' next step philosophy');
+      ok(!/coach/i.test(h), id + ' ' + lang + ' no Coach');
+    }
+    ok(BC.html('feva', bcEnv(true)).includes(lang === 'da' ? 'kg pr. sejler' : 'kg per sailor'), lang + ' two-person unit');
+    ok(!BC.html('zest', bcEnv(true)).includes('wt-svg') && BC.html('zest', bcEnv(true)).includes('next-boat'), 'zest: no chart, has next step');
+    const ilca = BC.rows(KOS.Boats.get('ilca'), KOS.BoatFacts.get('ilca')).map(r => r.join(' ')).join('|');
+    ok(/4[.,]7/.test(ilca) && /5[.,]76/.test(ilca) && !/7[.,]06/.test(ilca), lang + ' ilca shows club rigs, not 7.06');
+  }
+  KOS.I18n.setLang('da');
+  ok(KOS.Boats.unlockStars.zest === 0, 'zest open from the start');
+});
+
 // ====================================================================== summary
 console.log('\n');
 if (failures.length) console.log('FAILURES:\n  ' + failures.join('\n  '));

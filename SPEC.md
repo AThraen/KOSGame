@@ -361,8 +361,8 @@ measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. 
 
 - Stars 0–3 per activity. XP = stars × 100 + bonuses. Badges ("mærker") for milestones (first race win, 10 tacks,
   first capsize recovery, all knots, perfect docking, rules master, navigator...).
-- **Sejlerpas** (sailing passport): boats unlock by total stars: opti 0, tera 6, feva 15, zest 25, ilca 40,
-  29er 55, hboat 70, j70 90, rib 20. `settings.unlockAll` (coach/parent switch) unlocks everything.
+- **Sejlerpas** (sailing passport): boats unlock by total stars: opti 0, tera 6, feva 15, zest 0, ilca 40,
+  29er 55, hboat 70, j70 90, rib 20. (user 2026-10-15: the RS Zest is open from the start, 0 stars, as the boat you sail with a parent; the ladder order is otherwise unchanged. Zest school lessons still follow their own lesson chain.) `settings.unlockAll` (coach/parent switch) unlocks everything.
   Tapping a boat opens its **Bådkort** (screen `boatcard`, `js/ui/boatcard.js` + `js/core/boatfacts.js`): big picture, fact box, 3-5 sourced fun facts,
   "I KØS" lines (only from Club facts), a speed half-circle from the polar (6/12/18 kn wind in the wind unit setting), and the next boat on the ladder.
   Locked boats show a silhouette, the name, 1-2 teaser facts and the star need only. RIB: top speed instead of a chart.
@@ -535,6 +535,35 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
     gennaker ready, cast off, fenders in; unrigging furls the jib and puts the sock back on. Confirmed (club 2026-10-08): the main is hoisted at the pontoon,
     and there is a gennaker besides the furled headsail.
   - RS Tera / RS Zest: the mast with its sail rolled round it lives in the club's shed (skuret) between sessions.
+- **Club facts (fleet sheet, source: KØS Sejlsport, "Vores jolleflåde" (club handout, 2026-10); only the data is transcribed, the handout has photos of club sailors and is NOT in the repo):**
+  - Intro: in sailing it is mainly the sailors' weight that decides which dinghy is optimal. The windows are guidance, not exact.
+    In strong wind a smaller sail is better, in light wind a larger one. Club dinghies: Optimist, RS Tera (Sport & Pro), ILCA (4 & 6),
+    RS Feva, 29er; plus the RS Zest as an introduction boat. The club does NOT sail ILCA 7.
+  - Weight windows, kg per sailor. Kerne (core) = optimal competitive weight. Udvidet zone (extended) = most sailors are inside it,
+    technique still dominates. Randzone (edge) = ±2.5 kg outside the extended zone: works, costs a little speed, especially with
+    poor ergonomics. Bar ends read off the chart to the nearest kg:
+    | Boat | Sail m² | Core | Extended | Edge |
+    |---|---|---|---|---|
+    | Optimist | 3.3 | 38–48 | 30–50 | to 52.5 |
+    | RS Tera Sport | 3.7 | 38–45 | 34–50 | 31.5–52.5 |
+    | RS Tera Pro | 4.8 | 45–55 | 40–60 | 37.5–62.5 |
+    | ILCA 4 | 4.7 | 50–57 | 45–60 | 42.5–62.5 |
+    | ILCA 6 | 5.76 | 62–72 | 58–75 | 55.5–77.5 |
+    | RS Feva (two-person, kg per sailor, crew total 85–110 kg) | 6.4 | 45–52 | 43–55 | 40.5–57.5 |
+    | 29er (two-person, trapeze, kg per sailor, crew total 110–135 kg) | 10.8 | 58–64 | 55–68 | 52.5–70.5 |
+  - PROGRESSION: sailing a new type of dinghy can be fun, but it is not a sign that sailing skills are developing. Sailing the SAME
+    dinghy better/faster across a wide range of conditions is progression. It is better to choose a dinghy that 3–4 others sail on the
+    water, so you can sail against and learn from them, than to be the only one in a class.
+  - Introduction boats (aim: introduce sailing and dinghies in safe conditions and a wider weather window until the sailor is
+    confident): RS Zest = stable beginner boat, with or without jib, room for an instructor/adult plus two kids. Optimist: half sail
+    or mast raiser = less power on a familiar hull. RS Tera: a storm sail keeps the boat manageable above-normal wind. RS Feva: always
+    sailed by two; a storm sail makes the first trips manageable.
+  - (user 2026-10-15) The Optimist is still THE boat for the youngest and the club's main intro boat. The RS Zest is used in the classes for
+    micro-sailors ("mikrosejlere"), where the youngest kids sail together with a parent; great for that. The Zest is not a step after the
+    Feva (the unlock ladder is a separate decision, unchanged).
+  - Boat card (Bådkort) shows these: weight chart (never asks for a player's weight), club rig areas (ILCA 4.7 / 5.76, Tera Sport 3.7 /
+    Pro 4.8, Feva 6.4 and 29er 10.8 are the club's figures), and a "Næste trin" chosen by weight window plus the progression line. Game
+    physics (`boats.js` sailArea) is unchanged.
 - **Club boat photos (user 2026-10-07, described, not on disk).** What the real KØS boats look like:
   - **29er:** white hull, clear/white mylar main + jib with **red-orange leech tape and batten pockets**, red "29er"
     logo at the head, sail number **DEN 63**; **purple asymmetric spinnaker** (game today: pink/navy/white). Crew of two

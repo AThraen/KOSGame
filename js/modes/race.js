@@ -160,7 +160,7 @@
   });
 
   // ======================================================================== 2. activities (championship ladder)
-  const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 25, ilca: 40, '29er': 55, hboat: 70, j70: 90 };
+  const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 0, ilca: 40, '29er': 55, hboat: 70, j70: 90 };
   // per class: championship name, venue, and a list of races [fleet, windKn, course, laps, gust, shift, bias, targetS]
   const SERIES = [
     { cls: 'opti', venue: 'bay', name: { da: 'Klubmesterskab', en: 'Club Championship' }, wind: 230, races: [

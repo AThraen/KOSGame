@@ -248,6 +248,6 @@
     has(id) { return !!byId[id]; },
     optimal,
     /** Unlock thresholds (total stars) from SPEC "Sejlerpas". */
-    unlockStars: { opti: 0, tera: 6, feva: 15, zest: 25, ilca: 40, '29er': 55, hboat: 70, j70: 90, rib: 20 },
+    unlockStars: { opti: 0, tera: 6, feva: 15, zest: 0, ilca: 40, '29er': 55, hboat: 70, j70: 90, rib: 20 },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

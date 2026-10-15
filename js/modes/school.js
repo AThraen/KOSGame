@@ -304,7 +304,7 @@
   });
 
   // ======================================================================== 2. activities
-  const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 25, ilca: 40, '29er': 55, hboat: 70, j70: 90, rib: 20 };
+  const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 0, ilca: 40, '29er': 55, hboat: 70, j70: 90, rib: 20 };
   // [lesson, icon, minutes, difficulty, title {da,en}, desc {da,en}, params, boat]
   const LESSONS = [
     ['steer', 'school', 2, 1, { da: 'Styr og stop', en: 'Steer & stop' },

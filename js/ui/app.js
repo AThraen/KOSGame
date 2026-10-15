@@ -19,7 +19,7 @@
   function emit(name, p) { if (KOS.Events && KOS.Events.emit) KOS.Events.emit(name, p); }
 
   // ------------------------------------------------------------------ boats (fallback if KOS.Boats is missing)
-  const BOAT_STARS = { opti: 0, tera: 6, feva: 15, zest: 25, ilca: 40, '29er': 55, hboat: 70, j70: 90, rib: 20 };
+  const BOAT_STARS = { opti: 0, tera: 6, feva: 15, zest: 0, ilca: 40, '29er': 55, hboat: 70, j70: 90, rib: 20 };
   const BOAT_FALLBACK = [
     { id: 'opti', name: 'Optimist', crew: 1, length: 2.3, colors: { hull: '#ffffff', deck: '#e9eef5', sail: '#f7f7f2' } },
     { id: 'tera', name: 'RS Tera', crew: 1, length: 2.87, colors: { hull: '#ffffff', deck: '#dfe8ef', sail: '#f2f2f2' } },

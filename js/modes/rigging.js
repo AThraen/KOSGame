@@ -253,7 +253,7 @@
   };
 
   // ======================================================================== 3. activities
-  const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 25, ilca: 40, '29er': 55, hboat: 70, j70: 90 };
+  const BOAT_STARS = (KOS.App && KOS.App.BOAT_STARS) || { opti: 0, tera: 6, feva: 15, zest: 0, ilca: 40, '29er': 55, hboat: 70, j70: 90 };
   const LADDER = ['opti', 'tera', 'feva', 'zest', 'ilca', '29er', 'hboat', 'j70'];
   const bname = id => { const b = KOS.Boats && KOS.Boats.get(id); return b ? b.name : id; };
   const UNRIG = ['opti', 'tera', 'feva', 'zest', 'ilca', 'j70'];

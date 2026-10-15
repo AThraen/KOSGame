@@ -645,5 +645,28 @@ body.modes-wait .btn-play { opacity: .75; animation: modes-wait-pulse .9s ease-i
 .topspeed { display: flex; align-items: baseline; justify-content: center; gap: 8px; font-size: 3rem; font-weight: 900; color: var(--primary); }
 .topspeed span { font-size: 1.2rem; color: var(--text-dim); }
 .next-boat { font-size: 1.1rem; }
+.wt-wrap { width: 100%; max-width: 460px; margin: 0 auto; }
+.wt-svg { width: 100%; height: auto; display: block; }
+.wt-grid { stroke: rgba(255,255,255,.14); stroke-width: 1; }
+.wt-tick { fill: rgba(236,241,255,.75); font-size: 11px; font-weight: 700; }
+.wt-name { fill: var(--text); font-size: 13px; font-weight: 900; }
+.wt-sail { fill: rgba(236,241,255,.8); font-size: 11px; font-weight: 700; }
+.wt-core { fill: var(--good); } .wt-core.two { fill: var(--primary); }
+.wt-hl { stroke: var(--good); stroke-width: 2.4; } .wt-hl.two { stroke: var(--primary); }
+.wt-ext { stroke: var(--good); stroke-width: 1; } .wt-ext.two { stroke: var(--primary); }
+.wt-edge { fill: rgba(255,255,255,.05); stroke: rgba(255,255,255,.5); stroke-width: 1; stroke-dasharray: 3 2.5; }
+.wt-unit { font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--good); }
+.wt-unit.two { color: var(--primary); }
+.wt-total { font-weight: 800; color: var(--primary); text-align: center; }
+.wt-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .82rem; font-weight: 700; }
+.wt-legend li { display: flex; align-items: center; gap: 6px; }
+.wt-sw { width: 22px; height: 10px; border-radius: 2px; display: inline-block; flex: none; box-sizing: border-box; }
+.wt-sw.core { background: var(--good); } .wt-sw.core.two { background: var(--primary); }
+.wt-sw.ext { border: 1px solid var(--good); background: repeating-linear-gradient(45deg, var(--good) 0 2px, transparent 2px 5px); } .wt-sw.ext.two { border-color: var(--primary); background: repeating-linear-gradient(45deg, var(--primary) 0 2px, transparent 2px 5px); }
+.wt-sw.edge { border: 1px dashed rgba(255,255,255,.6); background: rgba(255,255,255,.05); }
+.next-philo { font-weight: 700; line-height: 1.4; }
+.next-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.next-list li { line-height: 1.4; }
+.next-new { color: var(--text-dim); font-weight: 600; }
 .bcard-actions { display: flex; justify-content: center; }
 @media (max-width: 420px) { .bcard-art-wrap { height: clamp(150px, 26vh, 220px); } .fact-grid { grid-template-columns: 1fr 1fr; gap: 6px 12px; } }

@@ -22,3 +22,12 @@ Fact-box numbers (length, beam, sail area, crew, sails) come from the game's own
 - Typical sailor age and weight for Tera, Feva, Zest, ILCA, 29er, H-boat, J/70 (no source seen). Only the Optimist (7-15) is shown.
 - RS Tera launch year (2007 vs 1997 in different sources), 29er country, Zest class status, hull weights other than Optimist, ILCA and 29er.
 - Optimist length: the class page says 2.36 m, the game model uses 2.31 m, so the length is not repeated in the fun facts.
+
+## Club fleet sheet (weight windows, club rigs)
+Source: KØS Sejlsport, "Vores jolleflåde" (club handout, 2026-10). Only the data is transcribed (the handout has photos of club sailors and is not in the repo). See SPEC.md "Club facts (fleet sheet ...)".
+- Weight windows (core / extended, kg per sailor; edge = extended ±2.5) and the "typisk sejler" kg text come from the sheet, bar ends read to the nearest kg. The 29er ends were read as core 58–64, extended 55–68 (not 59–65 / 55–69).
+- Sail areas on the card are the club's: Optimist 3.3, Tera Sport 3.7 / Pro 4.8, ILCA 4 = 4.7 / ILCA 6 = 5.76 (the game's physics models an ILCA 7, 7.06 m2; the card says the class has rigs 4/6/7 and that KØS sails 4 and 6), Feva 6.4, 29er 10.8.
+- Game `boats.js` keeps its own sailArea (Feva 8.0, 29er 12.5, ILCA 7.06) so speeds are unchanged; the card does not show those.
+- RS Feva official (RS Sailing rigging manual, rssailing.com/wp-content/uploads/guides/RSFevaRiggingGuide.pdf; also Wikipedia RS_Feva): main 5.5 m2 (S, reefing) or 6.5 m2 (XL), jib 2.1 m2, gennaker 7.0 m2. Club 6.4 m2 is NOT main+jib (that would be 7.6 / 8.6); it is close to the XL main alone. Card shows "6,4 m2 (klubbens tal)" and gennaker 7,0 m2 (verified).
+- 29er: Wikipedia and Mackay give upwind 13.19 m2 and spinnaker 16.83 m2; Ovington and an Australian brochure give 12.5 m2 and 15 m2. No official class figure was reachable, so the club's 10.8 m2 is shown as "klubbens tal" and no gennaker area is shown.
+- Progression, introduction-boat and Zest (mikrosejlere, parent + child) texts come from the sheet and the user's notes in SPEC.md.

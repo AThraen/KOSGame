@@ -116,7 +116,7 @@ UI as DOM/SVG inside `host.layer`. `update(dt)` and `render()` are still called,
 - `unlock`: `null` (open), `{after: 'race.club1'}` (finish that one first) or `{stars: 12}` (total stars).
   The first activity in each area is always open. The settings switch "Lås alt op" (`unlockAll`) opens everything.
 - Boat-specific activities lock by the Sejlerpas ladder: `unlock: {stars: KOS.App.BOAT_STARS[boatId]}`
-  (opti 0, tera 6, feva 15, zest 25, ilca 40, 29er 55, hboat 70, j70 90, rib 20). sail.js does this for its
+  (opti 0, tera 6, feva 15, zest 0, ilca 40, 29er 55, hboat 70, j70 90, rib 20). sail.js does this for its
   "Fri sejlads" list.
 - `icon` is any `KOS.UI.iconSvg` name: `sail boat rib trophy flag buoy compass anchor knot school rules quiz
   life whistle timer star trash wind map clock gauge medal ...` (see `ICONS` in `js/ui/ui.js`).

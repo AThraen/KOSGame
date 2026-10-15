@@ -1,11 +1,14 @@
 // KØS SEJL — js/core/boatfacts.js
 // KOS.BoatFacts: researched facts for the Bådkort (boat card), per boat id. Pure data.
+//   Club fields: weight {twoPerson, total, rows:[{label,sail,core,ext}]} (KØS weight windows; edge = ext +-2.5), sails [{label,m2}] (club rigs shown on the card),
+//   gennaker (m2), rigs{da,en}, sailNoteClub (true = show "klubbens tal"), next [{id,name,why{da,en}}], nextIntro{da,en}.
 //   KOS.BoatFacts.get(id) -> { designer, year, country{da,en}, status{da,en}, sailor{da,en}, hull (kg), facts:[{da,en}], teaser:[idx], club:[{da,en}] }
 // Every fact is sourced in docs/reference/boat-facts.md (not shown in the game). Fields that could not be verified are left out.
 // `club` holds ONLY what SPEC.md "Club facts" says about the KØS boats; no club numbers are invented.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
   const f = (da, en) => ({ da, en });
+  const row = (label, sail, core, ext) => ({ label, sail, core, ext });
   const DATA = {
     opti: {
       designer: 'Clark Mills', year: 1947, country: f('USA', 'USA'), status: f('World Sailing-klasse', 'World Sailing class'),
@@ -17,7 +20,15 @@
         f('Axel Damgaard tog den med til Europa.', 'Axel Damgaard brought it to Europe.'),
       ],
       teaser: [0, 1],
+      weight: { rows: [row('Optimist', 3.3, [38, 48], [30, 50])] },
+      next: [
+        { id: 'tera', name: f('RS Tera Pro', 'RS Tera Pro'), why: f('Passer, når du vejer ca. 45–55 kg, og der sejler flere i den.', 'Fits when you weigh about 45–55 kg and others sail it too.') },
+        { id: 'ilca', name: f('ILCA 4', 'ILCA 4'), why: f('Passer ved ca. 50–57 kg.', 'Fits at about 50–57 kg.') },
+        { id: 'feva', name: f('RS Feva', 'RS Feva'), why: f('Sejles to og to, og passer ved ca. 45–52 kg pr. sejler.', 'Sailed in pairs, and fits at about 45–52 kg per sailor.') },
+      ],
       club: [
+        f('Optimisten er stadig KØS’ første båd til de yngste og den vigtigste introduktionsbåd.', 'The Optimist is still the first KØS boat for the youngest and the main introduction boat.'),
+        f('Halvsejl eller mastforhøjer giver mindre kraft på et skrog, du kender i forvejen. Det er en god start i hård vind.', 'A half sail or a mast raiser gives less power on a hull you already know. A good start in strong wind.'),
         f('KØS’ optimister er hvide med blåt mærke og blåt sejlnummer.', 'The KØS Optimists are white with a blue logo and a blue sail number.'),
         f('Mast, sejl og bom hører sammen. Ror og sværd lægger du i båden på land.', 'The mast, sail and boom go together. You put the rudder and board in the boat on land.'),
       ],
@@ -30,7 +41,14 @@
         f('Cockpittet tømmer sig selv, og sværdet flyder. Så er den nem at få op efter en kæntring.', 'The cockpit drains itself and the daggerboard floats. That makes it easy to recover after a capsize.'),
       ],
       teaser: [0, 1],
+      sails: [{ label: f('Sport', 'Sport'), m2: 3.7 }, { label: f('Pro', 'Pro'), m2: 4.8 }],
+      weight: { rows: [row('RS Tera Sport', 3.7, [38, 45], [34, 50]), row('RS Tera Pro', 4.8, [45, 55], [40, 60])] },
+      next: [
+        { id: 'ilca', name: f('ILCA 4', 'ILCA 4'), why: f('Passer, når du vejer ca. 50–57 kg.', 'Fits when you weigh about 50–57 kg.') },
+      ],
       club: [
+        f('KØS har Teraen som Sport og Pro. Pro har det største sejl.', 'KØS has the Tera as Sport and Pro. The Pro has the bigger sail.'),
+        f('Et stormsejl holder båden håndterbar, når vinden er over det normale.', 'A storm sail keeps the boat manageable when the wind is above normal.'),
         f('Mast og sejl sættes op sammen. Mellem turene ligger masten med sejlet rullet om i skuret.', 'The mast and sail are stepped together. Between sessions the mast with the sail rolled round it lives in the shed.'),
       ],
     },
@@ -43,7 +61,14 @@
         f('Der er plads til 1–3 sejlere, men 2 er bedst.', 'There is room for 1–3 sailors, but 2 is best.'),
       ],
       teaser: [1, 3],
+      sails: [{ label: null, m2: 6.4 }], sailNoteClub: true, gennaker: 7.0,
+      weight: { twoPerson: true, total: [85, 110], rows: [row('RS Feva', 6.4, [45, 52], [43, 55])] },
+      next: [
+        { id: '29er', name: f('29’er', '29er'), why: f('Passer ved ca. 58–64 kg pr. sejler.', 'Fits at about 58–64 kg per sailor.') },
+      ],
       club: [
+        f('Fevaen sejles altid med to sejlere.', 'The Feva is always sailed with two sailors.'),
+        f('Et stormsejl gør de første ture overskuelige.', 'A storm sail makes the first trips manageable.'),
         f('Masten, vanterne og bovsprydet bliver stående hele sæsonen.', 'The mast, shrouds and bowsprit stay up all season.'),
         f('KØS’ Feva har grå og lime-gule sejl og en gul gennaker.', 'The KØS Fevas have grey and lime-yellow sails and a yellow gennaker.'),
       ],
@@ -57,7 +82,13 @@
         f('I 2018 vandt den prisen "Best Daysailer" i bladet SAIL.', 'In 2018 it won "Best Daysailer" from SAIL magazine.'),
       ],
       teaser: [2, 3],
+      next: [
+        { id: 'opti', name: f('Optimist', 'Optimist'), why: f('Her sejler du helt selv. Zesten er båden, du sejler sammen med mor eller far.', 'There you sail all on your own. The Zest is the boat you sail with mum or dad.') },
+      ],
       club: [
+        f('Zesten er en introduktionsbåd: en stabil begynderjolle, som du kan sejle med eller uden fok.', 'The Zest is an introduction boat: a stable beginner dinghy you can sail with or without the jib.'),
+        f('Den bruges på holdene for mikrosejlere, hvor de yngste sejler sammen med en forælder. Det passer rigtig godt til Zesten.', 'It is used in the classes for micro-sailors (mikrosejlere), where the youngest kids sail together with a parent. The Zest is great for that.'),
+        f('Der er plads til en træner eller voksen og to børn.', 'There is room for a Træner or an adult and two kids.'),
         f('Fokken bindes på masten, før masten rejses. Mellem turene ligger masten med sejlet rullet om i skuret.', 'The jib is tied to the mast before the mast is raised. Between sessions the mast with the sail rolled round it lives in the shed.'),
       ],
     },
@@ -71,7 +102,15 @@
         f('Du kan skifte mellem tre størrelser rig: ILCA 7, 6 og 4.', 'You can pick between three rig sizes: ILCA 7, 6 and 4.'),
       ],
       teaser: [1, 2],
+      sails: [{ label: f('ILCA 4', 'ILCA 4'), m2: 4.7 }, { label: f('ILCA 6', 'ILCA 6'), m2: 5.76 }],
+      rigs: f('4 · 6 · 7 (KØS sejler 4 og 6)', '4 · 6 · 7 (KØS sails 4 and 6)'),
+      weight: { rows: [row('ILCA 4', 4.7, [50, 57], [45, 60]), row('ILCA 6', 5.76, [62, 72], [58, 75])] },
+      next: [
+        { id: 'ilca', name: f('ILCA 6', 'ILCA 6'), why: f('Samme båd med større rig, når du vejer ca. 62–72 kg.', 'The same boat with a bigger rig, when you weigh about 62–72 kg.') },
+        { id: '29er', name: f('29’er', '29er'), why: f('Passer ved ca. 58–64 kg pr. sejler, hvis du vil sejle to.', 'Fits at about 58–64 kg per sailor, if you want to sail as a pair.') },
+      ],
       club: [
+        f('KØS sejler ILCA 4 og ILCA 6, men ikke ILCA 7.', 'KØS sails the ILCA 4 and ILCA 6, but not the ILCA 7.'),
         f('KØS’ ILCA’er er hvide med rødt ILCA-logo.', 'The KØS ILCAs are white with a red ILCA logo.'),
       ],
     },
@@ -84,6 +123,11 @@
         f('Der er cirka 7.000 29’ere i verden.', 'There are about 7,000 29ers registered around the world.'),
       ],
       teaser: [1, 2],
+      sails: [{ label: null, m2: 10.8 }], sailNoteClub: true,
+      weight: { twoPerson: true, total: [110, 135], rows: [row('29er', 10.8, [58, 64], [55, 68])] },
+      next: [
+        { id: 'hboat', name: f('H-båd', 'H-boat'), why: f('En køl-båd med tre om bord.', 'A keelboat with three aboard.') },
+      ],
       club: [
         f('KØS’ 29’ere har hvidt skrog, orange-røde sejlkanter og en lilla gennaker.', 'The KØS 29ers have a white hull, red-orange sail tape and a purple gennaker.'),
         f('Vinger, mast, trapez, bom og bovspryd er en del af båden.', 'The wings, mast, trapeze, boom and bowsprit are part of the boat.'),
