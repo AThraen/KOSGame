@@ -73,7 +73,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `leave` | none | graceful |
 | `resume` | `code, id, key` | reconnect (4.7) |
 
-`Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..16, gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..60 }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
+`Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..16, gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..180, pen:bool (penalty turns), help:'locked'|'free' }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
 
 ### 3.2 Server to client
 | t | fields |
@@ -229,7 +229,7 @@ Strings live in `lobby.js` via `KOS.I18n.add`, prefix `live.`, both languages fo
 Result titles/message `live.res.title1..N`, `live.res.msg` follow the `race.res.*` wording. The trainer (`KOS.UI.coach`) speaks the unavailable/closed messages. No raw error codes or stack traces are shown. No endless spinners: every wait has a timeout that resolves to one of these states.
 
 ## 9. Limits (summary)
-Code 4 chars/24-char alphabet; name <= 16; players per room default 12, hard 24; rooms hard 40; frame <= 2048 B (`st` <= 512); `st` 10 Hz (server tolerates 14/s); countdown 8-60 s (default 20); race max 1800 s; reconnect 15 s client / 20 s server; results kept 60 s; connect timeout 4 s; status cache 2 min; interpolation delay 100-150 ms, extrapolation <= 250 ms.
+Code 4 chars/24-char alphabet; name <= 16; players per room default 12, hard 24; rooms hard 40; frame <= 2048 B (`st` <= 512); `st` 10 Hz (server tolerates 14/s); countdown 8-180 s (default 20; lobby offers 20 s, 1 min, 3 min); race max 1800 s; reconnect 15 s client / 20 s server; results kept 60 s; connect timeout 4 s; status cache 2 min; interpolation delay 100-150 ms, extrapolation <= 250 ms.
 
 ## 10. Test plan per step (steps = commits in order)
 Every step ends with `node tools/run-tests.js` green; steps marked (U) also run `node tools/run-tests.js smoke mobile i18n`.

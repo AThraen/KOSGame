@@ -35,6 +35,7 @@
 <link rel="stylesheet" href="css/game.css">
 <link rel="stylesheet" href="css/controls.css">
 <link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/live.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="css/modes/sail.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="css/modes/school.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="css/modes/race.css" media="print" onload="this.media='all'">
@@ -63,6 +64,7 @@
   <section id="screen-garage" class="screen" hidden></section>
   <section id="screen-boatcard" class="screen" hidden></section>
   <section id="screen-credits" class="screen" hidden></section>
+  <section id="screen-live" class="screen" hidden></section>
 </div>
 <div id="sr-live" class="sr-only" role="status" aria-live="polite"></div>
 <div id="toasts"></div>
@@ -96,6 +98,7 @@
 <script src="js/ui/boatcard.js"></script>
 <script src="js/ui/track.js"></script>
 <script src="js/ui/app.js"></script>
+<script src="js/net/mpstatus.js"></script>
 <script src="js/modes/sail.js" defer></script>
 <script src="js/modes/school.js" defer></script>
 <script src="js/modes/race.js" defer></script>

@@ -657,11 +657,14 @@
     sec.innerHTML = header(t('area.' + area + '.name'), esc(t('area.' + area + '.desc')),
       '<div class="pill"><span class="pill-ico star-ico">' + ico('star') + '</span><b>' + st.have + '</b><span class="pill-dim">/ ' + st.max + '</span></div>') +
       '<div class="scroll"><div class="grid act-grid">' +
+      (area === 'race' ? liveCard() : '') +
       (list.length ? list.map((a, i) => actCard(a, i)).join('') :
         '<div class="empty glass"><div class="empty-ico">' + ico('sail') + '</div><p>' + esc(t('app.area.empty')) + '</p></div>') +
       '</div></div>';
+    if (area === 'race') liveEntryRefresh();
     bind(sec, {
       back: () => { sfx('click'); App.back(); },
+      live: () => { sfx('click'); if (KOS.MPStatus) KOS.MPStatus.open(); },
       act: b => {
         const id = b.getAttribute('data-id');
         if (!KOS.Activities.isUnlocked(id)) {
@@ -676,6 +679,34 @@
         App.play(id);
       },
     });
+  };
+  // Live-kapsejlads entry (docs/specs/live-race.md 6.2): shown only when the lazily read status says on/closed.
+  // Nothing here touches the network at startup; the race area asks the status file once (cached 2 min).
+  function liveCard() {
+    const M = KOS.MPStatus;
+    if (!M || !M.visible()) return '';
+    const st = M.cached(), closed = st.mode === 'closed';
+    return '<button type="button" class="card act-card live-card' + (closed ? ' is-closed' : '') + '" data-act="live" style="--i:0">' +
+      '<span class="act-ico">' + ico('globe') + '</span>' +
+      '<span class="act-txt"><b>' + esc(t('live.title')) + '</b><small>' + esc(closed && st.message ? st.message : t('live.card.desc')) + '</small></span>' +
+      '<span class="act-side">' + (closed ? '<span class="lock-tag">' + ico('lock') + esc(t('live.card.closedTag')) + '</span>' : '') + '</span></button>';
+  }
+  function liveEntryRefresh() {
+    const M = KOS.MPStatus;
+    if (!M || KOS.Config.liveRace === false) return;
+    const before = M.visible() ? (M.cached() || {}).mode : 'hidden';
+    M.refresh().then(() => {
+      const now = M.visible() ? (M.cached() || {}).mode : 'hidden';
+      if (now !== before && App.cur === 'area' && App.params.area === 'race') App.refresh();
+    });
+  }
+  // for js/net/lobby.js (lazy): register an extra screen and reuse the shell helpers
+  App.registerScreen = function (name, render, onLeave) { renderers[name] = render; if (onLeave) leave[name] = onLeave; };
+  App.kit = { header, bind, esc, ico, sfx, boatGet, boatThumb, profileAvatar };
+  // the sailing classes this player may host a live race with (the same gate as the boat picker; everything with unlockAll)
+  App.liveBoats = function () {
+    const BP = KOS.BoatPick;
+    return BP.offered(BP.SAIL_BOATS, { def: favBoat(), unlockAll: !!settings().unlockAll, sailed: sailedBoat });
   };
   function lockText(id) {
     const r = KOS.Activities.lockReason(id) || {};
