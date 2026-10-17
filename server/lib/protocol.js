@@ -8,7 +8,7 @@ const COLORS = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4'
 
 function clean(s, max) {
   if (typeof s !== 'string') return '';
-  return s.replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g, '').trim().slice(0, max);
+  return s.replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '').trim().slice(0, max);
 }
 function normCode(s) {
   if (typeof s !== 'string') return null;
