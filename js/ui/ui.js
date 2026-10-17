@@ -642,7 +642,7 @@
     result = result || {};
     extra = extra || {};
     const st = Math.max(0, Math.min(3, Math.round(+result.stars || 0)));
-    const win = result.success !== false && st > 0;
+    const win = result.live ? !!result.win : result.success !== false && st > 0; // live races: no stars, the place decides the mood
     // on-land mini-games (rigging, knots, quiz, capsize drill) get headings that don't talk about "sailing"
     const mode = activity && KOS.Modes && KOS.Modes.get(activity.mode);
     const land = !!(mode && mode.kind === 'dom');
@@ -653,6 +653,7 @@
     let starsHtml = '<div class="results-stars">';
     for (let i = 0; i < 3; i++) starsHtml += '<span class="rstar ' + (i < st ? 'on' : 'off') + '" style="--i:' + i + '">' + starSvg(i < st) + '</span>';
     starsHtml += '</div>';
+    if (result.live) starsHtml = '';
     const statRows = [];
     if (result.score !== undefined) statRows.push(['score', t('common.score'), '<b class="count" data-to="' + Math.round(+result.score || 0) + '">0</b>']);
     if (result.timeMs) statRows.push(['clock', t('common.time'), '<b>' + fmtTime(result.timeMs) + '</b>']);

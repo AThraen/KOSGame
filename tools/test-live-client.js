@@ -178,11 +178,10 @@ async function main() {
 
   await clickAct(host.page, 'start');
   const all = [host.page, c1.page, c2.page];
-  for (const p of all) await waitView(p, 'starting');
-  for (const p of all) await p.waitForFunction(() => /Starter om \d+/.test(document.getElementById('live-count').textContent), null, { timeout: 8000 });
-  ok(true, 'countdown "Starter om N" arrives on host and both clients');
-  const ns = await Promise.all(all.map(p => p.evaluate(() => Number(document.getElementById('live-count').getAttribute('data-n')))));
-  ok(Math.max.apply(null, ns) - Math.min.apply(null, ns) <= 1, 'the shared start clock agrees within a second (' + ns.join(',') + ')');
+  for (const p of all) await p.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, { timeout: 10000 });
+  ok((await Promise.all(all.map(p => p.evaluate(() => KOS.App.run.act.liveRace === true && KOS.App.run.inst.state.clock < 0)))).every(Boolean), 'start builds the live race on host and both clients, waiting for the gun');
+  const ns = await Promise.all(all.map(p => p.evaluate(() => KOS.App.run.inst.state.clock)));
+  ok(Math.max.apply(null, ns) - Math.min.apply(null, ns) <= 1, 'the shared start clock agrees within a second (' + ns.map(x => x.toFixed(1)).join(',') + ')');
   const errs = host.page.errs.concat(c1.page.errs, c2.page.errs);
   ok(errs.length === 0, 'no errors on any page (' + errs.join(' | ') + ')');
   await host.ctx.close(); await c1.ctx.close(); await c2.ctx.close();

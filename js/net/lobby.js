@@ -29,7 +29,9 @@
     dir: { N: 'N', NE: 'NØ', E: 'Ø', SE: 'SØ', S: 'S', SW: 'SV', W: 'V', NW: 'NV' },
     joinLink: 'Link', codeLabel: 'Kode (4 tegn)', joinGo: 'Deltag i løbet', yourName: 'Dit navn i løbet', waiting: 'Venter på sejlere…',
     scan: 'Scan med mobilen for at deltage', needBoats: 'Mindst {n} sejlere skal med.', connecting: 'Opretter forbindelse…',
-    res: { title: 'Resultat', unofficial: 'Uofficielt resultat (forbindelsen røg)', wait: 'Venter på de andre…', place: 'Plads', dnf: 'Ikke i mål', done: 'Færdig' },
+    res: { title: 'Resultat', unofficial: 'Uofficielt resultat (forbindelsen røg)', wait: 'Venter på de andre…', place: 'Plads', dnf: 'Ikke i mål', done: 'Færdig',
+      title1: 'Du vandt løbet!', title2: '2. plads – flot!', title3: '3. plads – på podiet!', titleN: '{place}. plads!',
+      msg: 'Du kom i mål som nr. {place} af {of} på {time}.', dnfMsg: 'Du nåede ikke i mål denne gang.' },
     race: 'Løbet starter – sejladsen kommer i næste version.',
   } });
   KOS.I18n.add('en', { live: {
@@ -50,7 +52,9 @@
     dir: { N: 'N', NE: 'NE', E: 'E', SE: 'SE', S: 'S', SW: 'SW', W: 'W', NW: 'NW' },
     joinLink: 'Link', codeLabel: 'Code (4 characters)', joinGo: 'Join the race', yourName: 'Your name in the race', waiting: 'Waiting for sailors…',
     scan: 'Scan with your phone to join', needBoats: 'At least {n} sailors are needed.', connecting: 'Connecting…',
-    res: { title: 'Result', unofficial: 'Unofficial result (connection lost)', wait: 'Waiting for the others…', place: 'Place', dnf: 'Did not finish', done: 'Finished' },
+    res: { title: 'Result', unofficial: 'Unofficial result (connection lost)', wait: 'Waiting for the others…', place: 'Place', dnf: 'Did not finish', done: 'Finished',
+      title1: 'You won the race!', title2: '2nd place – great!', title3: '3rd place – on the podium!', titleN: 'Place {place}!',
+      msg: 'You finished {place} of {of} in {time}.', dnfMsg: 'You did not finish this time.' },
     race: 'The race is starting – the sailing itself arrives in the next version.',
   } });
 
@@ -118,10 +122,10 @@
     L.sess = sess;
     const on = (e, fn) => L.offs.push(sess.on(e, fn));
     on('room', room => { L.room = room; if (L.view === 'room') paint(); });
-    on('start', () => { L.room = sess.room || L.room; startCountdown(); });
-    on('res', rows => { L.results = rows; setView('results'); });
-    on('hostleft', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.hostLeft'), ['back']); });
-    on('kicked', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.kicked'), ['back']); });
+    on('start', () => { L.room = sess.room || L.room; launchRace(sess); });
+    on('res', rows => { L.results = rows; if (app().cur === 'live') setView('results'); }); // while racing, race.js shows the result itself
+    on('hostleft', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.hostLeft'), ['back']); leaveRaceScreen(); });
+    on('kicked', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.kicked'), ['back']); leaveRaceScreen(); });
     on('offline', () => { if (L.view === 'room' || L.view === 'starting') trainerMsg(t('live.unavailable'), ['retry', 'ai']); });
     on('reconnecting', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = false; });
     on('reconnected', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = true; });
@@ -169,6 +173,14 @@
       unavailable(false);
     });
   }
+  // the gun is T0 on the shared clock: build the race now (race.js waits for it); the session is handed over to the race
+  function launchRace(sess) {
+    L.handoff = true;
+    let ok = false;
+    try { ok = app().play('race.live', { force: true, live: KOS.MP.liveFacade(sess) }); } catch (e) { ok = false; }
+    if (!ok) { L.handoff = false; startCountdown(); }
+  }
+  function leaveRaceScreen() { if (app().cur === 'play') { L.handoff = false; app().show('live', {}, { replace: true }); } }
   function startCountdown() {
     L.view = 'starting'; paint();
     const tick = () => {

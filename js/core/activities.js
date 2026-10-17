@@ -74,7 +74,7 @@
     get(id) { return acts[id] || null; },
     // filter: undefined | function(a) | {area, mode, boat}
     list(filter) {
-      let all = Object.keys(acts).map(k => acts[k]);
+      let all = Object.keys(acts).map(k => acts[k]).filter(a => !a.liveRace); // live race entries are reachable by get(id) only (no stars, no lists)
       if (typeof filter === 'function') all = all.filter(filter);
       else if (filter && typeof filter === 'object') {
         all = all.filter(a => Object.keys(filter).every(k => filter[k] === undefined || a[k] === filter[k]));
@@ -119,7 +119,7 @@
       const list = Activities.byArea(area);
       return { have: list.reduce((n, a) => n + (source.stars(a.id) || 0), 0), max: list.length * 3, count: list.length };
     },
-    maxStars() { return Object.keys(acts).length * 3; },
+    maxStars() { return Object.keys(acts).filter(k => !acts[k].liveRace).length * 3; },
     setProgressSource(src) { source = Object.assign({}, source, src || {}); },
   };
   KOS.Activities = Activities;

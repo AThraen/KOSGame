@@ -209,6 +209,9 @@
     });
   });
   KOS.Activities.add(acts);
+  // the live race entry (docs/specs/live-race.md 5.1): in no list, no stars, no progress; started only by the lobby with host.live
+  KOS.Activities.add({ id: 'race.live', mode: 'race', area: 'race', liveRace: true, pickHidden: true, order: 999, icon: 'flag',
+    title: { da: 'Live-kapsejlads', en: 'Live race' }, desc: { da: '', en: '' }, params: {} });
 
   // ======================================================================== helpers (pure)
   const NAMES = ['Freja', 'Oscar', 'Ida', 'Malthe', 'Alma', 'Noah', 'Clara', 'Viggo', 'Ellen', 'Karl', 'Asta', 'Johan', 'Sofie', 'Lukas', 'Ella', 'Storm', 'Agnes', 'Valdemar', 'Liva', 'Aksel', 'Silke', 'Bertram'];
@@ -222,6 +225,14 @@
   // shortened 5-4-1-0 sequence (sim seconds before the gun)
   const SEQ = { warn: 60, prep: 48, one: 12 };
   const PRE = 68; // the run starts this many seconds before the gun
+  // the room config (3.1) as race params: fleet 0 (the other boats are remote players), one race, no series
+  function liveParams(cfg) {
+    cfg = cfg || {};
+    const laps = Math.max(1, Math.min(3, Math.round(+cfg.laps) || 1));
+    return { venue: cfg.venue === 'bay' ? 'bay' : 'sound', course: cfg.course === 'tri' ? 'tri' : 'wl', laps, windDeg: +cfg.windDeg || 0, windKn: +cfg.windKn || 8,
+      gust: +cfg.gust || 0, shift: +cfg.shift || 0, bias: 0, targetS: 150 + (laps - 1) * 70, seed: Math.round(+cfg.seed) || 1,
+      fleet: 0, series: 'live', race: 1, races: 1 };
+  }
 
   function flagSvg(kind, cls) {
     const box = (inner, bg) => '<svg viewBox="0 0 36 26" class="race-flagsvg" aria-hidden="true"><rect x="0.5" y="0.5" width="35" height="25" rx="2" fill="' + bg + '" stroke="rgba(0,0,0,.35)"/>' + inner + '</svg>';
@@ -253,7 +264,7 @@
       '</th><th class="l">' + esc(t('race.res.boat')) + '</th><th>' + esc(t('race.res.time')) + '</th><th>' + esc(t('race.res.pts')) + '</th></tr></thead><tbody>';
     tb.rows.forEach(r => {
       h += '<tr class="' + (r.me ? 'me' : '') + (r.place <= 3 ? ' pod p' + r.place : '') + '"><td><b class="race-medal">' + r.place + '</b></td><td class="l"><i class="race-dot" style="background:' + esc(r.color) + '"></i>' +
-        esc(r.name) + ' <small>' + esc(r.sailNo) + '</small>' + (r.ocs ? ' <em class="race-x">X</em>' : '') + '</td><td>' + (r.timeMs == null ? '<small>' + esc(t('race.res.still')) + '</small>' : (r.est ? '<small>' + esc(t('race.res.est')) + '</small>' : '') + esc(KOS.UI.fmtTime(r.timeMs))) +
+        esc(r.name) + ' <small>' + esc(r.sailNo) + '</small>' + (r.ocs ? ' <em class="race-x">X</em>' : '') + '</td><td>' + (r.dnf ? esc(t('live.res.dnf')) : r.timeMs == null ? '<small>' + esc(t('race.res.still')) + '</small>' : (r.est ? '<small>' + esc(t('race.res.est')) + '</small>' : '') + esc(KOS.UI.fmtTime(r.timeMs))) +
         '</td><td>' + r.pts + '</td></tr>';
     });
     h += '</tbody></table>';
@@ -268,18 +279,22 @@
   KOS.Modes.register('race', { kind: 'sea', create(host, activity) { return createRace(host, activity); } });
 
   function createRace(host, activity) {
+    const LIVE = host.live || null; // live race (docs/specs/live-race.md 5): a thin session facade; every live branch sits behind it
+    const WATCH = !!(LIVE && LIVE.role === 'watch'); // "Kun vært": big-screen overview, no own boat
+    const MPS = LIVE ? KOS.MPState : null;
     const P = Object.assign({ series: 'opti', race: 1, races: 1, venue: 'sound', course: 'wl', laps: 1, fleet: 5, windDeg: 220, windKn: 8,
-      gust: 0.4, shift: 0.3, bias: 0, targetS: 160, seed: 7 }, activity.params || {});
-    const assist = host.assist || 'easy';
+      gust: 0.4, shift: 0.3, bias: 0, targetS: 160, seed: 7 }, activity.params || {}, LIVE ? liveParams(LIVE.cfg) : {});
+    const assist = LIVE && LIVE.cfg.help === 'locked' ? 'normal' : (host.assist || 'easy');
     const venue = KOS.World.get(P.venue || 'sound');
     const rand = U.rng((P.seed || 1) * 7919 + 3);
-    const clsId = KOS.Boats.get(activity.boat || host.boat) ? (activity.boat || host.boat) : 'opti';
+    const wantBoat = LIVE ? LIVE.cfg.boat : (activity.boat || host.boat);
+    const clsId = KOS.Boats.get(wantBoat) ? wantBoat : 'opti';
     const cls = KOS.Boats.get(clsId);
     const L = cls.length;
     const profile = host.profile || {};
     const wd = U.rad(P.windDeg);
     const S = {
-      phase: 'pre', clock: -PRE, raceT: 0, hudT: 0, ambT: 0, rankT: 0, tips: {}, tipT: -99, introT: 0,
+      phase: 'pre', clock: LIVE ? -LIVE.countdownS : -PRE, raceT: 0, hudT: 0, ambT: 0, rankT: 0, tips: {}, tipT: -99, introT: 0,
       sig: {}, flags: { cls: false, P: false, X: false }, xT: 0, ff: false, fin: [], finishT: -1, result: null,
       pen: null, penServed: 0, penOwedEnd: 0, fouls: 0, cool: {}, place: 0, lastPlace: 0, topKn: 0, startQ: null,
       shiftRef: null, shiftT: 0, gustOn: false, laylines: assist === 'easy', boardT: 0, waitT: 0, done: false,
@@ -287,7 +302,10 @@
 
     // ---------------------------------------------------------------- course geometry
     const up = U.vec(wd), right = U.vec(wd + Math.PI / 2);
-    const nBoats = P.fleet + 1;
+    const nBoats = LIVE ? Math.max(1, LIVE.grid.length) : P.fleet + 1;
+    // live: the signal sequence is compressed to the room's countdown, the gun stays at clock 0 (spec 5.2)
+    const KS = LIVE ? LIVE.countdownS / PRE : 1;
+    const SQ = { warn: SEQ.warn * KS, prep: SEQ.prep * KS, one: SEQ.one * KS };
     const lineLen = Math.max(28, 1.9 * L * nBoats + 14);
     // beat length: scale so that a good boat sails the course in about targetS seconds
     // mark spots in (u = upwind, r = to the right) metres from the line centre. The leeward marks sit off the pin end,
@@ -405,12 +423,14 @@
       const u = -Math.max(22, 7 * L) - (i % 2) * Math.max(8, 2.5 * L);
       return at(u, r);
     };
-    const pStart = startRow(Math.floor(nBoats / 2));
+    const mySlot = LIVE ? Math.max(0, LIVE.grid.findIndex(g => g.id === LIVE.myId)) : Math.floor(nBoats / 2);
+    const myGrid = LIVE ? LIVE.grid.find(g => g.id === LIVE.myId) : null;
+    const pStart = startRow(mySlot);
     const startSpeed = U.ms(cls.polar(Math.PI / 2, P.windKn)) * 0.5;
     const me = KOS.Physics.createBoat(clsId, { x: pStart.x, y: pStart.y, heading: U.wrapPi(wd - Math.PI / 2 - 0.2), speed: startSpeed, isPlayer: true,
-      sailNo: 'DEN ' + (profile.sailNo || 1), name: profile.name || t('race.hud.you'), colors: profile.boatColor ? { hull: profile.boatColor } : undefined });
+      sailNo: 'DEN ' + (profile.sailNo || 1), name: myGrid ? myGrid.name : profile.name || t('race.hud.you'), colors: myGrid && myGrid.color ? { hull: myGrid.color } : profile.boatColor ? { hull: profile.boatColor } : undefined });
     me.noTag = true;
-    boats.push(me);
+    if (WATCH) me.hidden = true; else boats.push(me); // the watching host has no boat; me stays as an unseen camera anchor
     const ai = [];
     let slot = 0;
     for (let i = 0; i < P.fleet; i++) {
@@ -426,15 +446,29 @@
       b.pace = KOS.AI.paceFor(skill, fs);
       boats.push(b); ai.push(b);
     }
+    // the other players: remote boats, posed from the interpolation buffer, never stepped by our physics (spec 5.2)
+    const remotes = [], byRid = {};
+    if (LIVE) {
+      for (const g of LIVE.grid) {
+        if (g.id === LIVE.myId) continue;
+        const p = startRow(g.slot);
+        const b = KOS.Physics.createBoat(clsId, { x: p.x, y: p.y, heading: U.wrapPi(wd + (g.slot % 2 ? 1 : -1) * (Math.PI / 2 + 0.2)), speed: startSpeed,
+          sailNo: 'DEN ' + (100 + g.id), name: g.name, colors: { hull: g.color || HULLS[g.id % HULLS.length] } });
+        b.short = g.name; b.remote = true; b.rid = g.id; b.buf = new MPS.Buffer();
+        boats.push(b); remotes.push(b); byRid[g.id] = b;
+      }
+    }
     // per-boat race tracker
-    boats.forEach(b => { b.rc = { leg: 0, wind: 0, minD: 1e9, prevB: null, ocs: false, started: false, finT: null, place: 0, rem: 0, pen: null, wrongTip: false, startT: null }; });
+    const mkRc = () => ({ leg: 0, wind: 0, minD: 1e9, prevB: null, ocs: false, started: false, finT: null, place: 0, rem: 0, pen: null, wrongTip: false, startT: null });
+    boats.forEach(b => { b.rc = mkRc(); });
+    if (WATCH) me.rc = mkRc();
     // AI course = our sequence (index for index), the start line first; plan.leg keeps each helm in step with our tracker
     const lp = f => ({ x: U.lerp(pin.x, com.x, f), y: U.lerp(pin.y, com.y, f) });
     // each boat aims at its own bit of the finish line, so the fleet doesn't pile up at the middle
     const courseFor = f => seq.map(it => it.type === 'mark' ? { x: it.m.x, y: it.m.y, round: 'port' } : it.type === 'finish' ? { line: [lp(Math.max(0.05, f - 0.12)), lp(Math.min(0.95, f + 0.12))] } : { line: [pin, com] });
     let park = at(-Math.max(30, 8 * L), lineLen / 2 + Math.max(25, 5 * L)); // where finished boats wait (below the committee boat)
     if (!okSpot(park.x, park.y, 8)) park = at(-Math.max(30, 8 * L), -lineLen / 2 - Math.max(25, 5 * L));
-    const planFor = i => ({ course: courseFor(0.2 + 0.6 * ((i * 0.618 + 0.3) % 1)), start: { line: [pin, com], t0: PRE }, marks, mode: 'race', leg: 0 });
+    const planFor = i => ({ course: courseFor(0.2 + 0.6 * ((i * 0.618 + 0.3) % 1)), start: { line: [pin, com], t0: LIVE ? LIVE.countdownS : PRE }, marks, mode: 'race', leg: 0 });
     boats.forEach((b, i) => { b.plan = planFor(i); });
     const parkPlan = { target: { x: park.x, y: park.y, r: 6 }, leg: 0 };
     let controls = KOS.Physics.controls();
@@ -443,15 +477,16 @@
     const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
 
     // ---------------------------------------------------------------- scene, input, HUD
-    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: WATCH ? null : me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
       showWindArrow: true, showNoGo: false, showLaylines: false });
     const pathLine = { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, kind: 'path' };
     scene.addOverlay(drawWorld);
     // under tilt the committee boat is a depth-sorted scene prop (its mast must not paint over boats south of it); flat keeps the overlay call
     scene.props.push({ x: com.x, y: com.y, draw(ctx, sc, tl) { if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: sc.t, windDir: wind.dir, flags: committeeFlags(), tilt: tl }); } });
-    scene.addOverlay(drawTargetArrow, { screen: true });
+    if (!WATCH) scene.addOverlay(drawTargetArrow, { screen: true });
     let userZoom = 1;
     function applyZoom() {
+      if (WATCH) return;
       const small = Math.min(scene.w, scene.h) < 600;
       const span = (44 + 5.5 * L) * (small ? 0.85 : 1);
       scene.setZoom(1);
@@ -465,25 +500,26 @@
 
     function fitCourse() { scene.resize(); if (scene.w > 160 && scene.h > 160) scene.fit(cb, Math.min(60, scene.w * 0.12)); }
 
-    const extra = [{ id: 'ff', icon: 'forward', labelKey: 'race.btn.ff', key: 'G' }, { id: 'layl', icon: 'compass', labelKey: 'race.btn.layl', key: 'L' }];
+    const extra = [{ id: 'ff', icon: 'forward', labelKey: 'race.btn.ff', key: 'G' }, { id: 'layl', icon: 'compass', labelKey: 'race.btn.layl', key: 'L' }].filter(x => !LIVE || x.id !== 'ff'); // no fast-forward on a shared clock
     if (assist !== 'easy') extra.push({ id: 'turn', icon: 'turn', labelKey: 'input.turn', key: 'T' });
-    const ctrl = KOS.Input.attach(host.layer, Object.assign({
+    const NOCTRL = { on() {}, emit() {}, highlight() {}, detach() {}, setSheet() {}, setIdealSheet() {}, state: {} };
+    const ctrl = WATCH ? NOCTRL : KOS.Input.attach(host.layer, Object.assign({
       layout: 'sail', spinnaker: cls.hasSpinnaker !== 'none', spinnakerKind: cls.hasSpinnaker === 'asym' ? 'asym' : 'spi',
       hike: assist !== 'easy', hikeKeel: !!cls.keel, autoTrim: controls.autoTrim, pauseButton: false, extraButtons: extra,
     }, KOS.SailAids.inputOpts(cls, assist))); // + daggerboard button / jib slider on Normal/Pro
-    const aids = KOS.SailAids.create({ ctrl, boat: me, assist, coach: txt => say(txt) });
-    ctrl.on('ff', () => { if (S.phase === 'pre' && S.clock < -14) { S.ff = !S.ff; sfx('whoosh', { vol: 0.5 }); ctrl.highlight('ff', S.ff); } });
+    const aids = WATCH ? { apply() {}, tick() {}, keys() { return ''; } } : KOS.SailAids.create({ ctrl, boat: me, assist, coach: txt => say(txt) });
+    ctrl.on('ff', () => { if (!LIVE && S.phase === 'pre' && S.clock < -14) { S.ff = !S.ff; sfx('whoosh', { vol: 0.5 }); ctrl.highlight('ff', S.ff); } });
     ctrl.on('layl', () => { S.laylines = !S.laylines; sfx('rigClick'); ctrl.highlight('layl', S.laylines); if (S.laylines) tip('laylines'); });
     ctrl.on('turn', () => { if (S.pen) { S.pen.auto = true; sfx('tap'); } });
     ctrl.highlight('layl', S.laylines);
     host.layer.classList.add('race-layer');
     // portrait phones: spol frem / laylines live in the ⋯ menu (css hides the round buttons there); 'turn' stays on screen while a penalty is owed
     host.menuItems = [
-      { id: 'ff', icon: 'forward', labelKey: 'race.btn.ff', show: () => S.phase === 'pre' && S.clock < -14, on: () => S.ff, run: () => ctrl.emit('ff') },
+      { id: 'ff', icon: 'forward', labelKey: 'race.btn.ff', show: () => !LIVE && S.phase === 'pre' && S.clock < -14, on: () => S.ff, run: () => ctrl.emit('ff') },
       { id: 'layl', icon: 'compass', labelKey: 'race.btn.layl', on: () => S.laylines, run: () => ctrl.emit('layl') },
     ];
 
-    const hud = KOS.UI.hud(host.layer, ['wind', 'speed', 'timer', 'place']);
+    const hud = KOS.UI.hud(host.layer, WATCH ? ['wind', 'timer'] : ['wind', 'speed', 'timer', 'place']);
     const panel = document.createElement('div');
     panel.className = 'race-panel glass';
     panel.addEventListener('click', () => panel.classList.toggle('rp-open')); // portrait phones: the one-line chip expands to the full panel (css)
@@ -530,9 +566,9 @@
     // ==================================================================== start sequence
     function signals() {
       const T = -S.clock; // seconds to the gun
-      if (!S.sig.warn && T <= SEQ.warn) { S.sig.warn = true; S.flags.cls = true; sfx('horn'); say(t('race.sig.warn')); pulseFlags(); }
-      if (!S.sig.prep && T <= SEQ.prep) { S.sig.prep = true; S.flags.P = true; sfx('horn'); say(t('race.sig.prep')); pulseFlags(); setTimeout(() => biasTip(), 6500); }
-      if (!S.sig.one && T <= SEQ.one) { S.sig.one = true; S.flags.P = false; sfx('hornLong'); say(t('race.sig.one')); pulseFlags(); if (S.ff) { S.ff = false; ctrl.highlight('ff', false); } }
+      if (!S.sig.warn && T <= SQ.warn) { S.sig.warn = true; S.flags.cls = true; sfx('horn'); say(t('race.sig.warn')); pulseFlags(); }
+      if (!S.sig.prep && T <= SQ.prep) { S.sig.prep = true; S.flags.P = true; sfx('horn'); say(t('race.sig.prep')); pulseFlags(); setTimeout(() => biasTip(), 6500); }
+      if (!S.sig.one && T <= SQ.one) { S.sig.one = true; S.flags.P = false; sfx('hornLong'); say(t('race.sig.one')); pulseFlags(); if (S.ff) { S.ff = false; ctrl.highlight('ff', false); } }
       if (S.sig.one && T <= 5 && T > 0) { const n = Math.ceil(T); if (S.beep !== n) { S.beep = n; sfx('countdown', { pitch: 1 + (5 - n) * 0.05 }); } }
       if (S.ff && T <= 15) { S.ff = false; ctrl.highlight('ff', false); }
       if (T <= 0) gun();
@@ -546,8 +582,10 @@
       S.phase = 'race'; S.flags.cls = false; S.ff = false;
       host.layer.classList.add('race-go');
       sfx('horn', { vol: 1 });
+      if (WATCH) { pulseFlags(); return; }
       let anyOcs = false;
       for (const b of boats) {
+        if (b.remote) continue; // remote boats report their own start (state flags)
         const rc = b.rc;
         let s;
         if (b === me) { const f = U.vec(b.heading, L / 2); s = sOf(b.x + f.x, b.y + f.y); rc.ocs = s > 0.1; }
@@ -625,15 +663,20 @@
       if (seq[me.rc.leg] && seq[me.rc.leg].type === 'finish') { tip('lastLeg', true); }
       else if (legKind(me.rc.leg) === 'beat' && !S.laylines) tip('laylines');
     }
-    function finished(b) {
+    function finished(b, ms) {
       const rc = b.rc;
-      rc.finT = S.raceT;
+      rc.finT = ms != null ? ms / 1000 : S.raceT;
+      if (LIVE && b === me) { // the official time carries +20 s per penalty turn still owed (spec 5.2 no. 6)
+        const owed = S.pen ? Math.ceil((S.pen.need - Math.abs(S.pen.acc)) / TAU - 0.01) : 0;
+        rc.finT += Math.max(0, owed) * 20;
+        if (!S.unofficial) LIVE.send({ t: 'fin', ms: Math.round(rc.finT * 1000) });
+      }
       S.fin.push(b);
       const place = S.fin.length;
       rc.place = place;
       if (b === me) playerFinished(place);
       else {
-        const near = U.dist(b, me) < 150;
+        const near = !WATCH && U.dist(b, me) < 150;
         sfx('hornShort', { vol: near ? 0.5 : 0.2 });
         if (near) floatText(place + '.', '#ffffff', b.x, b.y - 2, 18);
       }
@@ -689,7 +732,7 @@
         sfx('whistle');
         const title = rule === 'R31' ? t('race.rule.R31') : KOS.Rules.ruleName(rule);
         const why = rule === 'R31' ? t('race.rule.R31text') : t(f.reasonKey, f.reasonVars || {});
-        if (assist === 'easy') {
+        if (assist === 'easy' || (LIVE && !LIVE.cfg.pen)) { // live: the host can switch the penalty turns off
           showCard('warn', t('race.pen.warn') + ' · ' + title, null);
           say(why + ' ' + t('race.pen.easy'), 8000, 'oops');
           return;
@@ -756,7 +799,7 @@
     function rank() {
       for (const b of boats) {
         const rc = b.rc;
-        if (rc.finT != null) { rc.rem = -1e6 + rc.place; continue; }
+        if (rc.finT != null) { rc.rem = LIVE ? -1e6 + rc.finT : -1e6 + rc.place; continue; }
         const it = seq[rc.leg];
         let d;
         if (it.type === 'start') d = U.dist(b, mid) + (rc.ocs ? 50 : 0);
@@ -764,7 +807,7 @@
         rc.rem = d + remAfter[rc.leg] + (rc.pen ? (rc.pen.need - Math.abs(rc.pen.acc)) / TAU * 3 * L : 0);
       }
       const order = boats.slice().sort((a, b) => a.rc.rem - b.rc.rem);
-      order.forEach((b, i) => { if (b.rc.finT == null) b.rc.place = i + 1; });
+      order.forEach((b, i) => { if (LIVE || b.rc.finT == null) b.rc.place = i + 1; });
       return order;
     }
     let order = boats.slice();
@@ -804,24 +847,157 @@
       return el;
     }
     function start() {
-      introCard = buildIntroCard();
+      introCard = LIVE ? null : buildIntroCard(); // live: the lobby was the intro
+      if (WATCH) { board = document.createElement('div'); board.className = 'race-board rb-watch glass'; host.layer.appendChild(board); }
       fitCourse();
       if (host.settings && host.settings.music) { try { KOS.Audio.music('race'); } catch (e) { /* optional */ } }
       ambient();
       paintPanel(true);
     }
 
+    // ==================================================================== live race (docs/specs/live-race.md 5)
+    const REMOTE_CTL = KOS.Physics.controls();
+    const REMOTE_PEN = { need: TAU, acc: 0 }; // only shown (tag arrow, standings); never stepped
+    const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, rc: null };
+    const banner = LIVE ? document.createElement('div') : null;
+    if (banner) { banner.className = 'race-live-banner'; banner.hidden = true; banner.textContent = t('live.reconnecting'); host.layer.appendChild(banner); }
+    const liveOffs = [];
+    // sim steps still owed to the shared race clock (catch-up capped at 5 s of sim per frame)
+    function liveSteps() { return U.clamp(Math.round(((LIVE.serverNow() - LIVE.T0) / 1000 - S.clock) / KOS.DT), 0, 300); }
+    function onStates(arr) {
+      const nowS = LIVE.serverNow();
+      for (const a of arr || []) {
+        const s = MPS.unpackState(a);
+        if (!s || s.id === LIVE.myId) continue;
+        const b = byRid[s.id];
+        if (b) b.buf.add(s, nowS);
+      }
+    }
+    // pose every remote boat from its buffer, 100-150 ms behind the shared clock (spec 4.6). Our physics only animates sails and wake.
+    function applyRemotes(dt) {
+      const nowS = LIVE.serverNow();
+      for (const b of remotes) {
+        const rc = b.rc;
+        const s = b.buf.sample(nowS - b.buf.delay());
+        if (s) {
+          REMOTE_CTL.spinnaker = s.spinnaker; REMOTE_CTL.hike = s.hiking ? 0.8 : 0.2; REMOTE_CTL.autoTrim = true;
+          b.x = s.x; b.y = s.y; b.heading = s.hd; b.speed = s.sp;
+          KOS.Physics.step(b, REMOTE_CTL, env, dt);
+          b.x = s.x; b.y = s.y; b.heading = s.hd; b.speed = s.sp; b.heel = s.hl; b.capsized = s.capsized;
+          rc.ocs = s.ocs;
+          if (rc.finT == null && s.lg !== rc.leg && s.lg >= 0 && s.lg < seq.length) setLeg(b, s.lg);
+          rc.pen = s.penalty ? REMOTE_PEN : null;
+          b.lost = !S.unofficial && b.buf.isLost(nowS);
+          b.ghost = b.lost || s.frozen;
+        }
+        if (rc.finT != null) { const since = S.raceT - rc.finT; if (since > 22) b.hidden = true; else if (since > 14) b.ghost = true; }
+        if (S.unofficial) { b.ghost = true; if (env.t - S.offAt > 3 && rc.finT == null) b.hidden = true; }
+      }
+    }
+    // own state at 10 Hz from an accumulator, plus an immediate frame on capsize / penalty change / finish (spec 4.4)
+    function sendState(dt) {
+      if (WATCH || S.unofficial || S.clock < -2) return;
+      S.sendT = (S.sendT || 0) + dt;
+      const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0);
+      const changed = key !== S.sendKey;
+      if (S.sendT < 0.1 - 1e-6 && !changed) return;
+      S.sendT = 0; S.sendKey = key;
+      PK.x = me.x; PK.y = me.y; PK.heading = me.heading; PK.speed = me.speed; PK.heel = me.heel; PK.spinnaker = me.spinnaker; PK.capsized = me.capsized;
+      PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.rc = me.rc;
+      LIVE.send({ t: 'st', s: MPS.packState(PK, LIVE.myId, S.seq = (S.seq || 0) + 1) });
+    }
+    // the connection is gone for good: carry on on our own clock, the result is marked unofficial (spec 5.6)
+    function goOffline() {
+      if (S.unofficial) return;
+      S.unofficial = true; S.offAt = env.t;
+      if (banner) banner.hidden = true;
+    }
+    function liveRows() {
+      const res = S.liveRes;
+      if (res && !S.unofficial) { // the server's table is the official one
+        const colorOf = id => (id === LIVE.myId ? me : byRid[id] || me).colors.hull;
+        return res.map(r => ({ place: r.place, name: r.name, sailNo: '', color: colorOf(r.id), timeMs: r.ms != null ? r.ms : null, est: false, dnf: r.ms == null, pts: r.place, me: r.id === LIVE.myId, ocs: false, n: res.length }));
+      }
+      return tableRows();
+    }
+    function reqComplete() { // "Næste" in a live race: wait up to 4 s for the official table, then use what we know
+      if (LIVE && !S.unofficial && !S.liveRes) { S.nextReq = true; S.resT = 4; paintBoard(); } else complete();
+    }
+    function liveFinishTick(dt) {
+      S.waitT += dt;
+      if (S.nextReq && !S.liveRes) { if ((S.resT -= dt) <= 0) complete(); return; }
+      if (S.liveRes && (S.nextReq || S.waitT > 3)) complete();
+      else if (S.unofficial && S.waitT > 8) complete();
+    }
+    function completeLive() {
+      const rows = liveRows(), n = rows.length;
+      const mine = rows.find(r => r.me);
+      const myPlace = mine ? mine.place : n;
+      const timeS = me.rc.finT;
+      const stats = { place: myPlace + '/' + n };
+      stats['race.stat.start'] = t('race.startQ.' + (S.startQ || 'late'));
+      if (S.penServed) stats.penalties = S.penServed;
+      if (S.fouls) stats['race.stat.fouls'] = S.fouls;
+      stats.tacks = me.tacks;
+      stats['race.stat.top'] = +S.topKn.toFixed(1);
+      S.result = {
+        stars: 0, success: true, live: true, win: myPlace <= 3, unofficial: !!S.unofficial, timeMs: Math.round(timeS * 1000), stats,
+        titleKey: S.unofficial ? 'live.res.unofficial' : 'live.res.title' + (myPlace <= 3 ? myPlace : 'N'),
+        msgKey: 'live.res.msg', msgVars: { place: myPlace, of: n, time: KOS.UI.fmtTime(timeS * 1000) },
+        raceTable: { rows, series: S.unofficial ? t('live.res.unofficial') : null },
+      };
+      S.finishT = 0.6;
+    }
+    // "Kun vært": no boat, no input; the course overview and a leader board (spec 5.5)
+    function paintWatchBoard() {
+      if (!board) return;
+      const esc = KOS.UI.esc;
+      const res = S.liveRes && !S.unofficial ? S.liveRes : null;
+      let rows;
+      if (res) rows = res.map(r => ({ place: r.place, name: r.name, color: (byRid[r.id] || me).colors.hull, right: r.ms != null ? KOS.UI.fmtTime(r.ms) : t('live.res.dnf'), fin: true }));
+      else rows = rank().map(b => ({ place: b.rc.place, name: b.name, color: b.colors.hull,
+        right: b.rc.finT != null ? KOS.UI.fmtTime(b.rc.finT * 1000) : b.rc.ocs ? 'X' : (S.phase === 'pre' ? '' : Math.min(b.rc.leg, seq.length - 1) + '/' + (seq.length - 1)) + (b.rc.pen ? ' ↻' : ''), fin: b.rc.finT != null, lost: b.lost }));
+      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span></div><div class="rb-list">' +
+        rows.map(r => '<div class="rb-row' + (r.place <= 3 && r.fin ? ' pod p' + r.place : '') + (r.lost ? ' lost' : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span>' + esc(r.name) + '</span><em>' + esc(r.right) + '</em></div>').join('') + '</div>';
+      if (html !== paintWatchBoard.last) { board.innerHTML = html; paintWatchBoard.last = html; }
+    }
+    function updateWatch(dt) {
+      S.introT += dt;
+      const n = S.unofficial ? 1 : liveSteps();
+      for (let i = 0; i < n; i++) simStep(dt);
+      applyRemotes(dt);
+      for (const b of remotes) b.tag = (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + b.name + (b.rc.pen ? ' ↻' : '');
+      S.hudT -= dt;
+      if (S.hudT <= 0) {
+        S.hudT = 0.1;
+        hud.update({ wind: { dir: wind.dir, speed: wind.speed }, timer: (S.phase === 'pre' ? -S.clock : S.raceT) * 1000 });
+        paintPanel();
+      }
+      S.boardT -= dt;
+      if (S.boardT <= 0) { S.boardT = 0.5; paintWatchBoard(); }
+      if ((S.ambT -= dt) <= 0) { S.ambT = 0.5; ambient(); }
+    }
+    if (LIVE) {
+      liveOffs.push(LIVE.on('states', onStates));
+      liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
+      liveOffs.push(LIVE.on('res', rows => { S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); }));
+      liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
+      liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; }));
+      liveOffs.push(LIVE.on('offline', goOffline));
+    }
+
     function simStep(dt) {
       env.t += dt;
       S.clock += dt;
       wind.update(dt);
-      if ((S.windT = (S.windT || 0) + dt) > 2) { S.windT = 0; wind.recenter(me.x, me.y); }
+      if (!LIVE && (S.windT = (S.windT || 0) + dt) > 2) { S.windT = 0; wind.recenter(me.x, me.y); } // live: the wind field must stay identical on every client
       if (S.phase === 'pre') signals();
       if (S.phase !== 'pre') S.raceT += dt;
+      if (WATCH) { if ((S.rankT -= dt) <= 0) { S.rankT = 0.25; order = rank(); } return; }
       if (S.xT > 0 && (S.xT -= dt) <= 0) S.flags.X = false;
       if (S.flags.X && boats.every(b => !b.rc.ocs)) { S.xT = Math.min(S.xT, 3); }
       const pre = boats.map(b => ({ x: b.x, y: b.y }));
-      const live = boats.filter(b => !b.ghost && !b.hidden);
+      const live = boats.filter(b => !b.ghost && !b.hidden && !b.remote); // remote boats: ghosts, no contact (v1)
       // player controls
       controls = KOS.Input.toControls(ctrl.state, me, controls, dt);
       if (assist === 'easy') controls.autoHike = true;
@@ -855,7 +1031,7 @@
         b.x += Math.sin(away) * 0.5 * dt; b.y -= Math.cos(away) * 0.5 * dt;
       }
       for (const b of ai) if (b.rc.stuckT && b.speed > 0.6) b.rc.stuckT = 0;
-      boats.forEach((b, i) => { track(b, pre[i].x, pre[i].y); if (b.rc.pen) penStep(b, dt); });
+      boats.forEach((b, i) => { if (b.remote) return; track(b, pre[i].x, pre[i].y); if (b.rc.pen) penStep(b, dt); });
       const fouls = monitor.update(live, wind, collMarks.filter(m => m.id !== 'committee'), dt) || [];
       for (const f of fouls) onFoul(f);
       if ((S.rankT -= dt) <= 0) { S.rankT = 0.25; order = rank(); placeFeedback(); }
@@ -864,23 +1040,25 @@
     function update(dt) {
       if (destroyed) return;
       if (introCard) return; // the sim waits for the "Sejl!" button
+      if (WATCH) { updateWatch(dt); return; }
       S.introT += dt;
       if (S.introT > 3.2 && S.introT - dt <= 3.2) { scene.fixedZoom = null; scene.follow(me); applyZoom(); }
-      const n = S.ff ? 5 : S.phase === 'finish' ? 4 : 1;
+      const n = LIVE && !S.unofficial ? liveSteps() : S.ff ? 5 : S.phase === 'finish' ? 4 : 1; // live: the shared clock decides how many steps are due
       for (let i = 0; i < n; i++) simStep(dt);
+      if (LIVE) { applyRemotes(dt); sendState(dt); }
       if (controls.autoTrim) ctrl.setSheet(me.sheet);
       aids.tick(dt * n, S.phase === 'race');
       if (assist === 'easy') scene.showNoGo = Math.abs(me.twa) < cls.noGo + 0.12 || me.inIrons;
       if (S.phase === 'race') raceFeedback(dt);
       if (S.phase === 'finish') {
-        S.waitT += dt * n;
+        if (!LIVE) S.waitT += dt * n;
         S.boardT -= dt;
         if (S.boardT <= 0) { S.boardT = 0.3; paintBoard(); }
-        const allIn = boats.every(b => b.rc.finT != null);
-        if ((allIn && S.waitT > 3) || S.waitT > 45) complete();
+        if (LIVE) liveFinishTick(dt);
+        else { const allIn = boats.every(b => b.rc.finT != null); if ((allIn && S.waitT > 3) || S.waitT > 45) complete(); }
       }
-      if (S.phase === 'race' && S.fin.length === ai.length && !S.dnfT) S.dnfT = S.raceT;
-      if (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > (assist === 'easy' ? 240 : 150)) || S.raceT > P.targetS * 6)) dnf();
+      if (!LIVE && S.phase === 'race' && S.fin.length === ai.length && !S.dnfT) S.dnfT = S.raceT;
+      if (LIVE ? (S.unofficial && S.phase === 'race' && S.raceT > LIVE.cfg.maxS) : (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > (assist === 'easy' ? 240 : 150)) || S.raceT > P.targetS * 6))) dnf();
       if (S.finishT > 0) { S.finishT -= dt; if (S.finishT <= 0 && S.result) host.finish(S.result); }
       hudTick(dt);
     }
@@ -955,9 +1133,9 @@
         else if (has) scene.lines.splice(scene.lines.indexOf(pathLine), 1);
         scene.lines[0].kind = seq[me.rc.leg] && seq[me.rc.leg].type === 'finish' ? 'finish' : 'start';
         // AI tags: place + name, red X when over early, ↻ in a penalty turn
-        for (const b of ai) {
+        for (const b of LIVE ? remotes : ai) {
           b.tag = (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + (b.short || b.name) + (b.rc.pen ? ' ↻' : '');
-          b.tagColor = b.rc.ocs ? 'rgba(232,50,60,0.85)' : b.rc.finT != null ? 'rgba(24,169,87,0.8)' : null;
+          b.tagColor = b.rc.ocs ? 'rgba(232,50,60,0.85)' : b.rc.finT != null ? 'rgba(24,169,87,0.8)' : b.lost ? 'rgba(120,130,150,0.85)' : null;
         }
         if (!controls.autoTrim) ctrl.setIdealSheet(me.inIrons ? null : KOS.Physics.idealSheet(me), 0.07);
         else ctrl.setIdealSheet(null);
@@ -972,9 +1150,10 @@
     function paintPanel() {
       const esc = KOS.UI.esc;
       let html;
+      if (WATCH && S.phase !== 'pre') { panel.style.display = 'none'; return; }
       if (S.phase === 'pre') {
         const T = -S.clock;
-        const steps = [['warn', SEQ.warn], ['prep', SEQ.prep], ['one', SEQ.one], ['go', 0]];
+        const steps = [['warn', SQ.warn], ['prep', SQ.prep], ['one', SQ.one], ['go', 0]];
         const flags = [];
         if (S.flags.cls) flags.push('<span class="rp-flag up">' + flagSvg('cls', clsId) + '<i>' + esc(t('race.flag.cls')) + '</i></span>');
         if (S.flags.P) flags.push('<span class="rp-flag up">' + flagSvg('P') + '<i>' + esc(t('race.flag.P')) + '</i></span>');
@@ -1036,7 +1215,7 @@
       board = document.createElement('div');
       board.className = 'race-board glass';
       host.layer.appendChild(board);
-      board.addEventListener('click', e => { if (e.target.closest('[data-act="next"]')) { sfx('click'); complete(); } });
+      board.addEventListener('click', e => { if (e.target.closest('[data-act="next"]')) { sfx('click'); reqComplete(); } });
       paintBoard();
     }
     function paintBoard() {
@@ -1046,7 +1225,7 @@
       const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span></div><div class="rb-list">' +
         rows.map(r => '<div class="rb-row' + (r.me ? ' me' : '') + (r.place <= 3 && r.timeMs != null && !r.est ? ' pod p' + r.place : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span>' + esc(r.name) + '</span><em>' +
           (r.timeMs == null || r.est ? '<small>' + esc(t('race.res.still')) + '</small>' : esc(KOS.UI.fmtTime(r.timeMs))) + '</em></div>').join('') +
-        '</div><button type="button" class="btn btn-primary rb-next" data-act="next"><span>' + esc(t('race.btn.next')) + '</span>' + KOS.UI.iconSvg('next') + '</button>';
+        '</div><button type="button" class="btn btn-primary rb-next" data-act="next"><span>' + esc(t(S.nextReq ? 'live.res.wait' : 'race.btn.next')) + '</span>' + KOS.UI.iconSvg('next') + '</button>';
       if (html !== paintBoard.last) { board.innerHTML = html; paintBoard.last = html; }
     }
     function tableRows() {
@@ -1055,12 +1234,12 @@
       return ord.map((b, i) => {
         const fin = b.rc.finT != null;
         let timeMs = fin ? Math.round(b.rc.finT * 1000) : null, est = false;
-        if (!fin && S.done) { // estimate from the distance still to sail
+        if (!fin && S.done && !LIVE) { // estimate from the distance still to sail
           const v = Math.max(0.4, U.ms(KOS.Boats.optimal(cls, P.windKn, 'up').vmg) * 0.95);
           timeMs = Math.round((S.raceT + Math.max(0, b.rc.rem) / v) * 1000); est = true;
         }
         const place = i + 1;
-        return { place, name: b === me ? (profile.name || t('race.hud.you')) : b.name, sailNo: b.sailNo, color: b.colors.hull, timeMs, est, pts: place, me: b === me, ocs: false, n };
+        return { place, name: b === me ? (profile.name || t('race.hud.you')) : b.name, sailNo: b.sailNo, color: b.colors.hull, timeMs, est, pts: place, me: b === me, ocs: false, n, dnf: !!LIVE && !fin && S.done };
       });
     }
 
@@ -1068,6 +1247,7 @@
     function complete() {
       if (S.done) return;
       S.done = true;
+      if (LIVE) { completeLive(); return; }
       const place = me.rc.place || S.fin.indexOf(me) + 1;
       const n = boats.length;
       const owed = S.pen ? Math.ceil((S.pen.need - Math.abs(S.pen.acc)) / TAU - 0.01) : 0;
@@ -1116,6 +1296,7 @@
       if (S.done) return;
       S.done = true; S.phase = 'finish';
       S.result = { stars: 0, success: false, timeMs: Math.round(S.raceT * 1000), score: 0, stats: { tacks: me.tacks, gybes: me.gybes }, titleKey: 'race.res.dnfTitle', msgKey: 'race.res.dnf', raceTable: { rows: tableRows(), series: null } };
+      if (LIVE) Object.assign(S.result, { live: true, win: false, msgKey: 'live.res.dnfMsg', titleKey: S.unofficial ? 'live.res.unofficial' : 'race.res.dnfTitle', unofficial: !!S.unofficial, raceTable: { rows: liveRows(), series: null } });
       S.finishT = 0.8;
     }
 
@@ -1188,6 +1369,9 @@
     function render(alpha) { scene.render(alpha); }
     function destroy() {
       destroyed = true;
+      liveOffs.forEach(f => f());
+      if (banner) banner.remove();
+      if (LIVE) LIVE.leave();
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
       host.layer.removeEventListener('wheel', onWheel);
       host.layer.classList.remove('race-layer', 'race-go', 'race-pen', 'race-done');
@@ -1201,14 +1385,14 @@
     }
     function pause() { hideCoach(); try { KOS.Audio.ambient(null); } catch (e) { /* optional */ } }
     function resume() { ambient(); }
-    function onResize() { scene.resize(); if (S.introT < 3.2) fitCourse(); else applyZoom(); }
+    function onResize() { scene.resize(); if (WATCH || S.introT < 3.2) fitCourse(); else applyZoom(); }
 
     // ---- test hooks: autopilot (KOS.AI sails the player's boat, start sequence included) and skipIntro
     let autopilot = null;
     
     function setAutopilot(on) { autopilot = on ? KOS.AI.createHelm(me, { skill: 0.97, aggression: 0.6, seed: 5 }) : null; }
     function autoPlan() { return me.rc.finT != null ? parkPlan : me.plan; }
-    function skipIntro() { closeIntroCard(); S.introT = Math.max(S.introT, 3.21); scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = true; } }
+    function skipIntro() { closeIntroCard(); S.introT = Math.max(S.introT, 3.21); if (WATCH) return; scene.fixedZoom = null; scene.follow(me); applyZoom(); if (S.phase === 'pre') { S.ff = !LIVE; } }
     const debug = {
       get seq() { return seq; }, get order() { return order; }, get ap() { return autopilot; }, marks, pin, com, line, cb, fitCourse,
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
@@ -1216,8 +1400,9 @@
       penAll() { boats.forEach(b => addPen(b, 1)); },
       finishNow() { if (me.rc.finT == null) finished(me); },
       complete,
+      liveFeed(frame) { if (LIVE) onStates(frame); },
     };
 
-    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, get controls() { return controls; } };
+    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };
   }
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -838,6 +838,7 @@
     run.act = a;
     run.mode = mode;
     run.boatPick = null;
+    run.live = opts.live || null; // live race session facade (js/net/mp.js liveFacade); only the lobby passes it
     if (a.pick && !a.pickHidden) { // chosen boat for a pick activity (docs/specs/boat-pick.md); force:true without a boat keeps the old behaviour
       let b = opts.boat;
       if (!b && !opts.force) { const pk = pickInfo(a); if (pk && !pk.free && pk.chosen !== pk.def) b = pk.chosen; }
@@ -864,6 +865,7 @@
     chrome.className = 'play-chrome';
     chrome.innerHTML = '<button type="button" class="icon-btn pause-btn" aria-label="' + esc(t('app.pause.title')) + '">' + ico('pause') + '</button>';
     chrome.querySelector('button').addEventListener('click', () => { sfx('click'); setPaused(!run.paused); });
+    if (run.live) chrome.querySelector('.pause-btn').style.display = 'none'; // a live race has one shared clock: no pause
     sec.appendChild(chrome);
     syncPhoneUi();
     if (run.mode.kind !== 'dom') setupViewZoom(sec, chrome);
@@ -889,6 +891,7 @@
       settings: st,
       tilt: !!(KOS.Tilt && KOS.Tilt.resolve(st.tilt, a, Perf.level)), tiltAuto: st.tilt === 'auto', // Skrå visning: resolved once at play start (scene applies the override, overview and perf-drop rules)
       profile: S().profile() || {},
+      live: run.live || null,
       boat: run.boatPick || a.boat || S().get('boat', 'opti'),
       finish: result => finish(result),
       quit: () => quit(),
@@ -1071,6 +1074,7 @@
 
   function setPaused(b) {
     if (!run.running || run.finished) return;
+    if (run.live && b) return;
     if (run.menuOpen && run.menuClose) { run.menuClose(); if (!b) return; } // the ⋯ menu pauses silently; P / Esc closes it
     if (b === run.paused) return;
     run.paused = b;
@@ -1148,10 +1152,10 @@
     result = result || {};
     const a = run.act;
     let rec = {};
-    try { rec = S().record(a.id, result); } catch (e) { console.error(e); }
+    if (!a.liveRace) { try { rec = S().record(a.id, result); } catch (e) { console.error(e); } } // live races never touch progress
     // badges: the ones a mode awarded during play + milestones checked now
     let newBadges = (run.playBadges || []).slice();
-    try { newBadges = newBadges.concat(evalBadges(a, result)); } catch (e) { console.error(e); }
+    if (!a.liveRace) { try { newBadges = newBadges.concat(evalBadges(a, result)); } catch (e) { console.error(e); } }
     newBadges = newBadges.filter((id, i) => newBadges.indexOf(id) === i);
     run.playBadges = [];
     if (UI().coachClose) UI().coachClose();
@@ -1179,7 +1183,7 @@
     sec.innerHTML = '<div class="scroll center"></div>';
     sec.firstChild.appendChild(card);
     if (next && !nextUnlocked) card.querySelector('.results-buttons').insertAdjacentHTML('afterend', '<p class="results-locknote">' + ico('lock') + '<span>' + esc(tt(next.title)) + ': ' + esc(lockText(next.id)) + '</span></p>');
-    const win = lr.result.success !== false && (+lr.result.stars || 0) > 0;
+    const win = lr.result.live ? !!lr.result.win : lr.result.success !== false && (+lr.result.stars || 0) > 0;
     if (lr.rec && lr.rec.starsGained) {
       card.insertAdjacentHTML('afterbegin', '<div class="results-gain">' + ico('star') + '+' + lr.rec.starsGained + '</div>');
     }
@@ -1221,7 +1225,7 @@
     }
     lr.shown = true;
     bind(sec, {
-      retry: () => { sfx('click'); App.play(a.id, { force: true, boat: run.boatPick }); },
+      retry: () => { sfx('click'); if (a.liveRace) { if (KOS.Lobby) KOS.Lobby.open(); else App.show('area', { area: 'race' }); return; } App.play(a.id, { force: true, boat: run.boatPick }); },
       next: () => { sfx('click'); if (next) App.play(next.id); },
       map: () => { sfx('click'); App.stack = App.stack.filter(s => s.screen === 'title'); App.show('hub', {}, { replace: true }); },
     });

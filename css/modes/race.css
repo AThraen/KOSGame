@@ -191,3 +191,12 @@
   body.phone-ui .race-panel { top: calc(var(--safe-t) + 128px); }
   body.phone-ui .race-card { top: calc(var(--safe-t) + 262px); }
 }
+
+/* live race (docs/specs/live-race.md 5.5, 5.6): big-screen leader board and the reconnecting banner */
+.race-board.rb-watch { left: auto; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t) + 12px); transform: none; width: min(300px, 40vw); animation: none; max-height: calc(100% - var(--safe-t) - var(--safe-b) - 24px); }
+.rb-row.lost { opacity: .5; }
+.race-live-banner {
+  position: absolute; top: calc(var(--safe-t) + 8px); left: 50%; transform: translateX(-50%); z-index: 60; pointer-events: none;
+  background: #7a4a00; color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 800;
+}
+.race-live-banner[hidden] { display: none; }

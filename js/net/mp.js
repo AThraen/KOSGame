@@ -234,6 +234,22 @@
     return S;
   }
 
-  KOS.MP = { connect, parseJoin, normCode, ALPHABET };
+  // The thin facade race.js sees as host.live (spec 5.1): no socket knowledge, easy to stub in tests.
+  function liveFacade(sess) {
+    const room = sess.room || {};
+    const cfg = sess.cfg || room.cfg || {};
+    return {
+      cfg, grid: sess.grid || [], T0: sess.T0, myId: sess.id,
+      role: room.hostRole === 'watch' && room.hostId === sess.id ? 'watch' : 'sail',
+      countdownS: cfg.countdownS || 20,
+      get state() { return sess.state; },
+      serverNow: () => sess.serverNow(),
+      send: msg => sess.send(msg),
+      on: (evt, fn) => sess.on(evt, fn),
+      leave: () => { try { sess.leave(); } catch (e) { /* ignore */ } },
+    };
+  }
+
+  KOS.MP = { connect, parseJoin, normCode, liveFacade, ALPHABET };
   if (typeof module !== 'undefined' && module.exports) module.exports = KOS.MP;
 })(typeof window !== 'undefined' ? window : globalThis);
