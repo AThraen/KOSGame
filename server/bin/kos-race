@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# kos-race — control the live race server's public status.
+#
+#   kos-race on|closed|hidden [message...]   set the status file (atomic write)
+#   kos-race status                          show status file + server health
+#
+# Env:
+#   KOS_STATUS_FILE  status file path (default /var/www/html/mp-status.json)
+#   KOS_HEALTH_URL   health endpoint (default http://127.0.0.1:8787/health)
+#
+# The status file is JSON:
+#   {"mode":"on|closed|hidden","message":"...","maxRooms":40,"maxPlayers":24}
+# maxRooms/maxPlayers are preserved from the existing file when present
+# (defaults 40/24); message defaults to the empty string.
+set -euo pipefail
+
+STATUS_FILE="${KOS_STATUS_FILE:-/var/www/html/mp-status.json}"
+HEALTH_URL="${KOS_HEALTH_URL:-http://127.0.0.1:8787/health}"
+
+usage() {
+  echo "usage: kos-race on|closed|hidden [message...] | kos-race status" >&2
+}
+
+# --- set mode ----------------------------------------------------------------
+
+set_mode() {
+  local mode="$1"
+  shift
+  local message="$*"
+
+  # Read existing maxRooms/maxPlayers (node is guaranteed present). Node
+  # prints them as two lines of plain digits (or empty), so the values are
+  # safe to pass back via env vars.
+  local old_rooms="" old_players=""
+  if [ -f "$STATUS_FILE" ]; then
+    local out
+    out=$(KOS_STATUS_FILE="$STATUS_FILE" node -e '
+      const fs = require("fs");
+      let o = null;
+      try { o = JSON.parse(fs.readFileSync(process.env.KOS_STATUS_FILE, "utf8")); } catch (e) { o = null; }
+      if (o && typeof o === "object" && !Array.isArray(o)) {
+        const r = Number.isFinite(o.maxRooms) && o.maxRooms > 0 ? String(Math.floor(o.maxRooms)) : "";
+        const p = Number.isFinite(o.maxPlayers) && o.maxPlayers > 0 ? String(Math.floor(o.maxPlayers)) : "";
+        process.stdout.write(r + "\n" + p + "\n");
+      }
+    ' || true)
+    { read -r old_rooms; read -r old_players; } <<<"$out" || true
+  fi
+
+  # Build the JSON in node; all values arrive via env vars so quoting is safe.
+  local dir tmp
+  dir=$(dirname -- "$STATUS_FILE")
+  tmp=$(mktemp -- "$dir/.kos-race.XXXXXX")
+  if ! KOS_MODE="$mode" KOS_MESSAGE="$message" \
+       KOS_MAX_ROOMS="${old_rooms:-40}" KOS_MAX_PLAYERS="${old_players:-24}" \
+       node -e '
+    const fs = require("fs");
+    const mode = process.env.KOS_MODE;
+    const message = process.env.KOS_MESSAGE || "";
+    const rooms = parseInt(process.env.KOS_MAX_ROOMS, 10);
+    const players = parseInt(process.env.KOS_MAX_PLAYERS, 10);
+    const out = {
+      mode: mode,
+      message: message,
+      maxRooms: Number.isFinite(rooms) && rooms > 0 ? rooms : 40,
+      maxPlayers: Number.isFinite(players) && players > 0 ? players : 24
+    };
+    fs.writeFileSync(process.argv[1], JSON.stringify(out) + "\n");
+  ' "$tmp"; then
+    rm -f "$tmp"
+    exit 1
+  fi
+  chmod 644 "$tmp"
+  mv -f "$tmp" "$STATUS_FILE"
+  echo "mode=$mode"
+}
+
+# --- status ------------------------------------------------------------------
+
+show_status() {
+  local mode="" message=""
+  if [ -f "$STATUS_FILE" ]; then
+    local out
+    out=$(KOS_STATUS_FILE="$STATUS_FILE" node -e '
+      const fs = require("fs");
+      let o = null;
+      try { o = JSON.parse(fs.readFileSync(process.env.KOS_STATUS_FILE, "utf8")); } catch (e) { o = null; }
+      if (o && typeof o === "object" && !Array.isArray(o)
+          && ["on", "closed", "hidden"].indexOf(o.mode) !== -1) {
+        const m = typeof o.message === "string" ? o.message : "";
+        process.stdout.write(o.mode + "\n" + m);
+      } else {
+        process.stdout.write("hidden (no status file)");
+      }
+    ' || true)
+    case "$out" in
+      *$'\n'*)
+        mode=${out%%$'\n'*}
+        message=${out#*$'\n'}
+        message=${message//$'\n'/ }
+        ;;
+      *)
+        mode=$out
+        message=""
+        ;;
+    esac
+  fi
+  if [ -z "$mode" ]; then
+    mode="hidden (no status file)"
+    message=""
+  fi
+  echo "mode=$mode"
+  echo "message=$message"
+
+  local body=""
+  if command -v curl >/dev/null 2>&1; then
+    body=$(curl -s --max-time 2 "$HEALTH_URL" 2>/dev/null || true)
+  fi
+  if [ -z "$body" ]; then
+    echo "server: not reachable"
+    return 0
+  fi
+  KOS_HEALTH_BODY="$body" node -e '
+    let o = null;
+    try { o = JSON.parse(process.env.KOS_HEALTH_BODY); } catch (e) { o = null; }
+    if (o && typeof o === "object" && !Array.isArray(o)) {
+      const f = (k) => (o[k] === undefined || o[k] === null ? "-" : String(o[k]));
+      process.stdout.write(
+        "rooms=" + f("rooms") + "\n" +
+        "players=" + f("players") + "\n" +
+        "conns=" + f("conns") + "\n" +
+        "rssMb=" + f("rssMb") + "\n" +
+        "uptimeS=" + f("uptimeS") + "\n"
+      );
+    } else {
+      process.stdout.write("server: bad health response\n");
+    }
+  '
+}
+
+# --- dispatch ----------------------------------------------------------------
+
+cmd=${1:-}
+case "$cmd" in
+  on|closed|hidden)
+    shift
+    set_mode "$cmd" "$@"
+    ;;
+  status)
+    show_status
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

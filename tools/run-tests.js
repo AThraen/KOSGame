@@ -2,7 +2,7 @@
 //
 //   node tools/run-tests.js              core + precache (fast, Node-only)
 //   node tools/run-tests.js all          all suites (i18n, mobile + smoke use headless Chrome)
-//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, mobile, smoke
+//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, mobile, liveserver, smoke
 //
 // Exit code: 0 all good, 1 a suite failed, 2 unknown suite name.
 // A suite whose script file does not exist is reported as SKIP (not a failure).
@@ -20,6 +20,7 @@ const SUITES = {
   hublite: { script: 'tools/test-hub-lite.js', args: [] },
   perftier: { script: 'tools/test-perf-tier.js', args: [] },
   mobile: { script: 'tools/test-mobile.js', args: [] },
+  liveserver: { script: 'tools/test-live-server.js', args: [] },
   smoke: { script: 'tools/smoke.js', args: ['--no-shots'] },
 };
 const NAMES = Object.keys(SUITES);

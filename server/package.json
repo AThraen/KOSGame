@@ -1,0 +1,10 @@
+{
+  "name": "kos-race",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KOS SEJL live race relay server",
+  "main": "index.js",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node index.js" },
+  "dependencies": { "ws": "^8" }
+}

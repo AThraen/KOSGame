@@ -1,0 +1,41 @@
+# systemd template unit for the KOS live race server.
+#
+# The instance name is the TCP port:
+#   prod: 8787   test: 8788
+#
+# Per-instance env files (optional, "-" = file may be missing):
+#   /etc/kos-race/8787.env  sets KOS_STATUS_FILE=/var/www/html/mp-status.json
+#   /etc/kos-race/8788.env  sets KOS_STATUS_FILE=/var/www/html/mp-test-status.json
+#                          and KOS_ORIGINS if needed
+#
+# Install:
+#   cp server/deploy/kos-race@.service /etc/systemd/system/
+#   mkdir -p /etc/kos-race
+#   printf 'KOS_STATUS_FILE=/var/www/html/mp-status.json\n' > /etc/kos-race/8787.env
+#   printf 'KOS_STATUS_FILE=/var/www/html/mp-test-status.json\n' > /etc/kos-race/8788.env
+#   systemctl daemon-reload
+#   systemctl enable --now kos-race@8787 kos-race@8788
+
+[Unit]
+Description=KOS race server (port %i)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/kos-race/server
+Environment=NODE_ENV=production
+Environment=PORT=%i
+EnvironmentFile=-/etc/kos-race/%i.env
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=2
+MemoryMax=256M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/www/html
+
+[Install]
+WantedBy=multi-user.target
