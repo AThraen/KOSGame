@@ -50,6 +50,8 @@
     }
     // a plain local dev server has no status file: skip the request instead of logging a 404
     if (dev && !here && !C.mpStatusUrl && !hp.mpstatus && !ls('kos.mpStatusUrl') && (L.hostname === 'localhost' || L.hostname === '127.0.0.1')) statusUrl = null;
+    // opened from file://: a cross-origin fetch would only log a CORS error, and a local copy has no live server
+    if (L.protocol === 'file:' && !C.mpStatusUrl && !hp.mpstatus && !ls('kos.mpStatusUrl')) statusUrl = null;
     return { wsUrl, statusUrl, test: !prod };
   }
 

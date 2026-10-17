@@ -121,7 +121,7 @@
     on('start', () => { L.room = sess.room || L.room; startCountdown(); });
     on('res', rows => { L.results = rows; setView('results'); });
     on('hostleft', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.hostLeft'), ['back']); });
-    on('kicked', () => { L.sess = null; trainerMsg(t('live.kicked'), ['back']); });
+    on('kicked', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.kicked'), ['back']); });
     on('offline', () => { if (L.view === 'room' || L.view === 'starting') trainerMsg(t('live.unavailable'), ['retry', 'ai']); });
     on('reconnecting', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = false; });
     on('reconnected', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = true; });
