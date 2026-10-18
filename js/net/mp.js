@@ -5,8 +5,8 @@
 //            status {mode,msg}, T0, cfg, grid, serverNow()
 //     create(cfg, hostRole) -> Promise<room>   rejects {code:'closed'|'busy'|'bad'|'timeout'}
 //     join(code)            -> Promise<room>   rejects {code:'nocode'|'full'|'started'|'closed'|'timeout'}
-//     setCfg(partial), kick(id), start(), leave(), send(msg), close()
-//     on(evt, fn) -> off     evts: room, start, states, fin, res, hostleft, kicked, reconnecting, reconnected, offline, status, error
+//     setCfg(partial), kick(id), start(), rematch(), leave(), send(msg), close()
+//     on(evt, fn) -> off     evts: room, start, states, fin, res, rematch, hostleft, kicked, reconnecting, reconnected, offline, status, error
 //   KOS.MP.parseJoin(hash) -> 'ABCD'|null     KOS.MP.normCode(str) -> 'ABCD'|null
 // All rejections are plain {code} objects; nothing is thrown out of socket handlers; no console output.
 (function (root) {
@@ -141,7 +141,10 @@
         case 'start': S.T0 = m.T0; S.cfg = m.cfg; S.grid = m.grid; if (S.phase === 'lobby') S.phase = 'countdown'; emit('start', { T0: m.T0, cfg: m.cfg, grid: m.grid }); break;
         case 's': emit('states', Array.isArray(m.a) ? m.a : []); break;
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
-        case 'res': S.phase = 'results'; clearToken(); emit('res', m.rows); break;
+        case 'res': S.phase = 'results'; S.lastToken = S.token; clearToken(); emit('res', m.rows); break;
+        case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token
+          if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token); } S.T0 = 0; S.grid = null; setRoom(m.room); emit('rematch', m.room); }
+          break;
         case 'hostleft': clearToken(); S.phase = 'closed'; emit('hostleft'); break;
         case 'kicked': clearToken(); final = true; emit('kicked'); break;
         case 'status': S.status = { mode: m.mode, msg: m.msg || '' }; emit('status', S.status); break;
@@ -221,6 +224,7 @@
     S.setCfg = (cfg) => raw({ t: 'cfgset', cfg });
     S.kick = (id) => raw({ t: 'kick', id });
     S.start = () => raw({ t: 'start' });
+    S.rematch = () => raw({ t: 'rematch' });
     function shut() {
       final = true; S.state = 'closed';
       clearTimeout(fastTimer); clearTimeout(retryTimer); clearInterval(pingTimer);
@@ -246,6 +250,7 @@
       serverNow: () => sess.serverNow(),
       send: msg => sess.send(msg),
       on: (evt, fn) => sess.on(evt, fn),
+      rematch: () => sess.rematch(),
       leave: () => { try { sess.leave(); } catch (e) { /* ignore */ } },
     };
   }

@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const P = require('./protocol');
 
 const LOST_GRACE_MS = 20000;
-const RESULTS_KEEP_MS = 60000;
+const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and a rematch
 const HOSTLEFT_KEEP_MS = 5000;
 const EMPTY_KEEP_MS = 10000;
 const LOBBY_MAX_MS = 30 * 60000;
@@ -146,6 +146,22 @@ function createRooms(opts) {
     return 'ok';
   }
 
+  // "Ny kapsejlads med samme deltagere": host only, from the results phase. The room goes back to the lobby with the players
+  // who are still connected, a fresh seed and the same cfg; everybody gets {t:'rematch', room}.
+  function rematch(r, hostId) {
+    if (r.hostId !== hostId || r.phase !== 'results') return 'denied';
+    const host = r.players.get(hostId);
+    if (!host || host.lost) return 'denied';
+    for (const p of [...r.players.values()]) {
+      if (p.lost) { r.players.delete(p.id); continue; }
+      p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
+    }
+    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now();
+    r.cfg = Object.assign({}, r.cfg, { seed: randInt(2147483647) });
+    broadcast(r, { t: 'rematch', room: info(r) });
+    return 'ok';
+  }
+
   function state(r, id, arr) {
     const p = r.players.get(id);
     if (!p || !p.boat || p.final || !(r.phase === 'racing' || (r.phase === 'countdown' && now() >= r.T0 - 2000))) return false;
@@ -236,7 +252,7 @@ function createRooms(opts) {
   }
   function setLimits(l) { Object.assign(lim, l); }
 
-  return { rooms, create, join, resume, disconnect, kick, setCfg, start, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
+  return { rooms, create, join, resume, disconnect, kick, setCfg, start, rematch, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
 }
 
 module.exports = { createRooms, LOST_GRACE_MS, RESULTS_KEEP_MS };

@@ -46,12 +46,12 @@ Room code: 4 chars from the 24-char alphabet `ACDEFGHJKMNPRTUVWXY34679` (no 0/O/
 
 Phases (server-authoritative):
 ```
-lobby --start(host)--> countdown --T0--> racing --all done / maxS--> results --60 s--> deleted
+lobby --start(host)--> countdown --T0--> racing --all done / maxS--> results --180 s--> deleted
 ```
 - `lobby`: join/leave/kick, host edits `cfg`. Joining is only allowed here (no late join; `err code:'started'`).
 - `countdown`: server sets `T0 = serverNow + countdownS*1000` and sends `start`. Clients build the race and wait. T0 is the shared start clock.
 - `racing`: clients send `st` and `fin`; server relays. After `cfg.maxS` seconds past T0 the room goes to `results` with DNFs.
-- `results`: server sends `res`; room is kept 60 s. Status `closed` never affects running rooms.
+- `results`: server sends `res`; room is kept 180 s (podium on the projector, rematch). The host may send `rematch` to start over with the same people. Status `closed` never affects running rooms.
 - Host leaves in `lobby`/`countdown`: all get `hostleft`, room deleted after 5 s. Host leaves in `racing`: race continues (no host controller needed), results are produced normally.
 - Player disconnect: in `lobby` removed; in `countdown`/`racing` kept `lost:true` for 20 s (resume possible), then `dnf`. Empty room deleted after 10 s.
 
@@ -70,6 +70,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `start` | none | host only; needs >= 2 boats (host-sail) or >= 1 player (host-watch), else `err code:'few'` |
 | `st` | `s:StateArr` | player, racing/countdown-last-2s; server drops above 14/s |
 | `fin` | `ms` | player: finish time in ms after T0 on the shared clock; once only |
+| `rematch` | none | host only, `results` phase: the room goes back to `lobby` with the players still connected, same cfg and a new seed (step 4) |
 | `leave` | none | graceful |
 | `resume` | `code, id, key` | reconnect (4.7) |
 
@@ -87,6 +88,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `s` | `a:[StateArr,...]` batched relay of the others' latest states, <= 10 Hz per recipient |
 | `fin` | `id, ms` |
 | `res` | `rows:[{id,name,place,ms\|null,status:'fin'\|'dnf'\|'lost'}]` official table |
+| `rematch` | `room:RoomInfo` (phase `lobby`) to everybody; clients keep their id and resume key |
 | `hostleft` | none |
 | `err` | `code, msg?` |
 | `status` | `mode, msg` pushed on status-file change (informational) |
@@ -161,6 +163,8 @@ Official = server `res`. Time basis = each player's own `ms` after the shared T0
 ### 5.5 "Kun vært" view
 `createRace` with `LIVE.role === 'watch'`: no input, no own boat; camera = overview fit of the whole course (`scene.fit(cb, margin)` on each resize); boat tags always on (sail number + name); a **leader board** panel (reuse `buildBoard`/`paintBoard` styling) refreshed every 0.5 s from `rank()`, finish times appear as boats finish; signals and big race clock reuse the existing panel flags. The quit button leaves the room (see lifecycle for host departure).
 
+Step 4 details: the board has columns Nr./Sejler/Efter (gap to the leader in seconds, estimated from distance to go)/Mærke (last mark rounded)/Straf (penalty turns taken, highlighted while one is owed), sized by viewport (readable at 1920x1080) and docked at the bottom on phones. A big countdown (`live.watch.startsIn`, red pulse in the last 10 s, `Sejl!` after the gun) replaces the coach, which stays silent in this role. The `Følg føreren` button toggles between the overview fit and a chase camera on the leader. Finishers get a louder horn and confetti. When the official `res` arrives a podium card (top 3) plus the full table appears with `Ny kapsejlads med samme deltagere` (sends `rematch`) and `Forlad`. Sailors (and a host who sails) keep their session after an official result: the results card shows the rematch button for the host and a waiting note for the others; on `rematch` everybody lands in the room view of the same room (the lobby closes a parked session after 190 s or on `Kort`).
+
 ### 5.6 Local continuation
 On `LIVE.on('offline')`: set `S.unofficial = true`; remote boats freeze greyed and are hidden after 3 s; the sim switches from the shared clock to the normal wall-dt path so the race finishes locally; `complete()` builds the table from own time vs last known `fin`s with title `live.res.unofficial`. While `reconnecting` a small banner (`live.reconnecting`) shows and sailing continues. Live mode disables pause (pause button hidden, `setPaused` ignored) to protect the shared clock; quit still works.
 
@@ -229,7 +233,7 @@ Strings live in `lobby.js` via `KOS.I18n.add`, prefix `live.`, both languages fo
 Result titles/message `live.res.title1..N`, `live.res.msg` follow the `race.res.*` wording. The trainer (`KOS.UI.coach`) speaks the unavailable/closed messages. No raw error codes or stack traces are shown. No endless spinners: every wait has a timeout that resolves to one of these states.
 
 ## 9. Limits (summary)
-Code 4 chars/24-char alphabet; name <= 16; players per room default 12, hard 24; rooms hard 40; frame <= 2048 B (`st` <= 512); `st` 10 Hz (server tolerates 14/s); countdown 8-180 s (default 20; lobby offers 20 s, 1 min, 3 min); race max 1800 s; reconnect 15 s client / 20 s server; results kept 60 s; connect timeout 4 s; status cache 2 min; interpolation delay 100-150 ms, extrapolation <= 250 ms.
+Code 4 chars/24-char alphabet; name <= 16; players per room default 12, hard 24; rooms hard 40; frame <= 2048 B (`st` <= 512); `st` 10 Hz (server tolerates 14/s); countdown 8-180 s (default 20; lobby offers 20 s, 1 min, 3 min); race max 1800 s; reconnect 15 s client / 20 s server; results kept 180 s; connect timeout 4 s; status cache 2 min; interpolation delay 100-150 ms, extrapolation <= 250 ms.
 
 ## 10. Test plan per step (steps = commits in order)
 Every step ends with `node tools/run-tests.js` green; steps marked (U) also run `node tools/run-tests.js smoke mobile i18n`.
@@ -245,7 +249,7 @@ Every step ends with `node tools/run-tests.js` green; steps marked (U) also run 
 Conventions: scratch in `tools/tmp`, screenshots to the session scratchpad with prefix `live-`, headless only, no external network.
 
 ## 11. Out of scope for v1
-Several boat classes per race; AI boats in live races; boat-boat collisions and right-of-way fouls between humans; chat, emotes, voice, accounts, friends, leaderboards or stored history; late join; spectator-only links beyond the host; host migration; server-side physics or anti-cheat; database/persistence; admin web page and CPU auto-close; series or several races per room; rematch in the same room; WebRTC/TURN; stars/badges/progress for live races; in-race pause.
+Several boat classes per race; AI boats in live races; boat-boat collisions and right-of-way fouls between humans; chat, emotes, voice, accounts, friends, leaderboards or stored history; late join; spectator-only links beyond the host; host migration; server-side physics or anti-cheat; database/persistence; admin web page and CPU auto-close; series or several races per room; WebRTC/TURN; stars/badges/progress for live races; in-race pause.
 
 ## 12. Build notes for agents
 - Good for the local model (self-contained, testable): `server/lib/*`, `mpstate.js`, QR vendoring and wrapper, `bin/kos-race`, deploy files, test files. Do inline and review closely: race.js hooks, app.js `play`/`finish` changes, lobby UI.

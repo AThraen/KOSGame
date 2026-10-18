@@ -200,3 +200,63 @@
   background: #7a4a00; color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 800;
 }
 .race-live-banner[hidden] { display: none; }
+
+/* "Kun vært" big-screen view (docs/specs/live-race.md 5.5): leader board with gap / mark / penalties, start countdown,
+   follow-the-leader toggle, podium. Sizes follow the viewport so a 1920x1080 projector reads from the back of the room. */
+.race-board.rb-watch { --wf: clamp(.9rem, 1.15vw, 1.5rem); width: min(clamp(320px, 27vw, 560px), 46vw); top: calc(var(--safe-t) + 70px); right: calc(var(--safe-r, 0px) + 14px); font-size: var(--wf); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 86px); }
+.rb-watch .rb-row, .rb-watch .rb-cols { display: grid; grid-template-columns: 2em minmax(0, 1fr) 4.6em 3.4em 2.8em; align-items: center; gap: .5em; }
+.rb-watch .rb-row { font-size: 1em; padding: .35em .55em; }
+.rb-watch .rb-row span.c-name { display: flex; align-items: center; gap: .45em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+.rb-watch .rb-row .race-dot { flex: none; }
+.rb-watch .rb-row em { text-align: right; white-space: nowrap; }
+.rb-watch .rb-row em.c-mark { text-align: center; }
+.rb-watch .rb-row em.c-pen { text-align: center; color: rgba(255,255,255,.5); }
+.rb-watch .rb-row em.c-pen.on { color: var(--bad, #ff6b6b); }
+.rb-watch .race-medal { min-width: 1.7em; height: 1.7em; font-size: .85em; }
+.rb-watch .rb-row.fin { background: rgba(255,255,255,.1); }
+.rb-cols { padding: 0 .55em; }
+.rb-cols span { font-size: .62em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.55); white-space: nowrap; }
+.race-board.rb-watch.rb-pre { top: calc(var(--safe-t) + 190px); }
+.rb-cols .c-gap, .rb-cols .c-mark, .rb-cols .c-pen { text-align: right; }
+.rb-cols .c-mark, .rb-cols .c-pen { text-align: center; }
+.watch-count { position: absolute; z-index: 24; left: 50%; top: calc(var(--safe-t) + 60px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; padding: .1em .9em .15em; border-radius: 28px; color: #fff; background: rgba(13,19,33,.72); border: 1px solid rgba(255,255,255,.18); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); pointer-events: none; font-size: clamp(2rem, 7vmin, 6rem); line-height: 1; text-align: center; }
+.watch-count[hidden] { display: none; }
+.watch-count small { font-size: .26em; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.7); padding-top: .5em; }
+.watch-count b { font-variant-numeric: tabular-nums; font-weight: 900; }
+.watch-count.hot b { color: var(--primary, #ffb547); animation: wcPulse 1s ease-in-out infinite; }
+.watch-count.go b { color: #6dff9c; }
+@keyframes wcPulse { 50% { transform: scale(1.14); } }
+.watch-follow { position: absolute; z-index: 26; left: calc(var(--safe-l, 0px) + 14px); bottom: calc(var(--safe-b, 0px) + 14px); font-size: clamp(.9rem, 1.1vw, 1.3rem); }
+.watch-follow.on { outline: 2px solid var(--primary, #ffb547); }
+.watch-end { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(6,10,20,.55); padding: calc(var(--safe-t) + 12px) 12px calc(var(--safe-b, 0px) + 12px); overflow: auto; }
+.we-card { width: min(clamp(340px, 46vw, 900px), 100%); max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: .9em; padding: 1.1em 1.3em; border-radius: 24px; color: #fff; font-size: clamp(.95rem, 1.2vw, 1.5rem); background: rgba(13,19,33,.9); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.we-card h1 { margin: 0; text-align: center; font-size: 1.7em; }
+.we-podium { display: flex; align-items: flex-end; justify-content: center; gap: .6em; }
+.we-step { flex: 1; max-width: 11em; display: flex; flex-direction: column; align-items: center; gap: .15em; min-width: 0; text-align: center; }
+.we-step b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.05em; }
+.we-step em { font-style: normal; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.8); font-size: .9em; }
+.we-block { width: 100%; display: grid; place-items: center; border-radius: 12px 12px 0 0; font-weight: 900; font-size: 1.8em; margin-top: .25em; color: #1b1500; }
+.we-step.p1 .we-block { height: 5.6em; background: linear-gradient(180deg, #ffe17a, #f2a81d); }
+.we-step.p2 .we-block { height: 4.2em; background: linear-gradient(180deg, #f1f4f8, #aeb7c4); }
+.we-step.p3 .we-block { height: 3.2em; background: linear-gradient(180deg, #f3b98a, #b56a35); }
+.we-step .race-dot { width: 1.1em; height: 1.1em; }
+.we-table { display: flex; flex-direction: column; gap: .25em; max-height: 34vh; overflow: auto; }
+.we-row { display: flex; align-items: center; gap: .6em; padding: .3em .6em; border-radius: 10px; background: rgba(255,255,255,.06); font-weight: 800; }
+.we-row span { flex: 1; min-width: 0; display: flex; align-items: center; gap: .45em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.we-row em { font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.we-row em small { color: rgba(255,255,255,.55); }
+.we-btns { display: flex; flex-wrap: wrap; gap: .6em; justify-content: center; }
+@media (max-width: 700px), (max-height: 520px) {
+  .race-board.rb-watch { --wf: .78rem; top: auto; bottom: calc(var(--safe-b, 0px) + 58px); left: 8px; right: 8px; width: auto; max-height: 40%; padding: 8px 10px; transform: none; }
+  .rb-watch .rb-row, .rb-watch .rb-cols { grid-template-columns: 1.8em minmax(0, 1fr) 4em 3em 2.4em; }
+  .rb-watch .rb-head { display: none; }
+  .watch-count { top: calc(var(--safe-t) + 56px); font-size: clamp(1.8rem, 12vw, 3.5rem); }
+  .watch-follow { bottom: calc(var(--safe-b, 0px) + 10px); }
+  .we-table { max-height: 26vh; }
+}
+.we-btns .btn { white-space: normal; text-align: center; max-width: 100%; }
+@media (max-width: 700px), (max-height: 520px) {
+  .we-card { padding: .9em; gap: .6em; }
+  .we-btns .btn-big { flex: 1 1 100%; font-size: .95em; }
+  .we-step.p1 .we-block { height: 3.6em; } .we-step.p2 .we-block { height: 2.8em; } .we-step.p3 .we-block { height: 2.2em; }
+}

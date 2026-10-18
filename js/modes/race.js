@@ -35,6 +35,7 @@
       keys: 'Tastatur: ←/→ styr · ↑/↓ skøde · L laylines · T strafrunde',
       sig: {
         warn: 'Varselssignal! Klasseflaget går op. Rigtig start er 5-4-1-0 minutter – her kører vi 5 gange hurtigere.',
+        warnLive: 'Varselssignal! Klasseflaget går op. Nu er det alvor – gør dig klar til startlinjen.',
         prep: 'Forberedelsessignal! P-flaget går op. Nu gælder kapsejladsreglerne.',
         one: 'Ét minut! P-flaget går ned. Gør dig klar til at sejle mod linjen.',
         go: 'START! Sejl, sejl, sejl!',
@@ -103,6 +104,7 @@
       keys: 'Keyboard: ←/→ steer · ↑/↓ sheet · L laylines · T penalty turn',
       sig: {
         warn: 'Warning signal! The class flag goes up. A real start is 5-4-1-0 minutes – here we run it 5 times faster.',
+        warnLive: 'Warning signal! The class flag goes up. This is the real thing – get ready for the start line.',
         prep: 'Preparatory signal! The P flag goes up. The racing rules apply now.',
         one: 'One minute! The P flag comes down. Get ready to sail for the line.',
         go: 'START! Go, go, go!',
@@ -566,9 +568,9 @@
     // ==================================================================== start sequence
     function signals() {
       const T = -S.clock; // seconds to the gun
-      if (!S.sig.warn && T <= SQ.warn) { S.sig.warn = true; S.flags.cls = true; sfx('horn'); say(t('race.sig.warn')); pulseFlags(); }
-      if (!S.sig.prep && T <= SQ.prep) { S.sig.prep = true; S.flags.P = true; sfx('horn'); say(t('race.sig.prep')); pulseFlags(); setTimeout(() => biasTip(), 6500); }
-      if (!S.sig.one && T <= SQ.one) { S.sig.one = true; S.flags.P = false; sfx('hornLong'); say(t('race.sig.one')); pulseFlags(); if (S.ff) { S.ff = false; ctrl.highlight('ff', false); } }
+      if (!S.sig.warn && T <= SQ.warn) { S.sig.warn = true; S.flags.cls = true; sfx('horn'); if (!WATCH) say(t(LIVE ? 'race.sig.warnLive' : 'race.sig.warn')); pulseFlags(); }
+      if (!S.sig.prep && T <= SQ.prep) { S.sig.prep = true; S.flags.P = true; sfx('horn'); if (!WATCH) say(t('race.sig.prep')); pulseFlags(); setTimeout(() => biasTip(), 6500); }
+      if (!S.sig.one && T <= SQ.one) { S.sig.one = true; S.flags.P = false; sfx('hornLong'); if (!WATCH) say(t('race.sig.one')); pulseFlags(); if (S.ff) { S.ff = false; ctrl.highlight('ff', false); } }
       if (S.sig.one && T <= 5 && T > 0) { const n = Math.ceil(T); if (S.beep !== n) { S.beep = n; sfx('countdown', { pitch: 1 + (5 - n) * 0.05 }); } }
       if (S.ff && T <= 15) { S.ff = false; ctrl.highlight('ff', false); }
       if (T <= 0) gun();
@@ -677,8 +679,9 @@
       if (b === me) playerFinished(place);
       else {
         const near = !WATCH && U.dist(b, me) < 150;
-        sfx('hornShort', { vol: near ? 0.5 : 0.2 });
-        if (near) floatText(place + '.', '#ffffff', b.x, b.y - 2, 18);
+        sfx('hornShort', { vol: WATCH ? 0.9 : near ? 0.5 : 0.2 });
+        if (WATCH && scene.effects) scene.effects.confetti(b.x, b.y, 50);
+        if (near || WATCH) floatText(place + '.', '#ffffff', b.x, b.y - 2, 18);
       }
     }
     function playerFinished(place) {
@@ -848,7 +851,8 @@
     }
     function start() {
       introCard = LIVE ? null : buildIntroCard(); // live: the lobby was the intro
-      if (WATCH) { board = document.createElement('div'); board.className = 'race-board rb-watch glass'; host.layer.appendChild(board); }
+      if (WATCH) { board = document.createElement('div'); board.className = 'race-board rb-watch glass'; host.layer.appendChild(board); buildWatchUi(); }
+      if (WATCH) for (const b of boats) { cb.x0 = Math.min(cb.x0, b.x - 20); cb.y0 = Math.min(cb.y0, b.y - 20); cb.x1 = Math.max(cb.x1, b.x + 20); cb.y1 = Math.max(cb.y1, b.y + 20); } // the big screen shows the whole grid too
       fitCourse();
       if (host.settings && host.settings.music) { try { KOS.Audio.music('race'); } catch (e) { /* optional */ } }
       ambient();
@@ -886,6 +890,7 @@
           b.x = s.x; b.y = s.y; b.heading = s.hd; b.speed = s.sp; b.heel = s.hl; b.capsized = s.capsized;
           rc.ocs = s.ocs;
           if (rc.finT == null && s.lg !== rc.leg && s.lg >= 0 && s.lg < seq.length) setLeg(b, s.lg);
+          if (s.penalty && !rc.pen) rc.penN = (rc.penN || 0) + 1; // penalty turns taken, for the big-screen board
           rc.pen = s.penalty ? REMOTE_PEN : null;
           b.lost = !S.unofficial && b.buf.isLost(nowS);
           b.ghost = b.lost || s.frozen;
@@ -949,17 +954,103 @@
       S.finishT = 0.6;
     }
     // "Kun vært": no boat, no input; the course overview and a leader board (spec 5.5)
+    let wCount = null, wFollow = null, wEnd = null;
+    const secTxt = x => (x < 10 ? x.toFixed(1) : String(Math.round(x))) + ' s';
+    function buildWatchUi() {
+      wCount = document.createElement('div'); wCount.className = 'watch-count'; wCount.hidden = true; host.layer.appendChild(wCount);
+      wFollow = document.createElement('button'); wFollow.type = 'button'; wFollow.className = 'btn btn-glass watch-follow';
+      wFollow.addEventListener('pointerdown', e => e.stopPropagation());
+      wFollow.addEventListener('click', e => { e.stopPropagation(); sfx('click'); setFollow(!S.follow); });
+      host.layer.appendChild(wFollow);
+      paintFollow();
+    }
+    function paintFollow() {
+      if (!wFollow) return;
+      wFollow.setAttribute('aria-pressed', S.follow ? 'true' : 'false'); wFollow.classList.toggle('on', !!S.follow);
+      wFollow.innerHTML = KOS.UI.iconSvg(S.follow ? 'map' : 'eye') + '<span>' + KOS.UI.esc(t(S.follow ? 'live.watch.overview' : 'live.watch.follow')) + '</span>';
+    }
+    function watchZoom() { // a wider chase view than the sailor's own
+      const small = Math.min(scene.w, scene.h) < 600;
+      scene.setZoom(1);
+      scene.setZoom(Math.sqrt(scene.w * scene.h) * (small ? 1.3 : 1) / ((70 + 8 * L) * (small ? 0.9 : 1)) / scene.baseZoom());
+    }
+    function setFollow(on) {
+      S.follow = !!on; paintFollow();
+      if (on) { scene.unfit(); watchZoom(); S.followB = null; followLeader(); } else { scene.setZoom(1); S.followB = null; fitCourse(); }
+    }
+    function followLeader() {
+      if (!S.follow) return;
+      const lead = order.find(b => b.rc.finT == null) || order[0];
+      if (lead && lead !== S.followB) { const first = !S.followB; S.followB = lead; scene.target = lead; if (first) scene._snap = true; }
+    }
+    function paintWatchCount() {
+      if (!wCount) return;
+      let html = '', cls = 'watch-count';
+      if (S.phase === 'pre') {
+        const T = Math.max(0, Math.ceil(-S.clock));
+        html = '<small>' + KOS.UI.esc(t('live.watch.startsIn')) + '</small><b>' + (T > 60 ? mmss(T) : T) + '</b>';
+        if (T <= 10) cls += ' hot';
+      } else if (S.phase === 'race' && S.raceT < 3) { html = '<b>' + KOS.UI.esc(t('live.go')) + '</b>'; cls += ' go'; }
+      wCount.hidden = !html; wCount.className = cls;
+      if (html !== wCount._h) { wCount.innerHTML = html; wCount._h = html; }
+    }
     function paintWatchBoard() {
       if (!board) return;
-      const esc = KOS.UI.esc;
+      const esc = KOS.UI.esc, fmtT = KOS.UI.fmtTime;
       const res = S.liveRes && !S.unofficial ? S.liveRes : null;
       let rows;
-      if (res) rows = res.map(r => ({ place: r.place, name: r.name, color: (byRid[r.id] || me).colors.hull, right: r.ms != null ? KOS.UI.fmtTime(r.ms) : t('live.res.dnf'), fin: true }));
-      else rows = rank().map(b => ({ place: b.rc.place, name: b.name, color: b.colors.hull,
-        right: b.rc.finT != null ? KOS.UI.fmtTime(b.rc.finT * 1000) : b.rc.ocs ? 'X' : (S.phase === 'pre' ? '' : Math.min(b.rc.leg, seq.length - 1) + '/' + (seq.length - 1)) + (b.rc.pen ? ' ↻' : ''), fin: b.rc.finT != null, lost: b.lost }));
-      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span></div><div class="rb-list">' +
-        rows.map(r => '<div class="rb-row' + (r.place <= 3 && r.fin ? ' pod p' + r.place : '') + (r.lost ? ' lost' : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span>' + esc(r.name) + '</span><em>' + esc(r.right) + '</em></div>').join('') + '</div>';
+      if (res) {
+        const win = res.find(r => r.ms != null);
+        rows = res.map(r => { const b = byRid[r.id]; return { place: r.place, name: r.name, color: (b || me).colors.hull, fin: r.ms != null, gap: r.ms == null ? t('live.res.dnf') : (win && r.ms !== win.ms ? '+' + secTxt((r.ms - win.ms) / 1000) : fmtT(r.ms)), mark: r.ms != null ? '✓' : '', pen: (b && b.rc.penN) || 0 }; });
+      } else {
+        const ord = rank();
+        const lead = ord[0];
+        const vEst = Math.max(0.4, U.ms(KOS.Boats.optimal(cls, P.windKn, 'up').vmg) * 0.95);
+        const win = ord.find(b => b.rc.finT != null);
+        rows = ord.map((b, i) => {
+          const fin = b.rc.finT != null;
+          let gap = '';
+          if (fin) gap = b === win ? fmtT(b.rc.finT * 1000) : '+' + secTxt(b.rc.finT - win.rc.finT);
+          else if (S.phase !== 'pre') gap = b.lost ? t('live.lost') : b.rc.ocs ? 'X' : i === 0 && !win ? t('live.watch.leader') : '+' + secTxt(Math.max(0, (b.rc.rem - (win ? 0 : lead.rc.rem)) / vEst));
+          const it = seq[b.rc.leg - 1];
+          return { place: b.rc.place, name: b.name, color: b.colors.hull, fin, lost: b.lost, active: !!b.rc.pen, gap,
+            mark: fin ? '✓' : S.phase === 'pre' ? '' : it && it.type === 'mark' ? it.m.label : '–', pen: (b.rc.penN || 0) };
+        });
+      }
+      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span></div>' +
+        '<div class="rb-cols"><span class="c-pos">' + esc(t('live.watch.col.pos')) + '</span><span class="c-name">' + esc(t('live.watch.col.sailor')) + '</span><span class="c-gap">' + esc(t('live.watch.col.gap')) + '</span><span class="c-mark">' + esc(t('live.watch.col.mark')) + '</span><span class="c-pen">' + esc(t('live.watch.col.pen')) + '</span></div>' +
+        '<div class="rb-list">' + rows.map(r => '<div class="rb-row rb-w' + (r.place <= 3 && r.fin ? ' pod p' + r.place : '') + (r.lost ? ' lost' : '') + (r.fin ? ' fin' : '') + '"><b class="race-medal c-pos">' + r.place + '</b><span class="c-name"><i class="race-dot" style="background:' + esc(r.color) + '"></i>' + esc(r.name) + '</span><em class="c-gap">' + esc(r.gap) + '</em><em class="c-mark">' + esc(r.mark) + '</em><em class="c-pen' + (r.active ? ' on' : '') + '">' + (r.pen || r.active ? '↻' + (r.pen > 1 ? r.pen : '') : '') + '</em></div>').join('') + '</div>';
+      board.classList.toggle('rb-pre', S.phase === 'pre');
       if (html !== paintWatchBoard.last) { board.innerHTML = html; paintWatchBoard.last = html; }
+    }
+    // podium + the whole table when the official result arrives; rematch keeps the room and the sailors (server 'rematch')
+    function showPodium() {
+      if (wEnd || !S.liveRes || S.unofficial) return;
+      const esc = KOS.UI.esc, fmtT = KOS.UI.fmtTime;
+      const rows = S.liveRes.slice().sort((a, b) => a.place - b.place);
+      const col = id => (byRid[id] || me).colors.hull;
+      const fins = rows.filter(r => r.ms != null);
+      const top = fins.filter(r => r.place <= 3).slice(0, 3);
+      const stepOf = r => '<div class="we-step p' + r.place + '"><i class="race-dot" style="background:' + esc(col(r.id)) + '"></i><b>' + esc(r.name) + '</b><em>' + esc(fmtT(r.ms)) + '</em><div class="we-block"><span>' + r.place + '</span></div></div>';
+      const arranged = top.length >= 3 ? [top[1], top[0], top[2]] : top.length === 2 ? [top[1], top[0]] : top;
+      wEnd = document.createElement('div'); wEnd.className = 'watch-end';
+      wEnd.innerHTML = '<div class="we-card glass"><h1>' + esc(t('live.res.title')) + '</h1>' +
+        (top.length ? '<div class="we-podium n' + arranged.length + '">' + arranged.map(stepOf).join('') + '</div>' : '') +
+        '<div class="we-table">' + rows.map(r => '<div class="we-row' + (r.ms != null && r.place <= 3 ? ' pod p' + r.place : '') + '"><b class="race-medal">' + r.place + '</b><span><i class="race-dot" style="background:' + esc(col(r.id)) + '"></i>' + esc(r.name) + '</span><em>' + (r.ms != null ? esc(fmtT(r.ms)) + (fins[0] && r.ms !== fins[0].ms ? ' <small>+' + esc(secTxt((r.ms - fins[0].ms) / 1000)) + '</small>' : '') : esc(t('live.res.dnf'))) + '</em></div>').join('') + '</div>' +
+        '<div class="we-btns"><button type="button" class="btn btn-primary btn-big" data-we="rematch">' + KOS.UI.iconSvg('retry') + '<span>' + esc(t('live.rematch')) + '</span></button>' +
+        '<button type="button" class="btn btn-glass" data-we="leave">' + KOS.UI.iconSvg('map') + '<span>' + esc(t('live.leave')) + '</span></button></div></div>';
+      wEnd.addEventListener('pointerdown', e => e.stopPropagation());
+      wEnd.addEventListener('click', e => {
+        const b = e.target.closest('[data-we]'); if (!b) return;
+        sfx('click');
+        if (b.getAttribute('data-we') === 'rematch') { if (LIVE.rematch) LIVE.rematch(); } else { LIVE.leave(); host.quit(); }
+      });
+      host.layer.appendChild(wEnd);
+      if (board) board.style.display = 'none';
+      if (wFollow) wFollow.style.display = 'none';
+      if (S.follow) setFollow(false);
+      sfx('hornLong'); setTimeout(() => { if (!destroyed) sfx('cheer', { vol: 0.6 }); }, 250);
+      try { KOS.UI.confetti(); } catch (e) { /* optional */ }
     }
     function updateWatch(dt) {
       S.introT += dt;
@@ -971,8 +1062,9 @@
       if (S.hudT <= 0) {
         S.hudT = 0.1;
         hud.update({ wind: { dir: wind.dir, speed: wind.speed }, timer: (S.phase === 'pre' ? -S.clock : S.raceT) * 1000 });
-        paintPanel();
+        paintPanel(); paintWatchCount();
       }
+      followLeader();
       S.boardT -= dt;
       if (S.boardT <= 0) { S.boardT = 0.5; paintWatchBoard(); }
       if ((S.ambT -= dt) <= 0) { S.ambT = 0.5; ambient(); }
@@ -980,7 +1072,7 @@
     if (LIVE) {
       liveOffs.push(LIVE.on('states', onStates));
       liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
-      liveOffs.push(LIVE.on('res', rows => { S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); }));
+      liveOffs.push(LIVE.on('res', rows => { S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
       liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
       liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; }));
       liveOffs.push(LIVE.on('offline', goOffline));
@@ -1371,7 +1463,8 @@
       destroyed = true;
       liveOffs.forEach(f => f());
       if (banner) banner.remove();
-      if (LIVE) LIVE.leave();
+      if (LIVE && !(S.liveRes && !S.unofficial)) LIVE.leave(); // an official result keeps the room open for a rematch; the lobby owns the session then
+      [wCount, wFollow, wEnd].forEach(e => { if (e) e.remove(); });
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
       host.layer.removeEventListener('wheel', onWheel);
       host.layer.classList.remove('race-layer', 'race-go', 'race-pen', 'race-done');
@@ -1385,7 +1478,7 @@
     }
     function pause() { hideCoach(); try { KOS.Audio.ambient(null); } catch (e) { /* optional */ } }
     function resume() { ambient(); }
-    function onResize() { scene.resize(); if (WATCH || S.introT < 3.2) fitCourse(); else applyZoom(); }
+    function onResize() { scene.resize(); if (WATCH && S.follow) watchZoom(); else if (WATCH || S.introT < 3.2) fitCourse(); else applyZoom(); }
 
     // ---- test hooks: autopilot (KOS.AI sails the player's boat, start sequence included) and skipIntro
     let autopilot = null;

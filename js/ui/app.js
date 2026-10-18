@@ -1181,6 +1181,7 @@
     const card = UI().results(lr.result, a, { record: lr.rec, next, nextUnlocked, capsized: !!lr.capsized });
     sec.innerHTML = '<div class="scroll center"></div>';
     sec.firstChild.appendChild(card);
+    if (a.liveRace && KOS.Lobby && KOS.Lobby.decorateResults) KOS.Lobby.decorateResults(card); // host: rematch button; others: a waiting note
     if (next && !nextUnlocked) card.querySelector('.results-buttons').insertAdjacentHTML('afterend', '<p class="results-locknote">' + ico('lock') + '<span>' + esc(tt(next.title)) + ': ' + esc(lockText(next.id)) + '</span></p>');
     const win = lr.result.live ? !!lr.result.win : lr.result.success !== false && (+lr.result.stars || 0) > 0;
     if (lr.rec && lr.rec.starsGained) {
@@ -1225,8 +1226,9 @@
     lr.shown = true;
     bind(sec, {
       retry: () => { sfx('click'); if (a.liveRace) { if (KOS.Lobby) KOS.Lobby.open(); else App.show('area', { area: 'race' }); return; } App.play(a.id, { force: true, boat: run.boatPick }); },
+      rematch: () => { sfx('click'); if (KOS.Lobby) KOS.Lobby.rematch(); },
       next: () => { sfx('click'); if (next) App.play(next.id); },
-      map: () => { sfx('click'); App.stack = App.stack.filter(s => s.screen === 'title'); App.show('hub', {}, { replace: true }); },
+      map: () => { sfx('click'); if (a.liveRace && KOS.Lobby && KOS.Lobby.leaveParked) KOS.Lobby.leaveParked(); App.stack = App.stack.filter(s => s.screen === 'title'); App.show('hub', {}, { replace: true }); },
     });
   };
 

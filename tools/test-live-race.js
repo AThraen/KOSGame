@@ -120,7 +120,11 @@ async function main() {
     await sleep(1500);
     const moved2 = await Promise.all([a, b, big].map(p => p.evaluate(() => KOS.App.run.inst.live.remotes.map(r => r.x + ',' + r.y).join('|'))));
     ok(moved.every((m, i) => m !== moved2[i]), 'remote boats keep moving');
-    ok(await big.evaluate(() => document.querySelectorAll('.race-board.rb-watch .rb-row').length === 2), 'the big screen board lists both sailors');
+    ok(await big.evaluate(() => document.querySelectorAll('.race-board.rb-watch .rb-row').length === 2 && document.querySelectorAll('.race-board.rb-watch .rb-cols span').length === 5), 'the big screen board lists both sailors with gap, mark and penalty columns');
+    await big.click('.watch-follow');
+    ok(await big.evaluate(() => KOS.App.run.inst.state.follow === true && !!KOS.App.run.inst.scene.target), 'follow the leader: the camera tracks a boat');
+    await big.click('.watch-follow');
+    ok(await big.evaluate(() => KOS.App.run.inst.state.follow === false && !KOS.App.run.inst.scene.target), 'overview again after the toggle');
 
     // finish: both sailors reach the results screen
     for (const p of [a, b]) await p.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 240000 });
@@ -132,8 +136,18 @@ async function main() {
     ok(await a.evaluate(() => /Resultat|vandt|plads/i.test(document.querySelector('.results-title').textContent) && !document.querySelector('.results-stars')), 'results screen: place title, no star row');
     ok(await a.evaluate(() => JSON.stringify(KOS.Storage.get('progress', {})).indexOf('race.live') < 0), 'a live race never writes progress');
     ok(await big.evaluate(() => KOS.App.run.inst.state.liveRes && KOS.App.run.inst.state.liveRes.length === 2), 'the big screen got the official table too');
-    const errs = [].concat(...L.all.map(p => p.errs));
-    ok(errs.length === 0, 'no errors on any page (' + errs.join(' | ') + ')');
+    // big screen end card: podium, table, rematch; the sailors' results card has a waiting note
+    await big.waitForSelector('.watch-end', { timeout: 8000 });
+    ok(await big.evaluate(() => document.querySelectorAll('.watch-end .we-step').length === 2 && document.querySelectorAll('.watch-end .we-row').length === 2 && !!document.querySelector('.watch-end [data-we="rematch"]')), 'big screen: podium, results table and rematch button');
+    ok(await a.evaluate(() => !!document.querySelector('.live-rematch-wait') && !document.querySelector('[data-act="retry"]')), 'sailor results card: waits for the host instead of a retry button');
+    await big.click('.watch-end [data-we="rematch"]');
+    for (const p of L.all) await waitView(p, 'room', 15000);
+    ok(await a.evaluate(() => KOS.Lobby.state.room && KOS.Lobby.state.room.phase === 'lobby' && KOS.Lobby.state.room.players.length === 3), 'rematch: everybody is back in the lobby of the same room (3 people)');
+    await clickAct(big, 'start');
+    for (const p of L.all) await inRace(p);
+    ok(await a.evaluate(() => KOS.App.run.inst.state.clock < 0 && KOS.App.run.inst.live.remotes.length === 1), 'rematch: a second race starts with the same people');
+    const errs2 = [].concat(...L.all.map(p => p.errs));
+    ok(errs2.length === 0, 'no errors on any page (' + errs2.join(' | ') + ')');
     for (const c of pages.splice(0)) await c.close();
     await srv.close();
   }

@@ -142,6 +142,7 @@ function createServer(env) {
           break;
         }
         case 'start': if (r) { const res = rooms.start(r, c.id); if (res === 'few') err('few'); else if (res === 'denied') err('bad'); } break;
+        case 'rematch': if (r && rooms.rematch(r, c.id) !== 'ok') err('bad'); break;
         case 'st': if (r && rooms.state(r, c.id, m.s)) { /* relayed on tick */ } break;
         case 'fin': if (r) rooms.finish(r, c.id, m.ms); break;
         case 'leave': if (r) { rooms.disconnect(r, c.id, true); c.room = null; } break;

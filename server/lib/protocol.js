@@ -76,7 +76,7 @@ function validate(raw) {
     case 'kick':
       if (!int(m.id)) return bad;
       return { ok: true, msg: { t: 'kick', id: m.id } };
-    case 'start': case 'leave':
+    case 'start': case 'leave': case 'rematch':
       return { ok: true, msg: { t: m.t } };
     case 'st': {
       if (!Array.isArray(m.s) || m.s.length !== 9 || !m.s.every(fin)) return bad;

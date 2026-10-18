@@ -33,6 +33,8 @@
       title1: 'Du vandt løbet!', title2: '2. plads – flot!', title3: '3. plads – på podiet!', titleN: '{place}. plads!',
       msg: 'Du kom i mål som nr. {place} af {of} på {time}.', dnfMsg: 'Du nåede ikke i mål denne gang.' },
     race: 'Løbet starter – sejladsen kommer i næste version.',
+    rematch: 'Ny kapsejlads med samme deltagere', rematchWait: 'Venter på værten – hvis der kommer en ny kapsejlads, kommer du automatisk med.',
+    watch: { follow: 'Følg føreren', overview: 'Overblik', startsIn: 'Starter om', leader: 'Fører', col: { pos: 'Nr.', sailor: 'Sejler', gap: 'Efter', mark: 'Mærke', pen: 'Straf' } },
   } });
   KOS.I18n.add('en', { live: {
     playAi: 'Race the computer', retry: 'Try again', hostUnavailable: 'Cannot reach the race server. Check that the server is running.',
@@ -56,6 +58,8 @@
       title1: 'You won the race!', title2: '2nd place – great!', title3: '3rd place – on the podium!', titleN: 'Place {place}!',
       msg: 'You finished {place} of {of} in {time}.', dnfMsg: 'You did not finish this time.' },
     race: 'The race is starting – the sailing itself arrives in the next version.',
+    rematch: 'New race with the same sailors', rematchWait: 'Waiting for the host – if there is a new race you join automatically.',
+    watch: { follow: 'Follow the leader', overview: 'Overview', startsIn: 'Starting in', leader: 'Leader', col: { pos: 'No.', sailor: 'Sailor', gap: 'Gap', mark: 'Mark', pen: 'Pen.' } },
   } });
 
   // ------------------------------------------------------------------ state
@@ -85,7 +89,7 @@
     L.offs.forEach(f => { try { f(); } catch (e) { /* ignore */ } });
     L.offs = [];
     L.timers.forEach(clearInterval); L.timers = [];
-    if (L.sess && !L.handoff) { try { L.sess.leave(); } catch (e) { /* ignore */ } }
+    if (L.sess && (!L.handoff || L.sess.phase === 'results')) { try { L.sess.leave(); } catch (e) { /* ignore */ } }
     L.sess = null; L.room = null; L.busy = ''; L.results = null; L.handoff = false;
   }
   function paint() { const sec = secEl(); if (sec && app().cur === 'live') { render(sec); if (KOS.I18n) KOS.I18n.apply(sec); } }
@@ -123,7 +127,16 @@
     const on = (e, fn) => L.offs.push(sess.on(e, fn));
     on('room', room => { L.room = room; if (L.view === 'room') paint(); });
     on('start', () => { L.room = sess.room || L.room; launchRace(sess); });
-    on('res', rows => { L.results = rows; if (app().cur === 'live') setView('results'); }); // while racing, race.js shows the result itself
+    on('res', rows => {
+      L.results = rows;
+      if (app().cur === 'live') setView('results'); // while racing, race.js shows the result itself
+      else { const me = sess; L.timers.push(setTimeout(() => { if (L.sess === me && me.phase === 'results') { reset(); } }, 190000)); } // the server drops the room after 3 min: do not keep a socket on a dead room
+    });
+    on('rematch', room => { // the host went again with the same people: everybody lands in the lobby of the same room
+      L.room = room; L.results = null; L.handoff = false; L.view = 'room';
+      const cur = app().cur;
+      if (cur === 'live') paint(); else if (cur === 'play' || cur === 'results') app().show('live', {}, { replace: true }); else reset();
+    });
     on('hostleft', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.hostLeft'), ['back']); leaveRaceScreen(); });
     on('kicked', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.kicked'), ['back']); leaveRaceScreen(); });
     on('offline', () => { if (L.view === 'room' || L.view === 'starting') trainerMsg(t('live.unavailable'), ['retry', 'ai']); });
@@ -180,7 +193,7 @@
     try { ok = app().play('race.live', { force: true, live: KOS.MP.liveFacade(sess) }); } catch (e) { ok = false; }
     if (!ok) { L.handoff = false; startCountdown(); }
   }
-  function leaveRaceScreen() { if (app().cur === 'play') { L.handoff = false; app().show('live', {}, { replace: true }); } }
+  function leaveRaceScreen() { if (app().cur === 'play' || app().cur === 'results') { L.handoff = false; app().show('live', {}, { replace: true }); } }
   function startCountdown() {
     L.view = 'starting'; paint();
     const tick = () => {
@@ -342,6 +355,16 @@
     const inp = sec.querySelector('#live-code');
     if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = sec.querySelector('[data-act="join"]'); if (b) b.click(); } });
   }
+  // the results card after a live race: the host gets the rematch button, the others a note (they follow automatically)
+  function parked() { return !!(L.sess && L.sess.phase === 'results' && L.sess.state === 'ok'); }
+  function decorateResults(card) {
+    if (!card || !parked()) return;
+    const btn = card.querySelector('[data-act="retry"]');
+    if (!btn) return;
+    if (L.sess.role === 'host') { btn.setAttribute('data-act', 'rematch'); btn.classList.replace('btn-glass', 'btn-primary'); btn.innerHTML = kit().ico('retry') + '<span>' + esc(t('live.rematch')) + '</span>'; }
+    else { btn.insertAdjacentHTML('beforebegin', '<p class="results-locknote live-rematch-wait">' + esc(t('live.rematchWait')) + '</p>'); btn.remove(); }
+  }
+  function rematch() { if (parked() && L.sess.role === 'host') L.sess.rematch(); else open(); }
   function recheckThen(fn) {
     KOS.MPStatus.refresh({ force: true }).then(st => {
       L.status = st;
@@ -374,5 +397,5 @@
   }
 
   if (app() && app().registerScreen) app().registerScreen('live', sec => render(sec), () => { if (!L.handoff) reset(); });
-  KOS.Lobby = { open, state: L, _render: render };
+  KOS.Lobby = { open, state: L, decorateResults, rematch, leaveParked: () => { if (parked()) reset(); }, _render: render };
 })(typeof window !== 'undefined' ? window : globalThis);

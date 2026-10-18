@@ -89,3 +89,4 @@
   .live-code-input { transition: none; }
 }
 .live-link small { display: block; }
+.live-rematch-wait { flex: 1 1 100%; order: -1; margin: 0 0 6px; text-align: center; }

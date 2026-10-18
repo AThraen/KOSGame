@@ -156,6 +156,14 @@ async function main() {
   const res = await host.wait('res');
   ok(res.rows.length === 2 && res.rows[0].place === 1 && res.rows[1].place === 1 && res.rows[0].status === 'fin', 'results: tie shares place');
   await p2.wait('res');
+  p2.send({ t: 'rematch' });
+  ok((await p2.wait('err')).code === 'bad', 'rematch: only the host may ask');
+  host.send({ t: 'rematch' });
+  const rm = await p2.wait('rematch');
+  ok(rm.room.phase === 'lobby' && rm.room.players.length === 2, 'rematch: same players back in the lobby');
+  await host.wait('rematch');
+  host.send({ t: 'start' });
+  ok((await p2.wait('start')).grid.length === 2, 'rematch: the room can start a new race');
 
   console.log('-- rejoin');
   const h2 = await mk('Hanna');
