@@ -121,16 +121,52 @@
       const rest = String(loc().hash || '').replace(/^#/, '').split('&').filter(kv => kv && kv.indexOf('join=') !== 0).join('&');
       if (root.history && root.history.replaceState) root.history.replaceState(null, '', loc().pathname + (loc().search || '') + (rest ? '#' + rest : ''));
     } catch (e) { /* ignore */ }
-    return open({ join: code });
+    const auto = !!KOS.pendingAuto; KOS.pendingAuto = false;
+    KOS.joinArrival = code; // the lobby may still ask the update prompt to wait or to run first
+    return open({ join: code, auto });
   }
+
+  // ---- reload safety (docs/specs/live-race.md section 14): the pending join (and, once joined, mp.js's resume token) live in sessionStorage
+  const PKEY = 'kos.mp.pending';
+  function readPending() {
+    try {
+      const o = JSON.parse(root.sessionStorage.getItem(PKEY));
+      return o && CODE_RE.test(String(o.code)) && Date.now() - (+o.at || 0) < 30 * 60000 ? o : null;
+    } catch (e) { return null; }
+  }
+  function writePending(o) {
+    try { if (o) root.sessionStorage.setItem(PKEY, JSON.stringify({ code: o.code, auto: !!o.auto, at: Date.now() })); else root.sessionStorage.removeItem(PKEY); } catch (e) { /* private mode */ }
+  }
+  // true while a lobby or race of the live game is open or being joined: the "new version" prompt must wait
+  function busy() {
+    const L = KOS.Lobby && KOS.Lobby.state;
+    return !!(L && (L.sess || L.busy || L.view === 'join' && L.code));
+  }
+  // before a page reload (update): remember what the player was doing so the lobby can pick it up again
+  function keepForReload() {
+    const L = KOS.Lobby && KOS.Lobby.state;
+    const code = KOS.pendingJoin || (L && L.sess && L.sess.code) || (L && L.view === 'join' && CODE_RE.test(String(L.code)) ? L.code : null);
+    if (code) writePending({ code, auto: true });
+    return !!code;
+  }
+  // arrived through #join=CODE and nothing is joined yet: the update may be applied at once, the join continues by itself afterwards
+  function canAutoUpdate() {
+    let done = false; try { done = !!root.sessionStorage.getItem('kos.mp.upd'); } catch (e) { done = true; }
+    const L = KOS.Lobby && KOS.Lobby.state;
+    return !!(!done && (KOS.pendingJoin || KOS.joinArrival) && !(L && (L.sess || L.busy)));
+  }
+  function markUpdated() { try { root.sessionStorage.setItem('kos.mp.upd', '1'); } catch (e) { /* ignore */ } }
 
   // #join=CODE: remember it only (no network). Cleared again by handlePendingJoin.
   (function () {
     const j = String(hashParams().join || '').toUpperCase().replace(/\s+/g, '');
-    if (CODE_RE.test(j) && KOS.Config.liveRace !== false) KOS.pendingJoin = j;
+    if (KOS.Config.liveRace === false) return;
+    if (CODE_RE.test(j)) { KOS.pendingJoin = j; KOS.pendingAuto = false; try { root.sessionStorage.setItem('kos.mp.pending', JSON.stringify({ code: j, auto: false, at: Date.now() })); } catch (e) { /* ignore */ } return; }
+    const p = readPending(); // the page was reloaded (update, refresh) and #join is gone
+    if (p && p.auto) { KOS.pendingJoin = p.code; KOS.pendingAuto = true; }
   })();
 
-  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin };
+  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, busy, keepForReload, canAutoUpdate, markUpdated };
 
   // the only strings the hub needs before the lobby is loaded
   if (KOS.I18n) {

@@ -71,7 +71,7 @@
         const perfLevel = (KOS.Perf && KOS.Perf.level != null) ? KOS.Perf.level : 3;
         let reduced = false;
         try {
-          if (KOS.UI && typeof KOS.UI.reducedMotion === 'function') reduced = !!KOS.UI.reducedMotion();
+          if (KOS.UI && typeof KOS.UI.reduced === 'function') reduced = !!KOS.UI.reduced();
           else reduced = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
         } catch (e) { reduced = false; }
 

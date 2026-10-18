@@ -205,6 +205,57 @@ async function main() {
   ok(true, 'host-only: Start enabled with one sailor');
   await w.ctx.close(); await j.ctx.close();
 
+  // ---------------------------------------------------------------- reload safety (the update prompt kicked a joiner out)
+  console.log('-- reload: the joiner is back in the same room');
+  {
+    const h = await newPage('area=race', 'Vaert');
+    await h.page.waitForSelector('.live-card', { timeout: 8000 });
+    await h.page.click('.live-card');
+    await waitView(h.page, 'entry'); await clickAct(h.page, 'host'); await waitView(h.page, 'setup');
+    await h.page.evaluate(() => Object.assign(KOS.Lobby.state.cfg, { countdownS: 20 }));
+    await clickAct(h.page, 'create'); await waitView(h.page, 'room');
+    const code = await h.page.evaluate(() => document.getElementById('live-code-show').textContent);
+    const link = await h.page.evaluate(() => document.getElementById('live-link').textContent);
+    const a = await newPage(link.slice(link.indexOf('#') + 1), 'Ane');
+    await waitView(a.page, 'join'); await clickAct(a.page, 'join'); await waitView(a.page, 'room');
+    ok(await a.page.evaluate(() => KOS.MPStatus.busy() && !KOS.MPStatus.canAutoUpdate()), 'in a live room the update prompt must wait (busy)');
+    ok(await a.page.evaluate(() => !!sessionStorage.getItem('kos.mp.pending') && !!sessionStorage.getItem('kos.mp.rejoin')), 'join intent and resume token are in sessionStorage');
+    // 1. plain reload (hash has lost #join)
+    await a.page.reload();
+    await a.page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    await waitView(a.page, 'room', 12000);
+    ok(await a.page.evaluate(c => KOS.Lobby.state.room.code === c, code), 'reload: back in room ' + code + ' without any tap');
+    await h.page.waitForFunction(() => document.querySelectorAll('.live-player').length === 2, null, { timeout: 8000 });
+    ok(await h.page.evaluate(() => [...document.querySelectorAll('.live-player b')].some(b => /Ane/.test(b.textContent))), 'the host still sees the joiner');
+    // 2. the whole URL hash is gone
+    await a.page.goto(web.url + '#');
+    await a.page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    ok(true, '(navigated to a bare URL)');
+    await a.page.waitForTimeout(100);
+    // no mp= override any more on this page: it cannot reach the test server, so only check the intent survived
+    ok(await a.page.evaluate(() => !!sessionStorage.getItem('kos.mp.pending')), 'the pending join survives a bare-URL reload');
+    await a.ctx.close();
+    // 3. arriving via #join=CODE, the update is applied before the join: intent saved, reload, joined by itself
+    const b = await newPage(link.slice(link.indexOf('#') + 1), 'Bo');
+    await waitView(b.page, 'join');
+    ok(await b.page.evaluate(() => KOS.MPStatus.keepForReload() === true && JSON.parse(sessionStorage.getItem('kos.mp.pending')).auto === true), 'keepForReload stores the code with auto');
+    await b.page.reload();
+    await b.page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    await waitView(b.page, 'room', 12000);
+    ok(await b.page.evaluate(c => KOS.Lobby.state.room.code === c, code), 'after the update reload the join continues straight into the room');
+    // 4. mid-countdown: the seat is resumed (same id), the race screen comes back
+    await h.page.waitForFunction(() => !document.querySelector('#screen-live [data-act="start"]').disabled, null, { timeout: 8000 });
+    const idBefore = await b.page.evaluate(() => KOS.Lobby.state.sess.id);
+    await clickAct(h.page, 'start');
+    await b.page.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, { timeout: 15000 });
+    await b.page.reload();
+    await b.page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    await b.page.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, { timeout: 15000 });
+    ok(await b.page.evaluate(i => KOS.App.run.host.live.myId === i && KOS.App.run.inst.state.clock < 0, idBefore), 'reload during the countdown: same seat, back in the race before the gun');
+    ok(b.page.errs.length === 0 && h.page.errs.length === 0, 'no console errors (' + b.page.errs.concat(h.page.errs).join(' | ') + ')');
+    await h.ctx.close(); await b.ctx.close();
+  }
+
   await browser.close();
   await srv.close();
   await web.close();

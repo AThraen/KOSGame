@@ -25,7 +25,14 @@
     cfg: { boat: 'Båd', course: 'Bane', venue: 'Farvand', laps: 'Omgange', wind: 'Vind', windDir: 'Vindretning', gust: 'Vindstød', shift: 'Vindskift',
       start: 'Startsekvens', pen: 'Straffe', contact: 'Kontakt mellem både', help: 'Hjælp', maxP: 'Max sejlere', role: 'Din rolle', create: 'Opret løbet',
       wl: 'Op og ned', tri: 'Trekant', sound: 'Øresund', bay: 'Havnen', none: 'Ingen', some: 'Lidt', lots: 'Meget',
-      s20: '20 sek.', s60: '1 min', s180: '3 min', on: 'Til', off: 'Fra', locked: 'Samme for alle', free: 'Frit valg' },
+      s20: '20 sek.', s60: '1 min', s180: '3 min', on: 'Til', off: 'Fra', locked: 'Samme for alle', free: 'Frit valg',
+      hard: 'Hårde', rain: 'Regn', rain0: 'Ingen', rain1: 'Let regn', rain2: 'Kraftig regn', finish: 'Målvindue', f60: '1 min', f180: '3 min', f300: '5 min', f0: 'Ingen grænse' },
+    dinghyNote: 'I klubben sejler vi normalt ikke joller i så meget vind. Du kan godt vælge det, men det bliver vildt!',
+    strongNote: 'Hård vind passer godt til J/70 og H-båd. De er stabile kølbåde.',
+    aborted: 'Værten afbrød løbet. I er tilbage i lobbyen.',
+    hm: { open: 'Vært', title: 'Værtsmenu', standings: 'Stillingen', endNow: 'Afslut løbet nu', abort: 'Afbryd løbet', lobbyAfter: 'Tilbage til lobbyen efter løbet', kick: 'Fjern', yes: 'Ja', no: 'Nej', close: 'Luk', sailing: 'Sejler',
+      endAsk: 'Afslut løbet nu? Dem der ikke er i mål, får “Ikke i mål”.', abortAsk: 'Afbryd løbet? Alle kommer tilbage til lobbyen, og der er intet resultat.', kickAsk: 'Fjern {name} fra løbet?' },
+    fin: { you: 'Du kom i mål som nr. {place} på {time}!', waitN: 'Venter på {n} sejlere…', wait1: 'Venter på 1 sejler…', window: 'Målvindue lukker om {t}', sailing: 'Stadig på vandet', allIn: 'Alle er i mål. Resultatet kommer…', sailors: 'Sejlerne' },
     dir: { N: 'N', NE: 'NØ', E: 'Ø', SE: 'SØ', S: 'S', SW: 'SV', W: 'V', NW: 'NV' },
     joinLink: 'Link', codeLabel: 'Kode (4 tegn)', joinGo: 'Deltag i løbet', yourName: 'Dit navn i løbet', waiting: 'Venter på sejlere…',
     scan: 'Scan med mobilen for at deltage', needBoats: 'Mindst {n} sejlere skal med.', connecting: 'Opretter forbindelse…',
@@ -50,7 +57,14 @@
     cfg: { boat: 'Boat', course: 'Course', venue: 'Waters', laps: 'Laps', wind: 'Wind', windDir: 'Wind direction', gust: 'Gusts', shift: 'Wind shifts',
       start: 'Start sequence', pen: 'Penalties', contact: 'Contact between boats', help: 'Help', maxP: 'Max sailors', role: 'Your role', create: 'Create the race',
       wl: 'Up and down', tri: 'Triangle', sound: 'The Sound', bay: 'The harbour', none: 'None', some: 'A few', lots: 'Many',
-      s20: '20 s', s60: '1 min', s180: '3 min', on: 'On', off: 'Off', locked: 'Same for all', free: 'Free choice' },
+      s20: '20 s', s60: '1 min', s180: '3 min', on: 'On', off: 'Off', locked: 'Same for all', free: 'Free choice',
+      hard: 'Hard', rain: 'Rain', rain0: 'None', rain1: 'Light rain', rain2: 'Heavy rain', finish: 'Finish window', f60: '1 min', f180: '3 min', f300: '5 min', f0: 'No limit' },
+    dinghyNote: 'At the club we normally do not sail dinghies in this much wind. You can still pick it, but it will be wild!',
+    strongNote: 'Strong wind suits the J/70 and the H-boat well. They are steady keelboats.',
+    aborted: 'The host stopped the race. You are back in the lobby.',
+    hm: { open: 'Host', title: 'Host menu', standings: 'Standings', endNow: 'End the race now', abort: 'Abort the race', lobbyAfter: 'Back to the lobby after the race', kick: 'Remove', yes: 'Yes', no: 'No', close: 'Close', sailing: 'Sailing',
+      endAsk: 'End the race now? Boats that have not finished get “Did not finish”.', abortAsk: 'Abort the race? Everybody goes back to the lobby and there is no result.', kickAsk: 'Remove {name} from the race?' },
+    fin: { you: 'You finished {place} in {time}!', waitN: 'Waiting for {n} sailors…', wait1: 'Waiting for 1 sailor…', window: 'Finish window closes in {t}', sailing: 'Still sailing', allIn: 'Everybody is in. The result is coming…', sailors: 'Sailors' },
     dir: { N: 'N', NE: 'NE', E: 'E', SE: 'SE', S: 'S', SW: 'SW', W: 'W', NW: 'NW' },
     joinLink: 'Link', codeLabel: 'Code (4 characters)', joinGo: 'Join the race', yourName: 'Your name in the race', waiting: 'Waiting for sailors…',
     scan: 'Scan with your phone to join', needBoats: 'At least {n} sailors are needed.', connecting: 'Connecting…',
@@ -77,7 +91,7 @@
     const boats = boatsList();
     const fav = KOS.Storage && KOS.Storage.get ? KOS.Storage.get('boat', 'opti') : 'opti';
     return { boat: boats.indexOf(fav) >= 0 ? fav : boats[0] || 'opti', venue: 'sound', course: 'wl', laps: 2, windDeg: 225, windKn: 10,
-      gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, contact: true, help: 'free' };
+      gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, contact: true, help: 'free', rain: 0, finishS: 180 };
   }
   function boatsList() { try { const l = app().liveBoats(); return l && l.length ? l : ['opti']; } catch (e) { return ['opti']; } }
   function myName() {
@@ -132,8 +146,9 @@
       if (app().cur === 'live') setView('results'); // while racing, race.js shows the result itself
       else { const me = sess; L.timers.push(setTimeout(() => { if (L.sess === me && me.phase === 'results') { reset(); } }, 190000)); } // the server drops the room after 3 min: do not keep a socket on a dead room
     });
-    on('rematch', room => { // the host went again with the same people: everybody lands in the lobby of the same room
+    on('rematch', (room, aborted) => { // the host went again with the same people: everybody lands in the lobby of the same room
       L.room = room; L.results = null; L.handoff = false; L.view = 'room';
+      if (aborted) { try { KOS.UI.toast(t('live.aborted'), { kind: 'info' }); } catch (e) { /* optional */ } }
       const cur = app().cur;
       if (cur === 'live') paint(); else if (cur === 'play' || cur === 'results') app().show('live', {}, { replace: true }); else reset();
     });
@@ -183,6 +198,30 @@
       const code2 = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
       if (code2 === 'nocode' || code2 === 'full' || code2 === 'started' || code2 === 'closed' || code2 === 'busy') { L.joinErr = errText(code2); setView('join'); return; }
+      unavailable(false);
+    });
+  }
+  // after a reload (update, refresh): resume the same seat (countdown/race) or join the room again (lobby), no taps needed
+  function autoRejoin(code) {
+    L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.view = 'join';
+    const tok = KOS.MP.savedToken && KOS.MP.savedToken();
+    guard().then(ok => {
+      if (!ok) return;
+      return connectNow().then(sess => {
+        wire(sess);
+        const joined = room => {
+          L.room = room; L.busy = '';
+          if ((sess.phase === 'countdown' || sess.phase === 'racing') && sess.grid) launchRace(sess); // else the 'start' that follows launches it
+          else setView('room');
+        };
+        if (tok && tok.code === code) return sess.resume(tok).then(joined, () => sess.join(code).then(joined));
+        return sess.join(code).then(joined);
+      });
+    }).catch(e => {
+      L.busy = '';
+      const c2 = e && e.code;
+      try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
+      if (c2 === 'nocode' || c2 === 'full' || c2 === 'started' || c2 === 'closed' || c2 === 'busy') { L.joinErr = errText(c2); setView('join'); return; }
       unavailable(false);
     });
   }
@@ -242,7 +281,12 @@
   function viewSetup() {
     const c = L.cfg, boats = boatsList(), G = kit().boatGet;
     const bn = id => (G(id) && G(id).name) || id;
-    const kn = [6, 8, 10, 12, 14];
+    const U = KOS.U, ms = U && U.windUnit && U.windUnit() !== 'kn';
+    // wind chips in the player's unit (the server stores knots): 3-14 m/s or 6-27 kn
+    const winds = ms ? [3, 4, 5, 6, 7, 8, 9, 10, 12, 14].map(v => ({ kn: Math.round(U.kn(v) * 10) / 10, label: v + ' m/s' })) : [6, 8, 10, 12, 14, 16, 18, 20, 24, 27].map(v => ({ kn: v, label: v + ' kn' }));
+    const wMs = U && U.ms ? U.ms(c.windKn) : c.windKn * 0.5144;
+    const keelB = id => { const B = G(id); return !!(B && B.canCapsize === false); };
+    const note = wMs > 8.6 && !keelB(c.boat) ? t('live.dinghyNote') : wMs > 9 && keelB(c.boat) ? t('live.strongNote') : '';
     return shell(t('live.host'),
       '<p class="live-intro">' + esc(t('live.hostIntro')) + '</p>' +
       '<div class="live-form glass">' +
@@ -252,11 +296,14 @@
       row(t('live.cfg.venue'), ['sound', 'bay'].map(v => chip('opt', 'venue', v, t('live.cfg.' + v), c.venue === v)).join('')) +
       row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v)).join('')) +
       row(t('live.cfg.laps'), [1, 2, 3].map(v => chip('opt', 'laps', v, String(v), c.laps === v)).join('')) +
-      row(t('live.cfg.wind'), kn.map(v => chip('opt', 'windKn', v, KOS.U && KOS.U.windTxt ? KOS.U.windTxt(v) : v + ' kn', c.windKn === v)).join('')) +
+      row(t('live.cfg.wind'), winds.map(w => chip('opt', 'windKn', w.kn, w.label, Math.abs(c.windKn - w.kn) < 0.06)).join('')) +
+      (note ? '<div class="live-hint live-windnote" role="note">' + esc(note) + '</div>' : '') +
       row(t('live.cfg.windDir'), DIRS.map(d => chip('opt', 'windDeg', d[1], t('live.dir.' + d[0]), c.windDeg === d[1])).join('')) +
-      row(t('live.cfg.gust'), [['none', 0], ['some', 0.4], ['lots', 0.8]].map(g => chip('opt', 'gust', g[1], t('live.cfg.' + g[0]), c.gust === g[1])).join('')) +
+      row(t('live.cfg.gust'), [['none', 0], ['some', 0.4], ['lots', 0.8], ['hard', 1]].map(g => chip('opt', 'gust', g[1], t('live.cfg.' + g[0]), c.gust === g[1])).join('')) +
+      row(t('live.cfg.rain'), [0, 1, 2].map(v => chip('opt', 'rain', v, t('live.cfg.rain' + v), c.rain === v)).join('')) +
       row(t('live.cfg.shift'), [['none', 0], ['some', 0.4], ['lots', 0.8]].map(g => chip('opt', 'shift', g[1], t('live.cfg.' + g[0]), c.shift === g[1])).join('')) +
       row(t('live.cfg.start'), [['s20', 20], ['s60', 60], ['s180', 180]].map(g => chip('opt', 'countdownS', g[1], t('live.cfg.' + g[0]), c.countdownS === g[1])).join('')) +
+      row(t('live.cfg.finish'), [60, 180, 300, 0].map(v => chip('opt', 'finishS', v, t('live.cfg.f' + v), c.finishS === v)).join('')) +
       row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
       row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
       row(t('live.cfg.help'), ['locked', 'free'].map(v => chip('opt', 'help', v, t('live.cfg.' + v), c.help === v)).join('')) +
@@ -395,6 +442,7 @@
     L.view = opts.join ? 'join' : 'entry';
     if (L.view === 'entry' && L.status && L.status.mode === 'hidden') { L.view = 'msg'; L.msgText = t('live.unavailable'); L.msgActions = ['retry', 'ai']; }
     app().show('live', {});
+    if (opts.join && opts.auto) autoRejoin(opts.join);
   }
 
   if (app() && app().registerScreen) app().registerScreen('live', sec => render(sec), () => { if (!L.handoff) reset(); });

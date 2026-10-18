@@ -1009,6 +1009,88 @@
       };
       S.finishT = 0.6;
     }
+    // ---- finish window chip + host menu (spec section 14)
+    const fmtClock = x => { x = Math.max(0, Math.ceil(x)); return Math.floor(x / 60) + ':' + ('0' + (x % 60)).slice(-2); };
+    function fwinLeft() { const at = LIVE && LIVE.finishAt; return at ? (at - LIVE.serverNow()) / 1000 : null; }
+    let fwinEl = null, hostBtn = null, hostMenu = null;
+    function paintFwin() {
+      if (!fwinEl) return;
+      const left = fwinLeft();
+      const show = left != null && !S.done && S.phase !== 'finish' && !S.liveRes;
+      fwinEl.hidden = !show;
+      if (!show) return;
+      const txt = t('live.fin.window', { t: fmtClock(left) });
+      if (txt !== fwinEl._t) { fwinEl.textContent = txt; fwinEl._t = txt; }
+      fwinEl.classList.toggle('hot', left <= 10);
+    }
+    function hostRows() {
+      const ord = rank();
+      return ord.map(b => {
+        const fin = b.rc.finT != null, it = seq[b.rc.leg - 1];
+        return { b, fin, place: b.rc.place, name: b === me ? (profile.name || t('race.hud.you')) : b.name, color: b.colors.hull, rid: b.remote ? b.rid : 0, lost: !!b.lost,
+          st: fin ? KOS.UI.fmtTime(Math.round(b.rc.finT * 1000)) : b.lost ? t('live.lost') : it && it.type === 'mark' ? it.m.label : t('live.watch.start') };
+      });
+    }
+    function paintHostMenu() {
+      if (!hostMenu) return;
+      const esc = KOS.UI.esc, c = S.hmAsk;
+      const rows = hostRows();
+      const ask = c ? '<div class="hm-ask"><span>' + esc(c === 'end' ? t('live.hm.endAsk') : c === 'abort' ? t('live.hm.abortAsk') : t('live.hm.kickAsk', { name: (rows.find(r => r.rid === c.kick) || {}).name || '' })) + '</span>' +
+        '<button type="button" class="btn btn-primary btn-sm" data-hm="yes">' + esc(t('live.hm.yes')) + '</button><button type="button" class="btn btn-glass btn-sm" data-hm="no">' + esc(t('live.hm.no')) + '</button></div>' : '';
+      const html = '<div class="hm-head"><b>' + esc(t('live.hm.title')) + '</b><button type="button" class="icon-btn" data-hm="close" aria-label="' + esc(t('live.hm.close')) + '">×</button></div>' +
+        '<div class="hm-sub">' + esc(t('live.hm.standings')) + '</div><div class="hm-list">' + rows.map(r =>
+          '<div class="hm-row' + (r.fin ? ' fin' : '') + (r.lost ? ' lost' : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span class="hm-name">' + esc(r.name) + '</span><em>' + esc(r.st) + (r.fin ? ' ✓' : '') + '</em>' +
+          (r.rid && !r.fin ? '<button type="button" class="btn btn-glass btn-sm hm-kick" data-hm="kick" data-rid="' + r.rid + '">' + esc(t('live.hm.kick')) + '</button>' : '') + '</div>').join('') + '</div>' +
+        (ask || '<div class="hm-btns"><button type="button" class="btn btn-primary" data-hm="end">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('live.hm.endNow')) + '</span></button>' +
+          '<button type="button" class="btn btn-glass" data-hm="abort">' + esc(t('live.hm.abort')) + '</button>' +
+          '<button type="button" class="btn btn-glass' + (S.lobbyAfter ? ' on' : '') + '" data-hm="lobby" aria-pressed="' + (S.lobbyAfter ? 'true' : 'false') + '">' + esc(t('live.hm.lobbyAfter')) + (S.lobbyAfter ? ' ✓' : '') + '</button></div>');
+      if (html !== hostMenu._h) { hostMenu.innerHTML = html; hostMenu._h = html; }
+    }
+    function toggleHostMenu(force) {
+      const open = force !== undefined ? force : !hostMenu;
+      if (!open) { if (hostMenu) { hostMenu.remove(); hostMenu = null; } S.hmAsk = null; return; }
+      if (hostMenu || !LIVE || !LIVE.isHost) return;
+      hostMenu = document.createElement('div'); hostMenu.className = 'host-menu glass'; hostMenu.setAttribute('role', 'dialog');
+      hostMenu.addEventListener('pointerdown', e => e.stopPropagation());
+      hostMenu.addEventListener('click', e => {
+        const b = e.target.closest('[data-hm]'); if (!b) return;
+        e.stopPropagation(); sfx('click');
+        const a = b.getAttribute('data-hm');
+        if (a === 'close') toggleHostMenu(false);
+        else if (a === 'end' || a === 'abort') { S.hmAsk = a; paintHostMenu(); }
+        else if (a === 'kick') { S.hmAsk = { kick: Number(b.getAttribute('data-rid')) }; paintHostMenu(); }
+        else if (a === 'no') { S.hmAsk = null; paintHostMenu(); }
+        else if (a === 'lobby') { S.lobbyAfter = !S.lobbyAfter; LIVE.hostLobby(S.lobbyAfter); paintHostMenu(); }
+        else if (a === 'yes') {
+          const c = S.hmAsk; S.hmAsk = null;
+          if (c === 'end') { LIVE.hostEnd(); toggleHostMenu(false); }
+          else if (c === 'abort') { LIVE.hostAbort(); toggleHostMenu(false); }
+          else if (c && c.kick) { LIVE.kick(c.kick); paintHostMenu(); }
+        }
+      });
+      host.layer.appendChild(hostMenu);
+      S.hmT = 0; paintHostMenu();
+    }
+    function buildLiveExtras() {
+      fwinEl = document.createElement('div'); fwinEl.className = 'race-fwin glass'; fwinEl.hidden = true; host.layer.appendChild(fwinEl);
+      if (!LIVE.isHost) return;
+      hostBtn = document.createElement('button'); hostBtn.type = 'button'; hostBtn.className = 'btn btn-glass btn-sm host-btn' + (WATCH ? ' is-watch' : '');
+      hostBtn.innerHTML = KOS.UI.iconSvg('flag') + '<span>' + KOS.UI.esc(t('live.hm.open')) + '</span>';
+      hostBtn.addEventListener('pointerdown', e => e.stopPropagation());
+      hostBtn.addEventListener('click', e => { e.stopPropagation(); sfx('click'); toggleHostMenu(); });
+      host.layer.appendChild(hostBtn);
+      host.menuItems.push({ id: 'hostmenu', icon: 'flag', labelKey: 'live.hm.title', run: () => toggleHostMenu(true) });
+    }
+    function liveExtrasTick(dt) {
+      paintFwin();
+      if (hostMenu && ((S.hmT = (S.hmT || 0) - dt) <= 0)) { S.hmT = 0.5; paintHostMenu(); }
+    }
+    // rain (cfg.rain 0-2): looks only, identical for everybody; the overlay follows the quality tier and reduced motion itself
+    if (LIVE && LIVE.cfg.rain > 0 && KOS.Rain) {
+      const rain = KOS.Rain.create({ level: Math.min(2, Math.round(LIVE.cfg.rain)), seed: LIVE.cfg.seed, windDeg: LIVE.cfg.windDeg });
+      scene.addOverlay((ctx, sc) => rain.overlay(ctx, sc), { screen: true });
+    }
+
     // "Kun vært": no boat, no input; the course overview and a leader board (spec 5.5)
     let wCount = null, wFollow = null, wEnd = null;
     const secTxt = x => (x < 10 ? x.toFixed(1) : String(Math.round(x))) + ' s';
@@ -1120,15 +1202,18 @@
         hud.update({ wind: { dir: wind.dir, speed: wind.speed }, timer: (S.phase === 'pre' ? -S.clock : S.raceT) * 1000 });
         paintPanel(); paintWatchCount();
       }
+      liveExtrasTick(dt);
       followLeader();
       S.boardT -= dt;
       if (S.boardT <= 0) { S.boardT = 0.5; paintWatchBoard(); }
       if ((S.ambT -= dt) <= 0) { S.ambT = 0.5; ambient(); }
     }
     if (LIVE) {
+      buildLiveExtras();
+      liveOffs.push(LIVE.on('fwin', () => { paintFwin(); }));
       liveOffs.push(LIVE.on('states', onStates));
       liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
-      liveOffs.push(LIVE.on('res', rows => { S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
+      liveOffs.push(LIVE.on('res', rows => { toggleHostMenu(false); S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
       liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
       liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; }));
       liveOffs.push(LIVE.on('offline', goOffline));
@@ -1212,6 +1297,7 @@
       if (!LIVE && S.phase === 'race' && S.fin.length === ai.length && !S.dnfT) S.dnfT = S.raceT;
       if (LIVE ? (S.unofficial && S.phase === 'race' && S.raceT > LIVE.cfg.maxS) : (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > (assist === 'easy' ? 240 : 150)) || S.raceT > P.targetS * 6))) dnf();
       if (S.finishT > 0) { S.finishT -= dt; if (S.finishT <= 0 && S.result) host.finish(S.result); }
+      if (LIVE) liveExtrasTick(dt);
       hudTick(dt);
     }
 
@@ -1374,10 +1460,17 @@
       if (!board) return;
       const esc = KOS.UI.esc;
       const rows = tableRows();
-      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span></div><div class="rb-list">' +
+      let sum = '';
+      if (LIVE) { // my place and time at once, who is still out there, and the finish window
+        const mine = rows.find(r => r.me), waiting = rows.filter(r => r.timeMs == null).length, left = fwinLeft();
+        sum = '<div class="rb-me"><b>' + esc(mine && mine.timeMs != null ? t('live.fin.you', { place: mine.place, time: KOS.UI.fmtTime(mine.timeMs) }) : t('race.res.table')) + '</b>' +
+          '<span>' + esc(waiting ? t(waiting === 1 ? 'live.fin.wait1' : 'live.fin.waitN', { n: waiting }) : t('live.fin.allIn')) + '</span>' +
+          (left != null && waiting ? '<span class="rb-win' + (left <= 10 ? ' hot' : '') + '">' + esc(t('live.fin.window', { t: fmtClock(left) })) + '</span>' : '') + '</div>';
+      }
+      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t(LIVE ? 'live.fin.sailors' : 'race.res.table')) + '</span></div>' + sum + '<div class="rb-list">' +
         rows.map(r => '<div class="rb-row' + (r.me ? ' me' : '') + (r.place <= 3 && r.timeMs != null && !r.est ? ' pod p' + r.place : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span>' + esc(r.name) + '</span><em>' +
-          (r.timeMs == null || r.est ? '<small>' + esc(t('race.res.still')) + '</small>' : esc(KOS.UI.fmtTime(r.timeMs))) + '</em></div>').join('') +
-        '</div><button type="button" class="btn btn-primary rb-next" data-act="next"><span>' + esc(t(S.nextReq ? 'live.res.wait' : 'race.btn.next')) + '</span>' + KOS.UI.iconSvg('next') + '</button>';
+          (r.timeMs == null || r.est ? '<small>' + esc(t(LIVE ? 'live.fin.sailing' : 'race.res.still')) + '</small>' : esc(KOS.UI.fmtTime(r.timeMs))) + '</em></div>').join('') +
+        '</div>' + (LIVE && !S.unofficial ? '' : '<button type="button" class="btn btn-primary rb-next" data-act="next"><span>' + esc(t(S.nextReq ? 'live.res.wait' : 'race.btn.next')) + '</span>' + KOS.UI.iconSvg('next') + '</button>');
       if (html !== paintBoard.last) { board.innerHTML = html; paintBoard.last = html; }
     }
     function tableRows() {
@@ -1524,7 +1617,7 @@
       liveOffs.forEach(f => f());
       if (banner) banner.remove();
       if (LIVE && !(S.liveRes && !S.unofficial)) LIVE.leave(); // an official result keeps the room open for a rematch; the lobby owns the session then
-      [wCount, wFollow, wEnd].forEach(e => { if (e) e.remove(); });
+      [wCount, wFollow, wEnd, fwinEl, hostBtn, hostMenu].forEach(e => { if (e) e.remove(); });
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
       host.layer.removeEventListener('wheel', onWheel);
       host.layer.classList.remove('race-layer', 'race-go', 'race-pen', 'race-done');

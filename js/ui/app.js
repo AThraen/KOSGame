@@ -1591,12 +1591,17 @@
     });
     // never interrupt a run: the update prompt waits until the player is back on a menu screen
     let pendingWorker = null;
-    on('screen', scr => { if (pendingWorker && scr !== 'play') { const w = pendingWorker; pendingWorker = null; setTimeout(() => offerUpdate(w), 600); } });
+    // live race: also never while a lobby or race of the live game is open (a reload would drop the player from the room)
+    const liveBusy = () => { try { return App.cur === 'live' && !!(KOS.MPStatus && KOS.MPStatus.busy && KOS.MPStatus.busy()); } catch (e) { return false; } };
+    const accept = worker => { try { KOS.MPStatus && KOS.MPStatus.keepForReload && KOS.MPStatus.keepForReload(); } catch (e) { /* optional */ } App._updateAccepted = true; worker.postMessage({ type: 'skipWaiting' }); };
+    on('screen', scr => { if (pendingWorker && scr !== 'play' && scr !== 'live' && !liveBusy()) { const w = pendingWorker; pendingWorker = null; setTimeout(() => offerUpdate(w), 600); } });
     const offerUpdate = worker => {
-      if (App.cur === 'play') { pendingWorker = worker; return; }
+      if (App.cur === 'play' || liveBusy()) { pendingWorker = worker; return; }
+      // arrived through a #join link and nothing is joined yet: update first (once), the join continues by itself after the reload
+      try { if (KOS.MPStatus && KOS.MPStatus.canAutoUpdate && KOS.MPStatus.canAutoUpdate()) { KOS.MPStatus.markUpdated(); accept(worker); return; } } catch (e) { /* fall through to the prompt */ }
       UI().toast(t('app.update.ready'), {
         kind: 'info', icon: 'sparkle', ms: 0,
-        action: { label: t('app.update.reload'), onClick: () => { App._updateAccepted = true; worker.postMessage({ type: 'skipWaiting' }); } },
+        action: { label: t('app.update.reload'), onClick: () => accept(worker) },
       });
     };
     root.addEventListener('load', () => {
