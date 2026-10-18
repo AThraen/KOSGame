@@ -9,7 +9,7 @@ Layout: `index.js` (http + ws), `lib/` (rooms, protocol, limits, status), `bin/k
 ## Install on Ubuntu
 
 1. Node 20+: `node -v` (otherwise `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sudo apt install -y nodejs`).
-2. Copy the `server/` folder to the machine, e.g. `/opt/kos-race/server` (preferably `git clone` on the server; if you copy from Windows, make sure the files keep LF line endings, otherwise run `find /opt/kos-race/server -path "*/node_modules" -prune -o -type f -print0 | xargs -0 sed -i "s/$//"`):
+2. Copy the `server/` folder to the machine, e.g. `/opt/kos-race/server` (preferably `git clone` on the server; if you copy from Windows, make sure the files keep LF line endings, otherwise run `find /opt/kos-race/server -path "*/node_modules" -prune -o -type f -print0 | xargs -0 sed -i 's/$//'`):
    ```
    sudo mkdir -p /opt/kos-race
    sudo cp -r server /opt/kos-race/
