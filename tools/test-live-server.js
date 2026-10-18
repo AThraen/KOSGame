@@ -80,6 +80,13 @@ async function main() {
   const cr = await host.wait('created');
   ok(/^[ACDEFGHJKMNPRTUVWXY34679]{4}$/.test(cr.code), 'room code uses the safe alphabet: ' + cr.code);
   ok(cr.room.cfg.windKn === 16 && cr.room.cfg.laps === 3 && cr.room.cfg.seed > 0, 'cfg clamped and seed chosen by server');
+  ok(cr.room.cfg.contact === true, 'contact between boats defaults to on');
+  host.send({ t: 'cfgset', cfg: { contact: false } });
+  const rc = await host.wait(m => m.t === 'room' && m.room.cfg.contact === false);
+  ok(rc.room.cfg.contact === false, 'host can switch contact off');
+  host.send({ t: 'cfgset', cfg: { contact: 'nope' } });
+  host.send({ t: 'cfgset', cfg: { contact: true } });
+  ok((await host.wait(m => m.t === 'room' && m.room.cfg.contact === true)).room.cfg.contact === true, 'a non-boolean contact value is ignored, a boolean is taken');
   ok(typeof cr.key === 'string' && cr.key.length >= 8, 'rejoin key issued');
 
   const p2 = await mk('Anna');
