@@ -1554,6 +1554,7 @@
       finishNow() { if (me.rc.finT == null) finished(me); },
       complete,
       liveFeed(frame) { if (LIVE) onStates(frame); },
+      courseInfo() { return { course: P.course, laps: P.laps, marks: marks.map(m => m.id), seq: seq.map(it => it.type === 'mark' ? it.m.id : it.type + (it.dir ? ':' + it.dir : '')) }; },
     };
 
     return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };

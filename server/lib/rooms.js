@@ -8,6 +8,7 @@ const LOST_GRACE_MS = 20000;
 const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and a rematch
 const HOSTLEFT_KEEP_MS = 5000;
 const EMPTY_KEEP_MS = 10000;
+const LOBBY_AFTER_MS = 12000; // the podium stays this long when the host chose "back to the lobby after the race"
 const LOBBY_MAX_MS = 30 * 60000;
 const HARD_MAX_MS = 2 * 3600000;
 
@@ -67,7 +68,7 @@ function createRooms(opts) {
     const base = Object.assign({}, P.CFG_DEFAULTS, { seed: randInt(2147483647) });
     const r = {
       code, phase: 'lobby', cfg: P.sanitizeCfg(cfg, base, lim.maxPlayers), hostRole, hostId: 0, players: new Map(), nextId: 1,
-      T0: 0, created: t, deleteAt: 0, emptyAt: 0, results: null,
+      T0: 0, created: t, deleteAt: 0, emptyAt: 0, results: null, finishAt: 0, lobbyAfter: false, lobbyAt: 0,
     };
     const host = addPlayer(r, conn, true, hostRole === 'sail');
     r.hostId = host.id;
@@ -88,7 +89,7 @@ function createRooms(opts) {
   function resume(conn, code, id, key) {
     const r = rooms.get(code);
     const p = r && r.players.get(id);
-    if (!p || p.key !== key || r.phase === 'closing') return { err: 'nocode' };
+    if (!p || p.key !== key || p.kicked || r.phase === 'closing') return { err: 'nocode' };
     if (p.lost && p.final) return { err: 'nocode' };
     p.send = conn.send; p.ip = conn.ip; p.lost = false; p.lostAt = 0; r.emptyAt = 0;
     pushRoom(r);
@@ -118,12 +119,15 @@ function createRooms(opts) {
   }
 
   function kick(r, hostId, id) {
-    if (r.hostId !== hostId || id === hostId || r.phase !== 'lobby') return false;
+    if (r.hostId !== hostId || id === hostId || !(r.phase === 'lobby' || r.phase === 'countdown' || r.phase === 'racing')) return false;
     const p = r.players.get(id);
     if (!p) return false;
     send(p, { t: 'kicked' });
-    r.players.delete(id);
+    if (r.phase === 'lobby') { r.players.delete(id); pushRoom(r); return p; }
+    // in a race the boat stays in the table as a DNF (the others still have it on their map)
+    p.kicked = true; p.final = true; p.lost = true; p.lostAt = now(); p.send = null; p.status = 'dnf';
     pushRoom(r);
+    maybeFinish(r);
     return p;
   }
 
@@ -156,9 +160,33 @@ function createRooms(opts) {
       if (p.lost) { r.players.delete(p.id); continue; }
       p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
     }
-    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now();
+    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
     r.cfg = Object.assign({}, r.cfg, { seed: randInt(2147483647) });
     broadcast(r, { t: 'rematch', room: info(r) });
+    return 'ok';
+  }
+
+  // host controls during a race. endNow: unfinished boats become DNF and the results go out. abort: back to the lobby, no result.
+  function endNow(r, hostId) {
+    if (r.hostId !== hostId || r.phase !== 'racing') return 'denied';
+    endRace(r);
+    return 'ok';
+  }
+  function abort(r, hostId) {
+    if (r.hostId !== hostId || (r.phase !== 'racing' && r.phase !== 'countdown')) return 'denied';
+    for (const p of [...r.players.values()]) {
+      if (p.lost && !p.host) { r.players.delete(p.id); continue; }
+      p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
+    }
+    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
+    r.cfg = Object.assign({}, r.cfg, { seed: randInt(2147483647) });
+    broadcast(r, { t: 'rematch', room: info(r), aborted: true });
+    return 'ok';
+  }
+  function lobbyAfter(r, hostId, on) {
+    if (r.hostId !== hostId || !(r.phase === 'racing' || r.phase === 'countdown' || r.phase === 'results')) return 'denied';
+    r.lobbyAfter = !!on;
+    if (r.phase === 'results') r.lobbyAt = on ? now() + LOBBY_AFTER_MS : 0;
     return 'ok';
   }
 
@@ -177,7 +205,10 @@ function createRooms(opts) {
     p.final = true;
     if (ms >= 5000 && ms <= r.cfg.maxS * 1000 + 5000) { p.finMs = Math.round(ms); p.status = 'fin'; }
     else p.status = 'dnf';
-    if (p.status === 'fin') broadcast(r, { t: 'fin', id, ms: p.finMs });
+    if (p.status === 'fin') {
+      broadcast(r, { t: 'fin', id, ms: p.finMs });
+      if (!r.finishAt && r.cfg.finishS > 0) { r.finishAt = now() + r.cfg.finishS * 1000; broadcast(r, { t: 'fwin', endAt: r.finishAt }); }
+    }
     maybeFinish(r);
     return true;
   }
@@ -201,6 +232,7 @@ function createRooms(opts) {
     r.phase = 'results';
     r.results = buildResults(r);
     r.deleteAt = now() + RESULTS_KEEP_MS;
+    r.lobbyAt = r.lobbyAfter ? now() + LOBBY_AFTER_MS : 0;
     broadcast(r, { t: 'res', rows: r.results });
   }
   function maybeFinish(r) {
@@ -239,8 +271,9 @@ function createRooms(opts) {
         for (const p of r.players.values()) {
           if (p.lost && !p.final && t - p.lostAt >= LOST_GRACE_MS) { p.final = true; p.status = 'lost'; }
         }
-        if (t >= r.T0 + r.cfg.maxS * 1000) endRace(r); else maybeFinish(r);
+        if (t >= r.T0 + r.cfg.maxS * 1000 || (r.finishAt && t >= r.finishAt)) endRace(r); else maybeFinish(r);
       }
+      if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { r.lobbyAt = 0; if (rematch(r, r.hostId) !== 'ok') r.lobbyAfter = false; }
       if (r.phase === 'results' && t >= r.deleteAt) remove(r);
     }
   }
@@ -252,7 +285,7 @@ function createRooms(opts) {
   }
   function setLimits(l) { Object.assign(lim, l); }
 
-  return { rooms, create, join, resume, disconnect, kick, setCfg, start, rematch, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
+  return { rooms, create, join, resume, disconnect, kick, setCfg, start, rematch, endNow, abort, lobbyAfter, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
 }
 
 module.exports = { createRooms, LOST_GRACE_MS, RESULTS_KEEP_MS };

@@ -79,7 +79,7 @@ async function main() {
   host.send({ t: 'create', cfg, hostRole: 'sail' });
   const cr = await host.wait('created');
   ok(/^[ACDEFGHJKMNPRTUVWXY34679]{4}$/.test(cr.code), 'room code uses the safe alphabet: ' + cr.code);
-  ok(cr.room.cfg.windKn === 16 && cr.room.cfg.laps === 3 && cr.room.cfg.seed > 0, 'cfg clamped and seed chosen by server');
+  ok(cr.room.cfg.windKn === 28 && cr.room.cfg.laps === 3 && cr.room.cfg.seed > 0, 'cfg clamped (wind up to 28 kn = 14 m/s) and seed chosen by server');
   ok(cr.room.cfg.contact === true, 'contact between boats defaults to on');
   host.send({ t: 'cfgset', cfg: { contact: false } });
   const rc = await host.wait(m => m.t === 'room' && m.room.cfg.contact === false);
@@ -264,6 +264,65 @@ async function main() {
   ok(health.code === 200 && hj.ok && typeof hj.rooms === 'number' && !('names' in hj), 'GET /health (counts only)');
   const proxied = await new Promise((res) => http.get({ host: '127.0.0.1', port, path: '/health', headers: { 'x-real-ip': '1.2.3.4' } }, (r) => { r.resume(); res(r.statusCode); }));
   ok(proxied === 404, '/health hidden when proxied');
+
+  console.log('-- strong wind, rain, finish window: config validation');
+  {
+    const c = P.sanitizeCfg({ windKn: 27, rain: 2, finishS: 300, gust: 1 }, P.CFG_DEFAULTS, 24);
+    ok(c.windKn === 27 && c.rain === 2 && c.finishS === 300 && c.gust === 1, 'new fields accepted (27 kn, rain 2, finishS 300)');
+    const d = P.sanitizeCfg({ windKn: 50, rain: 9, finishS: -4 }, P.CFG_DEFAULTS, 24);
+    ok(d.windKn === 28 && d.rain === 2 && d.finishS === 5, 'out-of-range values are clamped (' + [d.windKn, d.rain, d.finishS].join('/') + ')');
+    const e = P.sanitizeCfg({ rain: 'x', finishS: 'y', windKn: NaN }, P.CFG_DEFAULTS, 24);
+    ok(e.rain === 0 && e.finishS === 180 && e.windKn === 10, 'junk values keep the defaults');
+    ok(P.sanitizeCfg({ finishS: 0 }, P.CFG_DEFAULTS, 24).finishS === 0, 'finishS 0 means no limit');
+    ok(P.validate('{"t":"hend"}').ok && P.validate('{"t":"habort"}').ok && P.validate('{"t":"hlobby","on":true}').ok && !P.validate('{"t":"hlobby"}').ok, 'host messages validate');
+  }
+  console.log('-- host controls and the finish window (3 clients)');
+  {
+    const srv2 = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile, KOS_STATUS_POLL_MS: '200' });
+    const p2 = await srv2.listen();
+    const mk2 = async (name) => { const c = new Client(p2, name); await c.hello(); return c; };
+    const mkRoom = async (cfg2, names) => {
+      const cs = [];
+      for (const n of names) cs.push(await mk2(n));
+      cs[0].send({ t: 'create', cfg: Object.assign({ boat: 'zest', countdownS: 8, maxS: 120 }, cfg2), hostRole: 'sail' });
+      const cr2 = await cs[0].wait('created');
+      for (const c of cs.slice(1)) { c.send({ t: 'join', code: cr2.code }); await c.wait('joined'); }
+      cs[0].send({ t: 'start' });
+      await Promise.all(cs.map(c => c.wait('start')));
+      return cs;
+    };
+    // A: finish window. B: end now. C: abort + back-to-lobby flag. All three run their 8 s countdown at the same time.
+    const [A, B, C] = await Promise.all([mkRoom({ finishS: 5 }, ['a1', 'a2', 'a3']), mkRoom({ finishS: 0 }, ['b1', 'b2']), mkRoom({ finishS: 0 }, ['c1', 'c2'])]);
+    await sleep(8300);
+    A[1].send({ t: 'fin', ms: 41000 });
+    const fw = await A[0].wait('fwin');
+    ok(fw.endAt > Date.now() && fw.endAt <= Date.now() + 5200, 'first finish starts the finish window (fwin endAt in ~5 s)');
+    const t0 = Date.now();
+    const resA = await A[2].wait('res', 9000);
+    ok(Date.now() - t0 >= 3000 && Date.now() - t0 < 7500, 'the window expiry sends the results (' + (Date.now() - t0) + ' ms after the first finish)');
+    const byName = Object.fromEntries(resA.rows.map(r => [r.name, r]));
+    ok(byName.a2.status === 'fin' && byName.a2.place === 1 && byName.a1.status === 'dnf' && byName.a3.status === 'dnf' && byName.a1.ms === null, 'the finisher is 1st, the two unfinished boats are DNF');
+    // B: only the host can end the race now
+    B[1].send({ t: 'hend' });
+    ok((await B[1].wait('err')).code === 'bad', 'a player cannot end the race');
+    B[1].send({ t: 'fin', ms: 30000 });
+    await B[0].wait('fin');
+    B[0].send({ t: 'hend' });
+    const resB = await B[1].wait('res');
+    ok(resB.rows.find(r => r.name === 'b2').status === 'fin' && resB.rows.find(r => r.name === 'b1').status === 'dnf', 'host "end now": unfinished host boat is DNF, results sent to everybody');
+    // C: abort goes back to the lobby without a result, only the host may do it
+    C[1].send({ t: 'habort' });
+    ok((await C[1].wait('err')).code === 'bad', 'a player cannot abort the race');
+    C[0].send({ t: 'habort' });
+    const rm = await C[1].wait('rematch');
+    ok(rm.aborted === true && rm.room.phase === 'lobby' && rm.room.players.length === 2 && !C[1].q.some(m => m.t === 'res'), 'abort: everybody back in the lobby, no result');
+    C[0].send({ t: 'start' });
+    await C[1].wait('start');
+    C[0].send({ t: 'kick', id: C[1].id || 2 });
+    ok((await C[1].wait('kicked')).t === 'kicked', 'the host can kick a sailor during the countdown');
+    for (const c of [].concat(A, B, C)) c.close();
+    await srv2.close();
+  }
 
   console.log('-- kos-race script');
   if (process.platform !== 'win32' || process.env.KOS_TEST_BASH) {

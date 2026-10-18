@@ -20,7 +20,7 @@ function normCode(s) {
 const fin = n => typeof n === 'number' && Number.isFinite(n);
 const int = n => fin(n) && Math.floor(n) === n;
 
-const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, contact: true, help: 'free' };
+const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, contact: true, help: 'free', rain: 0, finishS: 180 };
 function clampNum(v, lo, hi, def) {
   if (!fin(v)) return def;
   return Math.min(hi, Math.max(lo, v));
@@ -35,12 +35,14 @@ function sanitizeCfg(cfg, base, hardMaxP) {
   if (c.course === 'wl' || c.course === 'tri') out.course = c.course;
   if (c.laps !== undefined) out.laps = Math.round(clampNum(c.laps, 1, 3, b.laps));
   if (c.windDeg !== undefined) out.windDeg = Math.round(((clampNum(c.windDeg, -3600, 3600, b.windDeg) % 360) + 360) % 360);
-  if (c.windKn !== undefined) out.windKn = clampNum(c.windKn, 4, 16, b.windKn);
+  if (c.windKn !== undefined) out.windKn = clampNum(c.windKn, 4, 28, b.windKn);
   if (c.gust !== undefined) out.gust = clampNum(c.gust, 0, 1, b.gust);
   if (c.shift !== undefined) out.shift = clampNum(c.shift, 0, 1, b.shift);
   if (c.maxP !== undefined) out.maxP = Math.round(clampNum(c.maxP, 2, 24, b.maxP));
   if (c.maxS !== undefined) out.maxS = Math.round(clampNum(c.maxS, 60, 1800, b.maxS));
   if (c.countdownS !== undefined) out.countdownS = Math.round(clampNum(c.countdownS, 8, 180, b.countdownS));
+  if (c.rain !== undefined) out.rain = Math.round(clampNum(c.rain, 0, 2, b.rain));
+  if (c.finishS !== undefined) out.finishS = c.finishS === 0 ? 0 : Math.round(clampNum(c.finishS, 5, 1800, b.finishS)); // 0 = no limit
   if (typeof c.pen === 'boolean') out.pen = c.pen;
   if (typeof c.contact === 'boolean') out.contact = c.contact;
   if (c.help === 'locked' || c.help === 'free') out.help = c.help;
@@ -77,8 +79,11 @@ function validate(raw) {
     case 'kick':
       if (!int(m.id)) return bad;
       return { ok: true, msg: { t: 'kick', id: m.id } };
-    case 'start': case 'leave': case 'rematch':
+    case 'start': case 'leave': case 'rematch': case 'hend': case 'habort':
       return { ok: true, msg: { t: m.t } };
+    case 'hlobby': // host: after the results go straight back to the lobby
+      if (typeof m.on !== 'boolean') return bad;
+      return { ok: true, msg: { t: 'hlobby', on: m.on } };
     case 'st': {
       if (!Array.isArray(m.s) || m.s.length !== 9 || !m.s.every(fin)) return bad;
       if (Buffer.byteLength(raw) > MAX_ST) return bad;

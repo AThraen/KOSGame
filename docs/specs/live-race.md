@@ -66,15 +66,18 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `create` | `cfg:Cfg, hostRole:'sail'\|'watch'` | rejected `err code:'closed'\|'busy'` (7) |
 | `join` | `code` | reply `joined` or `err code:'nocode'\|'full'\|'started'\|'closed'` |
 | `cfgset` | `cfg:Partial<Cfg>` | host, lobby only; server re-broadcasts `room` |
-| `kick` | `id` | host only |
+| `kick` | `id` | host only; in `lobby` the player is removed, in `countdown`/`racing` the boat becomes DNF |
 | `start` | none | host only; needs >= 2 boats (host-sail) or >= 1 player (host-watch), else `err code:'few'` |
 | `st` | `s:StateArr` | player, racing/countdown-last-2s; server drops above 14/s |
 | `fin` | `ms` | player: finish time in ms after T0 on the shared clock; once only |
 | `rematch` | none | host only, `results` phase: the room goes back to `lobby` with the players still connected, same cfg and a new seed (step 4) |
 | `leave` | none | graceful |
 | `resume` | `code, id, key` | reconnect (4.7) |
+| `hend` | none | host only, `racing`: end now (section 14) |
+| `habort` | none | host only, `countdown`/`racing`: abort back to the lobby (section 14) |
+| `hlobby` | `on:bool` | host only: after the results go back to the lobby automatically (section 14) |
 
-`Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..16, gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..180, pen:bool (penalty turns), contact:bool (default true: boats collide and the rules apply between players, see 13), help:'locked'|'free' }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
+`Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..28 (knots; 28 kn = 14 m/s, the client shows the player's wind unit), gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..180, pen:bool (penalty turns), contact:bool (default true: boats collide and the rules apply between players, see 13), help:'locked'|'free', rain:0..2 (none/light/heavy, visual only and identical for everybody), finishS:0|5..1800 (finish window in seconds after the first finish, default 180, 0 = no limit) }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
 
 ### 3.2 Server to client
 | t | fields |
@@ -87,8 +90,9 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `start` | `T0` (server ms of the gun), `cfg` (final, with `seed`), `grid:[{id,slot,name,color}]` |
 | `s` | `a:[StateArr,...]` batched relay of the others' latest states, <= 10 Hz per recipient |
 | `fin` | `id, ms` |
+| `fwin` | `endAt` (server ms): the finish window opened (section 14); re-sent on `resume` |
 | `res` | `rows:[{id,name,place,ms\|null,status:'fin'\|'dnf'\|'lost'}]` official table |
-| `rematch` | `room:RoomInfo` (phase `lobby`) to everybody; clients keep their id and resume key |
+| `rematch` | `room:RoomInfo` (phase `lobby`) to everybody; `aborted:true` when the host aborted a race; clients keep their id and resume key |
 | `hostleft` | none |
 | `err` | `code, msg?` |
 | `status` | `mode, msg` pushed on status-file change (informational) |
@@ -263,3 +267,10 @@ Host setting `cfg.contact` ("Kontakt mellem både" / "Contact between boats", de
 - **Latency:** the delayed interpolation (4.6) is 100-150 ms behind, too late for contact. `predictRemote` dead-reckons the newest state forward: velocity from the last two states (fallback heading x speed), age = time since receipt + one-way latency (session `rtt`, capped 300 ms, + 50 ms for the server tick), total capped at 0.4 s, heading advanced by the observed yaw rate (clamped). Remote boats within 3 boat lengths of me are drawn AND judged at that predicted pose (blend weight 1 within 3 lengths, 0 beyond 4); further away they keep the smooth interpolation. The monitor uses `splitContact` so a close-call warning does not swallow the contact event a moment later.
 - Also fixed: `Buffer.sample` extrapolated with cos/sin (heading 0 = +x); heading 0 is north (`U.vec`), now sin/-cos.
 - Big screen: the overview fits all marks, the start line and the boats and leaves the board's side of the screen free; the board shows "Start" until a mark is rounded and `0` for no penalties.
+
+## 14. Finishing, host controls, harder conditions (v1.2)
+- **Finish window.** The first accepted `fin` opens a window of `cfg.finishS` seconds (0 = none): the server broadcasts `{t:'fwin', endAt}`. When every boat is final or `endAt` passes, the room goes to `results`; unfinished boats are `dnf` (`lost` when disconnected). `maxS` still caps the race. The client shows its own place and time at once, the standings with "Venter på N sejlere…" and a countdown to `endAt` (`serverNow()`).
+- **Host controls (server enforces host-only; others get `err code:'bad'`).** `hend` (racing): same as the window expiring now. `habort` (countdown/racing): everyone returns to the lobby (`rematch` with `aborted:true`, new seed, same cfg, no result). `hlobby on`: after `res` the server waits 12 s (podium) and then does the rematch step itself. `kick` also works while racing (DNF). The in-race host menu (button on the sailor screen, the ⋯ menu on phones, the big-screen board) offers: live standings, end now, abort, back to the lobby afterwards, kick. A "Kun vært" host gets the same controls on the big screen.
+- **Rain** (`cfg.rain`): `js/render/rain.js` draws a darker tint, a light fog and slanted streaks as a screen overlay. Particle budget follows `KOS.Perf.level` (0 none, 1: 20 %, 2: 50 %, 3: full) and is zero with reduced motion. No effect on physics: identical for all players.
+- **Wind up to 14 m/s** (28 kn). Setup shows the range in the player's wind unit. A friendly note for dinghies above 9 m/s (club norm), J70 and H-boat are recommended for strong wind. Gust levels: none 0, some 0.4, lots 0.8, hard 1 (`KOS.Wind` gust parameter).
+- **Reload-safe joining.** The pending join code and the resume token sit in `sessionStorage` (`kos.mp.pending`, `kos.mp.rejoin`). On load the lobby resumes the room (`resume`) or, if the player was removed from the lobby on disconnect, joins by code again. The service-worker update prompt is deferred while a live lobby or race is open.

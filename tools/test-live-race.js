@@ -46,7 +46,7 @@ async function main() {
   const clickAct = (page, act) => page.click('#screen-live [data-act="' + act + '"]');
 
   // host (role) creates, the others join by code; everyone is then in the room view. cfg tweaks go straight into the lobby's config.
-  async function lobby(WS, role, names, cfg) {
+  async function lobby(WS, role, names, cfg, clicks) {
     const host = await newPage(WS, 'area=race', names[0]);
     await host.waitForSelector('.live-card', { timeout: 8000 });
     await host.click('.live-card');
@@ -55,6 +55,7 @@ async function main() {
     await waitView(host, 'setup');
     if (role === 'watch') await host.click('#screen-live [data-act="role"][data-v="watch"]');
     await host.evaluate(c => Object.assign(KOS.Lobby.state.cfg, c), cfg);
+    for (const [k, v] of clicks || []) await host.click('#screen-live [data-act="opt"][data-k="' + k + '"][data-v="' + v + '"]'); // the real chips, as a host taps them
     await clickAct(host, 'create');
     await waitView(host, 'room');
     const code = await host.evaluate(() => document.getElementById('live-code-show').textContent);
@@ -255,6 +256,23 @@ async function main() {
     ok(sb.fouls === 0 && !sb.pen, 'the starboard boat gets nothing');
     ok(r.errs.length === 0, 'no errors (' + r.errs.join(' | ') + ')');
     await closeAll(r.keep);
+  }
+
+
+  // ================================================================== 5. the course the host taps is the course that is sailed
+  console.log('-- course and laps chosen in the setup are the ones sailed');
+  for (const [course, laps, marks, seq] of [['wl', 1, ['m1'], ['start', 'm1', 'finish:down']], ['wl', 2, ['m1', 'm2'], ['start', 'm1', 'm2', 'm1', 'finish:down']],
+    ['tri', 1, ['m1', 'm2', 'm3'], ['start', 'm1', 'm2', 'm3', 'finish:up']], ['tri', 2, ['m1', 'm2', 'm3'], ['start', 'm1', 'm2', 'm3', 'm1', 'm3', 'finish:up']]]) {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane'], { boat: 'ilca', countdownS: 20 }, [['course', course === 'wl' ? 'tri' : 'wl'], ['course', course], ['laps', laps]]);
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    for (const p of L.all) {
+      const ci = await p.evaluate(() => KOS.App.run.inst.debug.courseInfo());
+      ok(ci.course === course && ci.laps === laps && JSON.stringify(ci.marks) === JSON.stringify(marks) && JSON.stringify(ci.seq) === JSON.stringify(seq), course + ' x' + laps + ' on a client: ' + JSON.stringify(ci));
+    }
+    await closeAll({ srv });
   }
 
   await browser.close();

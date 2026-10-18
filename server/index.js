@@ -130,6 +130,7 @@ function createServer(env) {
           if (res.room.phase === 'countdown' || res.room.phase === 'racing') {
             send({ t: 'start', T0: res.room.T0, cfg: res.room.cfg, grid: [...res.room.players.values()].filter(p => p.boat).map((p, i) => ({ id: p.id, slot: i, name: p.name, color: p.color })) });
           }
+          if (res.room.finishAt && res.room.phase === 'racing') send({ t: 'fwin', endAt: res.room.finishAt });
           if (res.room.phase === 'results') send({ t: 'res', rows: res.room.results });
           break;
         }
@@ -142,6 +143,9 @@ function createServer(env) {
           break;
         }
         case 'start': if (r) { const res = rooms.start(r, c.id); if (res === 'few') err('few'); else if (res === 'denied') err('bad'); } break;
+        case 'hend': if (r && rooms.endNow(r, c.id) !== 'ok') err('bad'); break;
+        case 'habort': if (r && rooms.abort(r, c.id) !== 'ok') err('bad'); break;
+        case 'hlobby': if (r && rooms.lobbyAfter(r, c.id, m.on) !== 'ok') err('bad'); break;
         case 'rematch': if (r && rooms.rematch(r, c.id) !== 'ok') err('bad'); break;
         case 'st': if (r && rooms.state(r, c.id, m.s)) { /* relayed on tick */ } break;
         case 'fin': if (r) rooms.finish(r, c.id, m.ms); break;
