@@ -267,22 +267,25 @@
 .rb-me span { color: rgba(255,255,255,.8); font-weight: 700; }
 .rb-win { font-variant-numeric: tabular-nums; }
 .rb-win.hot, .race-fwin.hot { color: var(--primary, #ffb547); }
-.race-fwin { position: absolute; z-index: 23; left: 50%; top: calc(var(--safe-t, 0px) + 10px); transform: translateX(-50%); padding: 5px 14px; border-radius: 18px; color: #fff; font-weight: 800; font-size: .85rem; font-variant-numeric: tabular-nums; background: rgba(13,19,33,.72); border: 1px solid rgba(255,255,255,.16); white-space: nowrap; pointer-events: none; }
+.race-fwin { position: absolute; z-index: 23; left: 50%; top: calc(var(--safe-t, 0px) + 70px); transform: translateX(-50%); padding: 4px 12px; border-radius: 16px; color: #fff; font-weight: 800; font-size: .82rem; font-variant-numeric: tabular-nums; background: rgba(13,19,33,.78); border: 1px solid rgba(255,255,255,.16); white-space: nowrap; pointer-events: none; }
 .race-fwin[hidden] { display: none; }
-.host-btn { position: absolute; z-index: 26; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t, 0px) + 64px); min-height: 34px; }
-.host-btn.is-watch { right: auto; top: auto; left: calc(var(--safe-l, 0px) + 14px); bottom: calc(var(--safe-b, 0px) + 74px); font-size: clamp(.9rem, 1.1vw, 1.3rem); }
-.host-menu { position: absolute; z-index: 40; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t, 0px) + 64px); width: min(340px, calc(100vw - 24px)); max-height: calc(100% - var(--safe-t, 0px) - var(--safe-b, 0px) - 90px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; color: #fff; background: rgba(13,19,33,.92); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 16px 40px rgba(0,0,0,.45); }
-.hm-head { display: flex; align-items: center; justify-content: space-between; font-size: 1rem; }
-.hm-sub { font-weight: 900; letter-spacing: .08em; text-transform: uppercase; font-size: .72rem; color: var(--primary, #ffb547); }
+.host-btn { position: absolute; z-index: 26; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-b, 0px) + 14px); min-height: 36px; }
+.host-btn.is-watch { left: calc(var(--safe-l, 0px) + 14px); transform: none; bottom: calc(var(--safe-b, 0px) + 74px); font-size: clamp(.9rem, 1.1vw, 1.3rem); }
+.host-menu { font-size: clamp(.95rem, 1.05vw, 1.45rem); position: absolute; z-index: 40; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t, 0px) + 64px); width: min(clamp(320px, 22vw, 560px), calc(100vw - 24px)); max-height: calc(100% - var(--safe-t, 0px) - var(--safe-b, 0px) - 90px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; color: #fff; background: rgba(13,19,33,.92); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+.host-menu.is-watch { right: auto; left: calc(var(--safe-l, 0px) + 14px); top: auto; bottom: calc(var(--safe-b, 0px) + 130px); }
+.hm-head { display: flex; align-items: center; justify-content: space-between; font-size: 1.1em; }
+.hm-sub { font-weight: 900; letter-spacing: .08em; text-transform: uppercase; font-size: .75em; color: var(--primary, #ffb547); }
 .hm-list { display: flex; flex-direction: column; gap: 4px; }
-.hm-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 10px; background: rgba(255,255,255,.06); font-weight: 800; font-size: .86rem; }
+.hm-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 10px; background: rgba(255,255,255,.06); font-weight: 800; font-size: .92em; }
 .hm-row.lost { opacity: .55; }
 .hm-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm-row em { font-style: normal; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.85); }
-.hm-kick { min-height: 28px; padding: 2px 8px; font-size: .75rem; }
+.hm-kick { min-height: 1.9em; padding: 2px .6em; font-size: .8em; }
 .hm-btns, .hm-ask { display: flex; flex-direction: column; gap: 6px; }
-.hm-ask span { font-weight: 700; font-size: .9rem; }
+.hm-ask span { font-weight: 700; font-size: .95em; }
 .hm-ask { flex-direction: row; flex-wrap: wrap; align-items: center; }
 .hm-ask span { flex: 1 1 100%; }
 .hm-btns .btn.on { outline: 2px solid var(--primary, #ffb547); }
-@media (max-width: 700px), (max-height: 520px) { .host-btn.is-watch { bottom: calc(var(--safe-b, 0px) + 110px); } }
+@media (max-width: 700px), (max-height: 520px) { .host-btn.is-watch { bottom: calc(var(--safe-b, 0px) + 110px); } .race-fwin { left: calc(var(--safe-l, 0px) + 82px); transform: none; top: calc(var(--safe-t, 0px) + 124px); } }
+
+.host-menu .btn { font-size: 1em; }

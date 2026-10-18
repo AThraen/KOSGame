@@ -275,6 +275,63 @@ async function main() {
     await closeAll({ srv });
   }
 
+  // ================================================================== 6. host finishes first, the others never finish; finish window, DNF, lobby afterwards
+  console.log('-- sailing host finishes first: window, DNF for the others, back to the lobby');
+  {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane', 'Bo'], { boat: 'ilca', laps: 1, countdownS: 8, finishS: 6, windKn: 14, rain: 1 });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    const [h, a, b] = L.all;
+    ok(await h.evaluate(() => !!document.querySelector('.host-btn')) && !(await a.evaluate(() => !!document.querySelector('.host-btn'))), 'only the host has the host button');
+    ok(await a.evaluate(() => KOS.App.run.host.live.cfg.rain === 1 && KOS.App.run.host.live.cfg.windKn === 14), 'rain and wind arrive in the race config');
+    await h.waitForFunction(() => KOS.App.run.inst.state.raceT > 6, null, { timeout: 40000 });
+    await h.click('.host-btn');
+    ok(await h.evaluate(() => document.querySelectorAll('.host-menu .hm-row').length === 3 && ['end', 'abort', 'lobby'].every(k => !!document.querySelector('.host-menu [data-hm="' + k + '"]'))), 'host menu: standings with 3 boats, end, abort, lobby-after');
+    await h.click('.host-menu [data-hm="lobby"]');
+    ok(await h.evaluate(() => KOS.App.run.inst.state.lobbyAfter === true), 'lobby-after is switched on');
+    await h.click('.host-menu [data-hm="close"]');
+    await h.evaluate(() => KOS.App.run.inst.debug.finishNow());
+    ok(await h.evaluate(() => /1/.test((document.querySelector('.race-board .rb-me b') || {}).textContent || '') && /2/.test((document.querySelector('.race-board .rb-me span') || {}).textContent || '')), 'my finish place and "waiting for 2 sailors" show at once');
+    await a.waitForFunction(() => { const e = document.querySelector('.race-fwin'); return e && !e.hidden && /[0-9]:[0-9][0-9]/.test(e.textContent); }, null, { timeout: 5000 });
+    ok(true, 'the others see the finish window countdown');
+    await h.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 20000 });
+    for (const p of [a, b]) await p.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 20000 });
+    const rh = await resultOf(h), ra = await resultOf(a);
+    ok(rh.rows.find(r => r.me).place === 1 && rh.rows.filter(r => r.dnf).length === 2 && ra.rows.filter(r => r.dnf).length === 2, 'official table: host 1st, the two who never finished are DNF (same on every client)');
+    for (const p of L.all) await p.waitForFunction(() => KOS.App.cur === 'live' && document.getElementById('screen-live').getAttribute('data-live-view') === 'room', null, { timeout: 30000 });
+    ok(true, 'lobby-after: everybody is back in the lobby of the same room');
+    ok(L.all.every(p => p.errs.length === 0), 'no errors (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
+    await closeAll({ srv });
+  }
+
+  // ================================================================== 7. big-screen host: abort, then end now
+  console.log('-- big-screen host: abort back to the lobby, then end now');
+  {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'watch', ['Storskaerm', 'Ane', 'Bo'], { boat: 'zest', laps: 1, countdownS: 8, windKn: 10 });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    const [big, a, b] = L.all;
+    await big.click('.host-btn');
+    ok(await big.evaluate(() => document.querySelectorAll('.host-menu .hm-row').length === 2 && document.querySelectorAll('.host-menu [data-hm="kick"]').length === 2), 'big screen host menu: two boats, a kick button each');
+    await big.click('.host-menu [data-hm="abort"]'); await big.click('.host-menu [data-hm="yes"]');
+    for (const p of L.all) await p.waitForFunction(() => KOS.App.cur === 'live' && document.getElementById('screen-live').getAttribute('data-live-view') === 'room', null, { timeout: 15000 });
+    ok(true, 'abort: everybody back in the lobby, no result screen');
+    await clickAct(big, 'start');
+    for (const p of L.all) await inRace(p);
+    await big.waitForFunction(() => KOS.App.run.inst.state.raceT > 1, null, { timeout: 30000 });
+    await big.click('.host-btn'); await big.click('.host-menu [data-hm="end"]'); await big.click('.host-menu [data-hm="yes"]');
+    for (const p of [a, b]) await p.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 15000 });
+    await big.waitForFunction(() => !!document.querySelector('.watch-end .we-card'), null, { timeout: 15000 });
+    ok(await big.evaluate(() => document.querySelectorAll('.watch-end .we-row').length === 2), 'end now: the big screen shows the final table, the sailors the results card');
+    ok((await resultOf(a)).rows.every(r => r.dnf), 'nobody had finished: both sailors are DNF');
+    ok(L.all.every(p => p.errs.length === 0), 'no errors (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
+    await closeAll({ srv });
+  }
+
   await browser.close();
   await web.close();
   console.log('\nliverace: ' + checks + ' checks, ' + fails + ' failed');

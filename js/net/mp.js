@@ -269,7 +269,7 @@
       get finishAt() { return sess.finishAt || 0; },
       get players() { return (sess.room && sess.room.players) || room.players || []; },
       hostEnd: () => sess.hostEnd(), hostAbort: () => sess.hostAbort(), hostLobby: on => sess.hostLobby(on), kick: id => sess.kick(id),
-      leave: () => { try { sess.leave(); } catch (e) { /* ignore */ } },
+      leave: () => { if (sess.phase === 'lobby' && sess.state === 'ok') return; /* the host aborted/rematched: the lobby owns the seat now */ try { sess.leave(); } catch (e) { /* ignore */ } },
     };
   }
 

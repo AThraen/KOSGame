@@ -1019,7 +1019,7 @@
       const show = left != null && !S.done && S.phase !== 'finish' && !S.liveRes;
       fwinEl.hidden = !show;
       if (!show) return;
-      const txt = t('live.fin.window', { t: fmtClock(left) });
+      const txt = t('live.fin.chip', { t: fmtClock(left) });
       if (txt !== fwinEl._t) { fwinEl.textContent = txt; fwinEl._t = txt; }
       fwinEl.classList.toggle('hot', left <= 10);
     }
@@ -1050,7 +1050,7 @@
       const open = force !== undefined ? force : !hostMenu;
       if (!open) { if (hostMenu) { hostMenu.remove(); hostMenu = null; } S.hmAsk = null; return; }
       if (hostMenu || !LIVE || !LIVE.isHost) return;
-      hostMenu = document.createElement('div'); hostMenu.className = 'host-menu glass'; hostMenu.setAttribute('role', 'dialog');
+      hostMenu = document.createElement('div'); hostMenu.className = 'host-menu glass' + (WATCH ? ' is-watch' : ''); hostMenu.setAttribute('role', 'dialog');
       hostMenu.addEventListener('pointerdown', e => e.stopPropagation());
       hostMenu.addEventListener('click', e => {
         const b = e.target.closest('[data-hm]'); if (!b) return;
