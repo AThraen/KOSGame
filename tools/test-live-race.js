@@ -96,6 +96,11 @@ async function main() {
     ok(await big.evaluate(() => KOS.App.run.act.liveRace === true && KOS.App.run.host.live.role === 'watch'), 'the host runs the big-screen role');
     ok(await a.evaluate(() => KOS.App.run.host.live.role === 'sail' && KOS.App.run.inst.state.clock < 0), 'a sailor waits for the gun (clock < 0)');
     ok(await big.evaluate(() => !!document.querySelector('.race-board.rb-watch') && !document.querySelector('.race-live-banner:not([hidden])') && KOS.App.run.inst.boats.length === 2), 'big screen: leader board panel, two boats, no own boat');
+    // the pause button only opens a leave card: no resume-pause, no restart, the clock keeps running, Esc closes it
+    await a.evaluate(() => document.querySelector('.pause-btn').click());
+    ok(await a.evaluate(() => !!document.querySelector('.pause-overlay [data-p=quit]') && !document.querySelector('.pause-overlay [data-p=restart]') && KOS.App.run.paused === false), 'live: the pause button offers leaving only');
+    await a.keyboard.press('Escape');
+    ok(await a.evaluate(() => !document.querySelector('.pause-overlay')), 'live: Esc closes the leave card');
     await botOn(a); await botOn(b); await botOn(big);
     const c = await Promise.all(L.all.map(p => p.evaluate(() => KOS.App.run.inst.state.clock)));
     ok(Math.max.apply(null, c) - Math.min.apply(null, c) < 0.5, 'the start clocks agree within half a second (' + c.map(x => x.toFixed(2)).join(', ') + ')');

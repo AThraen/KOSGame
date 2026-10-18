@@ -865,7 +865,6 @@
     chrome.className = 'play-chrome';
     chrome.innerHTML = '<button type="button" class="icon-btn pause-btn" aria-label="' + esc(t('app.pause.title')) + '">' + ico('pause') + '</button>';
     chrome.querySelector('button').addEventListener('click', () => { sfx('click'); setPaused(!run.paused); });
-    if (run.live) chrome.querySelector('.pause-btn').style.display = 'none'; // a live race has one shared clock: no pause
     sec.appendChild(chrome);
     syncPhoneUi();
     if (run.mode.kind !== 'dom') setupViewZoom(sec, chrome);
@@ -1074,7 +1073,7 @@
 
   function setPaused(b) {
     if (!run.running || run.finished) return;
-    if (run.live && b) return;
+    if (run.live) { if (!b || run.pauseEl) hidePause(); else showPause(); return; } // a live race has one shared clock: the card only offers leaving, the race keeps running
     if (run.menuOpen && run.menuClose) { run.menuClose(); if (!b) return; } // the ⋯ menu pauses silently; P / Esc closes it
     if (b === run.paused) return;
     run.paused = b;
@@ -1100,11 +1099,11 @@
     o.className = 'pause-overlay';
     o.innerHTML = '<div class="pause-card glass" role="dialog" aria-modal="true">' +
       '<div class="pause-coach">' + UI().coachSvg() + '</div>' +
-      '<h2>' + esc(t('app.pause.title')) + '</h2>' +
+      '<h2>' + esc(t(run.live ? 'live.leave' : 'app.pause.title')) + '</h2>' +
       '<p class="pause-act">' + esc(tt(run.act.title)) + '</p>' +
       '<button type="button" class="btn btn-primary btn-wide" data-p="resume">' + ico('play') + '<span>' + esc(t('common.resume')) + '</span></button>' +
-      '<button type="button" class="btn btn-glass btn-wide" data-p="restart">' + ico('retry') + '<span>' + esc(t('common.restart')) + '</span></button>' +
-      (S().god() ? '<div class="pause-row god-row"><span class="god-pill">GOD</span>' +
+      (run.live ? '' : '<button type="button" class="btn btn-glass btn-wide" data-p="restart">' + ico('retry') + '<span>' + esc(t('common.restart')) + '</span></button>') +
+      (S().god() && !run.live ? '<div class="pause-row god-row"><span class="god-pill">GOD</span>' +
         [1, 2, 3].map(n => '<button type="button" class="btn btn-glass" data-p="win' + n + '">' + n + ' ★</button>').join('') + '</div>' : '') +
       '<div class="pause-row">' +
       '<button type="button" class="icon-btn" data-p="sound" aria-label="' + esc(t('app.settings.sound')) + '">' + ico(st.sound ? 'sound' : 'soundOff') + '</button>' +
