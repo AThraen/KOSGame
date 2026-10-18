@@ -20,7 +20,7 @@ function normCode(s) {
 const fin = n => typeof n === 'number' && Number.isFinite(n);
 const int = n => fin(n) && Math.floor(n) === n;
 
-const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, help: 'free' };
+const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, contact: true, help: 'free' };
 function clampNum(v, lo, hi, def) {
   if (!fin(v)) return def;
   return Math.min(hi, Math.max(lo, v));
@@ -42,6 +42,7 @@ function sanitizeCfg(cfg, base, hardMaxP) {
   if (c.maxS !== undefined) out.maxS = Math.round(clampNum(c.maxS, 60, 1800, b.maxS));
   if (c.countdownS !== undefined) out.countdownS = Math.round(clampNum(c.countdownS, 8, 180, b.countdownS));
   if (typeof c.pen === 'boolean') out.pen = c.pen;
+  if (typeof c.contact === 'boolean') out.contact = c.contact;
   if (c.help === 'locked' || c.help === 'free') out.help = c.help;
   if (hardMaxP) out.maxP = Math.min(out.maxP, hardMaxP);
   out.seed = b.seed; // never set by clients

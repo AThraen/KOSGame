@@ -74,7 +74,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `leave` | none | graceful |
 | `resume` | `code, id, key` | reconnect (4.7) |
 
-`Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..16, gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..180, pen:bool (penalty turns), help:'locked'|'free' }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
+`Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..16, gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..180, pen:bool (penalty turns), contact:bool (default true: boats collide and the rules apply between players, see 13), help:'locked'|'free' }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
 
 ### 3.2 Server to client
 | t | fields |
@@ -249,9 +249,17 @@ Every step ends with `node tools/run-tests.js` green; steps marked (U) also run 
 Conventions: scratch in `tools/tmp`, screenshots to the session scratchpad with prefix `live-`, headless only, no external network.
 
 ## 11. Out of scope for v1
-Several boat classes per race; AI boats in live races; boat-boat collisions and right-of-way fouls between humans; chat, emotes, voice, accounts, friends, leaderboards or stored history; late join; spectator-only links beyond the host; host migration; server-side physics or anti-cheat; database/persistence; admin web page and CPU auto-close; series or several races per room; WebRTC/TURN; stars/badges/progress for live races; in-race pause.
+Several boat classes per race; AI boats in live races; chat, emotes, voice, accounts, friends, leaderboards or stored history; late join; spectator-only links beyond the host; host migration; server-side physics or anti-cheat; database/persistence; admin web page and CPU auto-close; series or several races per room; WebRTC/TURN; stars/badges/progress for live races; in-race pause.
 
 ## 12. Build notes for agents
 - Good for the local model (self-contained, testable): `server/lib/*`, `mpstate.js`, QR vendoring and wrapper, `bin/kos-race`, deploy files, test files. Do inline and review closely: race.js hooks, app.js `play`/`finish` changes, lobby UI.
 - Keep race.js additions small and named (`LIVE`, `liveParams`, `stepLive`, `applyRemotes`, `sendState`); do not refactor existing functions or reorder `rand()` calls.
 - `index.html` gets only `js/net/mpstatus.js`; everything else is lazy. Regenerate `sw.js` with `node tools/gen-precache.js`.
+
+## 13. Contact and rules between players (v1.1)
+Host setting `cfg.contact` ("Kontakt mellem både" / "Contact between boats", default true, validated like `pen`, set in the setup view). OFF = the v1 ghost behaviour (no contact, no rules between players). Marks and land always apply.
+- **Each client judges only its own boat.** With contact ON, remote boats take part in `KOS.Rules.monitor` (right of way, mark-room, contact) next to `me`. A foul is only acted on when `offender === me`: `penalize` gives MY boat the penalty (penalty turn if `cfg.pen`, otherwise the contact bump plus a trainer note, as with `help:easy` against AI). A foul by a remote boat only shows the "you had right of way" card; the other client penalises itself. Fouls between two other players and remote mark touches are ignored. Penalties reach the board through the existing state flag 4 (`penalty`), so no new message exists. A remote boat that is taking its turn has no right of way (RRS 22.2), as with AI.
+- **Bump:** `bumpRemotes` runs `Physics.collide([me, remote])` per remote and then restores the remote copy: only my boat is pushed apart and slowed (it takes its mass share of the push and impulse); the other client does the same for its boat, so the result is roughly symmetric. Remote boats are never moved locally.
+- **Latency:** the delayed interpolation (4.6) is 100-150 ms behind, too late for contact. `predictRemote` dead-reckons the newest state forward: velocity from the last two states (fallback heading x speed), age = time since receipt + one-way latency (session `rtt`, capped 300 ms, + 50 ms for the server tick), total capped at 0.4 s, heading advanced by the observed yaw rate (clamped). Remote boats within 3 boat lengths of me are drawn AND judged at that predicted pose (blend weight 1 within 3 lengths, 0 beyond 4); further away they keep the smooth interpolation. The monitor uses `splitContact` so a close-call warning does not swallow the contact event a moment later.
+- Also fixed: `Buffer.sample` extrapolated with cos/sin (heading 0 = +x); heading 0 is north (`U.vec`), now sin/-cos.
+- Big screen: the overview fits all marks, the start line and the boats and leaves the board's side of the screen free; the board shows "Start" until a mark is rounded and `0` for no penalties.

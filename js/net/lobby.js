@@ -23,7 +23,7 @@
     hostIntro: 'Vælg båd og bane. Så får du en kode, som de andre taster ind.', joinIntro: 'Tast koden fra værten – eller scan QR-koden.',
     role: { sail: 'Vært + sejler', watch: 'Kun vært', sailHint: 'Du sejler selv med.', watchHint: 'Storskærm: overblik og stillingen.' },
     cfg: { boat: 'Båd', course: 'Bane', venue: 'Farvand', laps: 'Omgange', wind: 'Vind', windDir: 'Vindretning', gust: 'Vindstød', shift: 'Vindskift',
-      start: 'Startsekvens', pen: 'Straffe', help: 'Hjælp', maxP: 'Max sejlere', role: 'Din rolle', create: 'Opret løbet',
+      start: 'Startsekvens', pen: 'Straffe', contact: 'Kontakt mellem både', help: 'Hjælp', maxP: 'Max sejlere', role: 'Din rolle', create: 'Opret løbet',
       wl: 'Op og ned', tri: 'Trekant', sound: 'Øresund', bay: 'Havnen', none: 'Ingen', some: 'Lidt', lots: 'Meget',
       s20: '20 sek.', s60: '1 min', s180: '3 min', on: 'Til', off: 'Fra', locked: 'Samme for alle', free: 'Frit valg' },
     dir: { N: 'N', NE: 'NØ', E: 'Ø', SE: 'SØ', S: 'S', SW: 'SV', W: 'V', NW: 'NV' },
@@ -34,7 +34,7 @@
       msg: 'Du kom i mål som nr. {place} af {of} på {time}.', dnfMsg: 'Du nåede ikke i mål denne gang.' },
     race: 'Løbet starter – sejladsen kommer i næste version.',
     rematch: 'Ny kapsejlads med samme deltagere', rematchWait: 'Venter på værten – hvis der kommer en ny kapsejlads, kommer du automatisk med.',
-    watch: { follow: 'Følg føreren', overview: 'Overblik', startsIn: 'Starter om', leader: 'Fører', col: { pos: 'Nr.', sailor: 'Sejler', gap: 'Efter', mark: 'Mærke', pen: 'Straf' } },
+    watch: { start: 'Start', follow: 'Følg føreren', overview: 'Overblik', startsIn: 'Starter om', leader: 'Fører', col: { pos: 'Nr.', sailor: 'Sejler', gap: 'Efter', mark: 'Mærke', pen: 'Straf' } },
   } });
   KOS.I18n.add('en', { live: {
     playAi: 'Race the computer', retry: 'Try again', hostUnavailable: 'Cannot reach the race server. Check that the server is running.',
@@ -48,7 +48,7 @@
     hostIntro: 'Pick the boat and the course. You get a code for the others to type in.', joinIntro: 'Type the code from the host – or scan the QR code.',
     role: { sail: 'Host + sail', watch: 'Host only', sailHint: 'You sail too.', watchHint: 'Big screen: overview and standings.' },
     cfg: { boat: 'Boat', course: 'Course', venue: 'Waters', laps: 'Laps', wind: 'Wind', windDir: 'Wind direction', gust: 'Gusts', shift: 'Wind shifts',
-      start: 'Start sequence', pen: 'Penalties', help: 'Help', maxP: 'Max sailors', role: 'Your role', create: 'Create the race',
+      start: 'Start sequence', pen: 'Penalties', contact: 'Contact between boats', help: 'Help', maxP: 'Max sailors', role: 'Your role', create: 'Create the race',
       wl: 'Up and down', tri: 'Triangle', sound: 'The Sound', bay: 'The harbour', none: 'None', some: 'A few', lots: 'Many',
       s20: '20 s', s60: '1 min', s180: '3 min', on: 'On', off: 'Off', locked: 'Same for all', free: 'Free choice' },
     dir: { N: 'N', NE: 'NE', E: 'E', SE: 'SE', S: 'S', SW: 'SW', W: 'W', NW: 'NW' },
@@ -59,7 +59,7 @@
       msg: 'You finished {place} of {of} in {time}.', dnfMsg: 'You did not finish this time.' },
     race: 'The race is starting – the sailing itself arrives in the next version.',
     rematch: 'New race with the same sailors', rematchWait: 'Waiting for the host – if there is a new race you join automatically.',
-    watch: { follow: 'Follow the leader', overview: 'Overview', startsIn: 'Starting in', leader: 'Leader', col: { pos: 'No.', sailor: 'Sailor', gap: 'Gap', mark: 'Mark', pen: 'Pen.' } },
+    watch: { start: 'Start', follow: 'Follow the leader', overview: 'Overview', startsIn: 'Starting in', leader: 'Leader', col: { pos: 'No.', sailor: 'Sailor', gap: 'Gap', mark: 'Mark', pen: 'Pen.' } },
   } });
 
   // ------------------------------------------------------------------ state
@@ -77,7 +77,7 @@
     const boats = boatsList();
     const fav = KOS.Storage && KOS.Storage.get ? KOS.Storage.get('boat', 'opti') : 'opti';
     return { boat: boats.indexOf(fav) >= 0 ? fav : boats[0] || 'opti', venue: 'sound', course: 'wl', laps: 2, windDeg: 225, windKn: 10,
-      gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, help: 'free' };
+      gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, contact: true, help: 'free' };
   }
   function boatsList() { try { const l = app().liveBoats(); return l && l.length ? l : ['opti']; } catch (e) { return ['opti']; } }
   function myName() {
@@ -258,6 +258,7 @@
       row(t('live.cfg.shift'), [['none', 0], ['some', 0.4], ['lots', 0.8]].map(g => chip('opt', 'shift', g[1], t('live.cfg.' + g[0]), c.shift === g[1])).join('')) +
       row(t('live.cfg.start'), [['s20', 20], ['s60', 60], ['s180', 180]].map(g => chip('opt', 'countdownS', g[1], t('live.cfg.' + g[0]), c.countdownS === g[1])).join('')) +
       row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
+      row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
       row(t('live.cfg.help'), ['locked', 'free'].map(v => chip('opt', 'help', v, t('live.cfg.' + v), c.help === v)).join('')) +
       row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
       '</div>' +
@@ -299,7 +300,7 @@
     return '<div class="live-banner" role="status" hidden>' + esc(t('live.reconnecting')) + '</div>' + shell(t('live.title'),
       '<div class="live-room">' +
       '<div class="live-codebox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
-      '<div class="live-link"><small>' + esc(t('live.joinLink')) + '</small><code id="live-link">' + esc(link) + '</code></div>' +
+      '<div class="live-link"><small>' + esc(t('live.joinLink')) + ':</small> <code id="live-link">' + esc(link) + '</code></div>' +
       '<div class="live-qr" id="live-qr" aria-label="' + esc(t('live.scan')) + '">' + qr + '</div><small>' + esc(t('live.scan')) + '</small>' +
       '<button type="button" class="btn btn-glass btn-sm" data-act="share">' + kit().ico('share') + '<span>' + esc(t('live.share')) + '</span></button></div>' +
       '<div class="live-side glass"><h2>' + esc(t('live.players')) + ' (' + room.players.length + '/' + (cf.maxP || '') + ')</h2>' + playersHtml(room) +

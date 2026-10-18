@@ -162,8 +162,8 @@
         const dtMs = renderMs - last.t;
         const dt = Math.min(dtMs, 250) / 1000;
         const out = resultOf(n, true, dtMs > 250);
-        out.x = n.x + Math.cos(n.hd) * n.sp * dt;
-        out.y = n.y + Math.sin(n.hd) * n.sp * dt;
+        out.x = n.x + Math.sin(n.hd) * n.sp * dt; // heading 0 = north (-y), as U.vec
+        out.y = n.y - Math.cos(n.hd) * n.sp * dt;
         return out;
       }
       let a = null;

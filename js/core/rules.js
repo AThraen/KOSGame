@@ -268,7 +268,7 @@
             const contact = gap <= 0.05;
             if (!contact && !closing) continue;
             if (row.both && !contact) continue;
-            const key = (a.id || i) + '|' + (b.id || j);
+            const key = (a.id || i) + '|' + (b.id || j) + (opts.splitContact && contact ? '|c' : ''); // splitContact: a close-call warning must not swallow the contact a moment later (humans cannot dodge like the AI)
             if (cd[key] > t) continue;
             cd[key] = t + (opts.cooldown || 8);
             const offender = row.giveWay, victim = row.standOn || (row.giveWay === a ? b : a);

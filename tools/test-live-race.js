@@ -2,6 +2,8 @@
 // steered by the AI autopilot (race instance .setAutopilot). Needs server/node_modules (ws); skips without it.
 //   1. host-only (big screen) + two sailors: everybody gets the same official table, remotes follow the real boats, big screen shows a board
 //   2. host + sailor, the server is killed mid race: ~15 s of reconnecting, then both finish locally, result marked unofficial, no freeze
+//   3. contact between players: a port/starboard crossing steered by a fixed-heading bot ends in contact; the port boat is penalised on its own
+//      client (and the big screen board shows it), the starboard boat is not; contact OFF = boats pass through; penalties OFF = bump only
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -181,6 +183,78 @@ async function main() {
     const errs = [].concat(...L.all.map(p => p.errs));
     ok(errs.length === 0, 'no errors on any page (' + errs.join(' | ') + ')');
     for (const c of pages.splice(0)) await c.close();
+  }
+
+  // ================================================================== 3. contact and rules between players
+  // Both sailors are put on a collision course (port tack boat from the left, starboard tack boat from the right, wind from north) and hold their
+  // heading with a fixed-heading helm (deterministic). Each client judges only its own boat.
+  async function crossing(label, cfg, withBig) {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const WS = 'ws://127.0.0.1:' + port + '/ws';
+    const names = withBig ? ['Storskaerm', 'Styrbord', 'Bagbord'] : ['Styrbord', 'Bagbord'];
+    const L = await lobby(WS, withBig ? 'watch' : 'sail', names, Object.assign({ boat: 'ilca', laps: 1, windKn: 10, windDeg: 0, countdownS: 8, gust: 0, shift: 0, help: 'locked' }, cfg));
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    const sail = withBig ? L.all.slice(1) : L.all, big = withBig ? L.all[0] : null;
+    for (const p of sail) await p.evaluate(() => KOS.App.run.inst.skipIntro());
+    await sail[0].waitForFunction(() => KOS.App.run.inst.state.phase === 'race' && KOS.App.run.inst.state.raceT > 2, null, { timeout: 40000 });
+    // starboard tack boat heads NW, port tack boat NE; both aim at X, 70 m upwind of the line, 22 m away
+    const setup = (p, sgn) => p.evaluate(sg => {
+      const i = KOS.App.run.inst, b = i.boat, U = KOS.U, H = sg * Math.PI / 3;
+      const d = i.debug, X = { x: (d.pin.x + d.com.x) / 2, y: (d.pin.y + d.com.y) / 2 - 70 };
+      const f = U.vec(H);
+      b.x = X.x - f.x * 22; b.y = X.y - f.y * 22; b.heading = H; b.vx = f.x * 3; b.vy = f.y * 3; b.speed = 3; b.slip = 0; b.yawRate = 0;
+      window.__H = H;
+      KOS.Input.toControls = (st, bb) => { const c = KOS.Physics.controls(); c.autoTrim = true; c.autoHike = true; c.rudder = U.clamp(U.angDiff(bb.heading, window.__H) * 2.2 - bb.yawRate * 0.6, -1, 1); return c; };
+      window.__minGap = 1e9; window.__v0 = 3; window.__maxSp = 0;
+      window.__iv = setInterval(() => { const r = i.live.remotes[0]; if (r) window.__minGap = Math.min(window.__minGap, KOS.Rules.hullGap(b, r)); }, 40);
+    }, sgn);
+    await Promise.all([setup(sail[0], -1), setup(sail[1], 1)]);
+    await sleep(500);
+    const tacks = await Promise.all(sail.map(p => p.evaluate(() => KOS.App.run.inst.boat.tack)));
+    ok(tacks[0] === 'starboard' && tacks[1] === 'port', label + ': one boat on starboard, one on port tack (' + tacks.join('/') + ')');
+    await sleep(11000);
+    const res = await Promise.all(sail.map(p => p.evaluate(() => { const i = KOS.App.run.inst, S = i.state; clearInterval(window.__iv);
+      return { fouls: S.fouls, pen: !!i.boat.rc.pen, minGap: window.__minGap, speed: i.boat.speed, dist: Math.hypot(i.boat.x - i.live.remotes[0].x, i.boat.y - i.live.remotes[0].y) }; })));
+    let board = null;
+    if (big) board = await big.evaluate(() => { const i = KOS.App.run.inst; return { penN: i.live.remotes.map(r => ({ name: r.name, n: r.rc.penN || 0, pen: !!r.rc.pen })), html: document.querySelector('.race-board.rb-watch').innerText }; });
+    const errs = [].concat(...L.all.map(p => p.errs));
+    const keep = { L, sail, big, srv };
+    return { res, board, errs, keep };
+  }
+  async function closeAll(k) { for (const c of pages.splice(0)) await c.close(); await k.srv.close(); }
+
+  console.log('-- contact ON, penalties ON: port/starboard crossing');
+  {
+    const r = await crossing('contact', { contact: true, pen: true }, true);
+    const [sb, pt] = r.res;
+    ok(sb.minGap < 0.3 && pt.minGap < 0.3, 'the hulls touched on both clients (' + sb.minGap.toFixed(2) + ', ' + pt.minGap.toFixed(2) + ' m)');
+    ok(pt.fouls >= 1 && pt.pen === true, 'the port boat is penalised on its own client (fouls ' + pt.fouls + ', penalty turn owed)');
+    ok(sb.fouls === 0 && sb.pen === false, 'the starboard boat is not penalised');
+    ok(r.board.penN.find(x => x.name === 'Bagbord').n >= 1 && r.board.penN.find(x => x.name === 'Styrbord').n === 0, 'the big screen sees the penalty for the port boat only (' + JSON.stringify(r.board.penN) + ')');
+    ok(/↻/.test(r.board.html), 'the big screen board shows the penalty mark');
+    ok(r.errs.length === 0, 'no errors (' + r.errs.join(' | ') + ')');
+    await closeAll(r.keep);
+  }
+  console.log('-- contact OFF: ghosts');
+  {
+    const r = await crossing('ghost', { contact: false, pen: true }, false);
+    const [sb, pt] = r.res;
+    ok(sb.minGap < -0.2 && pt.minGap < -0.2, 'the boats pass through each other (' + sb.minGap.toFixed(2) + ', ' + pt.minGap.toFixed(2) + ' m)');
+    ok(sb.fouls === 0 && pt.fouls === 0 && !sb.pen && !pt.pen, 'no foul and no penalty on either client');
+    ok(r.errs.length === 0, 'no errors (' + r.errs.join(' | ') + ')');
+    await closeAll(r.keep);
+  }
+  console.log('-- contact ON, penalties OFF: bump and a note only');
+  {
+    const r = await crossing('nopen', { contact: true, pen: false }, false);
+    const [sb, pt] = r.res;
+    ok(sb.minGap < 0.3 && pt.minGap < 0.3, 'the hulls touched');
+    ok(pt.fouls >= 1 && pt.pen === false, 'the port boat gets the trainer note (fouls ' + pt.fouls + ') but no penalty turn');
+    ok(sb.fouls === 0 && !sb.pen, 'the starboard boat gets nothing');
+    ok(r.errs.length === 0, 'no errors (' + r.errs.join(' | ') + ')');
+    await closeAll(r.keep);
   }
 
   await browser.close();

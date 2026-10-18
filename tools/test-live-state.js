@@ -110,7 +110,7 @@ function ok(cond, msg) {
   ok(Math.abs(Math.abs(hs.hd) - Math.PI) < 0.05, 'heading wrap midpoint within 0.05 of PI');
 
   const ebuf = new M.Buffer();
-  ebuf.add(mk(1, 1, 10, 0, 0, 4, 0, 0, 0), 100);
+  ebuf.add(mk(1, 1, 10, 0, Math.PI / 2, 4, 0, 0, 0), 100);
   const e1 = ebuf.sample(200);
   ok(e1.extrapolated === true && e1.frozen === false, 'sample(200) extrapolated, not frozen');
   ok(Math.abs(e1.x - 10.4) < 1e-6, 'sample(200) x within 1e-6 of 10.4');

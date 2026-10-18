@@ -248,6 +248,7 @@
       countdownS: cfg.countdownS || 20,
       get state() { return sess.state; },
       serverNow: () => sess.serverNow(),
+      get rtt() { return sess.rtt || 0; }, // ms, for dead reckoning of the other boats (contact mode)
       send: msg => sess.send(msg),
       on: (evt, fn) => sess.on(evt, fn),
       rematch: () => sess.rematch(),
