@@ -121,3 +121,15 @@
 .soslag-layer:not(.soslag-pen) .kc [data-btn="turn"] { display: none; }
 .soslag-panel .sl-pen:empty { display: none; }
 .soslag-panel .rp-pen { margin-top: 5px; }
+
+/* ---- windows that are not phones (no .phone-ui: a desktop browser, any size): in narrow or short windows the sheet + jib sliders reach up toward
+   the top-right, and the HUD fills the top-centre, so the wet panel docks top-left instead, under the SKYD / TURN button row, and keeps its
+   desktop look (the compact grid / landscape variants above are phone layouts). The toast moves below it. */
+@media (max-width: 899px), (max-height: 700px) {
+  body:not(.phone-ui) .soslag-panel { left: calc(var(--safe-l, 0px) + 12px); right: auto; top: calc(var(--safe-t) + 136px); transform: none; width: 196px; display: block; padding: 9px 12px; border-radius: 16px; }
+  body:not(.phone-ui) .soslag-panel .sl-bar { margin-bottom: 5px; }
+  body:not(.phone-ui) .soslag-panel .sl-tank { margin: 6px 0 2px; }
+  body:not(.phone-ui) .soslag-panel .sl-row { margin-top: 4px; }
+  body:not(.phone-ui) .soslag-panel .sl-hint { margin-top: 5px; }
+  body:not(.phone-ui) .soslag-layer .race-card, body:not(.phone-ui) .soslag-layer .race-card.show { top: calc(var(--safe-t) + 340px); }
+}

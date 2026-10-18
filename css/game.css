@@ -140,7 +140,10 @@ body.mode-sea[data-screen="play"] .coach:not(.coach-tapclose) { z-index: 25; }
 @media (prefers-reduced-motion: reduce) { body[data-screen="play"] .coach-bottom.in { animation: none !important; } }
 /* landscape phones during play: the boat sits mid-screen, so the coach goes up under the HUD, compact */
 @media (orientation: landscape) and (max-height: 520px) {
-  body[data-screen="play"] .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 64px); width: min(calc(100vw - 420px), 440px); min-width: 300px; }
+  /* right of the round-tool row (up to 4 buttons, top-left), left of the race panel (top-right) */
+  body[data-screen="play"] .coach-bottom { bottom: auto; top: calc(var(--safe-t) + 64px); left: calc(var(--safe-l) + 284px); width: min(calc(100vw - 284px - 200px - var(--safe-l) - var(--safe-r)), 440px); min-width: 0; transform: translate(0, 20px) scale(.95); }
+  body[data-screen="play"] .coach-bottom.in { transform: none; }
+  body[data-screen="play"] .coach-bottom.out { transform: translate(0, 12px) scale(.96); }
   body[data-screen="play"] .coach-avatar { width: 50px; height: 50px; }
   body[data-screen="play"] .coach-bubble { margin-bottom: 4px; padding: 7px 11px 8px; }
   body[data-screen="play"] .coach-text { font-size: .86rem; }
@@ -333,7 +336,19 @@ body.phone-ui.mode-sea .pc-chip.pc-none { display: none; }
   body.phone-ui.mode-sea[data-screen="play"] .coach-name { font-size: .7rem; }
   body.phone-ui.mode-sea[data-screen="play"] .coach-text { font-size: .9rem; line-height: 1.25; }
   body.phone-ui.mode-sea[data-screen="play"] .coach-long .coach-text { font-size: .85rem; line-height: 1.2; }
-  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 128px) !important; width: calc(100vw - 20px - 150px) !important; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 112px) !important; width: calc(100vw - 20px - 94px) !important; } /* low slot: under the round-button row (B / L / T / HIKE), over the tiller pad, left of the sheet column */
+}
+/* boats with a jib: the jib slider is a second column, so the low slot is narrower */
+@media (max-width: 600px) and (orientation: portrait) {
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-jib) .coach-bottom.coach-dodge { width: calc(100vw - 20px - 150px) !important; }
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-jib) .coach-bottom.coach-dodge .coach-avatar { display: none; }
+  body.phone-ui.mode-sea[data-screen="play"]:has(.kc-jib) .coach-bottom.coach-dodge .coach-bubble::before { display: none; }
+}
+/* the low slot is a tight box (round-button row above, tiller pad below): a smaller avatar gives the text the width, so it never grows into the row */
+@media (max-width: 600px) and (orientation: portrait) and (max-height: 800px) {
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge { gap: 6px; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge .coach-text { font-size: .8rem; line-height: 1.18; }
+  body.phone-ui.mode-sea[data-screen="play"] .coach-bottom.coach-dodge .coach-avatar { width: 32px; height: 32px; }
 }
 /* short phones (iPhone SE class): the low slot is cramped, keep the bubble a little narrower there */
 @media (max-width: 600px) and (orientation: portrait) and (max-height: 620px) {
@@ -344,7 +359,7 @@ body[data-screen="play"] .coach-bottom.coach-dodge { bottom: auto !important; to
 /* landscape phones: the bubble lives under the HUD, so the second slot is low between the tiller pad and the sheet column */
 @media (orientation: landscape) and (max-height: 520px) {
   body[data-screen="play"] .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 10px) !important; left: calc(var(--safe-l) + 272px) !important;
-    width: min(calc(100vw - 382px - var(--safe-l) - var(--safe-r)), 440px) !important; min-width: 0 !important; transform: none !important; }
+    width: min(calc(100vw - 530px - var(--safe-l) - var(--safe-r)), 440px) !important; min-width: 0 !important; transform: none !important; }
 }
 body[data-screen="play"] .coach.coach-ghost { opacity: .12 !important; transition: opacity .2s; }
 @media (max-width: 359px) and (orientation: portrait) {
@@ -363,4 +378,17 @@ body[data-screen="play"] .coach.coach-ghost { opacity: .12 !important; transitio
   /* Søslag: the wet-score card moves up under the HUD, and the bubble waits below it */
   body.phone-ui.mode-sea[data-screen="play"] .soslag-panel { top: calc(var(--safe-t) + 66px); }
   body.phone-ui.mode-sea[data-screen="play"]:has(.soslag-panel) .coach-bottom { top: calc(var(--safe-t) + 176px); }
+}
+
+/* desktop browsers (no .phone-ui) in narrow windows: the sheet (+ jib) slider column sits at the right, so the bubble stays left of it instead of
+   running under it, and a bubble that dodges the boat keeps to its slot (the Søslag wet panel lives in the top-left corner there) */
+@media (max-width: 899px) and (orientation: portrait), (max-width: 899px) and (min-height: 521px) {
+  body.mode-sea[data-screen="play"]:not(.phone-ui) .coach-bottom { left: 10px; width: calc(100vw - 20px - 120px); transform: translate(0, 20px) scale(.95); }
+  body.mode-sea[data-screen="play"]:not(.phone-ui) .coach-bottom.in { transform: none; }
+  body.mode-sea[data-screen="play"]:not(.phone-ui) .coach-bottom.out { transform: translate(0, 12px) scale(.96); }
+  body.mode-sea[data-screen="play"]:not(.phone-ui):has(.kc-jib) .coach-bottom { width: calc(100vw - 20px - 180px); }
+  /* landscape windows: the sliders sit left of the right-hand steering pad, so they reach further in */
+  body.mode-sea[data-screen="play"]:not(.phone-ui):has(.kc-landscape) .coach-bottom { width: calc(100vw - 20px - 200px); }
+  body.mode-sea[data-screen="play"]:not(.phone-ui):has(.kc-landscape.kc-hasjib, .kc-landscape .kc-jib) .coach-bottom { width: calc(100vw - 20px - 290px); }
+  body.mode-sea[data-screen="play"]:not(.phone-ui):has(.soslag-panel) .coach-bottom, body.mode-sea[data-screen="play"]:not(.phone-ui):has(.soslag-panel) .coach-bottom.coach-dodge { top: auto !important; bottom: calc(var(--safe-b) + 120px) !important; }
 }
