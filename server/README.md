@@ -35,7 +35,7 @@ Layout: `index.js` (http + ws), `lib/` (rooms, protocol, limits, status), `bin/k
    sudo systemctl enable --now kos-race@8787 kos-race@8788
    curl -s http://127.0.0.1:8787/health ; curl -s http://127.0.0.1:8788/health
    ```
-6. nginx: copy `deploy/nginx-mp.conf` to `/etc/nginx/conf.d/kos-mp.conf`, add `include /etc/nginx/conf.d/kos-mp.conf;` inside the `server { ... }` block of the game site, then `sudo nginx -t && sudo systemctl reload nginx`. The client connects to `wss://<host>/mp/ws` (test: `/mp-test/ws`).
+6. nginx: copy `deploy/nginx-mp.conf` to `/etc/nginx/snippets/kos-mp.conf` (NOT `conf.d/`: nginx auto-loads every `conf.d/*.conf` at http level, where `location` is not allowed). Add `include /etc/nginx/snippets/kos-mp.conf;` inside the `server { ... }` block of the game site (the one with `listen 443 ssl` and `server_name spil.kossejlsport.dk`), then `sudo nginx -t && sudo systemctl reload nginx`. The status files must be in that site's `root` (step 3 assumes `/var/www/html`; adjust the paths in step 3 and in `/etc/kos-race/*.env` if the root differs). Check: `curl -s https://spil.kossejlsport.dk/mp-test-status.json`. The client connects to `wss://<host>/mp/ws` (test: `/mp-test/ws`).
 7. The control script:
    ```
    sudo install -m 755 /opt/kos-race/server/bin/kos-race /usr/local/bin/kos-race
