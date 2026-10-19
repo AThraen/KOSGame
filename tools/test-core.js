@@ -1442,6 +1442,61 @@ test('boatcard: club weight windows are valid and shown (never asks for a weight
   ok(KOS.Boats.unlockStars.zest === 0, 'zest open from the start');
 });
 
+// ====================================================================== knots (reef knot topology)
+// js/modes/knots.js is a DOM mode; load it with stubs just to reach its knot data (KOS.KnotsData).
+(function () {
+  const vm = require('vm'), fs = require('fs'), path = require('path');
+  KOS.Modes = KOS.Modes || { register() {} };
+  KOS.UI = KOS.UI || { esc: s => String(s) };
+  const f = path.join(__dirname, '..', 'js/modes/knots.js');
+  vm.runInThisContext(fs.readFileSync(f, 'utf8'), { filename: f });
+})();
+function knotCrossings(id) {
+  const ropes = KOS.KnotsData.KNOTS[id].ropes.map(KOS.KnotsData.build), out = [];
+  const hit = (p, q, r, s) => {
+    const d = (q[0] - p[0]) * (s[1] - r[1]) - (q[1] - p[1]) * (s[0] - r[0]); if (Math.abs(d) < 1e-9) return null;
+    const t = ((r[0] - p[0]) * (s[1] - r[1]) - (r[1] - p[1]) * (s[0] - r[0])) / d, u = ((r[0] - p[0]) * (q[1] - p[1]) - (r[1] - p[1]) * (q[0] - p[0])) / d;
+    return t >= 0 && t < 1 && u >= 0 && u < 1 ? [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])] : null;
+  };
+  for (let a = 0; a < ropes.length; a++) for (let b = a; b < ropes.length; b++) {
+    const A = ropes[a], B = ropes[b];
+    for (let i = 0; i < A.n - 1; i++) for (let j = (a === b ? i + 2 : 0); j < B.n - 1; j++) {
+      const x = hit(A.s[i], A.s[i + 1], B.s[j], B.s[j + 1]);
+      if (x) out.push({ a, b, i, j, x, za: A.z[i], zb: B.z[j] });
+    }
+  }
+  return { ropes, out };
+}
+test('knots: reef knot is a real reef knot (4 alternating crossings, ends on the same side, not a granny)', () => {
+  const { ropes, out } = knotCrossings('reef');
+  const [O, B] = ropes;
+  ok(ropes.length === 2 && out.length === 4, 'exactly 4 crossings, got ' + out.length);
+  ok(out.every(c => c.a === 0 && c.b === 1), 'all crossings are between the two ropes');
+  ok(out.every(c => (c.za === 2 && c.zb === 0) || (c.za === 0 && c.zb === 2)), 'every crossing is clearly over/under (flags agree)');
+  // alternation along each rope: over, under, over, under (a granny/non-interlocked pattern repeats an over or an under)
+  const alt = zs => zs.every((z, k) => k === 0 || z !== zs[k - 1]);
+  ok(alt(out.slice().sort((p, q) => p.i - q.i).map(c => c.za)), 'orange alternates over/under');
+  ok(alt(out.slice().sort((p, q) => p.j - q.j).map(c => c.zb)), 'blue alternates over/under');
+  // each rope crosses BOTH legs of the other (2 crossings per rope leg-pair)
+  const half = (rope, key) => { const mid = rope.n / 2; return [out.filter(c => c[key] < mid).length, out.filter(c => c[key] >= mid).length]; };
+  ok(half(O, 'i').join() === '2,2' && half(B, 'j').join() === '2,2', 'two crossings on each half of each rope');
+  // ends: both orange ends left of every crossing, both blue ends right of every crossing
+  const xs = out.map(c => c.x[0]), x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+  ok(O.s[0][0] < x0 && O.s[O.n - 1][0] < x0, 'both orange ends on the left');
+  ok(B.s[0][0] > x1 && B.s[B.n - 1][0] > x1, 'both blue ends on the right');
+  // steps drag the blue rope and end on valid points; the two half-passes carry opposite over/under pairs
+  const st = KOS.KnotsData.KNOTS.reef.steps;
+  ok(st.every(s => s.rope === 1 && s.to > 1 && s.to < B.def.pts.length), 'reef steps end on blue points');
+  ok(O.def.start === O.def.pts.length - 1, 'orange bight is fully laid before blue is dragged');
+});
+test('knots: every rope-rope / self crossing in every knot has a defined over/under (reported, not asserted for alternation)', () => {
+  for (const id of KOS.KnotsData.ORDER) {
+    const { out } = knotCrossings(id);
+    ok(out.length > 0, id + ' has crossings');
+    ok(out.every(c => c.za !== c.zb || KOS.KnotsData.KNOTS[id].props), id + ' ambiguous same-level crossing without a prop');
+  }
+});
+
 // ====================================================================== summary
 console.log('\n');
 if (failures.length) console.log('FAILURES:\n  ' + failures.join('\n  '));
