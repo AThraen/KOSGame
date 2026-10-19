@@ -1503,6 +1503,52 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
   }
 });
 
+// ====================================================================== live race analytics (KOS.Track 'Live' events, SPEC Analytics)
+// Static check: the Live helper in js/net and js/modes/race.js is wrapped, and no Live event argument uses a name, nickname,
+// room code, rejoin key or token. String literals are stripped first, so the via value 'code' is allowed.
+(function () {
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const files = fs.readdirSync(path.join(root, 'js/net')).filter(f => f.endsWith('.js')).map(f => path.join(root, 'js/net', f));
+  files.push(path.join(root, 'js/modes/race.js'));
+  const HELPER = /const lt = \(a, n, v\) => \{ try \{ if \(KOS\.Track\) KOS\.Track\.event\('Live', a, n, v\); \} catch \(e\) \{[^}]*\} \};/;
+  // the argument text of every lt( call, found by a balanced-paren scan
+  function ltCalls(src) {
+    const out = [], re = /\blt\(/g; let m;
+    while ((m = re.exec(src))) {
+      let depth = 1, i = m.index + m[0].length;
+      for (; i < src.length && depth > 0; i++) { if (src[i] === '(') depth++; else if (src[i] === ')') depth--; }
+      out.push(src.slice(m.index + m[0].length, i - 1));
+    }
+    return out;
+  }
+  let total = 0;
+  test('live analytics: every file with lt() has the wrapped helper, and no direct KOS.Track.event call bypasses it', () => {
+    for (const f of files) {
+      const src = fs.readFileSync(f, 'utf8');
+      const n = ltCalls(src).length;
+      if (n) ok(HELPER.test(src), 'lt() without the wrapped helper in ' + path.relative(root, f));
+      const direct = (src.match(/KOS\.Track\.event\(/g) || []).length;
+      ok(direct === (HELPER.test(src) ? 1 : 0), 'direct KOS.Track.event call outside the helper in ' + path.relative(root, f));
+      total += n;
+    }
+    ok(total >= 15, 'expected at least 15 Live events in the sources, found ' + total);
+  });
+  test('live analytics: no Live event argument references a name, nickname, room code, rejoin key or token', () => {
+    const BAD = /\b(name|nick|nickname|code|key|token|pid|roomCode|rejoin)\b/i;
+    for (const f of files) {
+      for (const args of ltCalls(fs.readFileSync(f, 'utf8'))) {
+        const idents = args.replace(/'[^']*'/g, "''");
+        ok(!BAD.test(idents), 'personal or room data in lt(' + args + ') in ' + path.relative(root, f));
+      }
+    }
+  });
+  test('live analytics: the live screen is tracked as /live-kapsejlads, title Live-kapsejlads', () => {
+    const src = fs.readFileSync(path.join(root, 'js/ui/track.js'), 'utf8');
+    ok(/live: \['live-kapsejlads', 'Live-kapsejlads'\]/.test(src), 'SCREENS entry for live missing');
+  });
+})();
+
 // ====================================================================== summary
 console.log('\n');
 if (failures.length) console.log('FAILURES:\n  ' + failures.join('\n  '));

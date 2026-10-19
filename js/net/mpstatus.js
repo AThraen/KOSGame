@@ -15,6 +15,7 @@
   const LAZY = ['js/net/mpstate.js', 'js/vendor/qr.js', 'js/net/mp.js', 'js/net/lobby.js'];
   const MIN_GAP = 120000;
   const CODE_RE = /^[ACDEFGHJKMNPRTUVWXY34679]{4}$/;
+  const lt = (a, n, v) => { try { if (KOS.Track) KOS.Track.event('Live', a, n, v); } catch (e) { /* analytics never breaks the game */ } };
 
   KOS.Config = Object.assign({ liveRace: true, mpUrl: null, mpStatusUrl: null }, KOS.Config || {});
 
@@ -108,6 +109,7 @@
     return refresh({ force: true }).then(st => load().then(() => {
       if (KOS.Lobby && KOS.Lobby.open) KOS.Lobby.open(Object.assign({ status: st }, opts || {}));
     })).catch(() => {
+      lt('unavailable', 'server');
       if (KOS.UI && KOS.UI.toast) KOS.UI.toast(KOS.t('live.unavailable'), { kind: 'warn' });
     });
   }
@@ -123,7 +125,7 @@
     } catch (e) { /* ignore */ }
     const auto = !!KOS.pendingAuto; KOS.pendingAuto = false;
     KOS.joinArrival = code; // the lobby may still ask the update prompt to wait or to run first
-    return open({ join: code, auto });
+    return open({ join: code, auto, via: 'link' });
   }
 
   // ---- reload safety (docs/specs/live-race.md section 14): the pending join (and, once joined, mp.js's resume token) live in sessionStorage

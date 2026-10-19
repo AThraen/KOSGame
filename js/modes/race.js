@@ -19,6 +19,7 @@
   const KOS = (root.KOS = root.KOS || {});
   const U = KOS.U;
   const t = (k, v) => KOS.t(k, v);
+  const lt = (a, n, v) => { try { if (KOS.Track) KOS.Track.event('Live', a, n, v); } catch (e) { /* analytics never breaks the game */ } };
   const TAU = Math.PI * 2;
 
   // ======================================================================== 1. strings
@@ -1002,6 +1003,7 @@
     // the connection is gone for good: carry on on our own clock, the result is marked unofficial (spec 5.6)
     function goOffline() {
       if (S.unofficial) return;
+      lt('disconnect');
       S.unofficial = true; S.offAt = env.t;
       if (banner) banner.hidden = true;
     }
@@ -1027,6 +1029,7 @@
       const mine = rows.find(r => r.me);
       const myPlace = mine ? mine.place : n;
       const timeS = me.rc.finT;
+      if (S.unofficial) lt('unofficial'); else if (timeS == null) lt('dnf'); else lt('finish', myPlace + '/' + n);
       const stats = { place: myPlace + '/' + n };
       stats['race.stat.start'] = t('race.startQ.' + (S.startQ || 'late'));
       if (S.penServed) stats.penalties = S.penServed;
@@ -1095,9 +1098,9 @@
         else if (a === 'lobby') { S.lobbyAfter = !S.lobbyAfter; LIVE.hostLobby(S.lobbyAfter); paintHostMenu(); }
         else if (a === 'yes') {
           const c = S.hmAsk; S.hmAsk = null;
-          if (c === 'end') { LIVE.hostEnd(); toggleHostMenu(false); }
-          else if (c === 'abort') { LIVE.hostAbort(); toggleHostMenu(false); }
-          else if (c && c.kick) { LIVE.kick(c.kick); paintHostMenu(); }
+          if (c === 'end') { lt('host-end'); LIVE.hostEnd(); toggleHostMenu(false); }
+          else if (c === 'abort') { lt('host-abort'); LIVE.hostAbort(); toggleHostMenu(false); }
+          else if (c && c.kick) { lt('kick'); LIVE.kick(c.kick); paintHostMenu(); }
         }
       });
       host.layer.appendChild(hostMenu);
@@ -1268,7 +1271,7 @@
       wEnd.addEventListener('click', e => {
         const b = e.target.closest('[data-we]'); if (!b) return;
         sfx('click');
-        if (b.getAttribute('data-we') === 'rematch') { if (LIVE.rematch) LIVE.rematch(); } else { LIVE.leave(); host.quit(); }
+        if (b.getAttribute('data-we') === 'rematch') { if (LIVE.rematch) { lt('rematch'); LIVE.rematch(); } } else { LIVE.leave(); host.quit(); }
       });
       host.layer.appendChild(wEnd);
       if (board) board.style.display = 'none';
@@ -1665,6 +1668,7 @@
       if (S.done) return;
       S.done = true; S.phase = 'finish';
       S.result = { stars: 0, success: false, timeMs: Math.round(S.raceT * 1000), score: 0, stats: { tacks: me.tacks, gybes: me.gybes }, titleKey: 'race.res.dnfTitle', msgKey: 'race.res.dnf', raceTable: { rows: tableRows(), series: null } };
+      if (LIVE) lt(S.unofficial ? 'unofficial' : 'dnf');
       if (LIVE) Object.assign(S.result, { live: true, win: false, msgKey: 'live.res.dnfMsg', titleKey: S.unofficial ? 'live.res.unofficial' : 'race.res.dnfTitle', unofficial: !!S.unofficial, raceTable: { rows: liveRows(), series: null } });
       S.finishT = 0.8;
     }

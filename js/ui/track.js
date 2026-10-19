@@ -78,7 +78,7 @@
 
   // fixed Danish names, so the statistics don't split by the player's language
   const SCREENS = { title: ['start', 'Start'], hub: ['kort', 'Kort'], profile: ['profil', 'Profil'], garage: ['sejlerpas', 'Sejlerpas'], boatcard: ['sejlerpas/baadkort', 'Bådkort'],
-    settings: ['indstillinger', 'Indstillinger'], credits: ['om-spillet', 'Om spillet'] };
+    settings: ['indstillinger', 'Indstillinger'], credits: ['om-spillet', 'Om spillet'], live: ['live-kapsejlads', 'Live-kapsejlads'] };
   const AREAS = { club: ['klubhuset', 'Klubhuset'], school: ['sejlerskolen', 'Sejlerskolen'], bay: ['fri-sejlads', 'Fri sejlads'],
     race: ['kapsejlads', 'Kapsejlads'], rules: ['vigeregler', 'Vigeregler'], nav: ['navigation', 'Navigation'],
     pier: ['havnemanoevrer', 'Havnemanøvrer'], rib: ['rib-missioner', 'RIB-missioner'] };

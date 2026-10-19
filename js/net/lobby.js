@@ -9,6 +9,7 @@
   const KOS = (root.KOS = root.KOS || {});
   const doc = root.document;
   const t = (k, v) => KOS.t(k, v);
+  const lt = (a, n, v) => { try { if (KOS.Track) KOS.Track.event('Live', a, n, v); } catch (e) { /* analytics never breaks the game */ } };
 
   // ------------------------------------------------------------------ strings
   KOS.I18n.add('da', { live: {
@@ -80,7 +81,7 @@
   const DIRS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
   const L = {
     view: 'entry', hostRole: 'sail', cfg: null, sess: null, room: null, code: '', msgKey: null, msgText: '', msgActions: [],
-    busy: '', status: null, offs: [], timers: [], handoff: false, results: null,
+    busy: '', status: null, offs: [], timers: [], handoff: false, results: null, via: 'code',
   };
   const app = () => KOS.App;
   const kit = () => KOS.App.kit;
@@ -120,6 +121,7 @@
     if (list.length) app().play(list[0].id); else app().show('area', { area: 'race' });
   }
   function unavailable(hostOnly) {
+    lt('unavailable', 'server');
     trainerMsg(t(hostOnly ? 'live.hostUnavailable' : 'live.unavailable'), ['retry', 'ai']);
   }
   function errText(code, msg) {
@@ -140,7 +142,18 @@
     L.sess = sess;
     const on = (e, fn) => L.offs.push(sess.on(e, fn));
     on('room', room => { L.room = room; if (L.view === 'room') paint(); });
-    on('start', () => { L.room = sess.room || L.room; launchRace(sess); });
+    on('start', () => {
+      L.room = sess.room || L.room;
+      if (sess.role === 'host' && sess.cfg) { // host side only, once per race: what was sailed (no names, no codes)
+        const c = sess.cfg, rm = L.room || sess.room || {}, n = (rm.players || []).length;
+        const U = KOS.U, wMs = U && U.ms ? U.ms(c.windKn) : c.windKn * 0.5144;
+        const band = wMs < 4 ? '0-4' : wMs < 8 ? '4-8' : wMs <= 11 ? '8-11' : '11+';
+        const gust = c.gust >= 1 ? 3 : c.gust >= 0.8 ? 2 : c.gust >= 0.4 ? 1 : 0;
+        lt('start', c.boat + ' ' + c.course + ' ' + c.laps + 'L', n);
+        lt('conditions', band + (c.rain ? ' rain' : '') + ' gust' + gust);
+      }
+      launchRace(sess);
+    });
     on('res', rows => {
       L.results = rows;
       if (app().cur === 'live') setView('results'); // while racing, race.js shows the result itself
@@ -154,7 +167,7 @@
     });
     on('hostleft', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.hostLeft'), ['back']); leaveRaceScreen(); });
     on('kicked', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.kicked'), ['back']); leaveRaceScreen(); });
-    on('offline', () => { if (L.view === 'room' || L.view === 'starting') trainerMsg(t('live.unavailable'), ['retry', 'ai']); });
+    on('offline', () => { if (L.view === 'room' || L.view === 'starting') { if (!L.handoff) lt('unavailable', 'offline'); trainerMsg(t('live.unavailable'), ['retry', 'ai']); } });
     on('reconnecting', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = false; });
     on('reconnected', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = true; });
     on('error', e => { if (e && e.code === 'few') KOS.UI.toast(t('live.few'), { kind: 'warn' }); });
@@ -173,13 +186,13 @@
       if (!ok) return;
       return connectNow().then(sess => {
         wire(sess);
-        return sess.create(Object.assign({}, L.cfg), L.hostRole).then(room => { L.room = room; L.busy = ''; setView('room'); });
+        return sess.create(Object.assign({}, L.cfg), L.hostRole).then(room => { L.room = room; L.busy = ''; lt('host', L.hostRole === 'watch' ? 'host-only' : 'host+sail'); setView('room'); });
       });
     }).catch(e => {
       L.busy = '';
       const code = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
-      if (code === 'closed' || code === 'busy') { trainerMsg(errText(code, L.sess && L.sess.status.msg), ['retry', 'ai']); return; }
+      if (code === 'closed' || code === 'busy') { lt('unavailable', 'closed'); trainerMsg(errText(code, L.sess && L.sess.status.msg), ['retry', 'ai']); return; }
       unavailable(L.hostRole === 'watch');
     });
   }
@@ -191,12 +204,13 @@
       if (!ok) return;
       return connectNow().then(sess => {
         wire(sess);
-        return sess.join(code).then(room => { L.room = room; L.busy = ''; setView('room'); });
+        return sess.join(code).then(room => { L.room = room; L.busy = ''; lt('join', L.via || 'code'); setView('room'); });
       });
     }).catch(e => {
       L.busy = '';
       const code2 = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
+      if (code2 === 'closed' || code2 === 'busy') lt('unavailable', 'closed');
       if (code2 === 'nocode' || code2 === 'full' || code2 === 'started' || code2 === 'closed' || code2 === 'busy') { L.joinErr = errText(code2); setView('join'); return; }
       unavailable(false);
     });
@@ -387,7 +401,7 @@
         if (L.view === 'room' || L.view === 'starting') leaveRoom(); else toEntry();
       },
       host: () => { L.hostRole = L.hostRole || 'sail'; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => setView('setup')); },
-      joinview: () => recheckThen(() => { L.joinErr = ''; setView('join'); }),
+      joinview: () => recheckThen(() => { L.joinErr = ''; L.via = 'code'; setView('join'); }),
       recheck: () => recheckThen(() => setView('entry')),
       role: b => { L.hostRole = b.getAttribute('data-v'); paint(); },
       opt: b => {
@@ -397,7 +411,7 @@
       },
       create: () => { if (!L.busy) doCreate(); },
       join: () => { const inp = sec.querySelector('#live-code'); if (!L.busy) doJoin(inp ? inp.value : ''); },
-      kick: b => { if (L.sess) L.sess.kick(Number(b.getAttribute('data-id'))); },
+      kick: b => { if (L.sess) { lt('kick'); L.sess.kick(Number(b.getAttribute('data-id'))); } },
       start: () => { if (L.sess) L.sess.start(); },
       share: () => share(),
       leave: () => leaveRoom(),
@@ -417,12 +431,12 @@
     if (L.sess.role === 'host') { btn.setAttribute('data-act', 'rematch'); btn.classList.replace('btn-glass', 'btn-primary'); btn.innerHTML = kit().ico('retry') + '<span>' + esc(t('live.rematch')) + '</span>'; }
     else { btn.insertAdjacentHTML('beforebegin', '<p class="results-locknote live-rematch-wait">' + esc(t('live.rematchWait')) + '</p>'); btn.remove(); }
   }
-  function rematch() { if (parked() && L.sess.role === 'host') L.sess.rematch(); else open(); }
+  function rematch() { if (parked() && L.sess.role === 'host') { lt('rematch'); L.sess.rematch(); } else open(); }
   function recheckThen(fn) {
     KOS.MPStatus.refresh({ force: true }).then(st => {
       L.status = st;
       if (st.mode === 'hidden') unavailable(false);
-      else if (st.mode === 'closed') { trainerMsg(st.message || t('live.closed'), ['retry', 'ai']); }
+      else if (st.mode === 'closed') { lt('unavailable', 'closed'); trainerMsg(st.message || t('live.closed'), ['retry', 'ai']); }
       else fn();
     });
   }
@@ -442,10 +456,11 @@
     opts = opts || {};
     reset();
     L.status = opts.status || KOS.MPStatus.cached();
-    L.joinErr = ''; L.code = opts.join || '';
+    L.joinErr = ''; L.code = opts.join || ''; L.via = opts.via || 'code';
     L.cfg = L.cfg || defaultCfg();
     L.view = opts.join ? 'join' : 'entry';
-    if (L.view === 'entry' && L.status && L.status.mode === 'hidden') { L.view = 'msg'; L.msgText = t('live.unavailable'); L.msgActions = ['retry', 'ai']; }
+    if (L.view === 'entry' && L.status && L.status.mode === 'hidden') { L.view = 'msg'; L.msgText = t('live.unavailable'); L.msgActions = ['retry', 'ai']; lt('unavailable', 'server'); }
+    else if (L.view === 'entry' && L.status && (L.status.mode === 'on' || L.status.mode === 'closed')) lt('open', L.status.mode);
     app().show('live', {});
     if (opts.join && opts.auto) autoRejoin(opts.join);
   }
