@@ -10,6 +10,7 @@
 .live-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 .live-label { font-weight: 800; min-width: 120px; color: var(--text-dim); }
 .live-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.live-cico { width: 1.25em; height: 1.25em; vertical-align: -.25em; margin-right: .35em; }
 .live-hint { font-size: .85rem; color: var(--text-dim); }
 .live-err { color: #ffb3bb; min-height: 1.4em; font-weight: 700; }
 

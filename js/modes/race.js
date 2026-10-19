@@ -61,6 +61,10 @@
         finishLine: 'Mållinjen er mellem dommerbåden og pinden.',
         capsize: 'Kæntret! Op igen – kapsejladsen er ikke slut!',
         missLine: 'Du er ikke startet endnu! Sejl tilbage og kryds startlinjen MELLEM dommerbåden og pinden.',
+        lostAway: 'Mærket er derovre – drej mod pilen!',
+        lostFar: 'Du er langt væk fra banen. Følg pilen tilbage mod mærket!',
+        lostIrons: 'Du står stille i vindøjet. Læg roret over, så falder båden af – og sejl så mod pilen!',
+        lostStart: 'Løbet er startet, og du har ikke krydset startlinjen. Sejl derhen – følg pilen!',
       },
       pen: {
         title360: 'Strafrunde 360°', warn: 'Advarsel',
@@ -130,6 +134,10 @@
         finishLine: 'The finish line is between the committee boat and the pin.',
         capsize: 'Capsized! Back up – the race is not over!',
         missLine: 'You have not started yet! Go back and cross the start line BETWEEN the committee boat and the pin.',
+        lostAway: 'The mark is over there – turn towards the arrow!',
+        lostFar: 'You are far from the course. Follow the arrow back to the mark!',
+        lostIrons: 'You are stuck head to wind. Push the tiller over so the boat bears away – then follow the arrow!',
+        lostStart: 'The race has started and you have not crossed the start line. Sail there – follow the arrow!',
       },
       pen: {
         title360: 'Penalty turn 360°', warn: 'Warning',
@@ -315,13 +323,14 @@
     // clear of the start area.
     const side = (B) => -lineLen / 2 - Math.max(10, 3 * L) - 0.08 * B;
     const LAY = {
-      m1: B => [B, 0],
+      // live up-and-down: windward and leeward mark share one axis (parallel to the wind), so the route reads as up and down, never as a triangle
+      m1: B => [B, LIVE && P.course === 'wl' && P.laps > 1 ? 0.6 * side(B) : 0],
       m2: B => P.course === 'tri' ? [0.5 * B, -0.75 * B] : [0.12 * B, side(B)],
       m3: B => P.course === 'tri' ? [0.1 * B, side(B)] : [-0.15 * B, side(B)],
     };
     function coursePts(B, O) {
       const at = (u, r) => ({ x: O.x + up.x * u + right.x * r, y: O.y + up.y * u + right.y * r });
-      const m1 = at(B, 0);
+      const m1 = at(...LAY.m1(B));
       const pts = [at(-0.05 * B, 0), m1];
       if (P.course === 'tri') {
         const m2 = at(...LAY.m2(B)), m3 = at(...LAY.m3(B));
@@ -375,7 +384,7 @@
     if (nrm.x * up.x + nrm.y * up.y < 0) nrm = { x: -nrm.x, y: -nrm.y };
     const sOf = (x, y) => (x - pin.x) * nrm.x + (y - pin.y) * nrm.y; // > 0 = course side
     const mid = { x: (pin.x + com.x) / 2, y: (pin.y + com.y) / 2 };
-    const m1 = Object.assign(at(B, 0), { kind: 'orange', round: 'port', label: '1', r: 1.2, id: 'm1', upwind: true });
+    const m1 = Object.assign(at(...LAY.m1(B)), { kind: 'orange', round: 'port', label: '1', r: 1.2, id: 'm1', upwind: true });
     const marks = [m1];
     let m2 = null, m3 = null;
     if (P.course === 'tri') {
@@ -1155,34 +1164,89 @@
       wCount.hidden = !html; wCount.className = cls;
       if (html !== wCount._h) { wCount.innerHTML = html; wCount._h = html; }
     }
+    // Leader board (big screen): the skeleton is built once and the cells are updated in place (no innerHTML per tick, so nothing
+    // flashes or re-animates); the order only changes when a boat is clearly ahead of the one above it (hysteresis).
+    const WB = { built: false, rows: new Map(), disp: [], list: null, sub: null };
+    const wbSet = (el, v) => { if (el._v !== v) { el._v = v; el.textContent = v; } };
+    function wbBuild() {
+      const esc = KOS.UI.esc, col = k => '<span class="c-' + k + '">' + esc(t('live.watch.col.' + k)) + '</span>';
+      board.innerHTML = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span><small class="rb-sub"></small></div>' +
+        '<div class="rb-cols">' + col('pos') + col('sailor').replace('c-sailor', 'c-name') + col('gap') + col('kn') + col('mark') + col('dist') + col('pen') + '</div><div class="rb-list"></div>';
+      WB.list = board.querySelector('.rb-list'); WB.sub = board.querySelector('.rb-sub');
+      wbSet(WB.sub, t('live.cfg.' + P.course) + ' · ' + P.laps + ' ' + t('live.cfg.laps').toLowerCase());
+      WB.built = true;
+    }
+    function wbRow(key, color) {
+      let r = WB.rows.get(key);
+      if (!r) {
+        const el = document.createElement('div'); el.className = 'rb-row rb-w';
+        el.innerHTML = '<b class="race-medal c-pos"></b><span class="c-name"><i class="race-dot"></i><span class="nm"></span></span><em class="c-gap"></em><em class="c-kn"></em><em class="c-mark"></em><em class="c-dist"></em><em class="c-pen"></em>';
+        r = { el, dot: el.querySelector('.race-dot'), c: {} };
+        for (const k of ['pos', 'nm', 'gap', 'kn', 'mark', 'dist', 'pen']) r.c[k] = el.querySelector(k === 'nm' ? '.nm' : '.c-' + k);
+        WB.rows.set(key, r); WB.list.appendChild(el);
+      }
+      if (color && r.dot._c !== color) { r.dot._c = color; r.dot.style.background = color; }
+      return r;
+    }
+    function wbOrder(ord) {
+      const set = new Set(ord), d = WB.disp.filter(b => set.has(b));
+      for (const b of ord) if (d.indexOf(b) < 0) d.push(b);
+      const H = Math.max(5, 2 * L); // metres a boat has to be ahead before the rows swap
+      for (let pass = 0; pass < d.length; pass++) {
+        let moved = false;
+        for (let i = 1; i < d.length; i++) {
+          const a = d[i - 1], b = d[i], fa = a.rc.finT != null, fb = b.rc.finT != null;
+          const swap = fa !== fb ? fb : fa ? b.rc.rem < a.rc.rem : b.rc.rem < a.rc.rem - H;
+          if (swap) { d[i - 1] = b; d[i] = a; moved = true; }
+        }
+        if (!moved) break;
+      }
+      WB.disp = d; return d;
+    }
     function paintWatchBoard() {
       if (!board) return;
-      const esc = KOS.UI.esc, fmtT = KOS.UI.fmtTime;
+      if (!WB.built) wbBuild();
+      const fmtT = KOS.UI.fmtTime;
       const res = S.liveRes && !S.unofficial ? S.liveRes : null;
-      let rows;
+      const keys = [];
       if (res) {
         const win = res.find(r => r.ms != null);
-        rows = res.map(r => { const b = byRid[r.id]; return { place: r.place, name: r.name, color: (b || me).colors.hull, fin: r.ms != null, gap: r.ms == null ? t('live.res.dnf') : (win && r.ms !== win.ms ? '+' + secTxt((r.ms - win.ms) / 1000) : fmtT(r.ms)), mark: r.ms != null ? '✓' : '', pen: (b && b.rc.penN) || 0 }; });
+        res.slice().sort((a, b) => a.place - b.place).forEach(r => {
+          const b = byRid[r.id], row = wbRow('r' + r.id, (b || me).colors.hull); keys.push('r' + r.id);
+          wbSet(row.c.pos, String(r.place)); wbSet(row.c.nm, r.name);
+          wbSet(row.c.gap, r.ms == null ? t('live.res.dnf') : (win && r.ms !== win.ms ? '+' + secTxt((r.ms - win.ms) / 1000) : fmtT(r.ms)));
+          wbSet(row.c.kn, ''); wbSet(row.c.dist, ''); wbSet(row.c.mark, r.ms != null ? '✓' : '');
+          const pn = (b && b.rc.penN) || 0; wbSet(row.c.pen, pn > 1 ? '↻' + pn : pn ? '↻' : '0');
+          row.el.className = 'rb-row rb-w' + (r.place <= 3 && r.ms != null ? ' pod p' + r.place : '') + (r.ms != null ? ' fin' : '');
+        });
       } else {
-        const ord = rank();
+        const ord = wbOrder(rank());
         const lead = ord[0];
         const vEst = Math.max(0.4, U.ms(KOS.Boats.optimal(cls, P.windKn, 'up').vmg) * 0.95);
         const win = ord.find(b => b.rc.finT != null);
-        rows = ord.map((b, i) => {
-          const fin = b.rc.finT != null;
+        ord.forEach((b, i) => {
+          const key = 'b' + (b.rid != null ? b.rid : b.name), row = wbRow(key, b.colors.hull); keys.push(key);
+          const fin = b.rc.finT != null, it = seq[b.rc.leg];
           let gap = '';
           if (fin) gap = b === win ? fmtT(b.rc.finT * 1000) : '+' + secTxt(b.rc.finT - win.rc.finT);
-          else if (S.phase !== 'pre') gap = b.lost ? t('live.lost') : b.rc.ocs ? 'X' : i === 0 && !win ? t('live.watch.leader') : '+' + secTxt(Math.max(0, (b.rc.rem - (win ? 0 : lead.rc.rem)) / vEst));
-          const it = seq[b.rc.leg - 1];
-          return { place: b.rc.place, name: b.name, color: b.colors.hull, fin, lost: b.lost, active: !!b.rc.pen, gap,
-            mark: fin ? '✓' : it && it.type === 'mark' ? it.m.label : t('live.watch.start'), pen: (b.rc.penN || 0) };
+          else if (S.phase !== 'pre') gap = b.lost ? t('live.lost') : b.rc.ocs ? 'X' : i === 0 && !win ? t('live.watch.leader') : '+' + Math.round(Math.max(0, (b.rc.rem - (win ? 0 : lead.rc.rem)) / vEst)) + ' s';
+          wbSet(row.c.pos, String(i + 1)); wbSet(row.c.nm, b.name); wbSet(row.c.gap, gap);
+          const live = !fin && !b.lost && S.phase !== 'pre';
+          wbSet(row.c.kn, live ? Math.max(0, U.kn(b.speed || 0)).toFixed(1) : '');
+          wbSet(row.c.mark, fin ? '✓' : it && it.type === 'mark' ? it.m.label : it && it.type === 'finish' ? t('live.watch.finish') : t('live.watch.start'));
+          const dm = !fin && it && S.phase !== 'pre' ? U.dist(b, ptOf(it)) : -1;
+          wbSet(row.c.dist, dm < 0 ? '' : (dm >= 100 ? Math.round(dm / 10) * 10 : Math.round(dm / 5) * 5) + ' m');
+          const pn = b.rc.penN || 0; wbSet(row.c.pen, b.rc.pen ? '↻' + (pn > 1 ? pn : '') : pn > 1 ? '↻' + pn : pn ? '↻' : '0');
+          const cn = 'rb-row rb-w' + (i < 3 && fin ? ' pod p' + (i + 1) : '') + (b.lost ? ' lost' : '') + (fin ? ' fin' : '') + (b.rc.pen ? ' pen' : '');
+          if (row.el.className !== cn) row.el.className = cn;
+          row.c.pen.classList.toggle('on', !!b.rc.pen);
         });
       }
-      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t('race.res.table')) + '</span></div>' +
-        '<div class="rb-cols"><span class="c-pos">' + esc(t('live.watch.col.pos')) + '</span><span class="c-name">' + esc(t('live.watch.col.sailor')) + '</span><span class="c-gap">' + esc(t('live.watch.col.gap')) + '</span><span class="c-mark">' + esc(t('live.watch.col.mark')) + '</span><span class="c-pen">' + esc(t('live.watch.col.pen')) + '</span></div>' +
-        '<div class="rb-list">' + rows.map(r => '<div class="rb-row rb-w' + (r.place <= 3 && r.fin ? ' pod p' + r.place : '') + (r.lost ? ' lost' : '') + (r.fin ? ' fin' : '') + '"><b class="race-medal c-pos">' + r.place + '</b><span class="c-name"><i class="race-dot" style="background:' + esc(r.color) + '"></i>' + esc(r.name) + '</span><em class="c-gap">' + esc(r.gap) + '</em><em class="c-mark">' + esc(r.mark) + '</em><em class="c-pen' + (r.active ? ' on' : '') + '">' + (r.pen || r.active ? '↻' + (r.pen > 1 ? r.pen : '') : '0') + '</em></div>').join('') + '</div>';
+      // DOM order follows the displayed order; only touch the DOM when it really differs
+      const have = Array.prototype.map.call(WB.list.children, el => el);
+      keys.forEach((k, i) => { const el = WB.rows.get(k).el; if (have[i] !== el) WB.list.insertBefore(el, WB.list.children[i] || null); });
+      WB.rows.forEach((r, k) => { if (keys.indexOf(k) < 0) { r.el.remove(); WB.rows.delete(k); } });
       board.classList.toggle('rb-pre', S.phase === 'pre');
-      if (html !== paintWatchBoard.last) { board.innerHTML = html; paintWatchBoard.last = html; }
     }
     // podium + the whole table when the official result arrives; rematch keeps the room and the sailors (server 'rematch')
     function showPodium() {
@@ -1334,7 +1398,44 @@
       S.lastPlace = p; S.place = p;
     }
 
+    // ---- personal off-course trainer (live races only; local, nothing is sent). Reuses the coach bubble and the target arrow.
+    // Let: quick and simple; Normal: rarer; Pro: only when really lost, and very rarely.
+    const LOST = { away: 0, far: 0, irons: 0, last: -999, n: 0, until: 0, kind: '', log: [] };
+    const LOST_CFG = assist === 'easy' ? { thr: 8, gap: 20, max: 99, ironsT: 6, startT: 25 } : assist === 'normal' ? { thr: 14, gap: 50, max: 6, ironsT: 12, startT: 40 } : { thr: 25, gap: 150, max: 2, ironsT: 0, startT: 70 };
+    const ctrC = { x: (cb.x0 + cb.x1) / 2, y: (cb.y0 + cb.y1) / 2 }, farR = Math.hypot(cb.x1 - cb.x0, cb.y1 - cb.y0) / 2 + 140;
+    function lostTick(dt) {
+      const tg = currentTarget();
+      if (!LIVE || WATCH || S.done || !tg || me.capsized || S.pen || S.phase !== 'race') { LOST.away = LOST.far = LOST.irons = 0; return; }
+      const it = seq[me.rc.leg], d = U.dist(me, tg), v = U.vec(me.heading, me.speed || 0);
+      const vmg = d > 1 ? (v.x * (tg.x - me.x) + v.y * (tg.y - me.y)) / d : 0;
+      const grow = (k, on) => { LOST[k] = on ? LOST[k] + dt : Math.max(0, LOST[k] - 2 * dt); };
+      grow('away', it.type !== 'start' && vmg < -0.3 && me.speed > 0.6 && d > 3 * L + 15); // sailing away from the next mark
+      grow('far', U.dist(me, ctrC) > farR); // far outside the course area
+      LOST.irons = me.inIrons && S.raceT > 3 ? LOST.irons + dt : 0;
+      let kind = '';
+      if (LOST.far > LOST_CFG.thr) kind = 'lostFar';
+      else if (LOST.away > LOST_CFG.thr) kind = 'lostAway';
+      else if (LOST_CFG.ironsT && LOST.irons > LOST_CFG.ironsT) kind = 'lostIrons';
+      else if (!me.rc.started && !me.rc.ocs && S.raceT > LOST_CFG.startT) kind = 'lostStart';
+      if (!kind || LOST.n >= LOST_CFG.max || env.t - LOST.last < LOST_CFG.gap) return;
+      LOST.last = env.t; LOST.n++; LOST.until = env.t + 7; LOST.kind = kind; LOST.log.push(kind);
+      LOST.away = LOST.far = LOST.irons = 0;
+      say(t('race.tip.' + kind), 6500); sfx('pop', { vol: 0.5 });
+    }
+    function drawLostArrow(ctx, sc) {
+      if (env.t >= LOST.until || S.phase === 'finish') return;
+      const tg = currentTarget(); if (!tg) return;
+      const p = sc.worldToScreen(me.x, me.y), q = sc.worldToScreen(tg.x, tg.y);
+      const ang = Math.atan2(q.y - p.y, q.x - p.x), r0 = 66 * (1 + 0.16 * Math.sin(sc.t * 7));
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(255,154,61,0.96)'; ctx.strokeStyle = 'rgba(13,19,33,0.85)'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(r0 + 32, 0); ctx.lineTo(r0 + 6, -21); ctx.lineTo(r0 + 6, -8); ctx.lineTo(r0 - 28, -8); ctx.lineTo(r0 - 28, 8); ctx.lineTo(r0 + 6, 8); ctx.lineTo(r0 + 6, 21); ctx.closePath();
+      ctx.stroke(); ctx.fill(); ctx.restore();
+    }
+    if (LIVE && !WATCH) scene.addOverlay(drawLostArrow, { screen: true });
+
     function raceFeedback(dt) {
+      lostTick(dt);
       const kn = U.kn(Math.abs(me.speed)); if (kn > S.topKn) S.topKn = kn;
       // gusts
       const base = wind.base ? wind.base.speed : P.windKn;
@@ -1576,6 +1677,7 @@
       if (S.flags.X) fl.push('#ffffff');
       return fl.length ? fl : ['#ff7a1a'];
     }
+    const markSeq = seq.filter(it => it.type === 'mark').map(it => it.m).filter((m, i, a) => i === 0 || m !== a[i - 1]).slice(0, P.course === 'tri' ? 3 : 2);
     function drawWorld(ctx, sc) {
       const mpp = sc.mpp, tm = sc.t;
       // committee boat with the signal flags (tilted: drawn by the scene prop, depth-sorted)
@@ -1586,6 +1688,13 @@
         ctx.strokeStyle = 'rgba(62,224,143,0.85)'; ctx.lineWidth = Math.max(0.25, 3 * mpp); ctx.setLineDash([]);
         ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, TAU); ctx.stroke();
         sc.pill(ctx, e.x, e.y, '★', { dy: -36, color: '#3ee08f' });
+      }
+      // live: the course route (start, marks, finish) as a faint dashed line on the big screen and before the gun, so the course shape is plain
+      if (LIVE && (WATCH || S.phase === 'pre') && markSeq.length > 1) {
+        ctx.setLineDash([10 * mpp, 8 * mpp]); ctx.lineWidth = Math.max(0.2, 2 * mpp); ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath();
+        markSeq.forEach((m, i) => { if (i) ctx.lineTo(m.x, m.y); else ctx.moveTo(m.x, m.y); });
+        if (P.course === 'tri') ctx.closePath();
+        ctx.stroke(); ctx.setLineDash([]);
       }
       // next mark: pulsing target ring + 3-length zone
       const tg = currentTarget();
@@ -1671,7 +1780,8 @@
       finishNow() { if (me.rc.finT == null) finished(me); },
       complete,
       liveFeed(frame) { if (LIVE) onStates(frame); },
-      courseInfo() { return { course: P.course, laps: P.laps, marks: marks.map(m => m.id), seq: seq.map(it => it.type === 'mark' ? it.m.id : it.type + (it.dir ? ':' + it.dir : '')) }; },
+      lost: LOST, lostCfg: LOST_CFG,
+      courseInfo() { return { kinds: seq.map((_, i) => legKind(i)), course: P.course, laps: P.laps, marks: marks.map(m => m.id), seq: seq.map(it => it.type === 'mark' ? it.m.id : it.type + (it.dir ? ':' + it.dir : '')) }; },
     };
 
     return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, predict: b => (b.buf.stamped ? { x: b.x, y: b.y } : predictRemote(b, LIVE.serverNow())), netInfo: () => remotes.map(b => Object.assign({ rid: b.rid, name: b.short, lost: !!b.lost }, b.buf.info(LIVE.serverNow()))), get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };

@@ -41,7 +41,7 @@
       msg: 'Du kom i mål som nr. {place} af {of} på {time}.', dnfMsg: 'Du nåede ikke i mål denne gang.' },
     race: 'Løbet starter – sejladsen kommer i næste version.',
     rematch: 'Ny kapsejlads med samme deltagere', rematchWait: 'Venter på værten – hvis der kommer en ny kapsejlads, kommer du automatisk med.',
-    watch: { start: 'Start', follow: 'Følg føreren', overview: 'Overblik', startsIn: 'Starter om', leader: 'Fører', col: { pos: 'Nr.', sailor: 'Sejler', gap: 'Efter', mark: 'Mærke', pen: 'Straf' } },
+    watch: { start: 'Start', follow: 'Følg føreren', overview: 'Overblik', startsIn: 'Starter om', leader: 'Fører', finish: 'Mål', col: { pos: 'Nr.', sailor: 'Sejler', gap: 'Efter', kn: 'kn', mark: 'Næste', dist: 'Afst.', pen: 'Straf' } },
   } });
   KOS.I18n.add('en', { live: {
     playAi: 'Race the computer', retry: 'Try again', hostUnavailable: 'Cannot reach the race server. Check that the server is running.',
@@ -73,7 +73,7 @@
       msg: 'You finished {place} of {of} in {time}.', dnfMsg: 'You did not finish this time.' },
     race: 'The race is starting – the sailing itself arrives in the next version.',
     rematch: 'New race with the same sailors', rematchWait: 'Waiting for the host – if there is a new race you join automatically.',
-    watch: { start: 'Start', follow: 'Follow the leader', overview: 'Overview', startsIn: 'Starting in', leader: 'Leader', col: { pos: 'No.', sailor: 'Sailor', gap: 'Gap', mark: 'Mark', pen: 'Pen.' } },
+    watch: { start: 'Start', follow: 'Follow the leader', overview: 'Overview', startsIn: 'Starting in', leader: 'Leader', finish: 'Finish', col: { pos: 'No.', sailor: 'Sailor', gap: 'Gap', kn: 'kn', mark: 'Next', dist: 'Dist.', pen: 'Pen.' } },
   } });
 
   // ------------------------------------------------------------------ state
@@ -247,7 +247,12 @@
   }
 
   // ------------------------------------------------------------------ views
-  const chip = (act, k, v, label, on) => '<button type="button" class="chip' + (on ? ' on' : '') + '" data-act="' + act + '" data-k="' + k + '" data-v="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
+  const chip = (act, k, v, label, on, icon) => '<button type="button" class="chip' + (on ? ' on' : '') + '" data-act="' + act + '" data-k="' + k + '" data-v="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + (icon || '') + esc(label) + '</button>';
+  // tiny course diagrams on the course chips: up-and-down = two marks on a line, triangle = three marks (wind comes from the top)
+  const COURSE_ICO = {
+    wl: '<svg class="live-cico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2" fill="none"/><circle cx="12" cy="4.5" r="2.4" fill="#ff7a1a"/><circle cx="12" cy="20" r="2.4" fill="#ff7a1a"/></svg>',
+    tri: '<svg class="live-cico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5L20 19H4z" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2" fill="none"/><circle cx="12" cy="4.5" r="2.4" fill="#ff7a1a"/><circle cx="20" cy="19" r="2.4" fill="#ff7a1a"/><circle cx="4" cy="19" r="2.4" fill="#ff7a1a"/></svg>',
+  };
   const row = (label, body) => '<div class="live-row"><div class="live-label">' + esc(label) + '</div><div class="live-chips">' + body + '</div></div>';
   function trainerHtml(text) {
     const UI = KOS.UI;
@@ -294,7 +299,7 @@
       '<div class="live-hint">' + esc(t('live.role.' + L.hostRole + 'Hint')) + '</div>' +
       row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
       row(t('live.cfg.venue'), ['sound', 'bay'].map(v => chip('opt', 'venue', v, t('live.cfg.' + v), c.venue === v)).join('')) +
-      row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v)).join('')) +
+      row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
       row(t('live.cfg.laps'), [1, 2, 3].map(v => chip('opt', 'laps', v, String(v), c.laps === v)).join('')) +
       row(t('live.cfg.wind'), winds.map(w => chip('opt', 'windKn', w.kn, w.label, Math.abs(c.windKn - w.kn) < 0.06)).join('')) +
       (note ? '<div class="live-hint live-windnote" role="note">' + esc(note) + '</div>' : '') +

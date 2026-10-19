@@ -31,7 +31,8 @@ async function main() {
   async function newPage(WS, hash, name) {
     const ctx = await browser.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block' });
     const page = await ctx.newPage();
-    page.errs = [];
+    page.errs = []; page.sent = [];
+    page.on('websocket', ws => ws.on('framesent', f => page.sent.push(String(f.payload))));
     page.on('pageerror', e => page.errs.push('pageerror ' + e.message));
     page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) page.errs.push('console ' + m.text()); });
     await page.route('**/mp-status.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 }) }));
@@ -108,6 +109,7 @@ async function main() {
     const c = await Promise.all(L.all.map(p => p.evaluate(() => KOS.App.run.inst.state.clock)));
     ok(Math.max.apply(null, c) - Math.min.apply(null, c) < 0.5, 'the start clocks agree within half a second (' + c.map(x => x.toFixed(2)).join(', ') + ')');
     ok(await a.evaluate(() => KOS.App.run.inst.state.laylines === false), 'help locked: everybody sails on the same assist level (laylines off)');
+    ok(await a.evaluate(() => { const c = KOS.App.run.inst.debug.lostCfg; return c.gap >= 45 && c.thr >= 14; }), 'Normal (locked help): the off-course hints are rarer and slower than on Let');
 
     // wait until well into the race, then compare each real boat with how the others see it
     await a.waitForFunction(() => KOS.App.run.inst.state.phase === 'race' && KOS.App.run.inst.state.raceT > 25, null, { timeout: 90000 });
@@ -123,7 +125,23 @@ async function main() {
     await sleep(1500);
     const moved2 = await Promise.all([a, b, big].map(p => p.evaluate(() => KOS.App.run.inst.live.remotes.map(r => r.x + ',' + r.y).join('|'))));
     ok(moved.every((m, i) => m !== moved2[i]), 'remote boats keep moving');
-    ok(await big.evaluate(() => document.querySelectorAll('.race-board.rb-watch .rb-row').length === 2 && document.querySelectorAll('.race-board.rb-watch .rb-cols span').length === 5), 'the big screen board lists both sailors with gap, mark and penalty columns');
+    ok(await big.evaluate(() => document.querySelectorAll('.race-board.rb-watch .rb-row').length === 2 && document.querySelectorAll('.race-board.rb-watch .rb-cols span').length === 7), 'the big screen board lists both sailors with gap, speed, next mark, distance and penalty columns');
+    // board: speed column, no horizontal overflow, stable column widths, cells updated in place (same nodes), at 1920x1080, 1280x800 and a phone
+    const boardInfo = () => big.evaluate(() => {
+      const bd = document.querySelector('.race-board.rb-watch'), ls = bd.querySelector('.rb-list'), r0 = bd.querySelector('.rb-row');
+      const w = k => { const e = r0 && r0.querySelector('.c-' + k); return e ? Math.round(e.getBoundingClientRect().width * 10) / 10 : -1; };
+      return { over: bd.scrollWidth > bd.clientWidth + 1 || ls.scrollWidth > ls.clientWidth + 1, kn: [...bd.querySelectorAll('.rb-row .c-kn')].map(e => e.textContent), id: r0 && (r0.__id = r0.__id || Math.random()), widths: ['pos', 'name', 'gap', 'kn', 'mark', 'dist', 'pen'].map(w).join(','), w: innerWidth };
+    });
+    for (const [vw, vh, tag] of [[1920, 1080, 'board-1920'], [1280, 800, 'board-1280'], [390, 780, 'board-phone']]) {
+      await big.setViewportSize({ width: vw, height: vh }); await sleep(1500);
+      const b1 = await boardInfo(); await sleep(1600); const b2 = await boardInfo();
+      ok(!b1.over && !b2.over, vw + 'px: the board has no horizontal overflow');
+      ok(b1.widths === b2.widths && b1.id === b2.id, vw + 'px: column widths stable and the rows are the same nodes across updates (' + b1.widths + ')');
+      ok(b2.kn.length === 2 && b2.kn.every(x => /^\d+\.\d$/.test(x)), vw + 'px: speed column shows knots (' + b2.kn.join(' / ') + ')');
+      if (process.env.SHOTS) await big.screenshot({ path: process.env.SHOTS + 'live4-' + tag + '.png' });
+    }
+    await big.setViewportSize({ width: 900, height: 700 });
+
     await big.click('.watch-follow');
     ok(await big.evaluate(() => KOS.App.run.inst.state.follow === true && !!KOS.App.run.inst.scene.target), 'follow the leader: the camera tracks a boat');
     await big.click('.watch-follow');
@@ -260,17 +278,39 @@ async function main() {
 
 
   // ================================================================== 5. the course the host taps is the course that is sailed
-  console.log('-- course and laps chosen in the setup are the ones sailed');
-  for (const [course, laps, marks, seq] of [['wl', 1, ['m1'], ['start', 'm1', 'finish:down']], ['wl', 2, ['m1', 'm2'], ['start', 'm1', 'm2', 'm1', 'finish:down']],
+  // Exactly the user's path: tap chips in the setup (also the already-selected "Op og ned"), change boat/venue before and after,
+  // then check the chip state, the frame sent to the server, the room cfg echoed back and the marks the race builds on both clients.
+  console.log('-- course and laps chosen with the real chips are the ones sailed');
+  for (const [course, laps, marks, seq] of [['wl', 1, ['m1'], ['start', 'm1', 'finish:down']], ['wl', 2, ['m1', 'm2'], ['start', 'm1', 'm2', 'm1', 'finish:down']], ['wl', 3, ['m1', 'm2'], ['start', 'm1', 'm2', 'm1', 'm2', 'm1', 'finish:down']],
     ['tri', 1, ['m1', 'm2', 'm3'], ['start', 'm1', 'm2', 'm3', 'finish:up']], ['tri', 2, ['m1', 'm2', 'm3'], ['start', 'm1', 'm2', 'm3', 'm1', 'm3', 'finish:up']]]) {
     const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
     const port = await srv.listen();
-    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane'], { boat: 'ilca', countdownS: 20 }, [['course', course === 'wl' ? 'tri' : 'wl'], ['course', course], ['laps', laps]]);
+    const clicks = course === 'wl' ? [['boat', 'zest'], ['course', 'wl'], ['laps', laps], ['venue', 'bay'], ['boat', 'ilca'], ['venue', 'sound']] : [['course', 'wl'], ['venue', 'bay'], ['course', 'tri'], ['boat', 'zest'], ['laps', laps], ['boat', 'ilca'], ['venue', 'sound']];
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane'], { countdownS: 20 }, clicks);
+    const sent = L.host.sent.map(f => { try { return JSON.parse(f); } catch (e) { return {}; } }).find(m => m.t === 'create');
+    ok(sent && sent.cfg.course === course && sent.cfg.laps === laps && sent.cfg.boat === 'ilca' && sent.cfg.venue === 'sound', course + ' x' + laps + ': the create frame carries the tapped values (' + JSON.stringify(sent && sent.cfg).slice(0, 90) + ')');
+    ok(await L.host.evaluate(() => KOS.Lobby.state.room.cfg.course) === course && await L.others[0].evaluate(() => KOS.Lobby.state.room.cfg.course) === course, course + ': the room cfg echoed by the server (host and joiner)');
+    ok(await L.host.evaluate(c => document.querySelector('.live-sum').textContent.indexOf(c === 'wl' ? 'Op og ned' : 'Trekant') >= 0, course), course + ': the room summary names the course');
     await clickAct(L.host, 'start');
     for (const p of L.all) await inRace(p);
     for (const p of L.all) {
       const ci = await p.evaluate(() => KOS.App.run.inst.debug.courseInfo());
       ok(ci.course === course && ci.laps === laps && JSON.stringify(ci.marks) === JSON.stringify(marks) && JSON.stringify(ci.seq) === JSON.stringify(seq), course + ' x' + laps + ' on a client: ' + JSON.stringify(ci));
+    }
+    if (course === 'wl' && laps === 2 && process.env.SHOTS) { await L.host.evaluate(() => KOS.App.run.inst.skipIntro()); await sleep(1200); await L.host.screenshot({ path: process.env.SHOTS + 'live4-course-wl-sailor.png' }); }
+    await closeAll({ srv });
+  }
+  // the chip that shows selected is the value that is stored (setup screen)
+  {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const host = await newPage('ws://127.0.0.1:' + port + '/ws', 'area=race', 'Vaert');
+    await host.waitForSelector('.live-card'); await host.click('.live-card'); await waitView(host, 'entry'); await clickAct(host, 'host'); await waitView(host, 'setup');
+    const on = () => host.evaluate(() => ({ chip: (document.querySelector('[data-k="course"].on') || { dataset: {} }).dataset.v, cfg: KOS.Lobby.state.cfg.course }));
+    ok(JSON.stringify(await on()) === '{"chip":"wl","cfg":"wl"}', 'setup default: "Op og ned" selected and stored');
+    for (const [k, v, want] of [['course', 'tri', 'tri'], ['boat', 'zest', 'tri'], ['venue', 'bay', 'tri'], ['laps', 3, 'tri'], ['course', 'wl', 'wl'], ['boat', 'opti', 'wl'], ['venue', 'sound', 'wl']]) {
+      await host.click('#screen-live [data-act="opt"][data-k="' + k + '"][data-v="' + v + '"]');
+      const o = await on(); ok(o.chip === want && o.cfg === want, 'after tapping ' + k + '=' + v + ' the course chip and the stored course are both ' + want);
     }
     await closeAll({ srv });
   }
@@ -328,6 +368,39 @@ async function main() {
     await big.waitForFunction(() => !!document.querySelector('.watch-end .we-card'), null, { timeout: 15000 });
     ok(await big.evaluate(() => document.querySelectorAll('.watch-end .we-row').length === 2), 'end now: the big screen shows the final table, the sailors the results card');
     ok((await resultOf(a)).rows.every(r => r.dnf), 'nobody had finished: both sailors are DNF');
+    ok(L.all.every(p => p.errs.length === 0), 'no errors (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
+    await closeAll({ srv });
+  }
+
+  // ================================================================== 8. personal off-course trainer
+  console.log('-- off-course hints: only for a boat sailing away from the mark, rate limited, local only');
+  {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane'], { boat: 'ilca', laps: 1, windKn: 10, windDeg: 0, countdownS: 20, gust: 0, shift: 0, help: 'free' });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    const [lost, good] = L.all;
+    ok(await lost.evaluate(() => { const c = KOS.App.run.inst.debug.lostCfg; return c.thr > 0 && c.thr <= 10 && c.gap >= 15; }), 'Let: simple, frequent hints are configured');
+    await botOn(good); await botOn(lost);
+    await lost.waitForFunction(() => KOS.App.run.inst.boat.rc.started && KOS.App.run.inst.state.raceT > 3, null, { timeout: 90000 });
+    // from here the "lost" sailor holds a heading straight away from the next mark; the other sailor keeps racing correctly
+    await lost.evaluate(() => {
+      const i = KOS.App.run.inst, b = i.boat, U = KOS.U, tg = i.debug.marks[0];
+      i.setAutopilot(false); i.debug.lost.log.length = 0; i.debug.lost.n = 0; i.debug.lost.last = -999; i.debug.lost.away = 0;
+      window.__H = U.bearing(tg, b);
+      KOS.Input.toControls = (st, bb) => { const c = KOS.Physics.controls(); c.autoTrim = true; c.autoHike = true; c.rudder = U.clamp(U.angDiff(bb.heading, window.__H) * 2.2 - bb.yawRate * 0.6, -1, 1); return c; };
+    });
+    const t0 = Date.now();
+    await lost.waitForFunction(() => KOS.App.run.inst.debug.lost.log.length >= 1, null, { timeout: 60000 });
+    const took = (Date.now() - t0) / 1000;
+    ok(took > 4 && took < 45, 'the hint comes after a sustained spell of sailing away, not at once (' + took.toFixed(1) + ' s)');
+    ok(await lost.evaluate(() => KOS.App.run.inst.debug.lost.log[0] === 'lostAway' && /Mærket er derovre/.test(document.body.innerText)), 'the trainer says where the mark is (Danish bubble on screen)');
+    if (process.env.SHOTS) { await lost.setViewportSize({ width: 390, height: 780 }); await sleep(900); await lost.screenshot({ path: process.env.SHOTS + 'live4-hint-phone.png' }); await lost.setViewportSize({ width: 900, height: 700 }); }
+    await sleep(9000);
+    ok(await lost.evaluate(() => KOS.App.run.inst.debug.lost.log.length) === 1, 'rate limit: no second hint within the Let gap');
+    ok(await good.evaluate(() => KOS.App.run.inst.debug.lost.log.length) === 0, 'a boat sailing correctly gets no hint (' + await good.evaluate(() => JSON.stringify(KOS.App.run.inst.debug.lost.log) + KOS.App.run.inst.boat.rc.leg) + ')');
+    ok(!L.host.sent.concat(L.others[0].sent).some(f => /lost|hint|trainer/i.test(f)), 'no hint frame was sent to the server (local only)');
     ok(L.all.every(p => p.errs.length === 0), 'no errors (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
     await closeAll({ srv });
   }

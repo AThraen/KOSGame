@@ -203,8 +203,14 @@
 
 /* "Kun vært" big-screen view (docs/specs/live-race.md 5.5): leader board with gap / mark / penalties, start countdown,
    follow-the-leader toggle, podium. Sizes follow the viewport so a 1920x1080 projector reads from the back of the room. */
-.race-board.rb-watch { --wf: clamp(.9rem, 1.15vw, 1.5rem); width: min(clamp(320px, 27vw, 560px), 46vw); top: calc(var(--safe-t) + 70px); right: calc(var(--safe-r, 0px) + 14px); font-size: var(--wf); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 86px); }
-.rb-watch .rb-row, .rb-watch .rb-cols { display: grid; grid-template-columns: 2em minmax(0, 1fr) 4.6em 3.4em 2.8em; align-items: center; gap: .5em; }
+.race-board.rb-watch { --wf: clamp(.9rem, 1.05vw, 1.5rem); width: min(clamp(380px, 32vw, 640px), 52vw); overflow: hidden; top: calc(var(--safe-t) + 70px); right: calc(var(--safe-r, 0px) + 14px); font-size: var(--wf); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 86px); }
+.rb-watch .rb-row, .rb-watch .rb-cols { display: grid; grid-template-columns: 2em minmax(0, 1fr) 4.2em 3em 3em 4em 2.6em; align-items: center; gap: .45em; font-variant-numeric: tabular-nums; }
+.rb-watch .rb-list { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+.rb-watch .rb-list::-webkit-scrollbar { display: none; }
+.rb-watch .rb-row { animation: none; }
+.rb-watch .rb-head small { margin-left: auto; font-size: .8em; letter-spacing: .04em; color: rgba(255,255,255,.7); text-transform: none; font-weight: 800; white-space: nowrap; }
+.rb-watch .rb-row .c-name .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-watch .rb-row em, .rb-watch .rb-cols span { overflow: hidden; text-overflow: clip; min-width: 0; }
 .rb-watch .rb-row { font-size: 1em; padding: .35em .55em; }
 .rb-watch .rb-row span.c-name { display: flex; align-items: center; gap: .45em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
 .rb-watch .rb-row .race-dot { flex: none; }
@@ -217,8 +223,9 @@
 .rb-cols { padding: 0 .55em; }
 .rb-cols span { font-size: .62em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.55); white-space: nowrap; }
 .race-board.rb-watch.rb-pre { top: calc(var(--safe-t) + 190px); }
-.rb-cols .c-gap, .rb-cols .c-mark, .rb-cols .c-pen { text-align: right; }
+.rb-cols .c-gap, .rb-cols .c-kn, .rb-cols .c-dist { text-align: right; }
 .rb-cols .c-mark, .rb-cols .c-pen { text-align: center; }
+.rb-watch .rb-row em.c-kn, .rb-watch .rb-row em.c-dist { text-align: right; }
 .watch-count { position: absolute; z-index: 24; left: 50%; top: calc(var(--safe-t) + 60px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; padding: .1em .9em .15em; border-radius: 28px; color: #fff; background: rgba(13,19,33,.72); border: 1px solid rgba(255,255,255,.18); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); pointer-events: none; font-size: clamp(2rem, 7vmin, 6rem); line-height: 1; text-align: center; }
 .watch-count[hidden] { display: none; }
 .watch-count small { font-size: .26em; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.7); padding-top: .5em; }
@@ -246,9 +253,14 @@
 .we-row em { font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .we-row em small { color: rgba(255,255,255,.55); }
 .we-btns { display: flex; flex-wrap: wrap; gap: .6em; justify-content: center; }
+@media (max-width: 1499px) {
+  .rb-watch .rb-row, .rb-watch .rb-cols { grid-template-columns: 2em minmax(0, 1fr) 4.2em 3em 2.6em 2.6em; }
+  .rb-watch .c-dist { display: none; }
+}
 @media (max-width: 700px), (max-height: 520px) {
-  .race-board.rb-watch { --wf: .78rem; top: auto; bottom: calc(var(--safe-b, 0px) + 58px); left: 8px; right: 8px; width: auto; max-height: 40%; padding: 8px 10px; transform: none; }
-  .rb-watch .rb-row, .rb-watch .rb-cols { grid-template-columns: 1.8em minmax(0, 1fr) 4em 3em 2.4em; }
+  .race-board.rb-watch { --wf: .78rem; top: auto; bottom: calc(var(--safe-b, 0px) + 62px); left: 8px; right: 8px; width: auto; max-height: 40%; padding: 8px 10px; transform: none; }
+  .rb-watch .rb-row, .rb-watch .rb-cols { grid-template-columns: 1.8em minmax(0, 1fr) 3.3em 2.4em 3.1em 2.5em; }
+  .rb-watch .c-dist { display: none; }
   .rb-watch .rb-head { display: none; }
   .watch-count { top: calc(var(--safe-t) + 56px); font-size: clamp(1.8rem, 12vw, 3.5rem); }
   .watch-follow { bottom: calc(var(--safe-b, 0px) + 10px); }
@@ -286,7 +298,7 @@
 .hm-ask { flex-direction: row; flex-wrap: wrap; align-items: center; }
 .hm-ask span { flex: 1 1 100%; }
 .hm-btns .btn.on { outline: 2px solid var(--primary, #ffb547); }
-@media (max-width: 700px), (max-height: 520px) { .host-btn.is-watch { bottom: calc(var(--safe-b, 0px) + 110px); } .race-fwin { left: calc(var(--safe-l, 0px) + 82px); transform: none; top: calc(var(--safe-t, 0px) + 124px); } }
+@media (max-width: 700px), (max-height: 520px) { .host-btn.is-watch { left: auto; right: calc(var(--safe-r, 0px) + 14px); bottom: calc(var(--safe-b, 0px) + 10px); } .race-fwin { left: calc(var(--safe-l, 0px) + 82px); transform: none; top: calc(var(--safe-t, 0px) + 124px); } }
 
 .host-menu .btn { font-size: 1em; }
 
