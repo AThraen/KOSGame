@@ -1467,27 +1467,33 @@ function knotCrossings(id) {
   }
   return { ropes, out };
 }
-test('knots: reef knot is a real reef knot (4 alternating crossings, ends on the same side, not a granny)', () => {
+test('knots: reef knot matches the Dansk Sejlunion picture (6 crossings, loops gripped, tails beside own standing part)', () => {
   const { ropes, out } = knotCrossings('reef');
-  const [O, B] = ropes;
-  ok(ropes.length === 2 && out.length === 4, 'exactly 4 crossings, got ' + out.length);
+  const [O, B] = ropes; // orange = right rope (DSU red), blue = left rope
+  ok(ropes.length === 2 && out.length === 6, 'exactly 6 crossings, got ' + out.length);
   ok(out.every(c => c.a === 0 && c.b === 1), 'all crossings are between the two ropes');
-  ok(out.every(c => (c.za === 2 && c.zb === 0) || (c.za === 0 && c.zb === 2)), 'every crossing is clearly over/under (flags agree)');
-  // alternation along each rope: over, under, over, under (a granny/non-interlocked pattern repeats an over or an under)
-  const alt = zs => zs.every((z, k) => k === 0 || z !== zs[k - 1]);
-  ok(alt(out.slice().sort((p, q) => p.i - q.i).map(c => c.za)), 'orange alternates over/under');
-  ok(alt(out.slice().sort((p, q) => p.j - q.j).map(c => c.zb)), 'blue alternates over/under');
-  // each rope crosses BOTH legs of the other (2 crossings per rope leg-pair)
-  const half = (rope, key) => { const mid = rope.n / 2; return [out.filter(c => c[key] < mid).length, out.filter(c => c[key] >= mid).length]; };
-  ok(half(O, 'i').join() === '2,2' && half(B, 'j').join() === '2,2', 'two crossings on each half of each rope');
-  // ends: both orange ends left of every crossing, both blue ends right of every crossing
+  ok(out.every(c => (c.za === 2 && c.zb === 0) || (c.za === 0 && c.zb === 2)), 'every crossing is clearly over/under');
+  const orangeOver = c => c.za === 2;
+  // over/under along each rope, from its standing part to its tail
+  const seqO = out.slice().sort((p, q) => p.i - q.i).map(c => orangeOver(c) ? 'O' : 'U').join('');
+  const seqB = out.slice().sort((p, q) => p.j - q.j).map(c => orangeOver(c) ? 'U' : 'O').join('');
+  ok(seqO === 'OUOOUO', 'orange sequence OUOOUO, got ' + seqO);
+  ok(seqB === 'UOUUOU', 'blue sequence UOUUOU, got ' + seqB);
+  // left to right: orange's loop lies over both blue strands (2), the two inner crossings have blue over, orange grips... the blue loop on the right is under both orange strands.
+  // A granny would flip one of the outer pairs (an outer crossing with blue over); a thief knot puts a tail on the wrong side.
+  const byX = out.slice().sort((p, q) => p.x[0] - q.x[0]).map(c => orangeOver(c) ? 'O' : 'B').join('');
+  ok(byX === 'OOBBOO', 'left to right over-ness OOBBOO (outer pairs orange over, inner pair blue over), got ' + byX);
+  // ends: both blue ends left of every crossing, both orange ends right of every crossing
   const xs = out.map(c => c.x[0]), x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
-  ok(O.s[0][0] < x0 && O.s[O.n - 1][0] < x0, 'both orange ends on the left');
-  ok(B.s[0][0] > x1 && B.s[B.n - 1][0] > x1, 'both blue ends on the right');
-  // steps drag the blue rope and end on valid points; the two half-passes carry opposite over/under pairs
+  ok(B.s[0][0] < x0 && B.s[B.n - 1][0] < x0, 'both blue ends (standing part and tail) on the left');
+  ok(O.s[0][0] > x1 && O.s[O.n - 1][0] > x1, 'both orange ends (standing part and tail) on the right');
+  // each tail lies alongside its own standing part (same side, above it), both through the same loop
+  ok(B.s[B.n - 1][1] < B.s[0][1] && O.s[O.n - 1][1] < O.s[0][1], 'tails exit above their standing parts');
+  // teaching: the right (orange) end ties the half knot, then the left (blue) end the reversed one on top
   const st = KOS.KnotsData.KNOTS.reef.steps;
-  ok(st.every(s => s.rope === 1 && s.to > 1 && s.to < B.def.pts.length), 'reef steps end on blue points');
-  ok(O.def.start === O.def.pts.length - 1, 'orange bight is fully laid before blue is dragged');
+  ok(st.length === 2 && st[0].rope === 0 && st[1].rope === 1, 'step 1 moves orange, step 2 moves blue');
+  ok(st[0].to === O.def.pts.length - 1 && st[1].to === B.def.pts.length - 1, 'steps end at the tails');
+  ok(O.def.start > 0 && B.def.start > 0 && O.def.start < O.def.pts.length - 1, 'both standing parts are laid first');
 });
 test('knots: every rope-rope / self crossing in every knot has a defined over/under (reported, not asserted for alternation)', () => {
   for (const id of KOS.KnotsData.ORDER) {

@@ -22,8 +22,8 @@
           s1: 'Kaninen kommer op af hullet …', s2: '… løber rundt om træet …', s3: '… og ned i hullet igen!' },
         clove: { name: 'Dobbelt halvstik', use: 'Hurtigt knob om en stang eller pæl – fx til fendere.',
           s1: 'Før tampen op foran stangen og over.', s2: 'Ned bag om stangen.', s3: 'Skråt op foran stangen – det bliver krydset.', s4: 'Ned bag om stangen igen.', s5: 'Stik tampen ind UNDER krydset.' },
-        reef: { name: 'Råbåndsknob', use: 'Binder to ender af samme tykkelse sammen – fx når sejlet rebes. Husk: højre over venstre, venstre over højre.',
-          s1: 'Højre over venstre: før den blå tamp ned OVER det øverste orange tov og UNDER det nederste …', s2: '… rundt om bunden og op igen: OVER det nederste og UNDER det øverste. Nu låser de to bugter hinanden!' },
+        reef: { name: 'Råbåndsknob', use: 'Binder to ender af samme tykkelse sammen – fx når sejlet rebes. Husk: højre over venstre, venstre over højre. Tampene skal ud gennem samme løkke.',
+          s1: 'Slå en almindelig halv knude: højre over venstre og rundt. Før den orange tamp ned UNDER det blå tov, rundt om det og op OVER det – og ud til højre.', s2: 'Slå en halv knude mere ovenpå – men omvendt: venstre over højre og rundt. Før den blå tamp op UNDER de orange tove, hen over toppen og UNDER løkken ud til venstre.' },
         cleat: { name: 'Klampe', use: 'Sådan gør du et tov fast på en klampe – skødet, fortøjningen, faldet.',
           s1: 'Rundtørn: før tovet rundt om klampens fod, under begge horn.', s2: 'Ottetal: skråt over klampen og under hornene.', s3: 'Låsestik: en sidste gang over – og tampen ind under sig selv.' },
         roundturn: { name: 'Rundtørn og to halvstik', use: 'Et stærkt knob til at fortøje båden til en pæl eller ring.',
@@ -60,8 +60,8 @@
           s1: 'The rabbit comes out of the hole …', s2: '… runs round the tree …', s3: '… and back down the hole!' },
         clove: { name: 'Clove hitch', use: 'A quick knot around a rail or post – e.g. for fenders.',
           s1: 'Bring the end up in front of the rail and over.', s2: 'Down behind the rail.', s3: 'Diagonally up across the front – that makes the cross.', s4: 'Down behind the rail again.', s5: 'Tuck the end UNDER the cross.' },
-        reef: { name: 'Reef knot', use: 'Ties two ends of the same thickness together – e.g. when reefing the sail. Remember: right over left, left over right.',
-          s1: 'Right over left: take the blue end down OVER the upper orange part and UNDER the lower one …', s2: '… round the bottom and back up: OVER the lower and UNDER the upper. Now the two bights lock each other!' },
+        reef: { name: 'Reef knot', use: 'Ties two ends of the same thickness together – e.g. when reefing the sail. Remember: right over left, left over right. Both ends must come out through the same loop.',
+          s1: 'Tie an ordinary half knot: right over left and round. Take the orange end down UNDER the blue rope, round it and up OVER it – then out to the right.', s2: 'Tie one more half knot on top – but reversed: left over right and round. Take the blue end up UNDER the orange ropes, over the top and UNDER the loop, out to the left.' },
         cleat: { name: 'Cleat hitch', use: 'How to make a rope fast on a cleat – sheets, mooring lines, halyards.',
           s1: 'Round turn: take the rope round the base, under both horns.', s2: 'Figure-eight: diagonally over the cleat and under the horns.', s3: 'Locking hitch: one last time over – and the end under itself.' },
         roundturn: { name: 'Round turn & two half hitches', use: 'A strong knot for mooring the boat to a post or ring.',
@@ -131,21 +131,18 @@
       tight: { cx: 178, cy: 150, r: 110, kx: 0.8, ky: 0.96 },
       vb: [40, 70, 290, 240],
     },
-    // Reef knot, laid flat: two interlocked bights, a 2x2 weave. Orange bight "⊃" (both ends left), blue bight "U"
-    // (both ends right): each blue leg crosses BOTH orange legs and vice versa = 4 crossings, alternating over/under
-    // along each rope (a granny breaks this alternation). Orange is laid as the bight; blue is dragged through it.
+    // Reef knot (Dansk Sejlunion's picture, traced): two interlocked loops, 6 crossings. Orange comes from the right,
+    // blue from the left; each tail ends up on the same side as its own standing part, through the same loop.
+    // Step 1: the right (orange) end makes the half knot round the blue; step 2: the blue end makes the reversed half knot on top.
     reef: {
       ropes: [
-        { col: 'orange', start: 14, pts: [[-30, 135], [60, 135], [140, 135], [180, 135, 'u', 13], [222, 135, 'o', 13], [248, 135], [270, 141], [280, 160], [270, 179],
-          [248, 185], [222, 185, 'u', 13], [180, 185, 'o', 13], [140, 185], [60, 185], [-30, 185]] },
-        { col: 'blue', start: 1, pts: [[430, 62], [350, 62], [262, 62], [208, 63], [185, 76], [180, 104],
-          [180, 135, 'o', 13], [180, 160], [180, 185, 'u', 13], [181, 210], [190, 230], [201, 238], [212, 230], [221, 210],
-          [222, 185, 'o', 13], [222, 160], [222, 135, 'u', 13], [222, 112], [236, 100], [262, 100], [340, 100], [430, 100]] },
+        { col: 'orange', start: 5, pts: [[440, 132], [335, 132], [266, 132], [239, 130], [218, 128, 'o', 13], [204, 123], [193, 128], [185, 135], [177, 145, 'u', 13], [169, 151], [161, 154], [151, 152], [143, 144], [138, 134, 'o', 13], [137, 125], [141, 116, 'o', 13], [147, 107], [157, 103], [167, 106], [172, 114, 'u', 13], [180, 121], [194, 115], [211, 108, 'o', 13], [232, 98], [251, 89]] },
+        { col: 'blue', start: 9, pts: [[-30, 134], [45, 134], [100, 134], [118, 134], [138, 134, 'u', 13], [154, 136], [168, 141], [178, 145, 'o', 13], [192, 149], [204, 146], [214, 137], [218, 128, 'u', 13], [218, 119], [214, 110, 'u', 13], [205, 104], [194, 101], [182, 103], [170, 109, 'o', 13], [158, 116], [150, 118], [141, 116, 'u', 13], [132, 110], [118, 103], [104, 96], [88, 93]] },
       ],
-      steps: [{ rope: 1, to: 11, key: 's1' }, { rope: 1, to: 21, key: 's2' }],
-      labels: [{ x: 30, y: 160, key: 'left' }, { x: 395, y: 81, key: 'right' }],
-      tight: { cx: 205, cy: 160, r: 125, kx: 0.74, ky: 0.8 },
-      vb: [0, 40, 430, 225], vbP: [110, 44, 250, 214],
+      steps: [{ rope: 0, to: 24, key: 's1' }, { rope: 1, to: 24, key: 's2' }],
+      labels: [{ x: 105, y: 165, key: 'left' }, { x: 245, y: 165, key: 'right' }],
+      tight: { cx: 175, cy: 130, r: 70, k: 0.97 },
+      vb: [50, 40, 260, 140], vbP: [68, 40, 205, 140],
     },
     cleat: {
       props: [{ kind: 'cleat', x: 200, y: 150 }],
