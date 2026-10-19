@@ -101,30 +101,53 @@
     S.send = raw;
 
     // ---- clock sync (spec 4.1)
-    function ping() { raw({ t: 'ping', c: now() }); }
-    function startSync() {
+    // Every pong joins a ring of the last 8; the offset is the median of the 3 lowest-rtt samples (a lucky early low rtt can no longer
+    // lock out all later samples, which froze the offset for good on wifi/phones). Ping every 3 s. A far-off estimate (the phone slept,
+    // timers were throttled, the clock stepped) is stepped to at once; small differences are slewed (<= 15 ms per pong, so no visible jump).
+    const PING_MS = 3000;
+    let lastPingAt = 0, step = true, synced = false, disagree = 0;
+    S.clk = { steps: 0, pongs: 0, resyncs: 0, lastPong: 0, jit: 0, lastRtt: 0, err: 0 };
+    function ping() {
+      const t = now();
+      if (lastPingAt && t - lastPingAt > PING_MS * 2.5) resync(); // our timer was starved (background tab, sleep): the old estimate is suspect
+      lastPingAt = t; raw({ t: 'ping', c: t });
+    }
+    function burst(n) {
       clearTimeout(fastTimer); clearInterval(pingTimer);
-      samples = []; bestRtt = Infinity; pings = 0;
+      pings = 0;
       const fast = () => {
-        ping();
-        if (++pings < 8) fastTimer = setTimeout(fast, 250);
-        else { pingTimer = setInterval(ping, 5000); pingTimer.unref && pingTimer.unref(); }
+        lastPingAt = now(); raw({ t: 'ping', c: lastPingAt });
+        if (++pings < n) fastTimer = setTimeout(fast, 200);
+        else { pingTimer = setInterval(ping, PING_MS); pingTimer.unref && pingTimer.unref(); }
       };
       fast();
     }
+    function startSync() { samples = []; synced = false; step = true; burst(8); }
+    function resync() { S.clk.resyncs++; samples = []; step = true; burst(5); }
     function onPong(m) {
       const M = STATE(); if (!M || typeof m.c !== 'number' || typeof m.s !== 'number') return;
-      const smp = M.clockSample(m.c, now(), m.s);
+      const t1 = now(), smp = M.clockSample(m.c, t1, m.s);
       if (!(smp.rtt >= 0)) return;
-      const settled = samples.length >= 8;
-      if (settled && smp.rtt > 1.5 * bestRtt) return;
-      samples.push(smp); if (samples.length > 8) samples.shift();
+      smp.at = t1; samples.push(smp); if (samples.length > 8) samples.shift();
+      // a run of samples that all disagree with the estimate (the clock stepped, the device slept) beats the old low-rtt ones
+      disagree = Math.abs(smp.offset - S.offset) > 80 ? disagree + 1 : 0;
+      if (disagree >= 3) { samples = samples.slice(-3); disagree = 0; step = true; }
+      while (samples.length > 3 && t1 - samples[0].at > 12000) samples.shift(); // drifting clocks: old samples are stale
       const pk = M.pickOffset(samples); if (!pk) return;
-      bestRtt = Math.min(bestRtt, smp.rtt);
+      const c = S.clk; c.pongs++; c.lastPong = t1; c.jit += 0.2 * (Math.abs(smp.rtt - c.lastRtt) - c.jit); c.lastRtt = smp.rtt;
       S.rtt = pk.rtt;
-      if (!settled) S.offset = pk.offset;
-      else { let d = 0.2 * (pk.offset - S.offset); if (d < -30) d = -30; S.offset += d; }
+      const err = pk.offset - S.offset; c.err = err;
+      if (!synced) { S.offset = pk.offset; synced = true; c.steps++; }
+      else if (step && samples.length >= 3) { S.offset = pk.offset; step = false; c.steps++; }
+      else if (Math.abs(err) > 120 && samples.length >= 3) { S.offset = pk.offset; c.steps++; }
+      else { let d = 0.3 * err; if (d > 15) d = 15; else if (d < -15) d = -15; S.offset += d; }
     }
+    // a phone that was asleep or a hidden tab: timers stood still, so measure again as soon as we are back
+    try {
+      if (typeof document !== 'undefined' && document.addEventListener) {
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && S.state === 'ok' && sock && sock.readyState === 1) resync(); });
+      }
+    } catch (e) { /* no document */ }
 
     function setRoom(room) {
       S.room = room; S.phase = room.phase;
@@ -261,7 +284,8 @@
       countdownS: cfg.countdownS || 20,
       get state() { return sess.state; },
       serverNow: () => sess.serverNow(),
-      get rtt() { return sess.rtt || 0; }, // ms, for dead reckoning of the other boats (contact mode)
+      get rtt() { return sess.rtt || 0; }, // ms, lowest of the last 8 pings
+      get offset() { return sess.offset; }, get clk() { return sess.clk; }, // clock offset (server - performance.now) and sync counters, for the network overlay
       send: msg => sess.send(msg),
       on: (evt, fn) => sess.on(evt, fn),
       rematch: () => sess.rematch(),

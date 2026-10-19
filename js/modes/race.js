@@ -890,6 +890,29 @@
     const banner = LIVE ? document.createElement('div') : null;
     if (banner) { banner.className = 'race-live-banner'; banner.hidden = true; banner.textContent = t('live.reconnecting'); host.layer.appendChild(banner); }
     const liveOffs = [];
+    // network overlay for real-device testing: #diag=1 (remembered, see diag.js) or #net=1 -> clock offset, rtt, and per remote boat buffer depth, state age, arrival lag, correction
+    let netEl = null, netT = 0;
+    if (LIVE) {
+      let on = false;
+      try { on = /[#&](diag|net)=1/.test(location.hash || '') || localStorage.getItem('kos.diag') === '1'; } catch (e) { /* private mode */ }
+      if (on) { netEl = document.createElement('pre'); netEl.className = 'race-netdiag'; host.layer.appendChild(netEl); }
+    }
+    function netDiagTick(dt) {
+      if (!netEl) return;
+      netT += dt;
+      if (netT < 0.25) return;
+      netT = 0;
+      const nowS = LIVE.serverNow(), c = LIVE.clk || {};
+      const f = (v, d) => (Number.isFinite(v) ? v.toFixed(d) : '-');
+      const lines = ['clock off ' + Math.round(LIVE.offset) + ' ms  err ' + f(c.err, 0) + '  rtt ' + Math.round(LIVE.rtt) + '/' + f(c.lastRtt, 0) + ' jit ' + f(c.jit, 0),
+        'sync pongs ' + (c.pongs || 0) + ' steps ' + (c.steps || 0) + ' resync ' + (c.resyncs || 0) + ' last ' + (c.lastPong ? Math.round((performance.now() - c.lastPong) / 1000) + 's' : '-'),
+        'race ' + f(S.clock, 2) + ' s (shared ' + f((nowS - LIVE.T0) / 1000, 2) + ')  display ' + f(KOS.App && KOS.App.run && KOS.App.run.rafMs ? 1000 / KOS.App.run.rafMs : NaN, 0) + ' Hz'];
+      for (const b of remotes) {
+        const i = b.buf.info(nowS);
+        lines.push((b.short || b.rid) + (b.lost ? ' LOST' : '') + ' buf ' + i.depth + ' age ' + i.age + ' ms  lag ' + i.lat + ' ms  gap ' + i.gap + '  ' + (i.stamped ? 'stamped' : 'LEGACY') + '  corr ' + f(i.corr, 1) + ' m');
+      }
+      netEl.textContent = lines.join('\n');
+    }
     // sim steps still owed to the shared race clock (catch-up capped at 5 s of sim per frame)
     function liveSteps() { return U.clamp(Math.round(((LIVE.serverNow() - LIVE.T0) / 1000 - S.clock) / KOS.DT), 0, 300); }
     function onStates(arr) {
@@ -906,12 +929,12 @@
       const nowS = LIVE.serverNow();
       for (const b of remotes) {
         const rc = b.rc;
-        const s = b.buf.sample(nowS - b.buf.delay());
+        const s = b.buf.view(nowS); // stamped boats: dead-reckoned to NOW from the sender's own time stamps; old clients: interpolated 100-150 ms back
         if (s) {
           // contact mode: near me the boat is drawn and judged at its dead-reckoned CURRENT position (the delayed copy is too late for contact)
-          const pr = CONTACT && !S.unofficial && !b.lost ? predictRemote(b, nowS) : null;
+          const pr = CONTACT && !S.unofficial && !b.lost ? (b.buf.stamped ? { vx: s.vx, vy: s.vy } : predictRemote(b, nowS)) : null;
           if (pr) {
-            const w = 1 - U.smoothstep(3 * L, 4 * L, Math.hypot(pr.x - me.x, pr.y - me.y)); // 1 within 3 boat lengths, 0 beyond 4
+            const w = pr.x === undefined ? 0 : 1 - U.smoothstep(3 * L, 4 * L, Math.hypot(pr.x - me.x, pr.y - me.y)); // 1 within 3 boat lengths, 0 beyond 4 (stamped boats are already drawn at the present)
             if (w > 0) { s.x += (pr.x - s.x) * w; s.y += (pr.y - s.y) * w; s.hd = U.wrapPi(s.hd + U.angDiff(s.hd, pr.hd) * w); s.sp += (pr.sp - s.sp) * w; }
             b.predW = w; b.pvx = pr.vx; b.pvy = pr.vy;
           } else b.predW = 0;
@@ -957,7 +980,7 @@
     }
     // own state at 10 Hz from an accumulator, plus an immediate frame on capsize / penalty change / finish (spec 4.4)
     function sendState(dt) {
-      if (WATCH || S.unofficial || S.clock < -2) return;
+      if (WATCH || S.unofficial) return; // from the first second of the countdown (older servers drop it until 2 s before the gun)
       S.sendT = (S.sendT || 0) + dt;
       const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0);
       const changed = key !== S.sendKey;
@@ -965,7 +988,7 @@
       S.sendT = 0; S.sendKey = key;
       PK.x = me.x; PK.y = me.y; PK.heading = me.heading; PK.speed = me.speed; PK.heel = me.heel; PK.spinnaker = me.spinnaker; PK.capsized = me.capsized;
       PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.rc = me.rc;
-      LIVE.send({ t: 'st', s: MPS.packState(PK, LIVE.myId, S.seq = (S.seq || 0) + 1) });
+      LIVE.send({ t: 'st', s: MPS.packState(PK, LIVE.myId, S.seq = MPS.stamp(LIVE.T0 + S.clock * 1000, S.seq)) });
     }
     // the connection is gone for good: carry on on our own clock, the result is marked unofficial (spec 5.6)
     function goOffline() {
@@ -1194,7 +1217,7 @@
       S.introT += dt;
       const n = S.unofficial ? 1 : liveSteps();
       for (let i = 0; i < n; i++) simStep(dt);
-      applyRemotes(dt);
+      applyRemotes(dt); netDiagTick(dt);
       for (const b of remotes) b.tag = (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + b.name + (b.rc.pen ? ' ↻' : '');
       S.hudT -= dt;
       if (S.hudT <= 0) {
@@ -1297,7 +1320,7 @@
       if (!LIVE && S.phase === 'race' && S.fin.length === ai.length && !S.dnfT) S.dnfT = S.raceT;
       if (LIVE ? (S.unofficial && S.phase === 'race' && S.raceT > LIVE.cfg.maxS) : (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > (assist === 'easy' ? 240 : 150)) || S.raceT > P.targetS * 6))) dnf();
       if (S.finishT > 0) { S.finishT -= dt; if (S.finishT <= 0 && S.result) host.finish(S.result); }
-      if (LIVE) liveExtrasTick(dt);
+      if (LIVE) { liveExtrasTick(dt); netDiagTick(dt); }
       hudTick(dt);
     }
 
@@ -1616,6 +1639,7 @@
       destroyed = true;
       liveOffs.forEach(f => f());
       if (banner) banner.remove();
+      if (netEl) netEl.remove();
       if (LIVE && !(S.liveRes && !S.unofficial)) LIVE.leave(); // an official result keeps the room open for a rematch; the lobby owns the session then
       [wCount, wFollow, wEnd, fwinEl, hostBtn, hostMenu].forEach(e => { if (e) e.remove(); });
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
@@ -1650,6 +1674,6 @@
       courseInfo() { return { course: P.course, laps: P.laps, marks: marks.map(m => m.id), seq: seq.map(it => it.type === 'mark' ? it.m.id : it.type + (it.dir ? ':' + it.dir : '')) }; },
     };
 
-    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, predict: b => predictRemote(b, LIVE.serverNow()), get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };
+    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, predict: b => (b.buf.stamped ? { x: b.x, y: b.y } : predictRemote(b, LIVE.serverNow())), netInfo: () => remotes.map(b => Object.assign({ rid: b.rid, name: b.short, lost: !!b.lost }, b.buf.info(LIVE.serverNow()))), get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };
   }
 })(typeof window !== 'undefined' ? window : globalThis);

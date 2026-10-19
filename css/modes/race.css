@@ -289,3 +289,7 @@
 @media (max-width: 700px), (max-height: 520px) { .host-btn.is-watch { bottom: calc(var(--safe-b, 0px) + 110px); } .race-fwin { left: calc(var(--safe-l, 0px) + 82px); transform: none; top: calc(var(--safe-t, 0px) + 124px); } }
 
 .host-menu .btn { font-size: 1em; }
+
+/* network overlay (#diag=1) */
+.race-netdiag { position: absolute; left: 6px; top: 64px; z-index: 40; margin: 0; padding: 4px 6px; max-width: 94vw; pointer-events: none; white-space: pre; overflow: hidden;
+  font: 10px/1.25 ui-monospace, Menlo, Consolas, monospace; color: #bfffd0; background: rgba(0, 20, 30, 0.7); border-radius: 4px; }

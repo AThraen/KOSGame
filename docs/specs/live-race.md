@@ -104,7 +104,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | idx | field | encoding |
 |---|---|---|
 | 0 | `id` | player id (server overwrites with the sender id; cannot be spoofed) |
-| 1 | `seq` | uint, +1 per frame; receivers drop older |
+| 1 | `seq` | uint, strictly increasing; receivers drop older. **Sender time stamp:** a current client sends `seq = round(T0 + S.clock*1000)`, the server time (ms, > 1e11) of the simulated state it carries; old clients count 1,2,3. Receivers treat `seq > 1e11` as a stamp (`unpackState().ts`). The server only compares seq, so no protocol change |
 | 2,3 | `x`,`y` | world metres, 0.01 |
 | 4 | `hd` | heading rad in (-pi,pi], 0.001 |
 | 5 | `sp` | speed m/s, 0.01 |
@@ -117,8 +117,8 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 ### 4.1 Clock sync (ping/pong offset)
 1. After `welcome` the client sends 8 pings 250 ms apart: `{t:'ping', c:c0}`, `c0 = performance.now()`.
 2. On `pong` at client time `c1`: `rtt = c1 - c0`, `offset = s + rtt/2 - c1`.
-3. Keep the last 8 samples; use the median `offset` of the 3 lowest-rtt samples. `KOS.MP.rtt` = lowest rtt.
-4. Afterwards ping every 5 s; accept a new sample only if `rtt <= 1.5 * bestRtt`; smooth with `offset += 0.2*(new-offset)`; never move the clock backwards by more than 30 ms per update.
+3. Keep the last 8 samples (none older than 12 s once 3 are newer); use the median `offset` of the 3 lowest-rtt samples. `KOS.MP.rtt` = lowest rtt of those.
+4. Afterwards ping every 3 s and accept EVERY sample (the old `rtt <= 1.5 * bestRtt` gate locked out all later samples after one lucky low rtt, so the offset never moved again). Small differences are slewed (`offset += 0.3*err`, at most 15 ms per pong); an estimate > 120 ms off, or three samples in a row > 80 ms off, is stepped to at once. A starved ping timer (> 7.5 s gap) or the tab becoming visible again starts a 5-ping burst that steps to the new offset.
 5. `serverNow() = performance.now() + offset`. Race clock `raceClock = (serverNow() - T0)/1000` s (negative before the gun) is the only clock live race.js uses.
 Maths lives in `mpstate.js` (`clockSample(c0,c1,s)`, `pickOffset(samples)`), unit-tested with asymmetric delays.
 
@@ -129,12 +129,14 @@ Maths lives in `mpstate.js` (`clockSample(c0,c1,s)`, `pickOffset(samples)`), uni
 All clients derive the identical course from `cfg` (race.js already derives everything from `P`). `grid` order is slot order; slot `i` uses `startRow(i)`.
 
 ### 4.4 Client send loop
-While `racing` (and from clock >= -2 s): `st` every 100 ms from an accumulator in `update()` (not `setInterval`). Extra immediate frame on capsize, penalty-turn change and finish.
+From the first second of the countdown (the server accepts `st` during `countdown` as well as `racing`; an older server drops them until 2 s before the gun): `st` every 100 ms from an accumulator in `update()` (not `setInterval`). Extra immediate frame on capsize, penalty-turn change and finish.
 
 ### 4.5 Server rate limits and relay
 Token buckets per client: `st` 14/s burst 20; other messages 10/s burst 20. Over limit: drop silently (`st`) or `err code:'rate'`; 50 drops in 10 s: close 4429. Each room has a 100 ms tick; per recipient one `s` frame with the latest state of every other player (latest-wins per id, skip unchanged `seq`). A watching host receives all.
 
 ### 4.6 Interpolation (client)
+**Stamped boats (current clients)** are drawn at the present: the newest state is dead-reckoned to `serverNow()` (velocity from the last two stamps, yaw rate bends the path, extrapolation capped at 0.5 s, then the boat is held); when a new state arrives the difference to the old model becomes a correction that decays with a 0.2 s time constant (snap above 12 m). This is the same for near and far boats (no contact-mode blend, no rtt term). Visible lag = true latency only. `Buffer.view(serverNow)`. The paragraph below is the fallback for unstamped (old client) boats.
+
 Each remote boat has a ring buffer of the last 8 states, keyed by receipt time converted with `serverNow()`. Render time = `serverNow() - interpDelay`, `interpDelay = clamp(100 + 1.5*jitterEMA, 100, 150)` ms (jitterEMA of inter-arrival deviation, starts at 50). Linear position, shortest-angle heading, other fields from the earlier sample. Past the newest sample: extrapolate along heading*speed up to 250 ms, then freeze. No sample for 3 s: shown as lost (greyed tag). `Buffer.add(state, recvMs)` and `Buffer.sample(renderMs)` are pure and unit-tested.
 
 ### 4.7 Reconnect

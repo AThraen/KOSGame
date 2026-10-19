@@ -4,6 +4,8 @@
   const KOS = (root.KOS = root.KOS || {});
 
   const TAU = 2 * Math.PI;
+  const TS_MIN = 1e11; // a seq above this is a server-time stamp (ms since 1970), see stamp()
+  const EXTRAP_MAX = 0.5; // s of dead reckoning past the newest stamped state, then the boat is held (frozen)
 
   // Wrap an angle (radians) into (-PI, PI].
   function wrapAngle(h) {
@@ -88,6 +90,7 @@
       hl: arr[6],
       fl: fl,
       lg: arr[8],
+      ts: arr[1] > TS_MIN ? arr[1] : 0, // sender time (server ms): a new client sends seq = server time of the simulated state; old clients count 1,2,3..
       spinnaker: !!(fl & 1),
       capsized: !!(fl & 2),
       penalty: !!(fl & 4),
@@ -127,11 +130,16 @@
       this.jitter = 50;
       this.lastRecv = 0;
       this.lastSeq = -1;
+      this.cx = 0; this.cy = 0; // decaying visual correction (stamped mode)
+      this.stamped = false;
     }
 
     // Accept a state if its seq is newer than the last accepted one.
+    // Stamped states (state.ts: server time of the sender's simulated state) are keyed by that stamp, so receive jitter, the server's
+    // 100 ms relay tick and bunched deliveries (a busy phone) no longer move the boat; unstamped (old client) states keep the receive-time key.
     add(state, recvMs) {
       if (state.seq <= this.lastSeq) return false;
+      if (state.ts) return this._addTs(state, recvMs);
       const hadPrev = this.lastSeq !== -1; // a previous add was accepted
       const prevRecv = this.lastRecv;
       this.items.push({ t: recvMs, s: state });
@@ -145,8 +153,65 @@
       return true;
     }
 
-    // Render delay in ms, clamped to [100, 150].
+    _addTs(state, recvMs) {
+      this.stamped = true;
+      const before = this.items.length ? this._extrap(recvMs) : null; // where the old model had the boat when this news arrived
+      this.items.push({ t: state.ts, r: recvMs, s: state });
+      if (this.items.length > this.size) this.items.splice(0, this.items.length - this.size);
+      const lat = recvMs - state.ts; // age on arrival: uplink + relay tick + downlink (+ clock error)
+      this.lat = this.lat === undefined ? lat : this.lat + 0.1 * (lat - this.lat);
+      if (this.lastRecv) this.gap = this.gap === undefined ? recvMs - this.lastRecv : this.gap + 0.1 * (recvMs - this.lastRecv - this.gap);
+      if (before) { // ease the model change away instead of jumping: the difference decays over ~0.2 s (snap when large)
+        const after = this._extrap(recvMs);
+        const dx = this.cx + before.x - after.x, dy = this.cy + before.y - after.y;
+        if (Math.hypot(dx, dy) > 12) { this.cx = 0; this.cy = 0; } else { this.cx = dx; this.cy = dy; }
+      }
+      this.lastRecv = recvMs;
+      this.lastSeq = state.seq;
+      return true;
+    }
+
+    // dead reckoning from the newest stamped state to nowMs (server time): velocity from the last two states, the yaw rate turns it
+    _extrap(nowMs) {
+      const items = this.items, n = items.length, last = items[n - 1], ls = last.s;
+      const prev = n > 1 ? items[n - 2] : null, span = prev ? (last.t - prev.t) / 1000 : 0;
+      let vx, vy, yaw = 0;
+      if (prev && span >= 0.04 && span <= 0.5) {
+        vx = (ls.x - prev.s.x) / span; vy = (ls.y - prev.s.y) / span;
+        yaw = Math.max(-1.4, Math.min(1.4, wrapAngle(ls.hd - prev.s.hd) / span));
+      } else { vx = Math.sin(ls.hd) * ls.sp; vy = -Math.cos(ls.hd) * ls.sp; }
+      const raw = (nowMs - last.t) / 1000;
+      const age = Math.max(0, Math.min(raw, EXTRAP_MAX));
+      const a = yaw * age * 0.5, c = Math.cos(a), sn = Math.sin(a); // mean direction over the interval
+      return { x: ls.x + (vx * c - vy * sn) * age, y: ls.y + (vx * sn + vy * c) * age, hd: wrapAngle(ls.hd + yaw * age), vx, vy, age, frozen: raw > EXTRAP_MAX };
+    }
+
+    // The boat as it is NOW (stamped mode) or 100-150 ms ago (old clients, interpolated). nowMs = server time.
+    view(nowMs) {
+      if (!this.items.length) return null;
+      if (!this.stamped) {
+        const o = this.sample(nowMs - this.delay());
+        if (o) { o.vx = Math.sin(o.hd) * o.sp; o.vy = -Math.cos(o.hd) * o.sp; }
+        return o;
+      }
+      const e = this._extrap(nowMs), ls = this.items[this.items.length - 1].s;
+      const dt = this.lastView ? Math.min(0.25, Math.max(0, (nowMs - this.lastView) / 1000)) : 0;
+      this.lastView = nowMs;
+      const k = Math.exp(-dt / 0.2); this.cx *= k; this.cy *= k;
+      const out = resultOf(ls, true, e.frozen);
+      out.x = e.x + this.cx; out.y = e.y + this.cy; out.hd = e.hd; out.vx = e.vx; out.vy = e.vy;
+      return out;
+    }
+
+    // numbers for the network overlay (server time)
+    info(nowMs) {
+      const last = this.items.length ? this.items[this.items.length - 1] : null;
+      return { stamped: this.stamped, depth: this.items.length, age: last ? Math.round(nowMs - (this.stamped ? last.t : last.r)) : -1, lat: Math.round(this.lat || 0), gap: Math.round(this.gap || 0), corr: this.stamped ? Math.hypot(this.cx, this.cy) : 0 };
+    }
+
+    // Render delay in ms, clamped to [100, 150] (unstamped boats only; a stamped boat is drawn at the present).
     delay() {
+      if (this.stamped) return 0;
       return Math.min(150, Math.max(100, 100 + 1.5 * this.jitter));
     }
 
@@ -194,6 +259,10 @@
     }
   }
 
-  KOS.MPState = { clockSample, pickOffset, packState, unpackState, Buffer: StateBuffer };
+  // seq for an outgoing state: server time (ms) of the simulated state, strictly increasing. Receivers read a seq above 1e11 as the sender's stamp;
+  // the server only needs seq to grow, so old servers and old clients keep working unchanged.
+  function stamp(serverMs, prevSeq) { return Math.max(Math.round(serverMs), (prevSeq || 0) + 1); }
+
+  KOS.MPState = { stamp, clockSample, pickOffset, packState, unpackState, Buffer: StateBuffer };
   if (typeof module !== 'undefined' && module.exports) module.exports = KOS.MPState;
 })(typeof window !== 'undefined' ? window : globalThis);

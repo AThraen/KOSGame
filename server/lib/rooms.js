@@ -192,7 +192,7 @@ function createRooms(opts) {
 
   function state(r, id, arr) {
     const p = r.players.get(id);
-    if (!p || !p.boat || p.final || !(r.phase === 'racing' || (r.phase === 'countdown' && now() >= r.T0 - 2000))) return false;
+    if (!p || !p.boat || p.final || !(r.phase === 'racing' || r.phase === 'countdown')) return false;
     if (p.state && arr[1] <= p.state[1]) return false;
     const a = arr.slice(); a[0] = id;
     p.state = a; p.lg = a[8];
