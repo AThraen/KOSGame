@@ -113,13 +113,14 @@
     if (waveTile && typeof DOMMatrix !== 'undefined') {
       const dx = -Math.sin(wdir), dy = Math.cos(wdir); // downwind unit vector
       const layers = [
-        { tile: waveTile, m: 30, sp: 1.0 + wspd * 0.06, a: clamp(0.1 + wspd / 50, 0.1, 0.42), off: 0 },
+        { tile: waveTile, m: 30, sp: 1.0 + wspd * 0.06, a: clamp(0.14 + wspd / 45, 0.14, 0.5), off: 0 },
         { tile: waveTile, m: 64, sp: 1.6 + wspd * 0.09, a: clamp(0.05 + wspd / 80, 0.05, 0.25), off: 97 },
       ];
       const tier = KOS.Perf ? KOS.Perf.level : 3; // quality tier: 2 loses the whitecap layer, 1 the second wave layer, 0 keeps one layer
       if (tier <= 1) layers.splice(1, 1);
       if (wspd > 13 && tier >= 3) layers.push({ tile: capTile, m: 55, sp: 2 + wspd * 0.1, a: clamp((wspd - 13) / 12, 0, 0.6), off: 31 });
-      const deg = (wdir * 180) / Math.PI, zf = clamp(((1 / mpp) - 1.5) / 5, 0, 1);
+      // the crest strokes lie ALONG the wind (wind lanes) and drift downwind, so every mark on the water points the way the wind blows
+      const deg = (wdir * 180) / Math.PI - 90, zf = clamp(((1 / mpp) - 1.5) / 5, 0, 1);
       for (const L of layers) {
         const pat = ctx.createPattern(L.tile, 'repeat'); if (!pat || !pat.setTransform) continue;
         const s = L.m / 256, d = t * L.sp;
@@ -174,7 +175,7 @@
         if (flick < -0.35) continue;
         cnt++;
         const l = Math.max(0.15, (2 + 2.6 * h1) * mpp) * (0.7 + 0.3 * flick);
-        ctx.moveTo(cx - px * l, cy - py * l); ctx.quadraticCurveTo(cx - sw * l * 0.35, cy + cw * l * 0.35, cx + px * l, cy + py * l);
+        ctx.moveTo(cx + sw * l, cy - cw * l); ctx.quadraticCurveTo(cx + px * l * 0.3, cy + py * l * 0.3, cx - sw * l, cy + cw * l);
       }
       ctx.stroke();
     }
@@ -191,10 +192,12 @@
     for (let i = S.length - 1; i >= 0; i--) {
       const s = S[i]; s.life += dt; s.x += dx * v * dt; s.y += dy * v * dt;
       if (s.life > s.max || s.x < view.x0 - 50 || s.x > view.x1 + 50 || s.y < view.y0 - 50 || s.y > view.y1 + 50) { S.splice(i, 1); continue; }
-      const f = s.life / s.max, a = Math.sin(f * Math.PI) * 0.28 * clamp(wspd / 10, 0.4, 1.2);
+      const f = s.life / s.max, a = Math.sin(f * Math.PI) * 0.34 * clamp(wspd / 10, 0.5, 1.2);
       const L = s.l * mpp, wob = Math.sin(t * 2 + i) * L * 0.08;
-      ctx.strokeStyle = 'rgba(255,255,255,' + a + ')'; ctx.lineWidth = s.w * 1.4 * mpp;
+      ctx.strokeStyle = 'rgba(255,255,255,' + a * 0.55 + ')'; ctx.lineWidth = s.w * 1.0 * mpp;
       ctx.beginPath(); ctx.moveTo(s.x - dx * L, s.y - dy * L); ctx.quadraticCurveTo(s.x - dx * L * 0.5 + dy * wob, s.y - dy * L * 0.5 - dx * wob, s.x, s.y); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,' + Math.min(0.6, a * 1.5) + ')'; ctx.lineWidth = s.w * 2.0 * mpp; // brighter, thicker head: shows which way it blows
+      ctx.beginPath(); ctx.moveTo(s.x - dx * L * 0.35, s.y - dy * L * 0.35); ctx.lineTo(s.x, s.y); ctx.stroke();
     }
   };
 
