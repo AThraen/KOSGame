@@ -1650,6 +1650,6 @@
       courseInfo() { return { course: P.course, laps: P.laps, marks: marks.map(m => m.id), seq: seq.map(it => it.type === 'mark' ? it.m.id : it.type + (it.dir ? ':' + it.dir : '')) }; },
     };
 
-    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };
+    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, predict: b => predictRemote(b, LIVE.serverNow()), get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };
   }
 })(typeof window !== 'undefined' ? window : globalThis);
