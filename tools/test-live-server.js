@@ -324,6 +324,44 @@ async function main() {
     await srv2.close();
   }
 
+  console.log('-- robustness: burst after a stall, NaN frames, resume gives the last state back');
+  {
+    const srv3 = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile, KOS_STATUS_POLL_MS: '200' });
+    const p3 = await srv3.listen();
+    const mk3 = async (name) => { const c = new Client(p3, name); await c.hello(); return c; };
+    const A = await mk3('Ada'), B = await mk3('Bo');
+    A.send({ t: 'create', cfg: { boat: 'zest', countdownS: 8, maxS: 120 }, hostRole: 'sail' });
+    const cr3 = await A.wait('created');
+    B.send({ t: 'join', code: cr3.code }); const jb = await B.wait('joined');
+    A.send({ t: 'start' }); await A.wait('start'); await B.wait('start');
+    const st = (seq, x) => ({ t: 'st', s: [0, seq, x, -40, 1.2, 4.5, 0.1, 0, 0] });
+    // a backgrounded phone flushes 300 queued frames at once: the extra ones are dropped, the socket stays open
+    for (let i = 0; i < 300; i++) B.send(st(2e11 + i, 10 + i * 0.01));
+    await sleep(400);
+    ok(B.closed === null, 'a burst of 300 state frames after a stall does not close a racing player');
+    // NaN becomes null in JSON: the frame is dropped silently, never a strike (three strikes used to close the socket)
+    for (let i = 0; i < 6; i++) B.send('{"t":"st","s":[0,' + (3e11 + i) + ',null,-40,1.2,4.5,0.1,0,0]}');
+    await sleep(300);
+    ok(B.closed === null, 'invalid (NaN) state frames are answered with at most one err per second and never close the socket');
+    // the server keeps the last valid state; a resumed seat gets it back (position, heading, speed, flags, leg) plus T0
+    await sleep(1700);
+    B.send(st(4e11, 123.45));
+    await sleep(250);
+    B.close(); await sleep(200);
+    const B2 = await mk3('Bo');
+    B2.send({ t: 'resume', code: cr3.code, id: jb.id, key: jb.key });
+    await B2.wait('joined');
+    const me = await B2.wait('me');
+    ok(me.s && me.s[2] === 123.45 && me.s[3] === -40 && me.s[4] === 1.2 && me.s[5] === 4.5 && me.T0 > 0, 'resume: the last valid state of the seat comes back with the race clock (T0)');
+    // a seat that has been silent restarts its sequence (a reload): accepted after 1.5 s although the number is lower
+    await sleep(1700);
+    B2.send(st(1e11 + 5, 200));
+    await sleep(250);
+    ok(srv3.rooms.rooms.get(cr3.code).players.get(jb.id).state[2] === 200, 'a silent seat may restart its sequence (a lower seq is accepted after 1.5 s)');
+    A.close(); B2.close();
+    await srv3.close();
+  }
+
   console.log('-- kos-race script');
   if (process.platform !== 'win32' || process.env.KOS_TEST_BASH) {
     const sf = path.join(tmp, 'cli.json');

@@ -15,7 +15,8 @@
   const CODE_RE = new RegExp('^[' + ALPHABET + ']{4}$');
   const TOKEN_KEY = 'kos.mp.rejoin';
   const PENDING_KEY = 'kos.mp.pending'; // {code, at, auto}: the page may reload (update, refresh); on load the lobby resumes or joins again
-  const RECONNECT_MS = 15000;
+  const RECONNECT_MS = 15000; // counted from the moment the page is in the foreground again (a hidden phone must not run it down)
+  const WATCHDOG_MS = 2500;   // racing: nothing at all from the server (no S batch, no pong) for this long = the socket is dead, reconnect
   const STATE = () => KOS.MPState || (typeof require === 'function' ? require('./mpstate.js') : null);
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -87,7 +88,7 @@
     };
     const subs = {};
     let sock = sock0, samples = [], bestRtt = Infinity, pings = 0, pingTimer = 0, fastTimer = 0;
-    let final = false, lostAt = 0, retryTimer = 0, pending = null;
+    let final = false, lostAt = 0, retryTimer = 0, pending = null, lastRx = now(), grace = 0, dogTimer = 0, lastForce = 0;
     S.serverNow = () => now() + S.offset;
 
     const emit = (evt, arg) => {
@@ -97,7 +98,15 @@
       (subs[evt] = subs[evt] || []).push(fn);
       return () => { const l = subs[evt] || []; const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); };
     };
-    const raw = (msg) => { try { if (sock && sock.readyState === 1) sock.send(JSON.stringify(msg)); } catch (e) { /* drop */ } };
+    const racing = () => S.phase === 'countdown' || S.phase === 'racing';
+    // a send that fails, or a socket that is not OPEN while racing, starts the reconnect (the watchdog below does the same on silence)
+    const raw = (msg) => {
+      try {
+        if (sock && sock.readyState === 1) { sock.send(JSON.stringify(msg)); return true; }
+      } catch (e) { if (racing()) setTimeout(() => forceReconnect('send'), 0); return false; }
+      if (racing() && S.state === 'ok' && msg && msg.t === 'st') setTimeout(() => forceReconnect('notopen'), 0);
+      return false;
+    };
     S.send = raw;
 
     // ---- clock sync (spec 4.1)
@@ -105,6 +114,7 @@
     // lock out all later samples, which froze the offset for good on wifi/phones). Ping every 3 s. A far-off estimate (the phone slept,
     // timers were throttled, the clock stepped) is stepped to at once; small differences are slewed (<= 15 ms per pong, so no visible jump).
     const PING_MS = 3000;
+    const pingEvery = () => (racing() ? 1000 : PING_MS); // racing: a pong at least every second doubles as the liveness signal
     let lastPingAt = 0, step = true, synced = false, disagree = 0;
     S.clk = { steps: 0, pongs: 0, resyncs: 0, lastPong: 0, jit: 0, lastRtt: 0, err: 0 };
     function ping() {
@@ -118,7 +128,7 @@
       const fast = () => {
         lastPingAt = now(); raw({ t: 'ping', c: lastPingAt });
         if (++pings < n) fastTimer = setTimeout(fast, 200);
-        else { pingTimer = setInterval(ping, PING_MS); pingTimer.unref && pingTimer.unref(); }
+        else { pingTimer = setInterval(() => { if (now() - lastPingAt >= pingEvery() - 50) ping(); }, 500); pingTimer.unref && pingTimer.unref(); }
       };
       fast();
     }
@@ -145,7 +155,13 @@
     // a phone that was asleep or a hidden tab: timers stood still, so measure again as soon as we are back
     try {
       if (typeof document !== 'undefined' && document.addEventListener) {
-        document.addEventListener('visibilitychange', () => { if (!document.hidden && S.state === 'ok' && sock && sock.readyState === 1) resync(); });
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) return;
+          grace = now() + 3000; // timers were starved while hidden: the silence is not the server's fault, measure again first
+          if (S.state === 'reconnecting') { lostAt = Date.now(); clearTimeout(retryTimer); scheduleRetry(0); } // the 15 s start now, in the foreground
+          else if (S.state === 'ok' && sock && sock.readyState === 1) { resync(); raw({ t: 'ping', c: now() }); }
+          else if (S.state === 'ok' && racing()) forceReconnect('visible');
+        });
       }
     } catch (e) { /* no document */ }
 
@@ -169,8 +185,14 @@
           else emit('room', m.room);
           break;
         case 'room': setRoom(m.room); emit('room', m.room); break;
-        case 'start': S.T0 = m.T0; S.cfg = m.cfg; S.grid = m.grid; if (S.phase === 'lobby') S.phase = 'countdown'; emit('start', { T0: m.T0, cfg: m.cfg, grid: m.grid }); break;
-        case 's': emit('states', Array.isArray(m.a) ? m.a : []); break;
+        case 'start': { // the server repeats 'start' on every resume: the same gun on a session that already has it is NOT a new race (it used to relaunch the race screen = the boat went back to the start line)
+          const dup = S.T0 === m.T0 && !!S.grid;
+          S.T0 = m.T0; S.cfg = m.cfg; S.grid = m.grid; if (S.phase === 'lobby') S.phase = 'countdown';
+          if (!dup) emit('start', { T0: m.T0, cfg: m.cfg, grid: m.grid });
+          break;
+        }
+        case 's': S.lastStates = now(); emit('states', Array.isArray(m.a) ? m.a : []); break;
+        case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, T0: m.T0, now: m.now }; emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
         case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; clearToken(); emit('res', m.rows); break;
@@ -189,6 +211,7 @@
     }
     function attach(s) {
       s.onmessage = (ev) => {
+        lastRx = now();
         let m; try { m = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data)); } catch (e) { return; }
         if (m && typeof m === 'object') { try { handle(m); } catch (e) { /* ignore */ } }
       };
@@ -197,8 +220,29 @@
     }
 
     // ---- loss and reconnect (spec 4.7)
+    // the watchdog: racing, state ok, no frame at all for WATCHDOG_MS (and not just back from the background) => drop the socket and resume
+    function forceReconnect(why) {
+      if (final || S.state !== 'ok' || !S.token || !racing()) return;
+      const t = Date.now();
+      if (t - lastForce < 1500) return;
+      lastForce = t; S.forced = (S.forced || 0) + 1; S.forcedWhy = why;
+      const old = sock; sock = null;
+      if (old) { old.onclose = old.onmessage = old.onerror = null; try { old.close(); } catch (e) { /* ignore */ } }
+      clearTimeout(fastTimer); clearInterval(pingTimer);
+      S.state = 'reconnecting'; lostAt = t; emit('reconnecting');
+      scheduleRetry(0);
+    }
+    function dog() {
+      if (final || S.state !== 'ok' || !racing()) return;
+      if (now() < grace) return;
+      if (!sock || sock.readyState !== 1) { forceReconnect('notopen'); return; }
+      if (now() - lastRx > WATCHDOG_MS) forceReconnect('silent');
+    }
+    dogTimer = setInterval(dog, 500); dogTimer.unref && dogTimer.unref();
+    S.watchdog = dog;
     function onLost() {
       clearTimeout(fastTimer); clearInterval(pingTimer);
+      if (S.state === 'reconnecting') return; // forceReconnect already took over
       if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej({ code: 'unreachable' }); }
       if (final || S.state === 'closed' || S.state === 'offline') return;
       if (S.token && (S.phase === 'countdown' || S.phase === 'racing')) {
@@ -228,7 +272,7 @@
           if (!resumed) {
             if (m.t === 'joined') {
               resumed = true; clearTimeout(guard); over = true;
-              sock = sk; attach(sk);
+              sock = sk; attach(sk); lastRx = now(); grace = now() + 2000;
               S.state = 'ok'; handle(m); startSync(); emit('reconnected');
             } else if (m.t === 'err') { clearTimeout(guard); next(); }
           }
@@ -257,13 +301,13 @@
     S.kick = (id) => raw({ t: 'kick', id });
     S.start = () => raw({ t: 'start' });
     S.rematch = () => raw({ t: 'rematch' });
-    S.resume = (tok) => request('joined', { t: 'resume', code: tok.code, id: tok.id, key: tok.key });
+    S.resume = (tok) => { S.resumed = true; return request('joined', { t: 'resume', code: tok.code, id: tok.id, key: tok.key }); };
     S.hostEnd = () => raw({ t: 'hend' });
     S.hostAbort = () => raw({ t: 'habort' });
     S.hostLobby = (on) => raw({ t: 'hlobby', on: !!on });
     function shut() {
       final = true; S.state = 'closed';
-      clearTimeout(fastTimer); clearTimeout(retryTimer); clearInterval(pingTimer);
+      clearTimeout(fastTimer); clearTimeout(retryTimer); clearInterval(pingTimer); clearInterval(dogTimer);
       try { sock && sock.close(); } catch (e) { /* ignore */ }
     }
     S.leave = () => { raw({ t: 'leave' }); clearToken(); shut(); };
@@ -283,6 +327,7 @@
       role: room.hostRole === 'watch' && room.hostId === sess.id ? 'watch' : 'sail',
       countdownS: cfg.countdownS || 20,
       get state() { return sess.state; },
+      get resumed() { return !!sess.resumed; }, get restore() { return sess.me || null; }, // after a reload: the seat's last state from the server (me = null: nothing stored)
       serverNow: () => sess.serverNow(),
       get rtt() { return sess.rtt || 0; }, // ms, lowest of the last 8 pings
       get offset() { return sess.offset; }, get clk() { return sess.clk; }, // clock offset (server - performance.now) and sync counters, for the network overlay

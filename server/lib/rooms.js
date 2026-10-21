@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 const P = require('./protocol');
 
-const LOST_GRACE_MS = 20000;
+const LOST_GRACE_MS = 45000; // a seat that lost its socket keeps its place this long (a phone in the background, a tunnel)
 const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and a rematch
 const HOSTLEFT_KEEP_MS = 5000;
 const EMPTY_KEEP_MS = 10000;
@@ -193,9 +193,11 @@ function createRooms(opts) {
   function state(r, id, arr) {
     const p = r.players.get(id);
     if (!p || !p.boat || p.final || !(r.phase === 'racing' || r.phase === 'countdown')) return false;
-    if (p.state && arr[1] <= p.state[1]) return false;
+    const t = now();
+    // seq must grow; but a seat that has been silent for 1.5 s may restart its sequence (a reload, a stamp that ran ahead of the real clock)
+    if (p.state && arr[1] <= p.state[1] && t - (p.stAt || 0) < 1500) return false;
     const a = arr.slice(); a[0] = id;
-    p.state = a; p.lg = a[8];
+    p.state = a; p.lg = a[8]; p.stAt = t;
     return true;
   }
 

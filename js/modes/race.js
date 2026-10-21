@@ -924,7 +924,58 @@
       netEl.textContent = lines.join('\n');
     }
     // sim steps still owed to the shared race clock (catch-up capped at 5 s of sim per frame)
-    function liveSteps() { return U.clamp(Math.round(((LIVE.serverNow() - LIVE.T0) / 1000 - S.clock) / KOS.DT), 0, 300); }
+    // Catch-up (spec 5.2): a lag of a few frames is simulated step by step. A big lag (the page was in the background, the screen was off,
+    // the clock offset stepped, or this is a reloaded page) is NOT simulated open-loop: that flew the boat ~300 m away with stale controls
+    // and then left it parked ahead of the shared clock. The time is skipped instead (wind, signals and clocks advance, the boat stays
+    // where it is) and only the last second is sailed. A restore after a reload sails the real gap (up to 30 s) from the restored pose.
+    const CATCH_MAX = 2.5, CATCH_KEEP = 1.0;
+    S.catchMax = CATCH_MAX; S.skips = 0; S.skippedS = 0;
+    function skipStep(dt) {
+      env.t += dt; S.clock += dt; wind.update(dt);
+      if (S.phase === 'pre') signals();
+      if (S.phase !== 'pre') S.raceT += dt;
+    }
+    function skipAhead(dt) {
+      let guard = 0;
+      while (S.clock < S.skipTo - dt * 0.5 && guard++ < 20000) {
+        if (S.rest && !S.rest.done && S.clock >= S.rest.clock - dt * 0.5) break;
+        skipStep(dt);
+      }
+      if (S.skipTo <= S.clock + dt * 0.5) S.skipTo = 0;
+      if (S.rest && !S.rest.done && S.clock >= S.rest.clock - dt * 0.5) applyRestore();
+    }
+    function liveSteps(dt) {
+      let lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
+      if (lag > S.catchMax && !S.rest) {
+        S.skipTo = Math.max(S.skipTo || 0, S.clock + lag - CATCH_KEEP); S.skips++; S.skippedS += lag - CATCH_KEEP; S.sendNow = true;
+      }
+      if (S.skipTo > S.clock || (S.rest && !S.rest.done)) {
+        skipAhead(dt || KOS.DT);
+        lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
+      }
+      if (lag < 1) S.catchMax = CATCH_MAX;
+      return U.clamp(Math.round(lag / KOS.DT), 0, 300);
+    }
+    // a reloaded page: the server sends back the last state of this seat. Skip the clock to the time of that state, put the boat there
+    // (position, heading, speed, mark progress, penalty) and sail the gap since then.
+    function onRestore(m) {
+      if (WATCH || S.restoreSeen || S.sentOnce) return;
+      S.restoreSeen = true;
+      const st = m && m.s ? MPS.unpackState(m.s) : null;
+      if (!st || !st.ts) { S.holdSend = false; return; }
+      const clock = (st.ts - LIVE.T0) / 1000;
+      if (!(clock > S.clock - 0.5) || S.phase === 'finish') { S.holdSend = false; return; }
+      S.rest = { st, clock, done: false };
+    }
+    function applyRestore() {
+      const st = S.rest.st; S.rest.done = true; S.holdSend = false; S.restored = true;
+      me.x = st.x; me.y = st.y; me.heading = st.hd; me.speed = st.sp; me.heel = st.hl; me.capsized = st.capsized;
+      if (st.lg > 0 && st.lg < seq.length) { me.rc.started = true; me.rc.startT = S.raceT; setLeg(me, st.lg); }
+      me.rc.ocs = st.ocs;
+      if (st.penalty && !me.rc.pen) addPen(me, 1);
+      S.catchMax = 30; S.sendNow = true;
+      if (scene.follow) scene.follow(me);
+    }
     function onStates(arr) {
       const nowS = LIVE.serverNow();
       for (const a of arr || []) {
@@ -935,6 +986,7 @@
       }
     }
     // pose every remote boat from its buffer, 100-150 ms behind the shared clock (spec 4.6). Our physics only animates sails and wake.
+    const LOST_MS = 2000; // a boat whose newest state is older than this is shown as "mistet forbindelse" (faded, with a warning mark)
     function applyRemotes(dt) {
       const nowS = LIVE.serverNow();
       for (const b of remotes) {
@@ -957,7 +1009,7 @@
           if (rc.finT == null && s.lg !== rc.leg && s.lg >= 0 && s.lg < seq.length) setLeg(b, s.lg);
           if (s.penalty && !rc.pen) rc.penN = (rc.penN || 0) + 1; // penalty turns taken, for the big-screen board
           rc.pen = s.penalty ? REMOTE_PEN : null;
-          b.lost = !S.unofficial && b.buf.isLost(nowS);
+          b.lost = !S.unofficial && b.buf.isLost(nowS, LOST_MS);
           b.ghost = b.lost || s.frozen;
         }
         if (rc.finT != null) { const since = S.raceT - rc.finT; if (since > 22) b.hidden = true; else if (since > 14) b.ghost = true; }
@@ -991,10 +1043,19 @@
     // own state at 10 Hz from an accumulator, plus an immediate frame on capsize / penalty change / finish (spec 4.4)
     function sendState(dt) {
       if (WATCH || S.unofficial) return; // from the first second of the countdown (older servers drop it until 2 s before the gun)
+      if (S.holdSend) return; // a reloaded page waits for the server's copy of the last state before it says anything (else the start line would overwrite it)
       S.sendT = (S.sendT || 0) + dt;
       const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0);
       const changed = key !== S.sendKey;
-      if (S.sendT < 0.1 - 1e-6 && !changed) return;
+      if (S.sendT < 0.1 - 1e-6 && !changed && !S.sendNow) return;
+      // never send NaN / a broken pose: the server would drop the frame (and used to count it as a strike); put the boat back where it was last fine
+      if (!(Number.isFinite(me.x) && Number.isFinite(me.y) && Number.isFinite(me.heading) && Number.isFinite(me.speed) && Number.isFinite(me.heel))) {
+        const g = S.lastGood; if (g) { me.x = g.x; me.y = g.y; me.heading = g.h; me.speed = 0; me.heel = 0; }
+        S.nanFixes = (S.nanFixes || 0) + 1;
+        return;
+      }
+      S.lastGood = { x: me.x, y: me.y, h: me.heading };
+      S.sentOnce = true; S.sendNow = false;
       S.sendT = 0; S.sendKey = key;
       PK.x = me.x; PK.y = me.y; PK.heading = me.heading; PK.speed = me.speed; PK.heel = me.heel; PK.spinnaker = me.spinnaker; PK.capsized = me.capsized;
       PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.rc = me.rc;
@@ -1232,8 +1293,9 @@
           const fin = b.rc.finT != null, it = seq[b.rc.leg];
           let gap = '';
           if (fin) gap = b === win ? fmtT(b.rc.finT * 1000) : '+' + secTxt(b.rc.finT - win.rc.finT);
+          else if (b.lost) gap = t('live.lost');
           else if (S.phase !== 'pre') gap = b.lost ? t('live.lost') : b.rc.ocs ? 'X' : i === 0 && !win ? t('live.watch.leader') : '+' + Math.round(Math.max(0, (b.rc.rem - (win ? 0 : lead.rc.rem)) / vEst)) + ' s';
-          wbSet(row.c.pos, String(i + 1)); wbSet(row.c.nm, b.name); wbSet(row.c.gap, gap);
+          wbSet(row.c.pos, String(i + 1)); wbSet(row.c.nm, (b.lost ? '⚠ ' : '') + b.name); wbSet(row.c.gap, gap);
           const live = !fin && !b.lost && S.phase !== 'pre';
           wbSet(row.c.kn, live ? Math.max(0, U.kn(b.speed || 0)).toFixed(1) : '');
           wbSet(row.c.mark, fin ? '✓' : it && it.type === 'mark' ? it.m.label : it && it.type === 'finish' ? t('live.watch.finish') : t('live.watch.start'));
@@ -1282,10 +1344,10 @@
     }
     function updateWatch(dt) {
       S.introT += dt;
-      const n = S.unofficial ? 1 : liveSteps();
+      const n = S.unofficial ? 1 : liveSteps(dt);
       for (let i = 0; i < n; i++) simStep(dt);
       applyRemotes(dt); netDiagTick(dt);
-      for (const b of remotes) b.tag = (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + b.name + (b.rc.pen ? ' ↻' : '');
+      for (const b of remotes) b.tag = (b.lost ? '⚠ ' : '') + (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + b.name + (b.rc.pen ? ' ↻' : '');
       S.hudT -= dt;
       if (S.hudT <= 0) {
         S.hudT = 0.1;
@@ -1305,7 +1367,13 @@
       liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
       liveOffs.push(LIVE.on('res', rows => { toggleHostMenu(false); S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
       liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
-      liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; }));
+      liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; S.sendNow = true; })); // my own boat is the truth: no teleport, just say where I am at once
+      liveOffs.push(LIVE.on('restore', onRestore));
+      if (LIVE.resumed && !WATCH) { // a reloaded page: wait (max 1.5 s) for the restore message before the first state goes out
+        S.holdSend = true;
+        setTimeout(() => { S.holdSend = false; }, 1500);
+        if (LIVE.restore) onRestore(LIVE.restore);
+      }
       liveOffs.push(LIVE.on('offline', goOffline));
     }
 
@@ -1370,7 +1438,7 @@
       if (WATCH) { updateWatch(dt); return; }
       S.introT += dt;
       if (S.introT > 3.2 && S.introT - dt <= 3.2) { scene.fixedZoom = null; scene.follow(me); applyZoom(); }
-      const n = LIVE && !S.unofficial ? liveSteps() : S.ff ? 5 : S.phase === 'finish' ? 4 : 1; // live: the shared clock decides how many steps are due
+      const n = LIVE && !S.unofficial ? liveSteps(dt) : S.ff ? 5 : S.phase === 'finish' ? 4 : 1; // live: the shared clock decides how many steps are due
       for (let i = 0; i < n; i++) simStep(dt);
       if (LIVE) { applyRemotes(dt); sendState(dt); }
       if (controls.autoTrim) ctrl.setSheet(me.sheet);
@@ -1499,7 +1567,7 @@
         scene.lines[0].kind = seq[me.rc.leg] && seq[me.rc.leg].type === 'finish' ? 'finish' : 'start';
         // AI tags: place + name, red X when over early, ↻ in a penalty turn
         for (const b of LIVE ? remotes : ai) {
-          b.tag = (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + (b.short || b.name) + (b.rc.pen ? ' ↻' : '');
+          b.tag = (b.lost ? '⚠ ' : '') + (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + (b.short || b.name) + (b.rc.pen ? ' ↻' : '');
           b.tagColor = b.rc.ocs ? 'rgba(232,50,60,0.85)' : b.rc.finT != null ? 'rgba(24,169,87,0.8)' : b.lost ? 'rgba(120,130,150,0.85)' : null;
         }
         if (!controls.autoTrim) ctrl.setIdealSheet(me.inIrons ? null : KOS.Physics.idealSheet(me), 0.07);

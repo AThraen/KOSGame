@@ -138,7 +138,11 @@
     // Stamped states (state.ts: server time of the sender's simulated state) are keyed by that stamp, so receive jitter, the server's
     // 100 ms relay tick and bunched deliveries (a busy phone) no longer move the boat; unstamped (old client) states keep the receive-time key.
     add(state, recvMs) {
-      if (state.seq <= this.lastSeq) return false;
+      if (state.seq <= this.lastSeq) {
+        // the sender restarted its sequence (reloaded, its stamps ran ahead of the real clock) and was silent for a while: start over
+        if (!(this.lastRecv && recvMs - this.lastRecv > 1500)) return false;
+        this.items = []; this.lastSeq = -1; this.cx = 0; this.cy = 0; this.lastView = 0;
+      }
       if (state.ts) return this._addTs(state, recvMs);
       const hadPrev = this.lastSeq !== -1; // a previous add was accepted
       const prevRecv = this.lastRecv;
@@ -253,9 +257,9 @@
     }
 
     // True if the buffer is empty or the newest state is older than 3000 ms.
-    isLost(nowMs) {
+    isLost(nowMs, ms) {
       if (this.items.length === 0) return true;
-      return nowMs - this.lastRecv > 3000;
+      return nowMs - this.lastRecv > (ms || 3000);
     }
   }
 

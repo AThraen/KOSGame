@@ -71,8 +71,11 @@ function createServer(env) {
     const ip = clientIp(req);
     if (!conns.add(ip)) { ws.close(1013, 'busy'); return; }
     const c = { ws, ip, hello: false, name: '', room: null, id: 0, strikes: 0, last: Date.now(),
-      stB: createBucket({ rate: 14, burst: 20 }), msgB: createBucket({ rate: 10, burst: 20 }),
+      // state frames: a phone that was backgrounded flushes a burst of queued frames; the burst is absorbed (burst 60) and any excess is
+      // dropped silently. A player in a countdown/race is NEVER closed for state traffic (only a lobby/idle socket can be).
+      stB: createBucket({ rate: 14, burst: 60 }), msgB: createBucket({ rate: 10, burst: 30 }),
       drops: createDropTracker({ limit: 50, windowMs: 10000 }) };
+    const racing = () => !!(c.room && (c.room.phase === 'racing' || c.room.phase === 'countdown'));
     const send = (m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
     c.send = send;
     const err = (code, msg) => send(msg ? { t: 'err', code, msg } : { t: 'err', code });
@@ -85,13 +88,19 @@ function createServer(env) {
     ws.on('message', (data, isBinary) => {
       c.last = Date.now();
       if (isBinary) return strike();
-      const v = P.validate(data.toString());
-      if (!v.ok) return strike();
+      const rawTxt = data.toString();
+      const v = P.validate(rawTxt);
+      if (!v.ok) {
+        // a state frame that fails validation (a NaN becomes null in JSON, an oversized frame ...) is dropped, not a strike:
+        // three of them used to close a racing player's socket for good
+        if (c.room && rawTxt.slice(0, 16).replace(/ /g, '').startsWith('{"t":"st",')) { c.badSt = (c.badSt || 0) + 1; if (Date.now() - (c.badAt || 0) > 1000) { c.badAt = Date.now(); err('bad'); } return; }
+        return strike();
+      }
       const m = v.msg;
       if (m.t === 'st') {
-        if (!c.stB.take()) { if (c.drops.drop()) ws.close(4429, 'rate'); return; }
+        if (!c.stB.take()) { if (c.drops.drop() && !racing()) ws.close(4429, 'rate'); return; }
       } else if (!c.msgB.take()) {
-        err('rate'); if (c.drops.drop()) ws.close(4429, 'rate'); return;
+        err('rate'); if (c.drops.drop() && !racing()) ws.close(4429, 'rate'); return;
       }
       if (!c.hello) {
         if (m.t !== 'hello') return strike();
@@ -131,6 +140,8 @@ function createServer(env) {
             send({ t: 'start', T0: res.room.T0, cfg: res.room.cfg, grid: [...res.room.players.values()].filter(p => p.boat).map((p, i) => ({ id: p.id, slot: i, name: p.name, color: p.color })) });
           }
           if (res.room.finishAt && res.room.phase === 'racing') send({ t: 'fwin', endAt: res.room.finishAt });
+          // the last valid state of this seat (position, heading, speed, flags, leg): a client that was reloaded puts its boat back there
+          send({ t: 'me', s: res.player.state || null, T0: res.room.T0, now: Date.now() });
           if (res.room.phase === 'results') send({ t: 'res', rows: res.room.results });
           break;
         }
@@ -161,7 +172,8 @@ function createServer(env) {
       if (r && r.players.get(c.id) && r.players.get(c.id) === ws._kosPlayer && r.players.get(c.id).send === send) rooms.disconnect(r, c.id, false);
     });
     ws.on('error', () => {});
-    c.idleCheck = () => { if (Date.now() - c.last > IDLE_MS) ws.close(4408, 'idle'); };
+    // a racing player is never closed as idle (a backgrounded phone sends nothing for a while; the grace period handles real drops)
+    c.idleCheck = () => { if (Date.now() - c.last > (racing() ? 10 * 60000 : IDLE_MS)) ws.close(4408, 'idle'); };
     ws._kos = c;
   });
 
