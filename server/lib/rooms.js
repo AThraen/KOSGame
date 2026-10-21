@@ -4,10 +4,12 @@
 const crypto = require('crypto');
 const P = require('./protocol');
 
-const LOST_GRACE_MS = 45000; // a seat that lost its socket keeps its place this long (a phone in the background, a tunnel)
+const LOST_GRACE_MS = 45000; // (kept for the export; a racing seat no longer expires, it waits for a rejoin until the race ends)
 const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and a rematch
 const HOSTLEFT_KEEP_MS = 5000;
-const EMPTY_KEEP_MS = 30000;
+const EMPTY_KEEP_MS = 30000; // an empty LOBBY
+const EMPTY_RACE_KEEP_MS = 5 * 60000; // a countdown/race/result where everybody dropped: the seats wait (a rejoin brings the race back)
+const LOST_END_MS = 120000; // the race may end for the others when every boat that is still out is a seat that has been gone this long
 const LOBBY_GRACE_MS = 20000; // a lobby/countdown seat whose socket dropped (phone locked, tunnel) keeps its place this long; the host too
 const LOBBY_AFTER_MS = 12000; // the podium stays this long when the host chose "back to the lobby after the race"
 const LOBBY_MAX_MS = 30 * 60000;
@@ -37,7 +39,7 @@ function createRooms(opts) {
   function info(r) {
     return {
       code: r.code, phase: r.phase, cfg: r.cfg, hostRole: r.hostRole, hostId: r.hostId,
-      players: [...r.players.values()].map(p => ({ id: p.id, name: p.name, color: p.color, host: p.host, lost: !!p.lost })),
+      players: [...r.players.values()].map(p => ({ id: p.id, name: p.name, color: p.color, host: p.host, lost: !!p.lost, v: p.ver || '' })),
     };
   }
   const pushRoom = (r) => broadcast(r, { t: 'room', room: info(r) });
@@ -54,7 +56,7 @@ function createRooms(opts) {
     }
     const p = {
       id, name, color: P.COLORS[(id - 1) % P.COLORS.length], host, boat, key: newKey(), send: conn.send,
-      ip: conn.ip, lost: false, lostAt: 0, final: false, finMs: null, lg: 0, status: null, state: null, sent: new Map(),
+      ip: conn.ip, ver: P.clean(conn.ver, 16), lost: false, lostAt: 0, final: false, finMs: null, lg: 0, status: null, state: null, sent: new Map(),
     };
     r.players.set(id, p);
     return p;
@@ -91,9 +93,9 @@ function createRooms(opts) {
   function resume(conn, code, id, key) {
     const r = rooms.get(code);
     const p = r && r.players.get(id);
-    if (!p || p.key !== key || p.kicked || r.phase === 'closing') return { err: 'nocode' };
-    if (p.lost && p.final) return { err: 'nocode' };
-    p.send = conn.send; p.ip = conn.ip; p.lost = false; p.lostAt = 0; r.emptyAt = 0;
+    // the seat belongs to the key for the whole room: lobby, countdown, racing and results (only a kick or an explicit leave ends it)
+    if (!p || p.key !== key || p.kicked || p.left || r.phase === 'closing') return { err: 'nocode' };
+    p.send = conn.send; p.ip = conn.ip; if (conn.ver) p.ver = P.clean(conn.ver, 16); p.lost = false; p.lostAt = 0; r.emptyAt = 0;
     pushRoom(r);
     return { room: r, player: p };
   }
@@ -116,6 +118,7 @@ function createRooms(opts) {
       if (r.phase === 'lobby') { r.players.delete(id); pushRoom(r); checkEmpty(r); return; }
     }
     p.lost = true; p.lostAt = now(); p.send = null;
+    if (graceful) p.left = true;
     if (graceful || r.phase === 'results') { p.final = true; if (!p.status) p.status = 'lost'; }
     pushRoom(r);
     checkEmpty(r);
@@ -250,7 +253,10 @@ function createRooms(opts) {
   function maybeFinish(r) {
     if (r.phase !== 'racing') return;
     const boats = [...r.players.values()].filter(hasBoat);
-    if (boats.length && boats.every(p => p.final)) endRace(r);
+    // a seat that dropped keeps its place (the boat stays on the others' maps as "lost") until it comes back, the race ends, or it has been
+    // gone LOST_END_MS and nobody else is still sailing
+    const t = now();
+    if (boats.length && boats.every(p => p.final || (p.lost && t - p.lostAt >= LOST_END_MS))) endRace(r);
   }
 
   // Latest-wins relay, one frame per recipient (called every 100 ms by the server).
@@ -277,7 +283,7 @@ function createRooms(opts) {
       if (r.phase === 'closing') { if (t >= r.deleteAt) remove(r); continue; }
       if (t - r.created > HARD_MAX_MS) { broadcast(r, { t: 'err', code: 'closed' }); remove(r); continue; }
       if (r.phase === 'lobby' && t - r.created > LOBBY_MAX_MS) { broadcast(r, { t: 'hostleft' }); remove(r); continue; }
-      if (r.emptyAt && t - r.emptyAt >= EMPTY_KEEP_MS && ![...r.players.values()].some(p => !p.lost)) { remove(r); continue; }
+      if (r.emptyAt && t - r.emptyAt >= (r.phase === 'lobby' ? EMPTY_KEEP_MS : EMPTY_RACE_KEEP_MS) && ![...r.players.values()].some(p => !p.lost)) { remove(r); continue; }
       if (r.phase === 'lobby' || r.phase === 'countdown') {
         for (const p of [...r.players.values()]) {
           if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;
@@ -288,9 +294,7 @@ function createRooms(opts) {
       }
       if (r.phase === 'countdown' && t >= r.T0) r.phase = 'racing';
       if (r.phase === 'racing') {
-        for (const p of r.players.values()) {
-          if (p.lost && !p.final && t - p.lostAt >= LOST_GRACE_MS) { p.final = true; p.status = 'lost'; }
-        }
+        // (no timeout on a lost seat here any more: it stays until it returns or the race ends; see maybeFinish)
         if (t >= r.T0 + r.cfg.maxS * 1000 || (r.finishAt && t >= r.finishAt)) endRace(r); else maybeFinish(r);
       }
       if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { r.lobbyAt = 0; if (rematch(r, r.hostId) !== 'ok') r.lobbyAfter = false; }

@@ -9,13 +9,20 @@ const path = require('path');
 const MODES = ['on', 'closed', 'hidden'];
 
 function hiddenStatus() {
-  return { mode: 'hidden', message: '', maxRooms: null, maxPlayers: null };
+  return { mode: 'hidden', message: '', maxRooms: null, maxPlayers: null, minClient: null, minProto: null };
 }
 
 function cleanMessage(v) {
   if (typeof v !== 'string') return '';
   const s = v.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 200);
   return s;
+}
+
+// "0.8.5" (also "0.8"); anything else = no minimum
+function cleanVer(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  return /^v?\d{1,4}\.\d{1,4}(\.\d{1,4})?$/.test(s) ? s.replace(/^v/, '') : null;
 }
 
 function cleanInt(v) {
@@ -26,7 +33,7 @@ function cleanInt(v) {
 /**
  * Parse a status file's text.
  * @param {string|null|undefined} text  JSON like
- *   {"mode":"on"|"closed"|"hidden","message":"...","maxRooms":40,"maxPlayers":24}
+ *   {"mode":"on"|"closed"|"hidden","message":"...","maxRooms":40,"maxPlayers":24,"minClient":"0.8.5","minProto":2}
  * @returns {{mode: string, message: string, maxRooms: number|null, maxPlayers: number|null}}
  *   Any missing/invalid input, non-object JSON, or unknown mode yields the
  *   hidden status.
@@ -46,7 +53,9 @@ function parseStatus(text) {
     mode: obj.mode,
     message: cleanMessage(obj.message),
     maxRooms: cleanInt(obj.maxRooms),
-    maxPlayers: cleanInt(obj.maxPlayers)
+    maxPlayers: cleanInt(obj.maxPlayers),
+    minClient: cleanVer(obj.minClient),
+    minProto: cleanInt(obj.minProto)
   };
 }
 

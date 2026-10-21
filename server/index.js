@@ -1,7 +1,8 @@
 'use strict';
 // KOS race server: relays states and keeps the clock. Only dependency: ws.
 // Env: PORT (default 8787), HOST (127.0.0.1), KOS_STATUS_FILE, KOS_ORIGINS (comma list of hostnames),
-//      KOS_MAX_ROOMS, KOS_MAX_PLAYERS, KOS_MAX_CONNS, KOS_MAX_PER_IP.
+//      KOS_MAX_ROOMS, KOS_MAX_PLAYERS, KOS_MAX_CONNS, KOS_MAX_PER_IP, KOS_MIN_CLIENT (e.g. 0.8.5), KOS_MIN_PROTO (e.g. 2).
+// The status file may carry minClient / minProto too (watched like mode, no restart); the stricter of file and env wins.
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const P = require('./lib/protocol');
@@ -23,6 +24,24 @@ function createServer(env) {
   const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000) });
   const conns = createConnCounter({ maxTotal: num(env.KOS_MAX_CONNS, 300), maxPerIp: num(env.KOS_MAX_PER_IP, 20) });
   const started = Date.now();
+
+  // Version gate: with a minimum set, clients below it AND clients that send no version (v0.8.4 and older) are refused with err code 'old'.
+  function minimum() {
+    const s = status.current();
+    const fv = P.parseVer(s.minClient), ev = P.parseVer(env.KOS_MIN_CLIENT);
+    const ver = fv && ev ? (P.cmpVer(fv, ev) >= 0 ? fv : ev) : fv || ev;
+    const proto = Math.max(s.minProto || 0, num(env.KOS_MIN_PROTO, 0));
+    return { ver, proto };
+  }
+  function tooOld(c) {
+    const m = minimum();
+    if (!m.ver && !m.proto) return false;
+    if (!(c.cp > 0)) return true; // no version at all: an old build
+    if (m.proto && c.cp < m.proto) return true;
+    const v = P.parseVer(c.ver);
+    return !!(m.ver && v && P.cmpVer(v, m.ver) < 0); // a dev build (not a dotted number) is only held to the protocol level
+  }
+  const minText = () => { const m = minimum(); return m.ver ? m.ver.join('.') : ''; };
 
   function applyLimits() {
     const s = status.current();
@@ -105,7 +124,9 @@ function createServer(env) {
       if (!c.hello) {
         if (m.t !== 'hello') return strike();
         if (m.v !== P.PROTOCOL_VERSION) { err('proto'); ws.close(4400, 'proto'); return; }
-        c.hello = true; c.name = m.name;
+        c.name = m.name; c.ver = m.ver; c.cp = m.cp;
+        if (tooOld(c)) { send({ t: 'err', code: 'old', min: minText(), proto: minimum().proto || 0 }); setTimeout(() => ws.close(4426, 'old'), 50); return; }
+        c.hello = true;
         const s = status.current();
         send({ t: 'welcome', v: P.PROTOCOL_VERSION, id: 0, now: Date.now(), mode: s.mode, msg: s.message });
         return;
@@ -115,25 +136,27 @@ function createServer(env) {
         case 'ping': send({ t: 'pong', c: m.c, s: Date.now() }); break;
         case 'create': {
           if (r) return err('bad');
+          if (tooOld(c)) return err('old');
           const s = status.current();
           if (s.mode !== 'on') return err('closed', s.message);
-          const res = rooms.create({ name: c.name, send, ip }, m.cfg, m.hostRole);
+          const res = rooms.create({ name: c.name, send, ip, ver: c.ver }, m.cfg, m.hostRole);
           if (res.err) return err(res.err);
           bind(res, 'created');
           break;
         }
         case 'join': {
           if (r) return err('bad');
+          if (tooOld(c)) return err('old');
           const s = status.current();
           if (s.mode === 'hidden') return err('closed', s.message);
-          const res = rooms.join({ name: c.name, send, ip }, m.code);
+          const res = rooms.join({ name: c.name, send, ip, ver: c.ver }, m.code);
           if (res.err) return err(res.err);
           bind(res, 'joined');
           break;
         }
         case 'resume': {
           if (r) return err('bad');
-          const res = rooms.resume({ send, ip }, m.code, m.id, m.key);
+          const res = rooms.resume({ send, ip, ver: c.ver }, m.code, m.id, m.key);
           if (res.err) return err(res.err);
           bind(res, 'joined');
           if (res.room.phase === 'countdown' || res.room.phase === 'racing') {

@@ -1,6 +1,8 @@
 'use strict';
 // Message validation for the live race server. Pure, no sockets.
 const PROTOCOL_VERSION = 1;
+// Client protocol level: 0/absent = a build from before the version gate (v0.8.4 and older). Raised when the wire behaviour a client needs changes.
+const CLIENT_LEVEL_NOW = 2;
 const MAX_FRAME = 2048;
 const MAX_ST = 512;
 const ALPHABET = 'ACDEFGHJKMNPRTUVWXY34679';
@@ -61,7 +63,7 @@ function validate(raw) {
   switch (m.t) {
     case 'hello':
       if (!fin(m.v)) return bad;
-      return { ok: true, msg: { t: 'hello', v: m.v, name: clean(m.name, 16), build: clean(m.build, 32) } };
+      return { ok: true, msg: { t: 'hello', v: m.v, name: clean(m.name, 16), build: clean(m.build, 32), ver: clean(m.ver, 16), sha: clean(m.sha, 12), cp: int(m.cp) && m.cp > 0 && m.cp < 1000 ? m.cp : 0 } };
     case 'ping':
       if (!fin(m.c)) return bad;
       return { ok: true, msg: { t: 'ping', c: m.c } };
@@ -102,4 +104,11 @@ function validate(raw) {
   }
 }
 
-module.exports = { PROTOCOL_VERSION, MAX_FRAME, MAX_ST, ALPHABET, COLORS, CFG_DEFAULTS, validate, normCode, sanitizeCfg, clean };
+// "0.8.5" -> [0,8,5]; null for anything that is not a dotted number (a dev build says 'dev')
+function parseVer(s) {
+  const m = /^v?(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?$/.exec(typeof s === 'string' ? s.trim() : '');
+  return m ? [+m[1], +m[2], +(m[3] || 0)] : null;
+}
+function cmpVer(a, b) { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1; return 0; }
+
+module.exports = { CLIENT_LEVEL_NOW, parseVer, cmpVer, PROTOCOL_VERSION, MAX_FRAME, MAX_ST, ALPHABET, COLORS, CFG_DEFAULTS, validate, normCode, sanitizeCfg, clean };

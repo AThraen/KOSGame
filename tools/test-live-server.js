@@ -407,6 +407,174 @@ async function main() {
     await srv4.close();
   }
 
+  console.log('-- version gate: old and unversioned builds are refused, a new minimum needs no restart');
+  {
+    const gf = path.join(tmp, 'gate.json');
+    fs.writeFileSync(gf, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 }));
+    const gs = createServer({ PORT: '0', KOS_STATUS_FILE: gf, KOS_STATUS_POLL_MS: '200' });
+    const gp = await gs.listen();
+    const helloAs = async (name, extra) => { const c = new Client(gp, name); await c.opened; c.send(Object.assign({ t: 'hello', v: 1, name, build: 'test' }, extra || {})); return c; };
+    const verdict = async (c) => c.wait((x) => x.t === 'welcome' || x.t === 'err');
+    const setMin = async (o) => { fs.writeFileSync(gf, JSON.stringify(Object.assign({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 }, o))); await sleep(700); };
+    let c = await helloAs('Gammel');
+    ok((await verdict(c)).t === 'welcome', 'no minimum set: a client without a version is accepted (the gate is off until you set one)');
+    c.close();
+    await setMin({ minClient: '0.8.5' });
+    c = await helloAs('Ingen');
+    let m = await verdict(c);
+    ok(m.t === 'err' && m.code === 'old' && m.min === '0.8.5', 'minClient 0.8.5: a client that sends no version (v0.8.4 and older) gets err old');
+    ok((await c.waitClose()) === 4426, 'the refused socket is closed');
+    c = await helloAs('Aeldre', { ver: '0.8.4', cp: 2 });
+    ok((await verdict(c)).code === 'old', 'version 0.8.4 < 0.8.5 gets err old');
+    c = await helloAs('Aeldre2', { ver: '0.7.12', cp: 2 });
+    ok((await verdict(c)).code === 'old', 'version 0.7.12 gets err old');
+    c = await helloAs('Aeldre3', { ver: '0.8.5' });
+    ok((await verdict(c)).code === 'old', 'a client with a version but no protocol level (cp) is treated as old');
+    c = await helloAs('Ny', { ver: '0.8.5', cp: 2 });
+    ok((await verdict(c)).t === 'welcome', 'version 0.8.5 is accepted');
+    c.send({ t: 'create', cfg: {}, hostRole: 'sail' });
+    const created = await c.wait('created');
+    ok(created.room.players[0].v === '0.8.5', 'the room lists each player\'s version (host: 0.8.5)');
+    const c2 = await helloAs('Nyere', { ver: '0.10.0', cp: 2 });
+    ok((await verdict(c2)).t === 'welcome', 'version 0.10.0 > 0.8.5 (numeric comparison)');
+    c2.send({ t: 'join', code: created.code });
+    const j2 = await c2.wait('joined');
+    ok(j2.room.players.map(p => p.v).join(',') === '0.8.5,0.10.0', 'the joiner\'s version is listed too (' + j2.room.players.map(p => p.v).join(',') + ')');
+    const cd = await helloAs('Dev', { ver: 'dev', cp: 2 });
+    ok((await verdict(cd)).t === 'welcome', 'a dev build (version "dev") is only held to the protocol level');
+    cd.close();
+    // a client that said hello before the minimum was raised is refused on create / join
+    const late = await helloAs('Sen', { ver: '0.8.5', cp: 2 }); await verdict(late);
+    await setMin({ minClient: '0.9.0' });
+    late.send({ t: 'create', cfg: {}, hostRole: 'sail' });
+    ok((await late.wait('err')).code === 'old', 'minimum raised after hello: create is refused with old');
+    late.send({ t: 'join', code: created.code });
+    ok((await late.wait('err')).code === 'old', 'minimum raised after hello: join is refused with old');
+    c = await helloAs('Nu', { ver: '0.9.0', cp: 2 });
+    ok((await verdict(c)).t === 'welcome', 'a client at the new minimum is accepted at once (file change, no restart)');
+    await setMin({ minClient: '0.8.0' });
+    c = await helloAs('Igen', { ver: '0.8.4', cp: 2 });
+    ok((await verdict(c)).t === 'welcome', 'lowering the minimum lets 0.8.4 in again, no restart');
+    await setMin({ minProto: 3 });
+    c = await helloAs('Proto', { ver: '0.9.9', cp: 2 });
+    ok((await verdict(c)).code === 'old', 'minProto 3: protocol level 2 is refused');
+    c = await helloAs('Proto3', { ver: '0.9.9', cp: 3 });
+    ok((await verdict(c)).t === 'welcome', 'minProto 3: protocol level 3 is accepted');
+    await setMin({ minClient: 'garbage', minProto: -4 });
+    c = await helloAs('Skrald');
+    ok((await verdict(c)).t === 'welcome', 'an unparseable minimum switches the gate off instead of locking everybody out');
+    // abuse: junk from a refused client must not hurt the server
+    await setMin({ minClient: '9.0.0' });
+    const junk = await helloAs('Junk');
+    await verdict(junk);
+    try { junk.send('{"t":"create","cfg":{}}'); junk.send('not json'); junk.send({ t: 'hello', v: 1, ver: 'x'.repeat(5000) }); } catch (e) { /* closed */ }
+    await sleep(200);
+    c = await helloAs('Stadig', { ver: '9.1.0', cp: 2 });
+    ok((await verdict(c)).t === 'welcome', 'the server is fine after refusing and abusive old clients');
+    await gs.close();
+    // env minimum: the stricter of file and env wins
+    fs.writeFileSync(gf, JSON.stringify({ mode: 'on', message: '', minClient: '0.8.0' }));
+    const gs2 = createServer({ PORT: '0', KOS_STATUS_FILE: gf, KOS_STATUS_POLL_MS: '200', KOS_MIN_CLIENT: '0.8.6' });
+    const gp2 = await gs2.listen();
+    const e1 = new Client(gp2, 'E1'); await e1.opened; e1.send({ t: 'hello', v: 1, name: 'E1', ver: '0.8.5', cp: 2 });
+    ok((await e1.wait((x) => x.t === 'welcome' || x.t === 'err')).code === 'old', 'KOS_MIN_CLIENT=0.8.6 beats a lower minClient in the file');
+    const e2 = new Client(gp2, 'E2'); await e2.opened; e2.send({ t: 'hello', v: 1, name: 'E2', ver: '0.8.6', cp: 2 });
+    ok((await e2.wait((x) => x.t === 'welcome' || x.t === 'err')).t === 'welcome', 'KOS_MIN_CLIENT=0.8.6 lets 0.8.6 in');
+    await gs2.close();
+  }
+
+  console.log('-- seats are kept for a whole race and rejoin works in every phase');
+  {
+    // pure rooms with a fake clock: 60 s and 5 min of absence keep the seat, the state and the right to resume
+    const { createRooms } = require(path.join(ROOT, 'server', 'lib', 'rooms.js'));
+    let T = 1e6;
+    const rr = createRooms({ now: () => T, limits: { maxRooms: 5, maxPlayers: 12 } });
+    const mkc = (n) => ({ name: n, send: () => {}, ip: '1.1.1.1' });
+    const cr = rr.create(mkc('A'), { countdownS: 8, maxS: 900, maxP: 2, finishS: 0 }, 'sail');
+    const jn = rr.join(mkc('B'), cr.room.code);
+    ok(!rr.join(mkc('C'), cr.room.code).room, 'a room is limited to maxP seats (a third joiner is refused)');
+    rr.start(cr.room, cr.player.id);
+    T += 9000; rr.tick();
+    rr.state(cr.room, jn.player.id, [0, 1, 50, -60, 1, 3, 0, 0, 2]);
+    rr.disconnect(cr.room, jn.player.id, false);
+    T += 60000; rr.tick();
+    ok(cr.room.phase === 'racing' && cr.room.players.get(jn.player.id) && !cr.room.players.get(jn.player.id).final, 'racing: a seat gone for 60 s is still there and not final (it used to be dropped after 45 s)');
+    const back = rr.resume(mkc('B'), cr.room.code, jn.player.id, jn.player.key);
+    ok(back.room && back.player.state && back.player.state[2] === 50, 'a rejoin after 60 s gets the seat and its last state back');
+  }
+  {
+    const gf = path.join(tmp, 'seat.json');
+    fs.writeFileSync(gf, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 }));
+    const ss = createServer({ PORT: '0', KOS_STATUS_FILE: gf, KOS_STATUS_POLL_MS: '200', KOS_LOBBY_GRACE_MS: '30000' });
+    const sp = await ss.listen();
+    const mkS = async (n) => { const c = new Client(sp, n); await c.hello(); return c; };
+    const H = await mkS('Vaert'), B = await mkS('Bo'), C3 = await mkS('Cleo');
+    H.send({ t: 'create', cfg: { countdownS: 8, maxS: 600, finishS: 0, maxP: 3 }, hostRole: 'sail' });
+    const cr = await H.wait('created');
+    B.send({ t: 'join', code: cr.code }); const jb = await B.wait('joined');
+    C3.send({ t: 'join', code: cr.code }); const jc = await C3.wait('joined');
+    ok(!JSON.stringify(jb.room).includes(jb.key) && !JSON.stringify(cr.room).includes(cr.key), 'the room info never contains a rejoin key');
+    const room = ss.rooms.rooms.get(cr.code);
+    const rejoin = async (tok, name) => { const c = await mkS(name); c.send({ t: 'resume', code: cr.code, id: tok.id, key: tok.key }); return { c, m: await c.wait((x) => x.t === 'joined' || x.t === 'err') }; };
+    // lobby
+    B.ws.terminate(); await H.wait((m) => m.t === 'room' && m.room.players.some(p => p.lost));
+    let r = await rejoin(jb, 'Bo'); ok(r.m.t === 'joined' && r.m.room.phase === 'lobby', 'rejoin in the lobby is accepted');
+    let Bc = r.c;
+    const stranger = await mkS('Fremmed'); stranger.send({ t: 'resume', code: cr.code, id: jb.id, key: 'forkert' });
+    ok((await stranger.wait('err')).code === 'nocode', 'a wrong key never gets a seat');
+    // countdown
+    H.send({ t: 'start' }); await H.wait('start'); await Bc.wait('start'); await C3.wait('start');
+    ok(room.phase === 'countdown', 'countdown running');
+    Bc.ws.terminate(); await sleep(150);
+    r = await rejoin(jb, 'Bo'); Bc = r.c;
+    ok(r.m.t === 'joined' && r.m.room.phase === 'countdown', 'rejoin in the countdown is accepted');
+    await Bc.wait('start');
+    // racing
+    room.T0 = Date.now() + 10; await sleep(300);
+    ok(room.phase === 'racing', 'racing');
+    Bc.send({ t: 'st', s: [0, 5e11, 12, 34, 1, 3, 0, 0, 1] }); await sleep(250);
+    Bc.ws.terminate(); await sleep(150);
+    room.players.get(jb.id).lostAt -= 60000; // 60 s of absence
+    C3.ws.terminate(); await sleep(150);
+    room.players.get(jc.id).lostAt -= 90000; // 90 s of absence
+    await sleep(300);
+    ok(room.phase === 'racing' && !room.players.get(jb.id).final && !room.players.get(jc.id).final, 'racing: seats gone for 60 s and 90 s are kept');
+    ok(room.players.size === 3, 'the others still see all three boats (two as lost)');
+    r = await rejoin(jb, 'Bo'); Bc = r.c;
+    ok(r.m.t === 'joined' && r.m.room.phase === 'racing', 'rejoin in the race is accepted after 60 s');
+    const meB = await Bc.wait('me');
+    ok(meB.s && meB.s[2] === 12 && meB.s[3] === 34 && meB.T0 === room.T0, 'the rejoiner gets its last position and the race clock');
+    // results: Cleo never comes back during the race; the host ends it; Cleo can still look at the table
+    H.send({ t: 'hend' }); await H.wait('res');
+    ok(room.phase === 'results' && room.results.find(x => x.id === jc.id).status === 'lost', 'unfinished boats end as DNF/lost');
+    r = await rejoin(jc, 'Cleo');
+    ok(r.m.t === 'joined' && r.m.room.phase === 'results', 'rejoin in the results phase is accepted');
+    const resMsg = await r.c.wait('res');
+    ok(resMsg.rows.length === 3, 'and the results table is sent');
+    // leaving on purpose ends the right to resume
+    r.c.send({ t: 'leave' }); await sleep(200);
+    r = await rejoin(jc, 'Cleo');
+    ok(r.m.t === 'err', 'a seat that left on purpose cannot be resumed');
+    H.close(); Bc.close(); C3.close();
+    await ss.close();
+  }
+  {
+    // lost seats do not hold the race hostage forever: when everyone else is done and the seat has been gone 2 min the race ends
+    const { createRooms } = require(path.join(ROOT, 'server', 'lib', 'rooms.js'));
+    let T = 2e6;
+    const rr = createRooms({ now: () => T });
+    const mkc = (n) => ({ name: n, send: () => {}, ip: '1.1.1.1' });
+    const cr = rr.create(mkc('A'), { countdownS: 8, maxS: 900, finishS: 0 }, 'sail');
+    const jn = rr.join(mkc('B'), cr.room.code);
+    rr.start(cr.room, cr.player.id); T += 9000; rr.tick();
+    rr.disconnect(cr.room, jn.player.id, false);
+    T += 20000; rr.finish(cr.room, cr.player.id, 60000); rr.tick();
+    ok(cr.room.phase === 'racing', 'one boat finished, the other seat only gone for 20 s: the race waits');
+    T += 110000; rr.tick();
+    ok(cr.room.phase === 'results' && cr.room.results[1].status === 'lost', 'after 2 min of absence the finished boat gets its result and the gone seat is DNF');
+    ok(rr.resume(mkc('B'), cr.room.code, jn.player.id, jn.player.key).room, 'the gone seat can still rejoin the results');
+  }
+
   console.log('-- kos-race script');
   if (process.platform !== 'win32' || process.env.KOS_TEST_BASH) {
     const sf = path.join(tmp, 'cli.json');
@@ -416,6 +584,15 @@ async function main() {
     ok(j.mode === 'closed' && j.message === 'Pause i dag' && j.maxRooms === 40, 'kos-race closed writes status json');
     ok(/mode=closed|closed/.test(run('status').stdout), 'kos-race status');
     ok(run('bogus').status === 2, 'kos-race unknown command => exit 2');
+    run('min', '0.8.5', '2');
+    const jm = JSON.parse(fs.readFileSync(sf, 'utf8'));
+    ok(jm.minClient === '0.8.5' && jm.minProto === 2 && jm.mode === 'closed' && jm.message === 'Pause i dag', 'kos-race min 0.8.5 2 sets the minimum and keeps mode, message and limits');
+    ok(/minClient=0.8.5/.test(run('status').stdout) && /minProto=2/.test(run('min').stdout), 'kos-race status and kos-race min show the minimum');
+    run('on', 'igen');
+    ok(JSON.parse(fs.readFileSync(sf, 'utf8')).minClient === '0.8.5', 'kos-race on keeps the minimum');
+    ok(run('min', 'abc').status === 2, 'kos-race min with a bad version => exit 2');
+    run('min', 'off');
+    ok(!('minClient' in JSON.parse(fs.readFileSync(sf, 'utf8'))), 'kos-race min off lifts it');
   } else console.log('  (skipping kos-race script test on Windows without KOS_TEST_BASH)');
 
   console.log('-- lib helpers (limits, status)');
