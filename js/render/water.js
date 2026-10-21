@@ -1,7 +1,7 @@
 // KØS SEJL — js/render/water.js
 // KOS.Water: stylised top-down water. Layered depth shading (chart-like: shallow = light turquoise,
 // deep = deep blue) from venue.depth polygons, cached once per venue as a soft low-res canvas;
-// animated wave crests (two scrolling pattern layers aligned to the wind), dark gust patches with
+// animated wave crests (two scrolling pattern layers: fronts across the wind rolling downwind), dark gust patches with
 // cat's-paws (from wind.gusts), wind streaks, sparkles and lapping shore foam.
 // Usage (by KOS.SailScene): const w = KOS.Water.create(venue); w.render(ctx, scene, wind, t); w.renderShore(ctx, scene, t)
 // ctx must be in world-meter transform; scene supplies {view:{x0,y0,x1,y1}, mpp, dpr, camera}.
@@ -10,6 +10,7 @@
   const TAU = Math.PI * 2;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
+  const wrapPi = (a) => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
   function makeCanvas(w, h) {
     w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
     if (typeof document !== 'undefined') { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -119,14 +120,28 @@
       const tier = KOS.Perf ? KOS.Perf.level : 3; // quality tier: 2 loses the whitecap layer, 1 the second wave layer, 0 keeps one layer
       if (tier <= 1) layers.splice(1, 1);
       if (wspd > 13 && tier >= 3) layers.push({ tile: capTile, m: 55, sp: 2 + wspd * 0.1, a: clamp((wspd - 13) / 12, 0, 0.6), off: 31 });
-      // the crest strokes lie ALONG the wind (wind lanes) and drift downwind, so every mark on the water points the way the wind blows
-      const deg = (wdir * 180) / Math.PI - 90, zf = clamp(((1 / mpp) - 1.5) / 5, 0, 1);
+      // Wave crests are fronts ACROSS the wind that roll DOWNWIND (the convex side leads), so the motion the eye sees is along the wind.
+      // (They used to lie along the wind, wobble sideways and take their drift from t * speed: the wobble was the only visible motion,
+      // so the waves seemed to come from the side, and every wind-speed wobble jumped the pattern by tens of metres, even upwind.)
+      // The pattern origin and angle are integrated per frame: drift = speed * dt, and a shift turns the pattern about the CENTRE OF THE
+      // VIEW, so crests nearby only turn with the wind and nothing sweeps past (a turn about the world origin moved far-off water
+      // several m/s sideways). The pattern stays fixed in the world, so the boat still slides over it.
+      const zf = clamp(((1 / mpp) - 1.5) / 5, 0, 1);
+      const dtw = clamp(t - (this._wt == null ? t : this._wt), 0, 0.25); this._wt = t;
+      const cx = (view.x0 + view.x1) / 2, cy = (view.y0 + view.y1) / 2;
+      this.waveDir = wdir;
+      const LS = this._wl || (this._wl = {});
       for (const L of layers) {
         const pat = ctx.createPattern(L.tile, 'repeat'); if (!pat || !pat.setTransform) continue;
-        const s = L.m / 256, d = t * L.sp;
-        // wobble perpendicular so crests seem to roll
-        const wob = Math.sin(t * 0.7 + L.off) * 1.2;
-        pat.setTransform(new DOMMatrix().translate(dx * d + dy * wob + L.off, dy * d - dx * wob + L.off).rotate(deg).scale(s));
+        const key = L.m + ':' + L.off;
+        const st = LS[key] || (LS[key] = { th: wdir, ox: L.off, oy: L.off });
+        if (dtw > 0) {
+          const dth = wrapPi(wdir - st.th), c = Math.cos(dth), sn = Math.sin(dth), rx = st.ox - cx, ry = st.oy - cy;
+          st.ox = cx + rx * c - ry * sn; st.oy = cy + rx * sn + ry * c; st.th += dth; // turn with the wind about the view centre
+          st.ox += dx * L.sp * dtw; st.oy += dy * L.sp * dtw;                          // roll downwind
+        }
+        // tile x (the crest line) lies across the wind; tile -y (the crest's convex side) points downwind
+        pat.setTransform(new DOMMatrix().translate(st.ox, st.oy).rotate((st.th * 180) / Math.PI + 180).scale(L.m / 256));
         if (L.a * zf < 0.01) continue; ctx.globalAlpha = L.a * zf; ctx.fillStyle = pat;
         ctx.fillRect(view.x0, view.y0, view.x1 - view.x0, view.y1 - view.y0);
       }
