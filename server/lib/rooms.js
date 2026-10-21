@@ -287,7 +287,10 @@ function createRooms(opts) {
       if (r.phase === 'lobby' || r.phase === 'countdown') {
         for (const p of [...r.players.values()]) {
           if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;
-          if (p.host) { broadcast(r, { t: 'hostleft' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; break; }
+          if (p.host) { // a host that never comes back closes a LOBBY; a countdown/race goes on without them (their seat waits for a rejoin like any other)
+            if (r.phase !== 'lobby') continue;
+            broadcast(r, { t: 'hostleft' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; break;
+          }
           if (r.phase === 'lobby') { r.players.delete(p.id); pushRoom(r); }
         }
         if (r.phase === 'closing') continue;

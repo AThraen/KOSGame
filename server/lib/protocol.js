@@ -106,7 +106,7 @@ function validate(raw) {
 
 // "0.8.5" -> [0,8,5]; null for anything that is not a dotted number (a dev build says 'dev')
 function parseVer(s) {
-  const m = /^v?(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?$/.exec(typeof s === 'string' ? s.trim() : '');
+  const m = /^v?(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?(?:[+-][0-9A-Za-z.+-]{0,20})?$/.exec(typeof s === 'string' ? s.trim() : '');
   return m ? [+m[1], +m[2], +(m[3] || 0)] : null;
 }
 function cmpVer(a, b) { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1; return 0; }

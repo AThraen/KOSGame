@@ -18,6 +18,7 @@ let fails = 0, checks = 0;
 const ok = (c, msg) => { checks++; if (!c) { fails++; console.log('  FAIL ' + msg); } else console.log('  ok   ' + msg); };
 const IGNORE = /Failed to load resource|WebSocket connection|net::ERR/i;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const NOWS = 'ws://127.0.0.1:9/ws'; // a pages that never goes live
 
 async function main() {
   const web = await serve({ port: 0 });
@@ -28,8 +29,8 @@ async function main() {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   const pages = [];
 
-  async function newPage(WS, hash, name) {
-    const ctx = await browser.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block' });
+  async function newPage(WS, hash, name, storage) {
+    const ctx = await browser.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block', storageState: storage });
     const page = await ctx.newPage();
     page.errs = []; page.sent = [];
     page.on('websocket', ws => ws.on('framesent', f => page.sent.push(String(f.payload))));
@@ -590,6 +591,143 @@ async function main() {
     ok(L.all.every(p => p.errs.length === 0), 'no errors on any page (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
     for (const c of pages.splice(0)) await c.close();
     await srv.close();
+  }
+
+  // ================================================================== 11. the page is closed mid race; the prompt brings the boat back
+  console.log('-- page closed mid race: rejoin prompt, back at the last position, the others saw it lost and then back');
+  {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const WS = 'ws://127.0.0.1:' + port + '/ws';
+    const L = await lobby(WS, 'sail', ['Vaert', 'Dorte'], { boat: 'ilca', laps: 1, windKn: 12, windDeg: 225, countdownS: 8, gust: 0.2, shift: 0.2, pen: false, help: 'free', finishS: 0 });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    for (const p of L.all) await botOn(p);
+    const [h, d] = L.all;
+    await d.waitForFunction(() => KOS.App.run.inst.state.phase === 'race' && KOS.App.run.inst.state.raceT > 14, null, { timeout: 60000 });
+    const myId = await d.evaluate(() => KOS.App.run.host.live.myId);
+    const seat = await d.evaluate(() => JSON.parse(localStorage.getItem('kos.mp.seat')));
+    ok(seat && seat.id === myId && seat.code === L.code, 'while racing the seat is in localStorage (' + (seat && seat.code) + ')');
+    const before = await d.evaluate(() => { const i = KOS.App.run.inst; return { x: i.boat.x, y: i.boat.y, sp: i.boat.speed, leg: i.boat.rc.leg }; });
+    const stored = await d.context().storageState();
+    pages.splice(pages.indexOf(d.context()), 1);
+    await d.context().close(); // closed tab / swiped away app
+    const t0 = Date.now();
+    await h.waitForFunction(rid => { const r = KOS.App.run.inst.live.remotes.find(b => b.rid === rid); return r && r.lost; }, myId, { timeout: 12000 });
+    ok(true, 'the host sees Dorte\'s boat as lost');
+    await sleep(Math.max(0, 8000 - (Date.now() - t0))); // a few seconds away
+    const frozen = await h.evaluate(rid => { const r = KOS.App.run.inst.live.remotes.find(b => b.rid === rid); return { x: r.x, y: r.y, lost: !!r.lost }; }, myId);
+    ok(frozen.lost && Math.hypot(frozen.x - before.x, frozen.y - before.y) < 30, 'while she is away the boat waits at its last known place on the others\' screens (' + Math.hypot(frozen.x - before.x, frozen.y - before.y).toFixed(1) + ' m off)');
+
+    const r = await newPage(WS, '', 'Dorte', stored);
+    await r.waitForSelector('.dialog .live-rejoin-body', { timeout: 10000 });
+    ok(await r.evaluate(c => document.querySelector('.dialog .live-rejoin-body').textContent.indexOf(c) > 0, L.code), 'the prompt names the race ' + L.code);
+    await r.click('.dialog .btn-primary');
+    await inRace(r);
+    await r.waitForFunction(() => KOS.App.run.inst.state.restored === true, null, { timeout: 15000 });
+    const after = await r.evaluate(() => { const i = KOS.App.run.inst, S = i.state; return { x: i.boat.x, y: i.boat.y, rx: S.rest.st.x, ry: S.rest.st.y, gap: S.restoredGapS, clock: S.clock, leg: i.boat.rc.leg, phase: S.phase }; });
+    const dRest = Math.hypot(after.rx - before.x, after.ry - before.y), dNow = Math.hypot(after.x - before.x, after.y - before.y);
+    ok(dRest < 6, 'the server\'s copy of the boat is the last position (' + dRest.toFixed(1) + ' m from where the tab closed)');
+    ok(dNow < 9 && after.gap > 4, 'back at the last position within a few metres after ' + after.gap + ' s away (' + dNow.toFixed(1) + ' m), not flown on');
+    ok(after.leg === before.leg || after.leg === before.leg + 1, 'mark progress kept (leg ' + before.leg + ' -> ' + after.leg + ')');
+    const ck = await Promise.all([h, r].map(p => p.evaluate(() => KOS.App.run.inst.state.clock)));
+    ok(Math.abs(ck[0] - ck[1]) < 0.8, 'the race clock is the shared one again (' + ck.map(x => x.toFixed(2)).join(' / ') + ')');
+    await h.waitForFunction(rid => { const x = KOS.App.run.inst.live.remotes.find(b => b.rid === rid); return x && !x.lost; }, myId, { timeout: 12000 });
+    await sleep(1500);
+    const seen = await Promise.all([h.evaluate(rid => { const x = KOS.App.run.inst.live.remotes.find(b => b.rid === rid); return { x: x.x, y: x.y, lost: !!x.lost }; }, myId), r.evaluate(() => ({ x: KOS.App.run.inst.boat.x, y: KOS.App.run.inst.boat.y }))]);
+    ok(!seen[0].lost && Math.hypot(seen[0].x - seen[1].x, seen[0].y - seen[1].y) < 12, 'the host sees her boat back (not lost) where it really is (' + Math.hypot(seen[0].x - seen[1].x, seen[0].y - seen[1].y).toFixed(1) + ' m)');
+    await botOn(r);
+    for (const p of [h, r]) await p.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 280000 });
+    const [ra, rb] = await Promise.all([h, r].map(resultOf));
+    ok(ra.rows.length === 2 && ra.rows.every(x => x.timeMs > 5000) && JSON.stringify(ra.rows.map(x => x.name)) === JSON.stringify(rb.rows.map(x => x.name)) && !ra.r.unofficial && !rb.r.unofficial, 'both finish and share the official table after the rejoin');
+    ok(await r.evaluate(() => localStorage.getItem('kos.mp.seat') === null), 'the entry is cleared at the results');
+    ok([h, r].every(p => p.errs.length === 0), 'no errors (' + [h, r].map(p => p.errs.join('|')).join(' / ') + ')');
+    for (const c of pages.splice(0)) await c.close();
+    await srv.close();
+  }
+
+  // ================================================================== 12. every water layer follows the wind
+  // The crest pattern is read from the real canvas: CanvasPattern.setTransform is spied on, so what is measured is what is drawn.
+  // wave direction = the way the crests roll (their convex side leads), compared with the wind the renderer's scene holds (and with the
+  // wind the physics uses and the configured wind direction).
+  console.log('-- waves follow the wind (live races with windDir 45/135/225/315, an ordinary race, free sail, school)');
+  const spyWaves = p => p.evaluate(() => {
+    if (window.__wv) return;
+    window.__wv = []; const o = CanvasPattern.prototype.setTransform;
+    CanvasPattern.prototype.setTransform = function (m) {
+      try {
+        const sc = KOS.App.run && KOS.App.run.inst && KOS.App.run.inst.scene, v = sc && sc.view;
+        if (sc && sc.water && Math.abs(Math.hypot(m.a, m.b) - 30 / 256) < 1e-6) { window.__wv.push([performance.now(), m.a, m.b, m.c, m.d, m.e, m.f, sc.wind ? sc.wind.dir : null, v ? (v.x0 + v.x1) / 2 : 0, v ? (v.y0 + v.y1) / 2 : 0]); if (window.__wv.length > 400) window.__wv.splice(0, 200); }
+      } catch (e) { /* spy only */ }
+      return o.call(this, m);
+    };
+  });
+  const D = Math.PI / 180, wrapD = a => { a = (a + 180) % 360; if (a < 0) a += 360; return a - 180; };
+  const readWaves = async (p, label, cfgDeg) => {
+    await spyWaves(p); await p.evaluate(() => { window.__wv.length = 0; });
+    await sleep(2500);
+    const info = await p.evaluate(() => {
+      const i = KOS.App.run.inst, sc = i.scene, w = sc.wind;
+      return { wind: w.dir / Math.PI * 180, base: w.base.dir / Math.PI * 180, phys: i.boat && i.boat.windDir != null ? i.boat.windDir / Math.PI * 180 : null, waveDir: sc.water.waveDir == null ? null : sc.water.waveDir / Math.PI * 180, samples: window.__wv.slice(-60), tilt: !!sc._tilt };
+    });
+    const S = info.samples;
+    ok(S.length > 20, label + ': the renderer drew the wave layer (' + S.length + ' frames sampled)');
+    const last = S[S.length - 1];
+    // "from" bearing of the crests: the pattern's -y (convex side) points the way they roll; the bearing they come from is atan2(c, -d)
+    const from = Math.atan2(last[3], -last[4]) / D, wdir = last[7] / D;
+    ok(Math.abs(wrapD(from - wdir)) <= 10, label + ': waves come from ' + from.toFixed(0) + ' deg, the wind blows from ' + wdir.toFixed(0) + ' deg (<= 10 deg apart)');
+    // crest lines lie across the wind (fronts), so the motion the eye follows is along the wind
+    const axis = Math.atan2(last[2], last[1]) / D;
+    ok(Math.abs(Math.abs(wrapD(axis - (wdir - 90))) - 90) <= 10, label + ': crest lines lie across the wind');
+    // drift of the pattern at the view centre, summed over the window = where the waves travel to
+    let sx = 0, sy = 0, n = 0;
+    for (let k = 1; k < S.length; k++) {
+      const A = S[k - 1], B = S[k], dt = (B[0] - A[0]) / 1000; if (dt <= 0 || dt > 0.2) continue;
+      const det = A[1] * A[4] - A[2] * A[3], px = A[8] - A[5], py = A[9] - A[6];
+      const qx = (A[4] * px - A[3] * py) / det, qy = (-A[2] * px + A[1] * py) / det;
+      sx += (B[1] * qx + B[3] * qy + B[5] - A[8]) ; sy += (B[2] * qx + B[4] * qy + B[6] - A[9]); n += dt;
+    }
+    const tr = Math.atan2(sx, -sy) / D; // bearing the waves travel TOWARDS expressed like a "from" bearing of the opposite side
+    const downwind = ((wdir + 180) % 360 + 360) % 360;
+    // (tr is the heading of the travel vector; compare with the downwind heading)
+    ok(Math.abs(wrapD(tr - downwind)) <= 10 && Math.hypot(sx, sy) / n > 0.8 && Math.hypot(sx, sy) / n < 4.5, label + ': the crests roll downwind at ' + (Math.hypot(sx, sy) / n).toFixed(1) + ' m/s (heading ' + tr.toFixed(0) + ' vs downwind ' + downwind.toFixed(0) + ')');
+    ok(info.waveDir != null && Math.abs(wrapD(info.waveDir - info.wind)) < 0.01, label + ': every layer takes its direction from the one wind the scene holds (water.waveDir = scene.wind.dir)');
+    if (cfgDeg != null) ok(Math.abs(wrapD(info.base - cfgDeg)) < 0.01 && Math.abs(wrapD(wdir - cfgDeg)) <= 14, label + ': the scene wind is the configured one (' + cfgDeg + ' deg, now ' + wdir.toFixed(0) + ' with the shifts)');
+    if (info.phys != null) ok(Math.abs(wrapD(info.phys - wdir)) <= 12, label + ': the physics wind (' + info.phys.toFixed(0) + ') and the water wind (' + wdir.toFixed(0) + ') agree');
+    return info;
+  };
+  for (const wdeg of [45, 135, 225, 315]) {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane'], { boat: 'ilca', laps: 1, windKn: 10, windDeg: wdeg, countdownS: 8, gust: 0.4, shift: 0.4, pen: false });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    for (const p of L.all) await botOn(p);
+    await L.host.waitForFunction(() => KOS.App.run.inst.state.clock > 0, null, { timeout: 40000 });
+    await readWaves(L.host, 'live ' + wdeg, wdeg);
+    if (wdeg === 225 && process.env.SHOTS) await L.host.screenshot({ path: process.env.SHOTS + 'live6-waves-after-live.png' });
+    for (const c of pages.splice(0)) await c.close();
+    await srv.close();
+  }
+  {
+    const play = async (id, label) => {
+      const pg = await newPage(NOWS, '', 'Vandrer');
+      await pg.evaluate(i => { KOS.App.play(i, { force: true }); }, id);
+      await pg.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.scene, null, { timeout: 20000 });
+      await pg.evaluate(() => { try { KOS.App.run.inst.skipIntro(); } catch (e) { /* none */ } });
+      await sleep(1500);
+      const dir = await pg.evaluate(() => KOS.App.run.act.params && KOS.App.run.act.params.windDeg);
+      await readWaves(pg, label, null);
+      if (dir != null) {
+        const w = await pg.evaluate(() => KOS.App.run.inst.scene.wind.base.dir / Math.PI * 180);
+        ok(Math.abs(wrapD(w - dir)) < 0.01, label + ': the scene wind is the activity\'s wind (' + dir + ' deg)');
+      }
+      for (const c of pages.splice(0)) await c.close();
+    };
+    const acts = await (async () => { const pg = await newPage(NOWS, '', 'X'); const r = await pg.evaluate(() => { const A = KOS.Activities; return { race: A.byArea('race').find(a => !a.liveRace && !a.pickHidden).id, sail: 'sail.free.opti', school: A.byArea('school')[0].id }; }); for (const c of pages.splice(0)) await c.close(); return r; })();
+    await play(acts.race, 'ordinary race (' + acts.race + ')');
+    await play(acts.sail, 'free sail');
+    await play(acts.school, 'school (' + acts.school + ')');
   }
 
   await browser.close();

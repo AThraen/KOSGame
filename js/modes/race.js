@@ -945,14 +945,23 @@
       if (S.rest && !S.rest.done && S.clock >= S.rest.clock - dt * 0.5) applyRestore();
     }
     function liveSteps(dt) {
+      // a page that was closed and came back waits (max 1.5 s) for the server's copy of its last state BEFORE the shared clock is caught up:
+      // skipping first put the clock past the state's time, the restore was refused and the boat started over at the start line
+      if (S.holdSend) return 0;
       let lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
-      if (lag > S.catchMax && !S.rest) {
+      const restoring = !!(S.rest && !S.rest.done); // after the restore the catch-up safety nets (skip a big lag, rewind a clock that ran ahead) work again
+      if (lag > S.catchMax && !restoring) {
         S.skipTo = Math.max(S.skipTo, S.clock + lag - CATCH_KEEP); S.skips++; S.skippedS += lag - CATCH_KEEP; S.sendNow = true;
       }
-      if (lag < -CATCH_MAX && !S.rest && (S.phase === 'race' ? lag + S.clock >= 0 : S.phase === 'pre' && lag + S.clock < 0)) { S.clock += lag; env.t += lag; S.rewinds = (S.rewinds || 0) + 1; lag = 0; } // same phase on both sides: rewind the clock, the boat stays where it is
+      if (lag < -CATCH_MAX && !restoring && (S.phase === 'race' ? lag + S.clock >= 0 : S.phase === 'pre' && lag + S.clock < 0)) { S.clock += lag; env.t += lag; S.rewinds = (S.rewinds || 0) + 1; lag = 0; } // same phase on both sides: rewind the clock, the boat stays where it is
       if (S.skipTo > S.clock || (S.rest && !S.rest.done)) {
         skipAhead(dt || KOS.DT);
         lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
+        if (lag > S.catchMax && !(S.rest && !S.rest.done) && S.skipTo <= S.clock) { // a restore just landed after a long absence: do not sail the gap, skip to now
+          S.skipTo = S.clock + lag - CATCH_KEEP; S.skips++; S.skippedS += lag - CATCH_KEEP; S.sendNow = true;
+          skipAhead(dt || KOS.DT);
+          lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
+        }
       }
       if (lag < 1) S.catchMax = CATCH_MAX;
       return U.clamp(Math.round(lag / KOS.DT), 0, 300);
