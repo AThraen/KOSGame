@@ -20,6 +20,7 @@
         locked: 'Låst',
         needStars: '{n} ★',
         lockedToast: 'Saml {n} stjerner mere for at låse {name} op! ⭐',
+        liveLockedTitle: 'Kapsejladsbanen er låst', liveLockedBody: 'Men du kan altid sejle Live-kapsejlads mod dine venner!', liveLockedGo: 'Live-kapsejlads',
         soon: 'Kommer snart',
         new: 'NY',
         garage: 'Sejlerpas',
@@ -49,6 +50,7 @@
         locked: 'Locked',
         needStars: '{n} ★',
         lockedToast: 'Collect {n} more stars to unlock {name}! ⭐',
+        liveLockedTitle: 'The race course is locked', liveLockedBody: 'But you can always do Live racing against your friends!', liveLockedGo: 'Live racing',
         soon: 'Coming soon',
         new: 'NEW',
         garage: 'Sailing passport',
@@ -1091,6 +1093,12 @@
       sfx('bump');
       if (pin) { pin.classList.remove('shake'); void pin.offsetWidth; pin.classList.add('shake'); }
       const msg = t('hub.lockedToast', { n: need, name: t('hub.loc.' + id) });
+      // the race course is locked, but live racing never is: offer it right here (spec: live always reachable)
+      if (id === 'race' && KOS.MPStatus && KOS.MPStatus.visible() && KOS.UI && KOS.UI.dialog) {
+        KOS.UI.dialog({ icon: 'globe', title: t('hub.liveLockedTitle'), body: '<p>' + msg.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]) + '</p><p>' + t('hub.liveLockedBody') + '</p>',
+          buttons: [{ labelKey: 'hub.close' }, { label: t('hub.liveLockedGo'), kind: 'primary', icon: 'globe', onClick: () => { KOS.MPStatus.open(); } }] });
+        return;
+      }
       if (KOS.UI && KOS.UI.toast) KOS.UI.toast(msg, { kind: 'info' });
       return;
     }
