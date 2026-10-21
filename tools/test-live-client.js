@@ -31,7 +31,7 @@ async function main() {
 
   async function newPage(hash, name, opts) {
     opts = opts || {};
-    const ctx = await browser.newContext({ viewport: { width: 1000, height: 800 }, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: 1000, height: 800 }, serviceWorkers: 'block', storageState: opts.storage });
     const page = await ctx.newPage();
     page.errs = []; page.mpReqs = [];
     page.on('pageerror', e => page.errs.push('pageerror ' + e.message));
@@ -342,6 +342,140 @@ async function main() {
     await page.waitForTimeout(2500);
     ok(await page.evaluate(() => document.getElementById('screen-live').getAttribute('data-live-view') === 'room' && !document.querySelector('.toast-action, .toast [data-act]') && KOS.Lobby.state.sess.state === 'ok'), 'in the room: a newer version triggers no prompt and no reload');
     await ctx.close(); await hostP.ctx.close(); await web2.close();
+  }
+
+  console.log('-- version gate: a too-old build gets the kind update message; the button updates and the join continues');
+  {
+    const setSrv = (extra) => fs.writeFileSync(statusFile, JSON.stringify(Object.assign({ mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 }, extra || {})));
+    const hostP = await newPage('area=race', 'Vaert4');
+    await hostP.page.waitForSelector('.live-card', { timeout: 8000 });
+    await hostP.page.click('.live-card'); await waitView(hostP.page, 'entry'); await clickAct(hostP.page, 'host'); await waitView(hostP.page, 'setup');
+    await clickAct(hostP.page, 'create'); await waitView(hostP.page, 'room');
+    const code = await hostP.page.evaluate(() => document.getElementById('live-code-show').textContent);
+    ok(await hostP.page.evaluate(() => KOS.Lobby.state.room.players[0].v === KOS.BUILD.version && KOS.MP.LEVEL === 2), 'the host\'s room entry carries its game version (' + await hostP.page.evaluate(() => KOS.BUILD.version) + ') and the client protocol level is 2');
+
+    // a real service worker, as in the update test above; the SERVER refuses (the public status file knows nothing about versions)
+    let swBump = '';
+    const web2 = await serve({ port: 0, transform: (rel, buf) => (rel === 'sw.js' && swBump ? Buffer.concat([buf, Buffer.from(swBump)]) : null) });
+    const ctx = await browser.newContext({ viewport: { width: 900, height: 760 }, serviceWorkers: 'allow' });
+    const page = await ctx.newPage();
+    page.errs = []; page.sent = [];
+    page.on('websocket', ws => ws.on('framesent', f => page.sent.push(String(f.payload))));
+    page.on('pageerror', e => page.errs.push('pageerror ' + e.message));
+    page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) page.errs.push('console ' + m.text()); });
+    await page.route('**/mp-status.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(status) }));
+    await page.addInitScript(() => { try { if (!localStorage.getItem('kos.profile')) localStorage.setItem('kos.profile', JSON.stringify({ name: 'Gamle Gert', sailNo: '7', avatar: null })); } catch (e) { /* ignore */ } });
+    const ov = '&mp=' + encodeURIComponent(WS) + '&mpstatus=' + encodeURIComponent(STATUS_URL);
+    await page.goto(web2.url + '#screen=hub' + ov);
+    await page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    await page.waitForFunction(() => navigator.serviceWorker.getRegistration().then(r => !!(r && r.active)), null, { timeout: 30000 });
+    await page.reload();
+    await page.waitForFunction(() => window.KOS && KOS.modesReady && !!navigator.serviceWorker.controller, null, { timeout: 30000 });
+    await page.evaluate(() => { sessionStorage.removeItem('kos.mp.upd'); KOS.Storage.saveSettings({ sound: false, reducedMotion: true }); });
+    setSrv({ minProto: 3 }); await page.waitForTimeout(500);
+    await page.evaluate(c => { KOS.MPStatus.open({ join: c, via: 'link' }); }, code);
+    await waitView(page, 'join');
+    await clickAct(page, 'join');
+    await waitView(page, 'msg');
+    const hello = page.sent.map(f => { try { return JSON.parse(f); } catch (e) { return {}; } }).find(m => m.t === 'hello');
+    ok(hello && hello.cp === 2 && typeof hello.ver === 'string' && hello.ver.length > 0 && 'sha' in hello, 'hello carries the version, sha and the protocol level (' + JSON.stringify(hello) + ')');
+    const txt = await page.evaluate(() => document.querySelector('#screen-live .live-trainer-text').textContent);
+    ok(txt === 'Der er kommet en ny version af spillet – opdater for at være med', 'a refused build gets the trainer\'s kind message in Danish (' + txt + ')');
+    ok(await page.evaluate(() => !!document.querySelector('#screen-live [data-act="update"]') && !/Coach/.test(document.getElementById('screen-live').textContent)), 'the message has an update button and never says Coach');
+    ok(await page.evaluate(() => !KOS.Lobby.state.sess), 'the refused connection is closed and no session is kept');
+    if (process.env.SHOTS) await page.screenshot({ path: process.env.SHOTS + 'live6-update-required.png' });
+    ok(page.errs.length === 0, 'no console/page errors on a refusal (' + page.errs.join(' | ') + ')');
+    ok(srv.rooms.stats().rooms >= 1, 'the server is fine');
+
+    // the button, but no newer version exists yet: the kind "close and reopen" note, no reload
+    await clickAct(page, 'update');
+    await page.waitForFunction(() => /Luk spillet/.test(document.querySelector('#screen-live .live-trainer-text').textContent), null, { timeout: 15000 });
+    ok(true, 'update button without a newer version: the player is told what to do, nothing reloads');
+    // a new version is out (sw.js changed) and the server minimum is met by it: the button updates, reloads and the join continues with the same code
+    swBump = '\n// new version ' + Date.now() + '\n';
+    setSrv({}); await page.waitForTimeout(500);
+    const nav = page.waitForNavigation({ timeout: 30000 }).catch(() => null);
+    await clickAct(page, 'update');
+    await nav;
+    await page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    ok(await page.evaluate(() => !!sessionStorage.getItem('kos.mp.upd')), 'the update button applied the new version (skipWaiting + reload)');
+    await waitView(page, 'room', 20000);
+    ok(await page.evaluate(c => KOS.Lobby.state.room.code === c && KOS.Lobby.state.room.players.length === 2, code), 'after the update the join continued by itself into room ' + code);
+    // the host sees both versions in the lobby (equal here: no warning), and a differing version gets the small warning
+    await hostP.page.waitForFunction(() => document.querySelectorAll('.live-player .live-ver').length === 2, null, { timeout: 8000 });
+    ok(await hostP.page.evaluate(() => [...document.querySelectorAll('.live-player .live-ver')].every(e => !e.classList.contains('is-diff'))), 'host lobby: both players show their version, same version = no warning');
+    await hostP.page.evaluate(() => { const L = KOS.Lobby.state; const r = JSON.parse(JSON.stringify(L.room)); r.players[1].v = 'v0.8.3'; L.room = r; KOS.Lobby._render(document.getElementById('screen-live')); });
+    ok(await hostP.page.evaluate(() => { const e = document.querySelectorAll('.live-player .live-ver'); return e[1].classList.contains('is-diff') && e[1].textContent.indexOf('v0.8.3') >= 0 && e[1].getAttribute('title').length > 5 && !e[0].classList.contains('is-diff'); }), 'a player on another version (v0.8.3) gets the small warning in the host lobby');
+    await hostP.page.setViewportSize({ width: 900, height: 800 });
+    if (process.env.SHOTS) await hostP.page.screenshot({ path: process.env.SHOTS + 'live6-host-lobby-versions.png' });
+    ok(page.errs.length === 0 && hostP.page.errs.length === 0, 'no errors (' + page.errs.concat(hostP.page.errs).join(' | ') + ')');
+    await ctx.close(); await hostP.ctx.close(); await web2.close();
+
+    // the public status file can demand a newer build too: the phone is told before it connects (no WebSocket at all)
+    status = { mode: 'on', message: '', maxRooms: 10, maxPlayers: 12, minProto: 3 };
+    const pre = await newPage('area=race', 'Gammel2');
+    await pre.page.waitForSelector('.live-card', { timeout: 8000 });
+    await pre.page.click('.live-card'); await waitView(pre.page, 'msg');
+    ok(await pre.page.evaluate(() => window.__ws === 0 && !!document.querySelector('#screen-live [data-act="update"]')), 'public status minProto: the update message shows without any WebSocket');
+    ok(pre.page.errs.length === 0, 'no errors (' + pre.page.errs.join(' | ') + ')');
+    await pre.ctx.close();
+    status = { mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 };
+    setSrv({});
+  }
+
+  console.log('-- rejoin prompt: a seat survives closing the page; yes goes back, no forgets it');
+  {
+    const hostP = await newPage('area=race', 'Vaert5');
+    await hostP.page.waitForSelector('.live-card', { timeout: 8000 });
+    await hostP.page.click('.live-card'); await waitView(hostP.page, 'entry'); await clickAct(hostP.page, 'host'); await waitView(hostP.page, 'setup');
+    await clickAct(hostP.page, 'create'); await waitView(hostP.page, 'room');
+    const code = await hostP.page.evaluate(() => document.getElementById('live-code-show').textContent);
+    const jp = await newPage('area=race', 'Bent');
+    await jp.page.waitForSelector('.live-card'); await jp.page.click('.live-card'); await waitView(jp.page, 'entry'); await clickAct(jp.page, 'joinview'); await waitView(jp.page, 'join');
+    await jp.page.fill('#live-code', code); await clickAct(jp.page, 'join'); await waitView(jp.page, 'room');
+    const myId = await jp.page.evaluate(() => KOS.Lobby.state.sess.id);
+    const seat = await jp.page.evaluate(() => JSON.parse(localStorage.getItem('kos.mp.seat')));
+    ok(seat && seat.code === code && seat.id === myId && typeof seat.key === 'string' && seat.key.length >= 8 && /\/ws$/.test(seat.url) && seat.exp > Date.now() + 100 * 60000 && seat.exp < Date.now() + 130 * 60000, 'localStorage keeps {code, id, key, server url, expiry about 2 h} while seated');
+    const stored = await jp.ctx.storageState();
+    await jp.ctx.close(); // the tab is closed / the app swiped away
+    await hostP.page.waitForFunction(() => KOS.Lobby.state.room.players.some(p => p.lost), null, { timeout: 8000 });
+    ok(true, 'the host sees the closed phone as lost, the seat is still there');
+
+    // back with the same storage: the prompt (before any network), "yes" resumes the same seat
+    let r = await newPage('', 'Bent', { storage: stored });
+    await r.page.waitForSelector('.dialog .live-rejoin-body', { timeout: 8000 });
+    ok(await r.page.evaluate(c => document.querySelector('.dialog .live-rejoin-body').textContent === 'Du er stadig med i løbet ' + c + ' – vil du tilbage?' && window.__ws === 0, code), 'the prompt asks "Du er stadig med i løbet ' + code + ' – vil du tilbage?" and nothing has touched the network yet');
+    ok(await r.page.evaluate(() => [...document.querySelectorAll('.dialog .btn')].map(b => b.textContent.trim()).join('|') === 'Nej tak|Tilbage til løbet'), 'two buttons: Nej tak / Tilbage til løbet');
+    if (process.env.SHOTS) await r.page.screenshot({ path: process.env.SHOTS + 'live6-rejoin-prompt.png' });
+    await r.page.click('.dialog .btn-primary');
+    await waitView(r.page, 'room', 15000);
+    ok(await r.page.evaluate(id => KOS.Lobby.state.sess.id === id && KOS.Lobby.state.room.players.length === 2, myId), 'yes: the same seat is back in the lobby (no second player)');
+    ok(await hostP.page.evaluate(() => KOS.Lobby.state.room.players.length === 2 && KOS.Lobby.state.room.players.every(p => !p.lost)), 'the host sees the player back');
+    ok(r.page.errs.length === 0, 'no errors (' + r.page.errs.join(' | ') + ')');
+    await r.ctx.close();
+
+    // "no thanks": the entry is cleared, nothing connects, the next start does not ask again
+    r = await newPage('', 'Bent', { storage: stored });
+    await r.page.waitForSelector('.dialog .live-rejoin-body', { timeout: 8000 });
+    await r.page.click('.dialog .btn-glass');
+    await r.page.waitForFunction(() => !document.querySelector('.dialog .live-rejoin-body'));
+    ok(await r.page.evaluate(() => localStorage.getItem('kos.mp.seat') === null && window.__ws === 0), 'no thanks: the entry is cleared and no connection was made');
+    await r.page.reload(); await r.page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 }); await r.page.waitForTimeout(600);
+    ok(await r.page.evaluate(() => !document.querySelector('.dialog .live-rejoin-body')), 'the next start does not ask again');
+    await r.ctx.close();
+
+    // an expired entry is never offered and is removed
+    const old = JSON.parse(JSON.stringify(stored));
+    for (const o of old.origins) for (const it of o.localStorage) if (it.name === 'kos.mp.seat') { const v = JSON.parse(it.value); v.exp = Date.now() - 1000; it.value = JSON.stringify(v); }
+    r = await newPage('', 'Bent', { storage: old });
+    await r.page.waitForTimeout(800);
+    ok(await r.page.evaluate(() => !document.querySelector('.dialog .live-rejoin-body') && localStorage.getItem('kos.mp.seat') === null && window.__ws === 0), 'an expired entry is not offered, is removed, and no network is touched');
+    await r.ctx.close();
+    // a normal visit without any entry: no prompt, no network
+    const clean = await newPage('', 'Frisk');
+    await clean.page.waitForTimeout(600);
+    ok(await clean.page.evaluate(() => !document.querySelector('.dialog') && window.__ws === 0), 'no entry: no prompt and still no WebSocket at startup');
+    await clean.ctx.close(); await hostP.ctx.close();
   }
 
   await browser.close();

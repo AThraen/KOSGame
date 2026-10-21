@@ -1628,6 +1628,7 @@
         const fin = v => { if (done) return; done = true; clearTimeout(tm); App._checking = false; resolve(v); };
         const tm = setTimeout(() => fin(false), o.ms || 3500);
         let sessionDone = false; try { sessionDone = !!root.sessionStorage.getItem('kos.mp.upd'); } catch (e) { sessionDone = true; }
+        if (o.force) sessionDone = false; // the player pressed "update now" (the server said this build is too old): look again even if one update was applied this session
         if (!nav.serviceWorker.controller || sessionDone) { fin(false); return; }
         App._checking = true;
         const apply = w => {

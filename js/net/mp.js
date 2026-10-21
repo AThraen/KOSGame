@@ -8,12 +8,17 @@
 //     setCfg(partial), kick(id), start(), rematch(), resume(token), hostEnd(), hostAbort(), hostLobby(on), leave(), send(msg), close()
 //     on(evt, fn) -> off     evts: room, start, states, fin, res, rematch, hostleft, kicked, reconnecting, reconnected, offline, status, error
 //   KOS.MP.parseJoin(hash) -> 'ABCD'|null     KOS.MP.normCode(str) -> 'ABCD'|null
+//   KOS.MP.seat() -> {code,id,key,url,exp}|null   the rejoin entry kept in localStorage for 2 h (survives closing the page / an update reload)
+//   KOS.MP.clearSeat()    KOS.MP.LEVEL   client protocol level sent in hello (cp); the server can refuse builds below it ('old')
 // All rejections are plain {code} objects; nothing is thrown out of socket handlers; no console output.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
   const ALPHABET = 'ACDEFGHJKMNPRTUVWXY34679';
   const CODE_RE = new RegExp('^[' + ALPHABET + ']{4}$');
   const TOKEN_KEY = 'kos.mp.rejoin';
+  const SEAT_KEY = 'kos.mp.seat';   // localStorage: {code, id, key, url, exp}: the way back into a race after the page was closed, swiped away or killed
+  const SEAT_MS = 2 * 3600000;      // the room lives at most this long on the server
+  const LEVEL = 2;                  // client protocol level (hello.cp): 2 = version gate, seat rejoin in every phase
   const PENDING_KEY = 'kos.mp.pending'; // {code, at, auto}: the page may reload (update, refresh); on load the lobby resumes or joins again
   const RECONNECT_MS = 15000; // counted from the moment the page is in the foreground again (a hidden phone must not run it down)
   const WATCHDOG_MS = 2500;   // racing: nothing at all from the server (no S batch, no pong) for this long = the socket is dead, reconnect
@@ -31,7 +36,23 @@
     try { v = decodeURIComponent(v); } catch (e) { /* keep raw */ }
     return normCode(v);
   }
-  function store(tok) {
+  function storeSeat(tok, url) {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      if (tok) localStorage.setItem(SEAT_KEY, JSON.stringify({ code: tok.code, id: tok.id, key: tok.key, url: String(url || ''), exp: Date.now() + SEAT_MS }));
+      else localStorage.removeItem(SEAT_KEY);
+    } catch (e) { /* private mode, storage full */ }
+  }
+  function seat() {
+    try {
+      const o = JSON.parse(localStorage.getItem(SEAT_KEY));
+      if (o && normCode(o.code) && Number.isInteger(o.id) && typeof o.key === 'string' && o.key && typeof o.exp === 'number' && o.exp > Date.now()) return o;
+      if (o) localStorage.removeItem(SEAT_KEY); // expired or malformed
+    } catch (e) { /* none */ }
+    return null;
+  }
+  function store(tok, url) {
+    storeSeat(tok, url);
     try {
       if (typeof sessionStorage === 'undefined') return;
       if (tok) { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(tok)); sessionStorage.setItem(PENDING_KEY, JSON.stringify({ code: tok.code, at: Date.now(), auto: true })); }
@@ -39,7 +60,9 @@
     } catch (e) { /* private mode */ }
   }
   function savedToken() {
-    try { const o = JSON.parse(sessionStorage.getItem(TOKEN_KEY)); return o && normCode(o.code) && Number.isInteger(o.id) && typeof o.key === 'string' ? o : null; } catch (e) { return null; }
+    try { const o = JSON.parse(sessionStorage.getItem(TOKEN_KEY)); if (o && normCode(o.code) && Number.isInteger(o.id) && typeof o.key === 'string') return o; } catch (e) { /* fall through */ }
+    const s = seat(); // a new tab/process: the localStorage entry is the token
+    return s ? { code: s.code, id: s.id, key: s.key } : null;
   }
 
   function connect(opts) {
@@ -47,11 +70,11 @@
     const timeoutMs = opts.timeoutMs || 7000; // a phone on a weak mobile signal needs more than 4 s for TLS + WebSocket
     return new Promise((resolve, reject) => {
       let ws = null, done = false;
-      const fail = (code) => {
+      const fail = (code, m) => {
         if (done) return;
         done = true; clearTimeout(timer);
         try { ws && ws.close(); } catch (e) { /* ignore */ }
-        reject({ code });
+        reject(m && m.min ? { code, min: m.min } : { code });
       };
       const timer = setTimeout(() => fail('timeout'), timeoutMs);
       openSocket(opts, (sock, welcome) => {
@@ -69,7 +92,7 @@
     onSock && onSock(sock);
     let welcomed = false;
     sock.onopen = () => {
-      try { sock.send(JSON.stringify({ t: 'hello', v: 1, name: String(opts.name || ''), build: String(opts.build || 'web') })); } catch (e) { bad('unreachable'); }
+      try { sock.send(JSON.stringify({ t: 'hello', v: 1, name: String(opts.name || ''), build: String(opts.build || 'web'), ver: String(opts.ver || opts.build || '').slice(0, 16), sha: String(opts.sha || '').slice(0, 12), cp: LEVEL })); } catch (e) { bad('unreachable'); }
     };
     sock.onerror = () => { if (!welcomed) bad('unreachable'); };
     sock.onclose = () => { if (!welcomed) bad('unreachable'); };
@@ -77,7 +100,7 @@
       if (welcomed) return;
       let m; try { m = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data)); } catch (e) { return; }
       if (m.t === 'welcome') { welcomed = true; sock.onopen = sock.onerror = sock.onclose = sock.onmessage = null; ok(sock, m); }
-      else if (m.t === 'err') bad(m.code === 'proto' ? 'proto' : 'unreachable');
+      else if (m.t === 'err') bad(m.code === 'proto' ? 'proto' : m.code === 'old' ? 'old' : 'unreachable', m);
     };
   }
 
@@ -171,7 +194,7 @@
     }
     function setToken(m) {
       S.id = m.id; S.code = m.code; S.token = { code: m.code, id: m.id, key: m.key };
-      store(S.token);
+      store(S.token, opts.url);
     }
     function clearToken() { S.token = null; store(null); }
 
@@ -197,13 +220,13 @@
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
         case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; clearToken(); emit('res', m.rows); break;
         case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token
-          if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token); } S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; setRoom(m.room); emit('rematch', m.room, !!m.aborted); }
+          if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token, opts.url); } S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; setRoom(m.room); emit('rematch', m.room, !!m.aborted); }
           break;
         case 'hostleft': clearToken(); S.phase = 'closed'; emit('hostleft'); break;
         case 'kicked': clearToken(); final = true; emit('kicked'); break;
         case 'status': S.status = { mode: m.mode, msg: m.msg || '' }; emit('status', S.status); break;
         case 'err':
-          if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej({ code: m.code || 'bad' }); }
+          if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej(m.min ? { code: m.code || 'bad', min: m.min } : { code: m.code || 'bad' }); }
           else emit('error', { code: m.code, msg: m.msg });
           break;
         default: break;
@@ -346,6 +369,6 @@
     };
   }
 
-  KOS.MP = { connect, parseJoin, normCode, liveFacade, savedToken, ALPHABET };
+  KOS.MP = { connect, parseJoin, normCode, liveFacade, savedToken, seat, clearSeat: () => storeSeat(null), LEVEL, ALPHABET };
   if (typeof module !== 'undefined' && module.exports) module.exports = KOS.MP;
 })(typeof window !== 'undefined' ? window : globalThis);

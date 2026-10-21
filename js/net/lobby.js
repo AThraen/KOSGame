@@ -77,6 +77,20 @@
     watch: { start: 'Start', follow: 'Follow the leader', overview: 'Overview', startsIn: 'Starting in', leader: 'Leader', finish: 'Finish', col: { pos: 'No.', sailor: 'Sailor', gap: 'Gap', kn: 'kn', mark: 'Next', dist: 'Dist.', pen: 'Pen.' } },
   } });
 
+  // version gate and rejoin (live6)
+  KOS.I18n.add('da', { live: {
+    old: { msg: 'Der er kommet en ny version af spillet – opdater for at være med', btn: 'Opdater nu', working: 'Henter den nye version…',
+      none: 'Jeg kan ikke finde en nyere version lige nu. Luk spillet helt og åbn det igen – så prøver vi en gang til.' },
+    ver: 'Version', verDiff: 'Anden version end din – det kan give problemer', verUnknown: 'ukendt',
+    rejoinGone: 'Det løb findes ikke mere – det er nok slut.',
+  } });
+  KOS.I18n.add('en', { live: {
+    old: { msg: 'A new version of the game is out – update to join', btn: 'Update now', working: 'Getting the new version…',
+      none: 'I cannot find a newer version right now. Close the game completely and open it again – then we try once more.' },
+    ver: 'Version', verDiff: 'A different version than yours – this can cause trouble', verUnknown: 'unknown',
+    rejoinGone: 'That race is gone – it has probably finished.',
+  } });
+
   // ------------------------------------------------------------------ state
   const DIRS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
   const L = {
@@ -133,10 +147,33 @@
     return t('live.unavailable');
   }
 
+  // the server (or the public status file) says this build is too old: the trainer asks kindly, the button updates and carries on
+  function showOld(intent) {
+    L.busy = ''; L.oldIntent = intent || {};
+    lt('old', (KOS.BUILD && KOS.BUILD.version) || '');
+    trainerMsg(t('live.old.msg'), ['update', 'ai']);
+  }
+  function handleOld(e, intent) {
+    if (!e || e.code !== 'old') return false;
+    try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
+    showOld(intent);
+    return true;
+  }
+  function doUpdate() {
+    const A = app(), M = KOS.MPStatus, it = L.oldIntent || {};
+    const keep = () => { try { M.keepIntent(it.join ? { join: it.join } : {}); } catch (e) { /* ignore */ } };
+    try { KOS.UI.toast(t('live.old.working'), { kind: 'info' }); } catch (e) { /* optional */ }
+    if (!A.checkUpdate) { root.location.reload(); return; }
+    A.checkUpdate({ force: true, ms: 12000, keep }).then(reloading => {
+      if (!reloading) trainerMsg(t('live.old.none'), ['update', 'ai']);
+    });
+  }
+
   // ------------------------------------------------------------------ flows
   function connectNow() {
     const M = KOS.MPStatus;
-    return KOS.MP.connect({ url: M.resolve().wsUrl, name: myName(), timeoutMs: 7000, build: (KOS.BUILD && KOS.BUILD.version) || 'web' });
+    const B = KOS.BUILD || {};
+    return KOS.MP.connect({ url: M.resolve().wsUrl, name: myName(), timeoutMs: 7000, build: B.version || 'web', ver: B.version || 'dev', sha: B.sha || '' });
   }
   function wire(sess) {
     L.sess = sess;
@@ -177,11 +214,12 @@
     return KOS.MPStatus.refresh({ force: true }).then(st => {
       L.status = st;
       if (st.mode === 'hidden') { unavailable(L.hostRole === 'watch' && L.view === 'setup'); return false; }
+      if (KOS.MPStatus.tooOld(st)) { showOld(L.intent); return false; }
       return true;
     });
   }
   function doCreate() {
-    L.busy = t('live.connecting'); paint();
+    L.busy = t('live.connecting'); L.intent = {}; paint();
     guard().then(ok => {
       if (!ok) return;
       return connectNow().then(sess => {
@@ -190,6 +228,7 @@
       });
     }).catch(e => {
       L.busy = '';
+      if (handleOld(e, {})) return;
       const code = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
       if (code === 'closed' || code === 'busy') { lt('unavailable', 'closed'); trainerMsg(errText(code, L.sess && L.sess.status.msg), ['retry', 'ai']); return; }
@@ -199,7 +238,7 @@
   function doJoin(raw) {
     const code = KOS.MP.normCode(raw);
     if (!code) { L.joinErr = t('live.noCode'); paint(); return; }
-    L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; paint();
+    L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.intent = { join: code }; paint();
     guard().then(ok => {
       if (!ok) return;
       return connectNow().then(sess => {
@@ -208,6 +247,7 @@
       });
     }).catch(e => {
       L.busy = '';
+      if (handleOld(e, { join: code })) return;
       const code2 = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
       if (code2 === 'closed' || code2 === 'busy') lt('unavailable', 'closed');
@@ -217,14 +257,14 @@
   }
   // after a reload (update, refresh): resume the same seat (countdown/race) or join the room again (lobby), no taps needed
   function autoRejoin(code) {
-    L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.view = 'join';
+    L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.view = 'join'; L.intent = { join: code };
     const tok = KOS.MP.savedToken && KOS.MP.savedToken();
     guard().then(ok => {
       if (!ok) return;
       return connectNow().then(sess => {
         wire(sess);
         const joined = room => {
-          L.room = room; L.busy = '';
+          L.room = room; L.busy = ''; L.rejoin = false;
           if ((sess.phase === 'countdown' || sess.phase === 'racing') && sess.grid) launchRace(sess); // else the 'start' that follows launches it
           else setView('room');
         };
@@ -233,8 +273,10 @@
       });
     }).catch(e => {
       L.busy = '';
+      if (handleOld(e, { join: code })) return;
       const c2 = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
+      if (L.rejoin && (c2 === 'nocode' || c2 === 'started' || c2 === 'full')) { L.rejoin = false; try { KOS.MP.clearSeat(); } catch (x) { /* ignore */ } trainerMsg(t('live.rejoinGone'), ['back']); return; }
       if (c2 === 'nocode' || c2 === 'full' || c2 === 'started' || c2 === 'closed' || c2 === 'busy') { L.joinErr = errText(c2); setView('join'); return; }
       unavailable(false);
     });
@@ -294,6 +336,7 @@
   function viewMsg() {
     const btn = { retry: '<button type="button" class="btn btn-primary" data-act="retry">' + esc(t('live.retry')) + '</button>',
       ai: '<button type="button" class="btn btn-glass" data-act="ai">' + kit().ico('sail') + esc(t('live.playAi')) + '</button>',
+      update: '<button type="button" class="btn btn-primary" data-act="update">' + kit().ico('sparkle') + '<span>' + esc(t('live.old.btn')) + '</span></button>',
       back: '<button type="button" class="btn btn-primary" data-act="entry">' + esc(t('common.ok')) + '</button>' };
     return shell(t('live.title'), trainerHtml(L.msgText) + '<div class="live-actions">' + L.msgActions.map(a => btn[a] || '').join('') + '</div>');
   }
@@ -345,12 +388,20 @@
   function playersHtml(room) {
     const me = L.sess ? L.sess.id : 0;
     const iAmHost = room.hostId === me;
+    // the host sees every player's game version; one that differs from the host's gets a small warning (old builds have broken races)
+    const nv = v => String(v || '').replace(/^v/, '');
+    const hostV = nv((room.players.find(q => q.host) || {}).v);
+    const verTag = p => {
+      if (!iAmHost) return '';
+      const diff = !p.host && nv(p.v) !== hostV;
+      return '<span class="live-ver' + (diff ? ' is-diff' : '') + '"' + (diff ? ' title="' + esc(t('live.verDiff')) + '"' : '') + '>' + (diff ? '<i aria-hidden="true">⚠</i> ' : '') + '<small class="sr-only">' + esc(t('live.ver')) + ' </small>' + esc(p.v || t('live.verUnknown')) + (diff ? '<small class="sr-only"> – ' + esc(t('live.verDiff')) + '</small>' : '') + '</span>';
+    };
     return '<ul class="live-players" aria-label="' + esc(t('live.players')) + '">' + room.players.map(p => {
       const tag = p.host ? '<span class="live-tag">' + esc(t('live.hostTag')) + '</span>' : '';
       const watch = p.host && room.hostRole === 'watch';
       const kick = iAmHost && !p.host ? '<button type="button" class="btn btn-sm btn-glass" data-act="kick" data-id="' + p.id + '">' + esc(t('live.kick')) + '</button>' : '';
       return '<li class="live-player' + (p.lost ? ' is-lost' : '') + '" data-id="' + p.id + '"><i class="live-dot" style="background:' + esc(p.color || '#999') + '"></i>' +
-        '<b>' + esc(p.name) + (p.id === me ? ' (' + esc(t('live.you')) + ')' : '') + '</b>' + tag +
+        '<b>' + esc(p.name) + (p.id === me ? ' (' + esc(t('live.you')) + ')' : '') + '</b>' + tag + verTag(p) +
         (watch ? '' : '<span class="live-ready">' + (p.lost ? esc(t('live.lost')) : kit().ico('check') + esc(t('live.ready'))) + '</span>') + kick + '</li>';
     }).join('') + '</ul>';
   }
@@ -415,6 +466,7 @@
       start: () => { if (L.sess) L.sess.start(); },
       share: () => share(),
       leave: () => leaveRoom(),
+      update: () => doUpdate(),
       retry: () => recheckThen(() => { reset(); setView('entry'); }),
       ai: () => { kit().sfx('click'); reset(); aiRace(); },
       entry: () => toEntry(),
@@ -436,6 +488,7 @@
     KOS.MPStatus.refresh({ force: true }).then(st => {
       L.status = st;
       if (st.mode === 'hidden') unavailable(false);
+      else if (KOS.MPStatus.tooOld(st)) showOld(L.view === 'join' ? { join: L.code } : {});
       else if (st.mode === 'closed') { lt('unavailable', 'closed'); trainerMsg(st.message || t('live.closed'), ['retry', 'ai']); }
       else fn();
     });
@@ -456,13 +509,15 @@
     opts = opts || {};
     reset();
     L.status = opts.status || KOS.MPStatus.cached();
-    L.joinErr = ''; L.code = opts.join || ''; L.via = opts.via || 'code';
+    L.joinErr = ''; L.code = opts.join || ''; L.via = opts.via || 'code'; L.rejoin = !!opts.rejoin;
     L.cfg = L.cfg || defaultCfg();
     L.view = opts.join ? 'join' : 'entry';
     if (L.view === 'entry' && L.status && L.status.mode === 'hidden') { L.view = 'msg'; L.msgText = t('live.unavailable'); L.msgActions = ['retry', 'ai']; lt('unavailable', 'server'); }
     else if (L.view === 'entry' && L.status && (L.status.mode === 'on' || L.status.mode === 'closed')) lt('open', L.status.mode);
+    const tooOld = KOS.MPStatus.tooOld(L.status);
+    if (tooOld) { L.oldIntent = opts.join ? { join: opts.join } : {}; L.view = 'msg'; L.msgText = t('live.old.msg'); L.msgActions = ['update', 'ai']; lt('old', (KOS.BUILD && KOS.BUILD.version) || ''); }
     app().show('live', {});
-    if (opts.join && opts.auto) autoRejoin(opts.join);
+    if (opts.join && opts.auto && !tooOld) autoRejoin(opts.join);
   }
 
   if (app() && app().registerScreen) app().registerScreen('live', sec => render(sec), () => { if (!L.handoff) reset(); });

@@ -8,12 +8,16 @@
 //   load()             -> Promise<void>        injects the lazy scripts (mpstate, qr, mp, lobby) once; rejects {code:'load'}
 //   open(opts)         -> Promise<void>        refresh(force) + load() + KOS.Lobby.open(opts); unavailable => message, never throws
 //   handlePendingJoin()                         #join=CODE arrived with the page: opens the join screen (no network before this)
+//   tooOld(status)     -> boolean              this build is below the status file's minClient / minProto (the server is the judge too: err 'old')
+//   seatPrompt(then)   -> boolean              a rejoin entry (localStorage, kos.mp.seat) exists: asks "back to the race?"; reads storage only, no network
 // Missing, unreachable, non-200, unparseable or unknown mode => {mode:'hidden'}. See docs/specs/live-race.md section 6.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
   const PROD_HOST = 'spil.kossejlsport.dk';
   const LAZY = ['js/net/mpstate.js', 'js/vendor/qr.js', 'js/net/mp.js', 'js/net/lobby.js'];
   const MIN_GAP = 120000;
+  const LEVEL = 2; // client protocol level, the same number mp.js sends in hello (cp)
+  const SEAT_KEY = 'kos.mp.seat';
   const CODE_RE = /^[ACDEFGHJKMNPRTUVWXY34679]{4}$/;
   const lt = (a, n, v) => { try { if (KOS.Track) KOS.Track.event('Live', a, n, v); } catch (e) { /* analytics never breaks the game */ } };
 
@@ -62,7 +66,23 @@
     if (!j || typeof j !== 'object') return HIDDEN();
     if (j.mode !== 'on' && j.mode !== 'closed') return HIDDEN();
     const n = v => (typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0);
-    return { mode: j.mode, message: typeof j.message === 'string' ? j.message.slice(0, 200) : '', maxRooms: n(j.maxRooms), maxPlayers: n(j.maxPlayers), at: Date.now() };
+    return { mode: j.mode, message: typeof j.message === 'string' ? j.message.slice(0, 200) : '', maxRooms: n(j.maxRooms), maxPlayers: n(j.maxPlayers),
+      minClient: typeof j.minClient === 'string' ? j.minClient.slice(0, 16) : '', minProto: n(j.minProto), at: Date.now() };
+  }
+  // "v0.8.5", "0.8.5", "v0.8.4+abc1234" -> [0,8,5]; null for a dev build
+  function parseVer(v) {
+    const m = /^v?(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?/.exec(String(v || '').trim());
+    return m ? [+m[1], +m[2], +(m[3] || 0)] : null;
+  }
+  // the public status file may demand a newer game; a phone below it is told before it even connects. A dev build is only held to minProto.
+  function tooOld(st) {
+    st = st || cache;
+    if (!st) return false;
+    if (st.minProto && LEVEL < st.minProto) return true;
+    const min = parseVer(st.minClient), mine = parseVer(KOS.BUILD && KOS.BUILD.version);
+    if (!min || !mine) return false;
+    for (let i = 0; i < 3; i++) if (mine[i] !== min[i]) return mine[i] < min[i];
+    return false;
   }
 
   function refresh(opts) {
@@ -110,6 +130,8 @@
   function open(opts) {
     opts = opts || {};
     const A = KOS.App;
+    // a way back into a race this phone left (page closed, app swiped away, process killed): ask first, then carry on with what was asked
+    if (!opts.join && !opts.rejoin && !opts.noSeat && seatPrompt(() => open(Object.assign({}, opts, { noSeat: true })))) return Promise.resolve();
     if (A && KOS.Storage && KOS.Storage.profile && !KOS.Storage.profile() && A.show) {
       if (opts.join) writePending({ code: opts.join, auto: true }); // the setup may be interrupted by a reload: the link's code is not lost
       A._afterProfile = () => open(opts);
@@ -126,6 +148,34 @@
       lt('unavailable', 'server');
       if (KOS.UI && KOS.UI.toast) KOS.UI.toast(KOS.t('live.unavailable'), { kind: 'warn' });
     });
+  }
+
+  // ---- rejoin after leaving the page (spec section 16): mp.js keeps {code, id, key, url, exp} in localStorage while a seat is alive
+  // (cleared on leave, results, kick; 2 h at most). This only READS storage: the network is touched after the player says yes.
+  function readSeat() {
+    try {
+      const o = JSON.parse(root.localStorage.getItem(SEAT_KEY));
+      if (o && CODE_RE.test(String(o.code)) && Number.isInteger(o.id) && typeof o.key === 'string' && o.key && typeof o.exp === 'number' && o.exp > Date.now()) return o;
+      if (o) root.localStorage.removeItem(SEAT_KEY);
+    } catch (e) { /* no storage */ }
+    return null;
+  }
+  function dropSeat() { try { root.localStorage.removeItem(SEAT_KEY); } catch (e) { /* ignore */ } }
+  let seatShown = false;
+  function seatPrompt(then) {
+    const s = readSeat(), UI = KOS.UI;
+    if (!s || seatShown || KOS.Config.liveRace === false || !UI || !UI.dialog) return false;
+    let url = ''; try { url = resolve().wsUrl; } catch (e) { /* ignore */ }
+    if (s.url && url && s.url !== url) return false; // a seat on another server (test vs prod): not offered, not deleted
+    seatShown = true;
+    const done = typeof then === 'function' ? then : () => {};
+    const dlg = UI.dialog({ icon: 'flag', titleKey: 'live.rejoin.title', body: '<p class="live-rejoin-body">' + UI.esc(KOS.t('live.rejoin.body', { code: s.code })) + '</p>', dismissable: false,
+      buttons: [
+        { label: KOS.t('live.rejoin.no'), onClick: () => { dropSeat(); lt('rejoin', 'declined'); done(); } },
+        { label: KOS.t('live.rejoin.yes'), kind: 'primary', icon: 'play', onClick: () => { lt('rejoin', 'accepted'); open({ join: s.code, auto: true, rejoin: true, via: 'seat' }); } },
+      ] });
+    if (!dlg) { seatShown = false; return false; }
+    return true;
   }
 
   // an update reload from the entry card / hub / host flow: open Live again by itself afterwards (a join keeps its code in the pending key instead)
@@ -194,11 +244,13 @@
     if (p && p.auto) { KOS.pendingJoin = p.code; KOS.pendingAuto = true; }
   })();
 
-  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, busy, keepForReload, canAutoUpdate, markUpdated, wantsOpen };
+  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, tooOld, seatPrompt, readSeat, keepIntent, busy, keepForReload, canAutoUpdate, markUpdated, wantsOpen };
 
   // the only strings the hub needs before the lobby is loaded
   if (KOS.I18n) {
-    KOS.I18n.add('da', { live: { title: 'Live-kapsejlads', menuSub: 'Sejl mod dine venner, lige nu', first: { title: 'Hvem sejler?', sub: 'Skriv dit navn og vælg dit udseende. Så kan dine venner se dig i løbet.', go: 'Videre til løbet' }, card: { desc: 'Sejl mod dine kammerater i et rigtigt løb – på samme tid, hver på sin skærm.', closedTag: 'Lukket' }, unavailable: 'Live-kapsejlads er ikke tilgængelig lige nu. Prøv igen senere – eller sejl mod computeren imens.' } });
-    KOS.I18n.add('en', { live: { title: 'Live race', menuSub: 'Race your friends, right now', first: { title: 'Who is sailing?', sub: 'Type your name and pick your look. Then your friends can see you in the race.', go: 'On to the race' }, card: { desc: 'Race your friends in a real race – at the same time, each on their own screen.', closedTag: 'Closed' }, unavailable: 'Live race is not available right now. Try again later – or race the computer meanwhile.' } });
+    KOS.I18n.add('da', { live: { title: 'Live-kapsejlads', menuSub: 'Sejl mod dine venner, lige nu', first: { title: 'Hvem sejler?', sub: 'Skriv dit navn og vælg dit udseende. Så kan dine venner se dig i løbet.', go: 'Videre til løbet' }, card: { desc: 'Sejl mod dine kammerater i et rigtigt løb – på samme tid, hver på sin skærm.', closedTag: 'Lukket' }, unavailable: 'Live-kapsejlads er ikke tilgængelig lige nu. Prøv igen senere – eller sejl mod computeren imens.',
+      rejoin: { title: 'Tilbage i løbet?', body: 'Du er stadig med i løbet {code} – vil du tilbage?', yes: 'Tilbage til løbet', no: 'Nej tak' } } });
+    KOS.I18n.add('en', { live: { title: 'Live race', menuSub: 'Race your friends, right now', first: { title: 'Who is sailing?', sub: 'Type your name and pick your look. Then your friends can see you in the race.', go: 'On to the race' }, card: { desc: 'Race your friends in a real race – at the same time, each on their own screen.', closedTag: 'Closed' }, unavailable: 'Live race is not available right now. Try again later – or race the computer meanwhile.',
+      rejoin: { title: 'Back in the race?', body: 'You are still in race {code} – do you want to go back?', yes: 'Back to the race', no: 'No thanks' } } });
   }
 })(typeof window !== 'undefined' ? window : globalThis);

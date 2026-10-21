@@ -974,7 +974,9 @@
       if (st.lg > 0 && st.lg < seq.length) { me.rc.started = true; me.rc.startT = S.raceT; setLeg(me, st.lg); }
       me.rc.ocs = st.ocs;
       if (st.penalty && !me.rc.pen) addPen(me, 1);
-      S.catchMax = 30; S.sendNow = true;
+      // a short gap (an update reload) is sailed on from the restored pose; a long absence (page closed, app killed) is NOT flown open-loop:
+      // the boat stays where the others last saw it (they showed it as lost there) and only the last second is sailed
+      S.catchMax = (LIVE.serverNow() - st.ts) > 4000 ? CATCH_MAX : 30; S.sendNow = true; S.restoredGapS = Math.round((LIVE.serverNow() - st.ts) / 100) / 10;
       if (S.rest.fin && me.rc.finT == null) finished(me, S.rest.fin);
       if (scene.follow) scene.follow(me);
     }

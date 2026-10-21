@@ -55,6 +55,10 @@
 .live-ready { display: flex; gap: 4px; align-items: center; color: var(--good); font-weight: 700; font-size: .85rem; }
 .live-ready .ico { width: 18px; height: 18px; }
 .live-sum { color: var(--text-dim); font-size: .85rem; }
+/* each player's game version, shown to the host; a different version gets a small amber warning */
+.live-ver { font-size: .72rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.live-ver.is-diff { color: #ffcf6b; font-weight: 800; background: rgba(255,170,0,.14); border-radius: 999px; padding: 2px 8px; }
+.live-ver i { font-style: normal; }
 
 /* reconnecting banner */
 .live-banner {
