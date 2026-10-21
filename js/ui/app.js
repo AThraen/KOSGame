@@ -599,12 +599,15 @@
       (p ? '<div class="hello">' + esc(t('app.title.hello', { name: p.name || '' })) + '</div>' : '') +
       '<button type="button" class="btn btn-primary btn-play" data-act="play">' + ico('play') + '<span>' + esc(t('app.title.play')) + '</span></button>' +
       '<button type="button" class="menu-btn" data-act="garage"><span class="mb-ico c-orange">' + ico('passport') + '</span><span class="mb-txt"><b>' + esc(t('app.garage.title')) + '</b><small>' + esc(t('app.title.garageSub')) + '</small></span></button>' +
+      '<button type="button" class="menu-btn menu-live" data-act="live" hidden><span class="mb-ico c-green">' + ico('globe') + '</span><span class="mb-txt"><b>' + esc(t('live.title')) + '</b><small>' + esc(t('live.menuSub')) + '</small></span></button>' +
       '<button type="button" class="menu-btn" data-act="quick"' + (bay ? '' : ' disabled') + '><span class="mb-ico c-blue">' + ico('wind') + '</span><span class="mb-txt"><b>' + esc(t('app.title.quick')) + '</b><small>' + esc(t('app.title.quickSub')) + '</small></span></button>' +
       '</div></div>' +
       '<footer class="title-foot"><span class="hint">' + (finePointer() ? esc(t('app.title.hint')) : '') + '</span>' +
       '<button type="button" class="link-btn" data-act="credits">' + esc(t('app.credits.title')) + '</button></footer>';
+    liveTitleSync(sec);
     bind(sec, {
       play: () => { sfx('click'); if (!S().profile()) App.show('profile', { first: true }); else App.show('hub'); },
+      live: () => { sfx('click'); if (KOS.MPStatus) KOS.MPStatus.open(); },
       garage: () => { sfx('click'); App.show('garage'); },
       quick: () => { sfx('click'); const b = KOS.Activities ? KOS.Activities.byArea('bay')[0] : null; if (b) App.play(b.id); },
       settings: () => { sfx('click'); App.show('settings'); },
@@ -614,6 +617,14 @@
       install: () => { sfx('click'); App.install(); },
     });
   };
+  // Live-kapsejlads on the title menu: shown whenever the status file says on or closed (no unlocks needed)
+  function liveTitleSync(sec) {
+    const M = KOS.MPStatus, b = sec.querySelector('.menu-live');
+    if (!b || !M || KOS.Config.liveRace === false) return;
+    const show = () => { b.hidden = !M.visible(); b.classList.toggle('is-closed', !b.hidden && (M.cached() || {}).mode === 'closed'); };
+    show();
+    M.refresh().then(show);
+  }
   function toggleFullscreen() {
     try {
       if (doc.fullscreenElement) doc.exitFullscreen();
@@ -706,7 +717,7 @@
   // the sailing classes this player may host a live race with (the same gate as the boat picker; everything with unlockAll)
   App.liveBoats = function () {
     const BP = KOS.BoatPick;
-    return BP.offered(BP.SAIL_BOATS, { def: favBoat(), unlockAll: !!settings().unlockAll, sailed: sailedBoat });
+    return BP.offered(BP.SAIL_BOATS, { def: favBoat(), unlockAll: true, sailed: sailedBoat }); // live: the host may pick any boat, no unlocks needed
   };
   function lockText(id) {
     const r = KOS.Activities.lockReason(id) || {};
@@ -1360,7 +1371,8 @@
     }
     const A = UI().AVATAR;
     const sw = (key, cols) => '<div class="swatches">' + cols.map(c => '<button type="button" class="swatch' + (draft.avatar[key] === c ? ' on' : '') + '" style="--c:' + c + '" data-act="av" data-k="' + key + '" data-v="' + c + '" aria-label="' + c + '"></button>').join('') + '</div>';
-    sec.innerHTML = header(params.first ? t('app.profile.newTitle') : t('app.profile.title'), esc(t('app.profile.sub')), '') +
+    const compact = !!params.live; // first visit through a live link / the Live entry: name + avatar only, then straight on
+    sec.innerHTML = header(compact ? t('live.first.title') : params.first ? t('app.profile.newTitle') : t('app.profile.title'), esc(compact ? t('live.first.sub') : t('app.profile.sub')), '') +
       '<div class="scroll"><div class="profile-wrap">' +
       '<div class="profile-preview glass">' +
       '<div class="pp-avatar">' + UI().avatarSvg(draft.avatar) + '</div>' +
@@ -1374,7 +1386,7 @@
       '<div class="field"><span>' + esc(t('app.profile.age')) + '</span><div class="chips">' +
       AGES.map(a => '<button type="button" class="chip' + (draft.age === a ? ' on' : '') + '" data-act="age" data-v="' + a + '">' + esc(t('app.profile.ageOpt', { a })) + '</button>').join('') +
       '</div></div></section>' +
-      '<section class="panel glass"><h2>' + ico('user') + esc(t('app.profile.look')) + '</h2>' +
+      (compact ? '' : '<section class="panel glass"><h2>' + ico('user') + esc(t('app.profile.look')) + '</h2>' +
       '<div class="field"><span>' + esc(t('app.profile.style')) + '</span><div class="chips">' +
       A.styles.map(s => '<button type="button" class="chip' + (draft.avatar.style === s ? ' on' : '') + '" data-act="av" data-k="style" data-v="' + s + '">' + esc(t('app.profile.styles.' + s)) + '</button>').join('') + '</div></div>' +
       '<div class="field"><span>' + esc(t('app.profile.skin')) + '</span>' + sw('skin', A.skin) + '</div>' +
@@ -1384,8 +1396,8 @@
       '<label class="field"><span>' + esc(t('app.profile.sailNo')) + '</span><span class="sailno-input"><b>DEN</b>' +
       '<input type="text" class="input" id="pf-sail" inputmode="numeric" maxlength="5" autocomplete="off" value="' + esc(draft.sailNo) + '"></span></label>' +
       '<div class="field"><span>' + esc(t('app.profile.boatColor')) + '</span><div class="swatches">' +
-      BOAT_COLORS.map(c => '<button type="button" class="swatch' + (draft.boatColor === c ? ' on' : '') + '" style="--c:' + c + '" data-act="bc" data-v="' + c + '" aria-label="' + c + '"></button>').join('') + '</div></div></section>' +
-      '<button type="button" class="btn btn-primary btn-wide btn-big" data-act="save">' + ico('check') + '<span>' + esc(params.first ? t('app.profile.saveFirst') : t('common.save')) + '</span></button>' +
+      BOAT_COLORS.map(c => '<button type="button" class="swatch' + (draft.boatColor === c ? ' on' : '') + '" style="--c:' + c + '" data-act="bc" data-v="' + c + '" aria-label="' + c + '"></button>').join('') + '</div></div></section>') +
+      '<button type="button" class="btn btn-primary btn-wide btn-big" data-act="save">' + ico('check') + '<span>' + esc(compact ? t('live.first.go') : params.first ? t('app.profile.saveFirst') : t('common.save')) + '</span></button>' +
       '</div></div></div>';
     const upd = () => {
       sec.querySelector('.pp-avatar').innerHTML = UI().avatarSvg(draft.avatar);
@@ -1397,7 +1409,7 @@
     const mark = (b, group) => { sec.querySelectorAll(group).forEach(x => x.classList.toggle('on', x === b)); };
     const nameIn = sec.querySelector('#pf-name'), sailIn = sec.querySelector('#pf-sail');
     nameIn.addEventListener('input', () => { draft.name = nameIn.value.replace(/[<>]/g, '').slice(0, 16); upd(); });
-    sailIn.addEventListener('input', () => { sailIn.value = sailIn.value.replace(/\D/g, '').slice(0, 5); draft.sailNo = sailIn.value; upd(); });
+    if (sailIn) sailIn.addEventListener('input', () => { sailIn.value = sailIn.value.replace(/\D/g, '').slice(0, 5); draft.sailNo = sailIn.value; upd(); });
     bind(sec, {
       back: () => { sfx('click'); App.back(); },
       av: b => { sfx('tap'); const k = b.getAttribute('data-k'); draft.avatar[k] = b.getAttribute('data-v'); mark(b, '[data-act=av][data-k=' + k + ']'); upd(); },
@@ -1417,6 +1429,13 @@
         if (isNew) { S().saveSettings({ assist: 'easy' }); track('Onboarding', 'profile-created'); }
         sfx('coin');
         draft = null;
+        if (params.live) { // first-time setup through a live link: no onboarding dialog, straight on with the join (the code was kept)
+          const after = App._afterProfile; App._afterProfile = null;
+          App.stack = [{ screen: 'title', params: {} }];
+          App.show('hub', {}, { replace: true });
+          if (after) setTimeout(() => { try { after(); } catch (e) { console.error(e); } }, 60);
+          return;
+        }
         if (params.first || isNew) {
           App.stack = [{ screen: 'title', params: {} }];
           App.show('hub', {}, { replace: true });
@@ -1584,8 +1603,10 @@
     const nav = root.navigator;
     if (!nav || !nav.serviceWorker || !/^https?:$/.test(root.location.protocol)) return;
     let refreshing = false;
+    // a live lobby or race must never be reloaded under the player: not by the update, not by a controllerchange from any other tab/worker
+    const liveActive = () => { try { return !!((KOS.MPStatus && KOS.MPStatus.busy && KOS.MPStatus.busy()) || (App.cur === 'play' && run.live)); } catch (e) { return false; } };
     nav.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing || !App._updateAccepted) return;
+      if (refreshing || !App._updateAccepted || liveActive()) return;
       refreshing = true;
       root.location.reload();
     });
@@ -1593,10 +1614,44 @@
     let pendingWorker = null;
     // live race: also never while a lobby or race of the live game is open (a reload would drop the player from the room)
     const liveBusy = () => { try { return App.cur === 'live' && !!(KOS.MPStatus && KOS.MPStatus.busy && KOS.MPStatus.busy()); } catch (e) { return false; } };
-    const accept = worker => { try { KOS.MPStatus && KOS.MPStatus.keepForReload && KOS.MPStatus.keepForReload(); } catch (e) { /* optional */ } App._updateAccepted = true; worker.postMessage({ type: 'skipWaiting' }); };
+    const accept = worker => {
+      if (liveActive()) { pendingWorker = worker; return; } // e.g. the "new version" toast tapped in the lobby: wait until the player is back on a menu
+      try { KOS.MPStatus && KOS.MPStatus.keepForReload && KOS.MPStatus.keepForReload(); } catch (e) { /* optional */ }
+      App._updateAccepted = true; worker.postMessage({ type: 'skipWaiting' });
+    };
+    // before Live opens (entry card, hub, #join link): look for a new version NOW; one that is found is applied at once (skipWaiting + reload,
+    // the caller's intent is saved by opts.keep so the player lands in the lobby/join again). Resolves true when the page is about to reload.
+    App.checkUpdate = function (o) {
+      o = o || {};
+      return new Promise(resolve => {
+        let done = false;
+        const fin = v => { if (done) return; done = true; clearTimeout(tm); App._checking = false; resolve(v); };
+        const tm = setTimeout(() => fin(false), o.ms || 3500);
+        let sessionDone = false; try { sessionDone = !!root.sessionStorage.getItem('kos.mp.upd'); } catch (e) { sessionDone = true; }
+        if (!nav.serviceWorker.controller || sessionDone) { fin(false); return; }
+        App._checking = true;
+        const apply = w => {
+          if (done) return;
+          try { root.sessionStorage.setItem('kos.mp.upd', '1'); } catch (e) { /* ignore */ }
+          try { o.keep && o.keep(); } catch (e) { /* ignore */ }
+          App._updateAccepted = true; fin(true); w.postMessage({ type: 'skipWaiting' });
+        };
+        nav.serviceWorker.getRegistration().then(reg => {
+          if (!reg) { fin(false); return; }
+          const watch = () => {
+            if (reg.waiting) { apply(reg.waiting); return; }
+            const w = reg.installing;
+            if (!w) { fin(false); return; }
+            w.addEventListener('statechange', () => { if (w.state === 'installed') apply(reg.waiting || w); else if (w.state === 'redundant') fin(false); });
+          };
+          if (reg.waiting) { watch(); return; }
+          reg.update().then(watch, () => fin(false));
+        }, () => fin(false));
+      });
+    };
     on('screen', scr => { if (pendingWorker && scr !== 'play' && scr !== 'live' && !liveBusy()) { const w = pendingWorker; pendingWorker = null; setTimeout(() => offerUpdate(w), 600); } });
     const offerUpdate = worker => {
-      if (App.cur === 'play' || liveBusy()) { pendingWorker = worker; return; }
+      if (App.cur === 'play' || liveBusy() || App._checking) { pendingWorker = worker; return; }
       // arrived through a #join link and nothing is joined yet: update first (once), the join continues by itself after the reload
       try { if (KOS.MPStatus && KOS.MPStatus.canAutoUpdate && KOS.MPStatus.canAutoUpdate()) { KOS.MPStatus.markUpdated(); accept(worker); return; } } catch (e) { /* fall through to the prompt */ }
       UI().toast(t('app.update.ready'), {
@@ -1664,6 +1719,7 @@
     });
     doc.addEventListener('visibilitychange', () => {
       if (doc.hidden && App.cur === 'play' && run.running && !run.paused) setPaused(true);
+      if (!doc.hidden && run.live && run.pauseEl) hidePause(); // back from the background in a live race: the leave card must not stay in the way
       if (doc.hidden) audio('music', null);
       else if (App.cur !== 'play' && settings().music) audio('music', 'menu');
     });

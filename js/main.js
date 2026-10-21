@@ -56,7 +56,7 @@
     }
     document.documentElement.classList.add('booted');
     // #join=CODE (live race link): opens the join screen; mpstatus.js only remembered the code, no network until now
-    if (KOS.MPStatus && KOS.pendingJoin) KOS.MPStatus.handlePendingJoin();
+    if (KOS.MPStatus && (KOS.pendingJoin || (KOS.MPStatus.wantsOpen && KOS.MPStatus.wantsOpen()))) KOS.MPStatus.handlePendingJoin();
     if (KOS.Events && KOS.Events.emit) KOS.Events.emit('boot');
   }
 

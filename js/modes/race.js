@@ -929,7 +929,7 @@
     // and then left it parked ahead of the shared clock. The time is skipped instead (wind, signals and clocks advance, the boat stays
     // where it is) and only the last second is sailed. A restore after a reload sails the real gap (up to 30 s) from the restored pose.
     const CATCH_MAX = 2.5, CATCH_KEEP = 1.0;
-    S.catchMax = CATCH_MAX; S.skips = 0; S.skippedS = 0;
+    S.catchMax = CATCH_MAX; S.skips = 0; S.skippedS = 0; S.skipTo = -1e9;
     function skipStep(dt) {
       env.t += dt; S.clock += dt; wind.update(dt);
       if (S.phase === 'pre') signals();
@@ -941,13 +941,13 @@
         if (S.rest && !S.rest.done && S.clock >= S.rest.clock - dt * 0.5) break;
         skipStep(dt);
       }
-      if (S.skipTo <= S.clock + dt * 0.5) S.skipTo = 0;
+      if (S.skipTo <= S.clock + dt * 0.5) S.skipTo = -1e9;
       if (S.rest && !S.rest.done && S.clock >= S.rest.clock - dt * 0.5) applyRestore();
     }
     function liveSteps(dt) {
       let lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
       if (lag > S.catchMax && !S.rest) {
-        S.skipTo = Math.max(S.skipTo || 0, S.clock + lag - CATCH_KEEP); S.skips++; S.skippedS += lag - CATCH_KEEP; S.sendNow = true;
+        S.skipTo = Math.max(S.skipTo, S.clock + lag - CATCH_KEEP); S.skips++; S.skippedS += lag - CATCH_KEEP; S.sendNow = true;
       }
       if (S.skipTo > S.clock || (S.rest && !S.rest.done)) {
         skipAhead(dt || KOS.DT);

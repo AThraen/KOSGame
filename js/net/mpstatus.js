@@ -104,19 +104,45 @@
     return loadP;
   }
 
-  // opens the lobby; whatever goes wrong, the lobby (or a toast) tells the player kindly
+  // opens the lobby; whatever goes wrong, the lobby (or a toast) tells the player kindly.
+  // 1. no profile yet (a phone that arrived through a link/QR): the short first-time setup first (name + avatar), then straight on with the same opts
+  // 2. the latest app version BEFORE any lobby: a waiting/new service worker is applied (skipWaiting + reload) and the open continues by itself
   function open(opts) {
-    return refresh({ force: true }).then(st => load().then(() => {
-      if (KOS.Lobby && KOS.Lobby.open) KOS.Lobby.open(Object.assign({ status: st }, opts || {}));
-    })).catch(() => {
+    opts = opts || {};
+    const A = KOS.App;
+    if (A && KOS.Storage && KOS.Storage.profile && !KOS.Storage.profile() && A.show) {
+      if (opts.join) writePending({ code: opts.join, auto: true }); // the setup may be interrupted by a reload: the link's code is not lost
+      A._afterProfile = () => open(opts);
+      A.show('profile', { first: true, live: true });
+      return Promise.resolve();
+    }
+    const latest = A && A.checkUpdate ? A.checkUpdate({ keep: () => keepIntent(opts) }) : Promise.resolve(false);
+    return latest.then(reloading => {
+      if (reloading) return null;
+      return refresh({ force: true }).then(st => load().then(() => {
+        if (KOS.Lobby && KOS.Lobby.open) KOS.Lobby.open(Object.assign({ status: st }, opts));
+      }));
+    }).catch(() => {
       lt('unavailable', 'server');
       if (KOS.UI && KOS.UI.toast) KOS.UI.toast(KOS.t('live.unavailable'), { kind: 'warn' });
     });
   }
 
+  // an update reload from the entry card / hub / host flow: open Live again by itself afterwards (a join keeps its code in the pending key instead)
+  const OKEY = 'kos.mp.openlive';
+  function keepIntent(opts) {
+    if (opts && opts.join) writePending({ code: opts.join, auto: true });
+    else { try { root.sessionStorage.setItem(OKEY, String(Date.now())); } catch (e) { /* ignore */ } }
+  }
+  function wantsOpen() {
+    try { const v = +root.sessionStorage.getItem(OKEY); return v > 0 && Date.now() - v < 120000; } catch (e) { return false; }
+  }
   function handlePendingJoin() {
     const code = KOS.pendingJoin;
-    if (!code) return Promise.resolve();
+    if (!code) {
+      if (wantsOpen()) { try { root.sessionStorage.removeItem(OKEY); } catch (e) { /* ignore */ } return open({}); }
+      return Promise.resolve();
+    }
     KOS.pendingJoin = null;
     // drop only join=CODE from the hash (keeps dev overrides like mp= and mpstatus=)
     try {
@@ -168,11 +194,11 @@
     if (p && p.auto) { KOS.pendingJoin = p.code; KOS.pendingAuto = true; }
   })();
 
-  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, busy, keepForReload, canAutoUpdate, markUpdated };
+  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, busy, keepForReload, canAutoUpdate, markUpdated, wantsOpen };
 
   // the only strings the hub needs before the lobby is loaded
   if (KOS.I18n) {
-    KOS.I18n.add('da', { live: { title: 'Live-kapsejlads', card: { desc: 'Sejl mod dine kammerater i et rigtigt løb – på samme tid, hver på sin skærm.', closedTag: 'Lukket' }, unavailable: 'Live-kapsejlads er ikke tilgængelig lige nu. Prøv igen senere – eller sejl mod computeren imens.' } });
-    KOS.I18n.add('en', { live: { title: 'Live race', card: { desc: 'Race your friends in a real race – at the same time, each on their own screen.', closedTag: 'Closed' }, unavailable: 'Live race is not available right now. Try again later – or race the computer meanwhile.' } });
+    KOS.I18n.add('da', { live: { title: 'Live-kapsejlads', menuSub: 'Sejl mod dine venner, lige nu', first: { title: 'Hvem sejler?', sub: 'Skriv dit navn og vælg dit udseende. Så kan dine venner se dig i løbet.', go: 'Videre til løbet' }, card: { desc: 'Sejl mod dine kammerater i et rigtigt løb – på samme tid, hver på sin skærm.', closedTag: 'Lukket' }, unavailable: 'Live-kapsejlads er ikke tilgængelig lige nu. Prøv igen senere – eller sejl mod computeren imens.' } });
+    KOS.I18n.add('en', { live: { title: 'Live race', menuSub: 'Race your friends, right now', first: { title: 'Who is sailing?', sub: 'Type your name and pick your look. Then your friends can see you in the race.', go: 'On to the race' }, card: { desc: 'Race your friends in a real race – at the same time, each on their own screen.', closedTag: 'Closed' }, unavailable: 'Live race is not available right now. Try again later – or race the computer meanwhile.' } });
   }
 })(typeof window !== 'undefined' ? window : globalThis);

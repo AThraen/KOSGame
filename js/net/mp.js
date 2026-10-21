@@ -240,6 +240,10 @@
     }
     dogTimer = setInterval(dog, 500); dogTimer.unref && dogTimer.unref();
     S.watchdog = dog;
+    S.reconnects = 0;
+    // test hooks (headless suites): a dropped socket, and a socket that is open but dead (nothing comes in, nothing goes out)
+    S.testDrop = () => { try { sock && sock.close(); } catch (e) { /* ignore */ } };
+    S.testMute = () => { if (!sock) return; sock.onmessage = () => {}; sock.send = () => {}; };
     function onLost() {
       clearTimeout(fastTimer); clearInterval(pingTimer);
       if (S.state === 'reconnecting') return; // forceReconnect already took over
@@ -273,7 +277,7 @@
             if (m.t === 'joined') {
               resumed = true; clearTimeout(guard); over = true;
               sock = sk; attach(sk); lastRx = now(); grace = now() + 2000;
-              S.state = 'ok'; handle(m); startSync(); emit('reconnected');
+              S.state = 'ok'; S.reconnects++; handle(m); startSync(); emit('reconnected');
             } else if (m.t === 'err') { clearTimeout(guard); next(); }
           }
         };

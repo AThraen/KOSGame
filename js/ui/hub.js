@@ -595,6 +595,7 @@
       </button>
       <div class="hub-top-right">
         <div class="hub-stars hub-glass" role="status">${icon('star', 'hub-star')}<b class="hub-stars-have">0</b><span class="hub-stars-max"></span></div>
+        <button class="hub-btn hub-glass hub-livebtn" type="button" data-act="live" hidden>${icon('globe')}<span class="hub-btn-txt" data-k="live.title"></span></button>
         <button class="hub-btn hub-glass" type="button" data-act="garage">${icon('passport')}<span class="hub-btn-txt" data-k="hub.garage"></span></button>
         <button class="hub-btn hub-glass hub-btn-icon" type="button" data-act="settings">${icon('gear')}</button>
       </div>
@@ -762,11 +763,21 @@
     state = null;
   }
 
+  // "Live-kapsejlads" is reachable from the hub whatever the progress (spec: live must always be reachable); only the status file decides
+  function syncLive(R) {
+    const M = KOS.MPStatus, b = R.querySelector('[data-act="live"]');
+    if (!b || !M) return;
+    const show = () => { b.hidden = !M.visible(); b.classList.toggle('is-closed', !b.hidden && (M.cached() || {}).mode === 'closed'); };
+    show();
+    if (!R.__liveAsked) { R.__liveAsked = true; M.refresh().then(show); }
+  }
   function refresh() {
     if (!state) return;
     const R = state.root;
     R.querySelectorAll('[data-k]').forEach(el => { el.textContent = t(el.getAttribute('data-k')); });
     R.querySelector('[data-act="settings"]').setAttribute('aria-label', t('hub.settings'));
+    R.querySelector('[data-act="live"]').setAttribute('aria-label', t('live.title'));
+    syncLive(R);
     R.querySelector('[data-act="garage"]').setAttribute('aria-label', t('hub.garage'));
     R.querySelector('[data-act="zin"]').setAttribute('aria-label', t('hub.zoomIn'));
     R.querySelector('[data-act="zout"]').setAttribute('aria-label', t('hub.zoomOut'));
@@ -1100,6 +1111,7 @@
       else if (act === 'zout') zoomAt(1 / 1.35, vp.clientWidth / 2, vp.clientHeight / 2);
       else if (act === 'home') { state.stage.classList.add('is-easing'); centerOn(KOS.World.poi.club.x, KOS.World.poi.club.y - 200, Math.min(state.max, state.min * 1.8)); setTimeout(() => state && state.stage.classList.remove('is-easing'), 450); }
       else if (act === 'next') { const id = actEl.closest('.hub-next').dataset.id; if (id && KOS.App && KOS.App.play) KOS.App.play(id); else if (id) go('area', { area: KOS.Activities.get(id).area }); }
+      else if (act === 'live') { if (KOS.MPStatus) KOS.MPStatus.open(); }
       else if (act === 'places') togglePlaces(true);
       else if (act === 'places-close') togglePlaces(false);
       else go(act);

@@ -36,6 +36,7 @@ async function main() {
     page.on('pageerror', e => page.errs.push('pageerror ' + e.message));
     page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) page.errs.push('console ' + m.text()); });
     await page.route('**/mp-status.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 }) }));
+    await page.addInitScript(n => { try { if (!localStorage.getItem('kos.profile')) localStorage.setItem('kos.profile', JSON.stringify({ name: n, sailNo: '7', avatar: null })); } catch (e) { /* ignore */ } }, name);
     const ov = 'mp=' + encodeURIComponent(WS) + '&mpstatus=' + encodeURIComponent(STATUS_URL);
     await page.goto(web.url + '#' + [hash, ov].filter(Boolean).join('&'));
     await page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
@@ -403,6 +404,107 @@ async function main() {
     ok(!L.host.sent.concat(L.others[0].sent).some(f => /lost|hint|trainer/i.test(f)), 'no hint frame was sent to the server (local only)');
     ok(L.all.every(p => p.errs.length === 0), 'no errors (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
     await closeAll({ srv });
+  }
+
+  // ================================================================== 9. self-healing: drop, dead socket, background, burst, stale boat, reload
+  console.log('-- robust: socket drop, dead socket, 10 s background, burst, stale boat, reload (H-boat, 20 kn, countdown)');
+  {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Dorte'], { boat: 'hboat', laps: 1, windKn: 20, windDeg: 225, countdownS: 110, gust: 0.8, shift: 0.4, help: 'free' });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    const [h, d] = L.all;
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const mine = p => p.evaluate(() => { const b = KOS.App.run.inst.boat; return { x: b.x, y: b.y, sp: b.speed, clock: KOS.App.run.inst.state.clock }; });
+    const hostView = async () => { const id = await d.evaluate(() => KOS.App.run.host.live.myId); return h.evaluate(rid => { const b = KOS.App.run.inst.live.remotes.find(r => r.rid === rid); return b ? { x: b.x, y: b.y, lost: !!b.lost, tag: b.tag || '' } : null; }, id); };
+    // sampler on Dorte's page: the largest jump of her own boat between two samples (100 ms apart)
+    await d.evaluate(() => { window.__inst = KOS.App.run.inst; window.__trk = []; window.__trkT = setInterval(() => { const b = window.__inst.boat; window.__trk.push([b.x, b.y]); }, 100); });
+    const maxJump = () => d.evaluate(() => { const t = window.__trk; let m = 0; for (let i = 1; i < t.length; i++) m = Math.max(m, Math.hypot(t[i][0] - t[i - 1][0], t[i][1] - t[i - 1][1])); window.__trk.length = 0; return m; });
+    const sameInst = () => d.evaluate(() => KOS.App.run.inst === window.__inst);
+    const seenOk = async (what) => {
+      await h.waitForFunction(() => { const r = KOS.App.run.inst.live.remotes[0]; return r && !r.lost; }, null, { timeout: 6000 });
+      const v = await hostView(), m = await mine(d);
+      ok(v && !v.lost && dist(v, m) < 25, 'host sees Dorte again after ' + what + ' (gap ' + (v ? dist(v, m).toFixed(1) : '?') + ' m)');
+    };
+    await sleep(3000);
+    ok(await d.evaluate(() => !!KOS.App.run.inst.state && KOS.App.run.inst.state.clock < -60), 'racing screen up in the countdown (clock ' + (await mine(d)).clock.toFixed(0) + ')');
+    await maxJump();
+
+    // 1. the socket drops
+    const sock0 = await d.evaluate(() => KOS.Lobby.state.sess.reconnects);
+    await d.evaluate(() => KOS.Lobby.state.sess.testDrop());
+    await d.waitForFunction(n => KOS.Lobby.state.sess.reconnects > n, sock0, { timeout: 10000 });
+    ok(await sameInst(), 'socket drop: the race screen is NOT rebuilt (the boat keeps its place; it used to restart at the start line)');
+    ok((await maxJump()) < 6, 'socket drop: no teleport of my own boat');
+    await seenOk('a socket drop');
+
+    // 2. dead socket (open, but silent): the watchdog notices within a few seconds
+    const forced0 = await d.evaluate(() => KOS.Lobby.state.sess.forced || 0);
+    const rc1 = await d.evaluate(() => KOS.Lobby.state.sess.reconnects);
+    await d.evaluate(() => KOS.Lobby.state.sess.testMute());
+    const tm = Date.now();
+    await d.waitForFunction(n => KOS.Lobby.state.sess.reconnects > n, rc1, { timeout: 12000 });
+    ok(Date.now() - tm < 9000 && (await d.evaluate(() => KOS.Lobby.state.sess.forced)) > forced0, 'dead socket: the watchdog reconnects by itself (' + ((Date.now() - tm) / 1000).toFixed(1) + ' s)');
+    ok(await sameInst() && (await maxJump()) < 6, 'dead socket: same race screen, no teleport');
+    await seenOk('a dead socket');
+
+    // 3. the phone is in the background for 10 s: rAF stops. Coming back must not fly the boat off.
+    await maxJump();
+    const before = await mine(d);
+    await d.evaluate(() => { window.__raf = window.requestAnimationFrame; window.requestAnimationFrame = () => 0; });
+    await sleep(10000);
+    await d.evaluate(() => { window.requestAnimationFrame = window.__raf; KOS.App.kickFrame(); });
+    await sleep(1500);
+    const after = await mine(d);
+    const sk = await d.evaluate(() => ({ n: KOS.App.run.inst.state.skips, s: KOS.App.run.inst.state.skippedS }));
+    ok(sk.n >= 1 && sk.s > 6, 'background 10 s: the lost time was skipped, not simulated (' + sk.n + ' skip, ' + sk.s.toFixed(1) + ' s)');
+    ok(dist(before, after) < 20, 'background 10 s: my boat moved ' + dist(before, after).toFixed(1) + ' m (under 20), it did not fly away (open-loop catch-up would be ~' + Math.round(Math.abs(before.sp) * 11) + '+ m)');
+    ok(await sameInst() && await d.evaluate(() => KOS.Lobby.state.sess.state === 'ok'), 'background 10 s: same race screen, connection ok');
+    await seenOk('10 s in the background');
+
+    // 4. a burst of queued frames after a stall does not get the client closed
+    const rc2 = await d.evaluate(() => KOS.Lobby.state.sess.reconnects);
+    const lastSt = JSON.parse(d.sent.filter(f => /"t":"st"/.test(f)).pop());
+    await d.evaluate(s => { const S = KOS.Lobby.state.sess; for (let i = 1; i <= 250; i++) { const a = s.slice(); a[1] = s[1] + i; S.send({ t: 'st', s: a }); } }, lastSt.s);
+    await sleep(1500);
+    ok(await d.evaluate(n => KOS.Lobby.state.sess.state === 'ok' && KOS.Lobby.state.sess.reconnects === n, rc2), 'a burst of 250 queued frames: the socket stays open, no reconnect');
+    await seenOk('a burst of frames');
+
+    // 5. a stale boat: Dorte stops sending for 4 s => host shows "mistet forbindelse", then she is back
+    await d.evaluate(() => { KOS.App.run.inst.state.holdSend = true; });
+    await h.waitForFunction(() => { const r = KOS.App.run.inst.live.remotes[0]; return r && r.lost; }, null, { timeout: 8000 });
+    await sleep(1500);
+    const stale = await hostView();
+    ok(stale && stale.lost && /⚠/.test(stale.tag), 'stale boat: shown as lost on the host (faded, warning mark in its tag: "' + (stale && stale.tag) + '")');
+    if (process.env.SHOTS) { await h.setViewportSize({ width: 900, height: 700 }); await h.screenshot({ path: process.env.SHOTS + 'live5-lost-boat.png' }); }
+    await d.evaluate(() => { KOS.App.run.inst.state.holdSend = false; });
+    await h.waitForFunction(() => { const r = KOS.App.run.inst.live.remotes[0]; return r && !r.lost; }, null, { timeout: 6000 });
+    const back = await hostView(), me2 = await mine(d);
+    ok(back && !back.lost && dist(back, me2) < 25, 'stale boat: fresh states bring it back (gap ' + dist(back, me2).toFixed(1) + ' m)');
+
+    // 6. a reload: the boat comes back where it was, not on the start line
+    await sleep(2000);
+    const p0 = await mine(d);
+    const hd0 = await d.evaluate(() => KOS.App.run.inst.boat.heading);
+    const startSlot = await d.evaluate(() => { const g = KOS.App.run.host.live.grid, i = g.findIndex(x => x.id === KOS.App.run.host.live.myId); return i; });
+    await sleep(600); // let the server hold a state newer than p0
+    await d.reload();
+    await d.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    await inRace(d);
+    await d.waitForFunction(() => KOS.App.run.inst.state.restored === true, null, { timeout: 8000 });
+    await sleep(1500);
+    const p1 = await mine(d);
+    const dt = p1.clock - p0.clock;
+    const ex = { x: p0.x + Math.sin(hd0) * p0.sp * dt, y: p0.y - Math.cos(hd0) * p0.sp * dt };
+    const slot = await d.evaluate(() => { const i = KOS.App.run.inst, b = i.boat; return { dx: b.x, dy: b.y }; });
+    ok(dist(p1, p0) < Math.max(40, Math.abs(p0.sp) * (dt + 2) * 1.5) && dist(p1, p0) > 0, 'reload: the boat is back where it was (' + dist(p1, p0).toFixed(1) + ' m from the last position, ' + dt.toFixed(1) + ' s later at ' + p0.sp.toFixed(1) + ' m/s)');
+    ok(dist(p1, ex) < 15, 'reload: within ' + dist(p1, ex).toFixed(1) + ' m of the straight-line estimate (gap sailed from the restored pose, not the start line)');
+    ok(await d.evaluate(() => KOS.App.run.inst.state.clock < 0), 'reload: still before the gun (clock ' + p1.clock.toFixed(1) + ')');
+    await seenOk('a reload');
+    void startSlot; void slot;
+    ok(L.all.every(p => p.errs.length === 0), 'no errors (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
+    for (const c of pages.splice(0)) await c.close(); await srv.close();
   }
 
   await browser.close();

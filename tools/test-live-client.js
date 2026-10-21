@@ -43,10 +43,12 @@ async function main() {
       window.WebSocket = function (u, p) { window.__ws++; return new W(u, p); }; window.WebSocket.prototype = W.prototype;
       Object.assign(window.WebSocket, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 });
     });
+    // the profile exists BEFORE the page loads (a returning player); opts.noProfile = a brand-new phone
+    if (name !== null && !opts.noProfile) await page.addInitScript(n => { try { if (!localStorage.getItem('kos.profile')) localStorage.setItem('kos.profile', JSON.stringify({ name: n, sailNo: '7', avatar: null })); } catch (e) { /* ignore */ } }, name || 'Tester');
     const ov = opts.noOverride ? '' : 'mp=' + encodeURIComponent(opts.ws || WS) + '&mpstatus=' + encodeURIComponent(STATUS_URL);
     await page.goto(web.url + '#' + [hash, ov].filter(Boolean).join('&'));
     await page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
-    if (name) await page.evaluate(n => { KOS.Storage.saveProfile({ name: n, sailNo: '7', avatar: null }); KOS.Storage.saveSettings({ sound: false, reducedMotion: true }); }, name);
+    if (name !== null && !opts.noProfile) await page.evaluate(n => { KOS.Storage.saveProfile({ name: n, sailNo: '7', avatar: null }); KOS.Storage.saveSettings({ sound: false, reducedMotion: true }); }, name || 'Tester');
     return { ctx, page };
   }
   const waitView = (page, v, ms) => page.waitForFunction(x => { const e = document.getElementById('screen-live'); return e && !e.hidden && e.getAttribute('data-live-view') === x; }, v, { timeout: ms || 8000 });
@@ -254,6 +256,92 @@ async function main() {
     ok(await b.page.evaluate(i => KOS.App.run.host.live.myId === i && KOS.App.run.inst.state.clock < 0, idBefore), 'reload during the countdown: same seat, back in the race before the gun');
     ok(b.page.errs.length === 0 && h.page.errs.length === 0, 'no console errors (' + b.page.errs.concat(h.page.errs).join(' | ') + ')');
     await h.ctx.close(); await b.ctx.close();
+  }
+
+  // ---------------------------------------------------------------- Live is reachable without progress; first-time setup via link; update before the lobby
+  console.log('-- live is always reachable (hub, title), first-time setup via link');
+  {
+    status = { mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 };
+    // a brand-new player (no progress at all, nothing unlocked): the hub and the title menu both have the entry
+    const n = await newPage('screen=hub', 'Nyt');
+    await n.page.waitForSelector('.hub-livebtn:not([hidden])', { timeout: 8000 });
+    ok(await n.page.evaluate(() => KOS.Storage.totalStars() === 0), 'hub: the Live entry shows with 0 stars and nothing unlocked');
+    if (process.env.SHOTS) { await n.page.setViewportSize({ width: 1000, height: 700 }); await n.page.waitForTimeout(1200); await n.page.screenshot({ path: process.env.SHOTS + 'live5-hub-entry.png' }); }
+    await n.page.click('.hub-livebtn');
+    await waitView(n.page, 'entry');
+    ok(await n.page.evaluate(() => !document.querySelector('#screen-live [data-act="host"]').disabled), 'hub entry opens the Live lobby (host and join enabled)');
+    // the host's boat picker offers every boat, not only the unlocked ones; the help level can be locked
+    await clickAct(n.page, 'host'); await waitView(n.page, 'setup');
+    ok(await n.page.evaluate(() => { const b = [...document.querySelectorAll('#screen-live [data-act="opt"][data-k="boat"]')].map(x => x.getAttribute('data-v')); return ['opti', 'hboat', 'j70', '29er'].every(x => b.indexOf(x) >= 0); }), 'host boat picker: all boats offered with no unlocks (H-boat, J/70, 29er ...)');
+    await n.page.click('#screen-live [data-act="opt"][data-k="help"][data-v="locked"]');
+    ok(await n.page.evaluate(() => KOS.Lobby.state.cfg.help === 'locked'), 'help level "Låst" can be chosen');
+    await n.page.click('#screen-live [data-act="opt"][data-k="boat"][data-v="hboat"]');
+    await clickAct(n.page, 'create'); await waitView(n.page, 'room');
+    const code = await n.page.evaluate(() => document.getElementById('live-code-show').textContent);
+    ok(await n.page.evaluate(() => KOS.Lobby.state.cfg.boat === 'hboat'), 'the host created an H-boat race without having unlocked it');
+    const tt = await newPage('', 'Nyt2');
+    n.page2 = tt.page;
+    await tt.page.waitForSelector('.menu-live:not([hidden])', { timeout: 8000 });
+    ok(true, 'title menu: the Live entry shows too');
+    if (process.env.SHOTS) await tt.page.screenshot({ path: process.env.SHOTS + 'live5-title-entry.png' });
+
+    // a brand-new phone arrives through the link: first the short setup, then the room, with the chosen name
+    const f = await newPage('join=' + code, null, { noProfile: true });
+    await f.page.waitForSelector('#screen-profile #pf-name', { timeout: 10000 });
+    ok(await f.page.evaluate(() => !KOS.Storage.profile() && document.querySelectorAll('#screen-profile .panel').length === 1 && !document.querySelector('#screen-live:not([hidden])')), 'no profile: the short first-time setup comes first (one panel: name + age), not the lobby');
+    if (process.env.SHOTS) { await f.page.setViewportSize({ width: 390, height: 780 }); await f.page.waitForTimeout(600); await f.page.screenshot({ path: process.env.SHOTS + 'live5-first-setup-phone.png' }); }
+    await f.page.click('#screen-profile [data-act="save"]');
+    ok(await f.page.evaluate(() => !KOS.Storage.profile()), 'an empty name is not accepted');
+    await f.page.fill('#pf-name', 'Mia');
+    await f.page.click('#screen-profile [data-act="save"]');
+    await waitView(f.page, 'join');
+    ok(await f.page.evaluate(c => document.getElementById('live-code').value === c && KOS.Storage.profile().name === 'Mia', code), 'after the setup the join screen has the code from the link and the profile name');
+    await clickAct(f.page, 'join'); await waitView(f.page, 'room');
+    ok(await f.page.evaluate(() => KOS.Lobby.state.room.players.some(p => p.name === 'Mia')), 'the room lists the new sailor under the chosen name (Mia)');
+    ok(f.page.errs.length === 0, 'no errors in the first-time flow (' + f.page.errs.join(' | ') + ')');
+    await f.ctx.close(); await n.ctx.close();
+  }
+
+  console.log('-- an update that is waiting is applied before the join, then the join continues');
+  {
+    // a real service worker: the page registers sw.js; then the served sw.js changes (a new version) and Live is opened through a link
+    const hostP = await newPage('area=race', 'Vaert2');
+    await hostP.page.waitForSelector('.live-card', { timeout: 8000 });
+    await hostP.page.click('.live-card'); await waitView(hostP.page, 'entry'); await clickAct(hostP.page, 'host'); await waitView(hostP.page, 'setup');
+    await clickAct(hostP.page, 'create'); await waitView(hostP.page, 'room');
+    const code = await hostP.page.evaluate(() => document.getElementById('live-code-show').textContent);
+
+    let swBump = ''; // sw.js served with a changed tail = a new version (page.route cannot see the worker script request)
+    const web2 = await serve({ port: 0, transform: (rel, buf) => (rel === 'sw.js' && swBump ? Buffer.concat([buf, Buffer.from(swBump)]) : null) });
+    const ctx = await browser.newContext({ viewport: { width: 1000, height: 800 }, serviceWorkers: 'allow' });
+    const page = await ctx.newPage();
+    page.errs = [];
+    page.on('pageerror', e => page.errs.push('pageerror ' + e.message));
+    await page.route('**/mp-status.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(status) }));
+    await page.addInitScript(() => { try { if (!localStorage.getItem('kos.profile')) localStorage.setItem('kos.profile', JSON.stringify({ name: 'Ulla', sailNo: '7', avatar: null })); } catch (e) { /* ignore */ } });
+    const ov = '&mp=' + encodeURIComponent(WS) + '&mpstatus=' + encodeURIComponent(STATUS_URL);
+    await page.goto(web2.url + '#screen=hub' + ov);
+    await page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    await page.waitForFunction(() => navigator.serviceWorker.getRegistration().then(r => !!(r && r.active)), null, { timeout: 30000 });
+    await page.reload();
+    await page.waitForFunction(() => window.KOS && KOS.modesReady && !!navigator.serviceWorker.controller, null, { timeout: 30000 });
+    await page.evaluate(() => sessionStorage.removeItem('kos.mp.upd'));
+    swBump = '\n// new version ' + Date.now() + '\n';
+    // the link is opened in the already running app (a controlled page): a new worker is found, installed and applied by the open itself
+    const nav = page.waitForNavigation({ timeout: 30000 }).catch(() => null);
+    await page.evaluate(c => { KOS.MPStatus.open({ join: c, via: 'link' }); }, code);
+    await nav;
+    await page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    ok(await page.evaluate(() => !!sessionStorage.getItem('kos.mp.upd')), 'a waiting update was applied before the lobby opened (the page reloaded once)');
+    await waitView(page, 'room', 20000);
+    ok(await page.evaluate(c => KOS.Lobby.state.room.code === c, code), 'after the update reload the join continued straight into room ' + code);
+    ok(page.errs.length === 0, 'no errors (' + page.errs.join(' | ') + ')');
+    // no update at all while sitting in the room: a worker that shows up now waits (no reload, no prompt)
+    swBump = '\n// even newer ' + Date.now() + '\n';
+    await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+    await page.waitForTimeout(2500);
+    ok(await page.evaluate(() => document.getElementById('screen-live').getAttribute('data-live-view') === 'room' && !document.querySelector('.toast-action, .toast [data-act]') && KOS.Lobby.state.sess.state === 'ok'), 'in the room: a newer version triggers no prompt and no reload');
+    await ctx.close(); await hostP.ctx.close(); await web2.close();
   }
 
   await browser.close();

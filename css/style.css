@@ -161,6 +161,8 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 .mb-ico { width: 44px; height: 44px; display: grid; place-items: center; flex: none; }
 .mb-ico .ico { width: 34px; height: 34px; }
 .c-orange { color: var(--primary); } .c-blue { color: var(--blue); } .c-green { color: var(--good); }
+.menu-btn[hidden] { display: none; }
+.menu-live.is-closed { opacity: .7; }
 .mb-txt { display: flex; flex-direction: column; min-width: 0; }
 .mb-txt b { font-size: 1.25rem; font-weight: 800; }
 .mb-txt small { color: var(--text-dim); font-size: .92rem; font-weight: 600; }

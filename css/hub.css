@@ -129,6 +129,9 @@
 .hub-stars .hub-star { width: 26px; height: 26px; filter: drop-shadow(0 0 6px rgba(255, 210, 94, .6)); }
 .hub-stars-max { font-size: 15px; font-weight: 700; color: rgba(255, 255, 255, .55); }
 .hub-btn { display: flex; align-items: center; gap: 8px; height: 52px; min-width: 52px; padding: 0 14px; cursor: pointer; font: inherit; font-weight: 800; font-size: 15px; justify-content: center; transition: transform .12s, background .2s; }
+.hub-livebtn[hidden] { display: none; }
+.hub-livebtn { color: #fff; border-color: rgba(120, 220, 160, .55); }
+.hub-livebtn.is-closed { opacity: .65; }
 .hub-btn:hover, .hub-me:hover, .hub-zoom button:hover { background: rgba(30, 42, 66, .82); }
 .hub-btn:active, .hub-me:active, .hub-zoom button:active { transform: scale(.94); }
 .hub-btn-icon { padding: 0; width: 52px; }
