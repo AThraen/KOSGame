@@ -196,8 +196,8 @@
 .race-board.rb-watch { left: auto; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t) + 12px); transform: none; width: min(300px, 40vw); animation: none; max-height: calc(100% - var(--safe-t) - var(--safe-b) - 24px); }
 .rb-row.lost { opacity: .5; }
 .race-live-banner {
-  position: absolute; top: calc(var(--safe-t) + 8px); left: 50%; transform: translateX(-50%); z-index: 60; pointer-events: none;
-  background: #7a4a00; color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 800;
+  position: absolute; top: calc(var(--safe-t) + 76px); left: 50%; transform: translateX(-50%); z-index: 60; pointer-events: none;
+  background: #7a4a00; color: #fff; padding: 8px 16px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.35); border-radius: 999px; font-weight: 800;
 }
 .race-live-banner[hidden] { display: none; }
 

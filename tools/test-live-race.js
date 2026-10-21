@@ -507,6 +507,91 @@ async function main() {
     for (const c of pages.splice(0)) await c.close(); await srv.close();
   }
 
+  // ================================================================== 10. chaos: random drops, dead sockets, stalls, reloads, clock steps on 4 clients
+  console.log('-- chaos: 4 clients, random drops / dead sockets / stalls / reloads / clock steps / bursts through the countdown and the race');
+  {
+    let seed = +(process.env.CHAOS_SEED || 7) >>> 0;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const pick = a => a[Math.floor(rnd() * a.length)];
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Ane', 'Bo', 'Cille'], { boat: 'ilca', laps: 1, windKn: 14, windDeg: 225, countdownS: 40, gust: 0.4, shift: 0.3, pen: false, contact: false, help: 'free' });
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    for (const p of L.all) await botOn(p);
+    const ids = await Promise.all(L.all.map(p => p.evaluate(() => KOS.App.run.host.live.myId)));
+    const t0 = Date.now();
+    const quiet = L.all.map(() => 0); // ms timestamp until which a client counts as "being disturbed" (+ recovery time)
+    const log = [];
+    // sampler: how long is a boat lost in somebody else's view although nobody was disturbed for a while?
+    let worst = 0, worstWho = '';
+    const lostSince = new Map();
+    let sampling = true;
+    const sampler = (async () => {
+      while (sampling) {
+        const views = await Promise.all(L.all.map(p => p.evaluate(() => { const i = KOS.App.run.inst; return i && i.live ? i.live.remotes.map(r => [r.rid, !!r.lost]) : []; }).catch(() => [])));
+        const now = Date.now();
+        views.forEach((v, vi) => v.forEach(([rid, lost]) => {
+          const ti = ids.indexOf(rid), key = vi + ':' + ti;
+          if (!lost) { lostSince.delete(key); return; }
+          if (!lostSince.has(key)) lostSince.set(key, now);
+          const calm = Math.max(quiet[vi], quiet[ti]);
+          const bad = now - Math.max(lostSince.get(key), calm);
+          if (bad > worst) { worst = bad; worstWho = 'view ' + vi + ' of ' + ti; }
+        }));
+        await sleep(400);
+      }
+    })();
+    const actions = ['drop', 'mute', 'stall', 'reload', 'clock', 'burst', 'clock', 'reload'];
+    const reloaded = new Set();
+    let n = 0;
+    while (Date.now() - t0 < 45000 && n < 9) {
+      await sleep(1500 + rnd() * 3500);
+      const ci = Math.floor(rnd() * L.all.length), p = L.all[ci];
+      let act = pick(actions);
+      if (act === 'reload' && reloaded.has(ci)) act = 'drop';
+      quiet[ci] = Date.now() + 1e9;
+      log.push(((Date.now() - t0) / 1000).toFixed(0) + 's c' + ci + ' ' + act);
+      try {
+        if (act === 'drop') await p.evaluate(() => KOS.Lobby.state.sess.testDrop());
+        else if (act === 'mute') await p.evaluate(() => KOS.Lobby.state.sess.testMute());
+        else if (act === 'stall') {
+          const ms = 3000 + Math.floor(rnd() * 9000);
+          await p.evaluate(() => { window.__raf = window.__raf || window.requestAnimationFrame; window.requestAnimationFrame = () => 0; });
+          await sleep(ms);
+          await p.evaluate(() => { window.requestAnimationFrame = window.__raf; KOS.App.kickFrame(); });
+        } else if (act === 'clock') {
+          const step = (rnd() < 0.5 ? -1 : 1) * (1000 + Math.floor(rnd() * 7000));
+          await p.evaluate(s => { KOS.Lobby.state.sess.offset += s; }, step);
+        } else if (act === 'burst') {
+          const s = p.sent.filter(f => /"t":"st"/.test(f)).pop();
+          if (s) await p.evaluate(x => { const S = KOS.Lobby.state.sess; for (let i = 1; i <= 200; i++) { const a = x.slice(); a[1] += i; S.send({ t: 'st', s: a }); } }, JSON.parse(s).s);
+        } else if (act === 'reload') {
+          reloaded.add(ci);
+          await p.reload();
+          await p.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+          await inRace(p);
+          await botOn(p);
+        }
+      } catch (e) { log.push('  (' + act + ' failed: ' + String(e.message).split('\n')[0] + ')'); }
+      quiet[ci] = Date.now() + 5000; // recovery budget: 5 s after the disturbance ended
+      n++;
+    }
+    console.log('  chaos log: ' + log.join(' | '));
+    // everybody finishes with the same official table
+    for (const p of L.all) await p.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 280000 });
+    sampling = false; await sampler;
+    ok(worst <= 4000, 'no boat stayed lost for more than a few seconds after the disturbance ended (worst ' + (worst / 1000).toFixed(1) + ' s, ' + worstWho + ')');
+    const res = await Promise.all(L.all.map(resultOf));
+    const key = rows => rows.map(r => r.place + ':' + r.name + ':' + r.timeMs).join(' | ');
+    ok(res.every(r => r && r.r.live === true && !r.r.unofficial), 'every client ends with an official live result (no one fell back to unofficial)');
+    ok(res.every(r => r.rows.length === 4 && key(r.rows) === key(res[0].rows)), 'all four clients show the same table (' + (res[0] ? key(res[0].rows) : '') + ')');
+    ok(res[0].rows.every(r => r.timeMs > 5000), 'all four finished (no DNF / lost among them)');
+    ok(L.all.every(p => p.errs.length === 0), 'no errors on any page (' + L.all.map(p => p.errs.join('|')).join(' / ') + ')');
+    for (const c of pages.splice(0)) await c.close();
+    await srv.close();
+  }
+
   await browser.close();
   await web.close();
   console.log('\nliverace: ' + checks + ' checks, ' + fails + ' failed');

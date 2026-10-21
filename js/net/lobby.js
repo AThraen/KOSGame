@@ -19,7 +19,7 @@
     few: 'Der skal være flere sejlere for at starte.', reconnecting: 'Forbinder igen…',
     host: 'Vær vært', join: 'Deltag', code: 'Løbskode', start: 'Start løbet', kick: 'Fjern', leave: 'Forlad', share: 'Del link',
     copied: 'Link kopieret', startsIn: 'Starter om {n}', players: 'Sejlere', waitHost: 'Venter på værten…', go: 'Sejl!',
-    guest: 'Sejler', ready: 'Klar', lost: 'Mistet forbindelsen', you: 'dig', hostTag: 'Vært',
+    guest: 'Sejler', ready: 'Klar', lost: 'Mistet forbindelsen', lostShort: 'Mistet', offlineNote: 'Forbindelsen er væk. Sejl bare videre – dit resultat bliver uofficielt.', backOnline: 'Du er online igen!', you: 'dig', hostTag: 'Vært',
     intro: 'Sejl et rigtigt løb mod dine kammerater – alle i samme båd-type, på samme tid.',
     hostIntro: 'Vælg båd og bane. Så får du en kode, som de andre taster ind.', joinIntro: 'Tast koden fra værten – eller scan QR-koden.',
     role: { sail: 'Vært + sejler', watch: 'Kun vært', sailHint: 'Du sejler selv med.', watchHint: 'Storskærm: overblik og stillingen.' },
@@ -51,7 +51,7 @@
     few: 'More sailors are needed to start.', reconnecting: 'Reconnecting…',
     host: 'Host a race', join: 'Join', code: 'Race code', start: 'Start race', kick: 'Remove', leave: 'Leave', share: 'Share link',
     copied: 'Link copied', startsIn: 'Starting in {n}', players: 'Sailors', waitHost: 'Waiting for the host…', go: 'Go!',
-    guest: 'Sailor', ready: 'Ready', lost: 'Lost connection', you: 'you', hostTag: 'Host',
+    guest: 'Sailor', ready: 'Ready', lost: 'Lost connection', lostShort: 'Lost', offlineNote: 'The connection is gone. Keep sailing – your result will be unofficial.', backOnline: 'You are back online!', you: 'you', hostTag: 'Host',
     intro: 'Sail a real race against your friends – everyone in the same boat type, at the same time.',
     hostIntro: 'Pick the boat and the course. You get a code for the others to type in.', joinIntro: 'Type the code from the host – or scan the QR code.',
     role: { sail: 'Host + sail', watch: 'Host only', sailHint: 'You sail too.', watchHint: 'Big screen: overview and standings.' },
@@ -136,7 +136,7 @@
   // ------------------------------------------------------------------ flows
   function connectNow() {
     const M = KOS.MPStatus;
-    return KOS.MP.connect({ url: M.resolve().wsUrl, name: myName(), timeoutMs: 4000, build: (KOS.BUILD && KOS.BUILD.version) || 'web' });
+    return KOS.MP.connect({ url: M.resolve().wsUrl, name: myName(), timeoutMs: 7000, build: (KOS.BUILD && KOS.BUILD.version) || 'web' });
   }
   function wire(sess) {
     L.sess = sess;

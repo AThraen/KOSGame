@@ -20,7 +20,7 @@ function createServer(env) {
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const IDLE_MS = num(env.KOS_IDLE_MS, 60000);
 
-  const rooms = createRooms({ limits: Object.assign({}, HARD) });
+  const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000) });
   const conns = createConnCounter({ maxTotal: num(env.KOS_MAX_CONNS, 300), maxPerIp: num(env.KOS_MAX_PER_IP, 20) });
   const started = Date.now();
 
@@ -141,7 +141,7 @@ function createServer(env) {
           }
           if (res.room.finishAt && res.room.phase === 'racing') send({ t: 'fwin', endAt: res.room.finishAt });
           // the last valid state of this seat (position, heading, speed, flags, leg): a client that was reloaded puts its boat back there
-          send({ t: 'me', s: res.player.state || null, T0: res.room.T0, now: Date.now() });
+          send({ t: 'me', s: res.player.state || null, fin: res.player.finMs || null, T0: res.room.T0, now: Date.now() });
           if (res.room.phase === 'results') send({ t: 'res', rows: res.room.results });
           break;
         }

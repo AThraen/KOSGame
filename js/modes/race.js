@@ -949,6 +949,7 @@
       if (lag > S.catchMax && !S.rest) {
         S.skipTo = Math.max(S.skipTo, S.clock + lag - CATCH_KEEP); S.skips++; S.skippedS += lag - CATCH_KEEP; S.sendNow = true;
       }
+      if (lag < -CATCH_MAX && !S.rest && (S.phase === 'race' ? lag + S.clock >= 0 : S.phase === 'pre' && lag + S.clock < 0)) { S.clock += lag; env.t += lag; S.rewinds = (S.rewinds || 0) + 1; lag = 0; } // same phase on both sides: rewind the clock, the boat stays where it is
       if (S.skipTo > S.clock || (S.rest && !S.rest.done)) {
         skipAhead(dt || KOS.DT);
         lag = (LIVE.serverNow() - LIVE.T0) / 1000 - S.clock;
@@ -965,7 +966,7 @@
       if (!st || !st.ts) { S.holdSend = false; return; }
       const clock = (st.ts - LIVE.T0) / 1000;
       if (!(clock > S.clock - 0.5) || S.phase === 'finish') { S.holdSend = false; return; }
-      S.rest = { st, clock, done: false };
+      S.rest = { st, clock, done: false, fin: Number.isFinite(m.fin) ? m.fin : null };
     }
     function applyRestore() {
       const st = S.rest.st; S.rest.done = true; S.holdSend = false; S.restored = true;
@@ -974,6 +975,7 @@
       me.rc.ocs = st.ocs;
       if (st.penalty && !me.rc.pen) addPen(me, 1);
       S.catchMax = 30; S.sendNow = true;
+      if (S.rest.fin && me.rc.finT == null) finished(me, S.rest.fin);
       if (scene.follow) scene.follow(me);
     }
     function onStates(arr) {
@@ -1009,7 +1011,7 @@
           if (rc.finT == null && s.lg !== rc.leg && s.lg >= 0 && s.lg < seq.length) setLeg(b, s.lg);
           if (s.penalty && !rc.pen) rc.penN = (rc.penN || 0) + 1; // penalty turns taken, for the big-screen board
           rc.pen = s.penalty ? REMOTE_PEN : null;
-          b.lost = !S.unofficial && b.buf.isLost(nowS, LOST_MS);
+          b.lost = !S.unofficial && rc.finT == null && b.buf.isLost(nowS, LOST_MS); // a boat that has finished stops sending: that is not a lost connection
           b.ghost = b.lost || s.frozen;
         }
         if (rc.finT != null) { const since = S.raceT - rc.finT; if (since > 22) b.hidden = true; else if (since > 14) b.ghost = true; }
@@ -1066,6 +1068,7 @@
       if (S.unofficial) return;
       lt('disconnect');
       S.unofficial = true; S.offAt = env.t;
+      if (!WATCH) { try { say(t('live.offlineNote'), 9000); } catch (e) { /* optional */ } }
       if (banner) banner.hidden = true;
     }
     function liveRows() {
@@ -1293,7 +1296,7 @@
           const fin = b.rc.finT != null, it = seq[b.rc.leg];
           let gap = '';
           if (fin) gap = b === win ? fmtT(b.rc.finT * 1000) : '+' + secTxt(b.rc.finT - win.rc.finT);
-          else if (b.lost) gap = t('live.lost');
+          else if (b.lost) gap = t('live.lostShort');
           else if (S.phase !== 'pre') gap = b.lost ? t('live.lost') : b.rc.ocs ? 'X' : i === 0 && !win ? t('live.watch.leader') : '+' + Math.round(Math.max(0, (b.rc.rem - (win ? 0 : lead.rc.rem)) / vEst)) + ' s';
           wbSet(row.c.pos, String(i + 1)); wbSet(row.c.nm, (b.lost ? '⚠ ' : '') + b.name); wbSet(row.c.gap, gap);
           const live = !fin && !b.lost && S.phase !== 'pre';
@@ -1367,7 +1370,7 @@
       liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
       liveOffs.push(LIVE.on('res', rows => { toggleHostMenu(false); S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
       liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
-      liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; S.sendNow = true; })); // my own boat is the truth: no teleport, just say where I am at once
+      liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; S.sendNow = true; S.reconnected = (S.reconnected || 0) + 1; })); // my own boat is the truth: no teleport, just say where I am at once
       liveOffs.push(LIVE.on('restore', onRestore));
       if (LIVE.resumed && !WATCH) { // a reloaded page: wait (max 1.5 s) for the restore message before the first state goes out
         S.holdSend = true;
@@ -1816,8 +1819,19 @@
     }
 
     function render(alpha) { scene.render(alpha); }
+    // keep the screen awake for the whole live race (and re-take the lock when the page comes back to the foreground)
+    let wakeLock = null, wakeVis = null;
+    function takeWake() {
+      try {
+        if (destroyed || !navigator.wakeLock || document.hidden) return;
+        navigator.wakeLock.request('screen').then(l => { if (destroyed) { l.release().catch(() => {}); return; } wakeLock = l; l.addEventListener('release', () => { if (wakeLock === l) wakeLock = null; }); }, () => {});
+      } catch (e) { /* not supported */ }
+    }
+    if (LIVE) { takeWake(); wakeVis = () => { if (!document.hidden && !wakeLock) takeWake(); }; document.addEventListener('visibilitychange', wakeVis); }
     function destroy() {
       destroyed = true;
+      if (wakeVis) document.removeEventListener('visibilitychange', wakeVis);
+      try { if (wakeLock) wakeLock.release().catch(() => {}); } catch (e) { /* ignore */ }
       liveOffs.forEach(f => f());
       if (banner) banner.remove();
       if (netEl) netEl.remove();

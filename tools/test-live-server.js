@@ -362,6 +362,51 @@ async function main() {
     await srv3.close();
   }
 
+  console.log('-- lobby grace: a dropped socket keeps its seat (host too), then the room closes');
+  {
+    const srv4 = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile, KOS_STATUS_POLL_MS: '200', KOS_LOBBY_GRACE_MS: '1500' });
+    const p4 = await srv4.listen();
+    const mk4 = async (name) => { const c = new Client(p4, name); await c.hello(); return c; };
+    const H = await mk4('Hanne'), J = await mk4('Jonas');
+    H.send({ t: 'create', cfg: {}, hostRole: 'sail' });
+    const crH = await H.wait('created');
+    J.send({ t: 'join', code: crH.code }); const jj = await J.wait('joined');
+    // a joiner's socket drops in the lobby: marked lost, the seat is still there, resume puts it back
+    J.ws.terminate();
+    const lostRoom = await H.wait((m) => m.t === 'room' && m.room.players.some(p => p.lost));
+    ok(lostRoom.room.players.length === 2, 'lobby: a dropped joiner stays in the room as "lost" (not deleted)');
+    const J2 = await mk4('Jonas');
+    J2.send({ t: 'resume', code: crH.code, id: jj.id, key: jj.key });
+    const rj4 = await J2.wait('joined');
+    ok(rj4.room.players.every(p => !p.lost) && rj4.id === jj.id, 'lobby: resume re-binds the same seat');
+    // the host drops: the room waits, and the host comes back
+    H.ws.terminate();
+    await J2.wait((m) => m.t === 'room' && m.room.players.some(p => p.lost && p.host));
+    const H2 = await mk4('Hanne');
+    H2.send({ t: 'resume', code: crH.code, id: crH.id, key: crH.key });
+    const rh = await H2.wait('joined');
+    ok(rh.room.hostId === crH.id && rh.room.phase === 'lobby', 'lobby: the host resumes the room after a drop');
+    // out-of-range state frames are dropped; a valid one is kept
+    H2.send({ t: 'start' });
+    await H2.wait('start');
+    srv4.rooms.rooms.get(crH.code).T0 = Date.now() + 10;
+    await sleep(300);
+    H2.send({ t: 'st', s: [0, 5e11, 1e9, 0, 0, 0, 0, 0, 0] });
+    H2.send({ t: 'st', s: [0, 5e11 + 1, 10, 20, 1, 3, 0, 0, 0] });
+    await sleep(200);
+    const stH = srv4.rooms.rooms.get(crH.code).players.get(crH.id).state;
+    ok(stH && stH[2] === 10 && stH[3] === 20, 'a state frame with an absurd position is dropped, the next valid one is kept');
+    // the host vanishes for good: after the grace the others are told
+    const room4 = srv4.rooms.rooms.get(crH.code);
+    srv4.rooms.abort(room4, crH.id);
+    await J2.wait('rematch');
+    H2.ws.terminate();
+    await J2.wait('hostleft', 6000);
+    ok(true, 'lobby: a host that never comes back closes the room after the grace');
+    J2.close();
+    await srv4.close();
+  }
+
   console.log('-- kos-race script');
   if (process.platform !== 'win32' || process.env.KOS_TEST_BASH) {
     const sf = path.join(tmp, 'cli.json');

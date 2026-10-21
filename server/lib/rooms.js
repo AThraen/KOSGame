@@ -7,7 +7,8 @@ const P = require('./protocol');
 const LOST_GRACE_MS = 45000; // a seat that lost its socket keeps its place this long (a phone in the background, a tunnel)
 const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and a rematch
 const HOSTLEFT_KEEP_MS = 5000;
-const EMPTY_KEEP_MS = 10000;
+const EMPTY_KEEP_MS = 30000;
+const LOBBY_GRACE_MS = 20000; // a lobby/countdown seat whose socket dropped (phone locked, tunnel) keeps its place this long; the host too
 const LOBBY_AFTER_MS = 12000; // the podium stays this long when the host chose "back to the lobby after the race"
 const LOBBY_MAX_MS = 30 * 60000;
 const HARD_MAX_MS = 2 * 3600000;
@@ -17,6 +18,7 @@ function createRooms(opts) {
   const now = o.now || Date.now;
   const randInt = o.randInt || ((n) => crypto.randomInt(n));
   const lim = Object.assign({ maxRooms: 40, maxPlayers: 24 }, o.limits || {});
+  const lobbyGrace = o.lobbyGraceMs || LOBBY_GRACE_MS;
   const rooms = new Map();
 
   function newCode() {
@@ -101,6 +103,11 @@ function createRooms(opts) {
     const p = r.players.get(id);
     if (!p || r.phase === 'closing') return;
     if (r.phase === 'lobby' || r.phase === 'countdown') {
+      if (!graceful) { // a dropped socket is not a decision to leave: the seat waits (tick() finishes it after lobbyGrace)
+        p.lost = true; p.lostAt = now(); p.send = null;
+        pushRoom(r); checkEmpty(r);
+        return;
+      }
       if (p.host) {
         broadcast(r, { t: 'hostleft' });
         r.phase = 'closing'; r.deleteAt = now() + HOSTLEFT_KEEP_MS;
@@ -140,8 +147,9 @@ function createRooms(opts) {
 
   function start(r, hostId) {
     if (r.hostId !== hostId || r.phase !== 'lobby') return 'denied';
+    for (const p of [...r.players.values()]) if (p.lost && !p.host) r.players.delete(p.id); // a seat that is still dropped when the host starts is gone
     const boats = [...r.players.values()].filter(hasBoat).length;
-    if (r.hostRole === 'sail' ? boats < 2 : boats < 1) return 'few';
+    if (r.hostRole === 'sail' ? boats < 2 : boats < 1) { pushRoom(r); return 'few'; }
     const t = now();
     r.phase = 'countdown';
     r.T0 = t + r.cfg.countdownS * 1000;
@@ -193,6 +201,8 @@ function createRooms(opts) {
   function state(r, id, arr) {
     const p = r.players.get(id);
     if (!p || !p.boat || p.final || !(r.phase === 'racing' || r.phase === 'countdown')) return false;
+    // out-of-range values (a buggy or hostile client) are dropped: positions within 100 km, speed under 60 m/s, sane flags and leg
+    if (Math.abs(arr[2]) > 1e5 || Math.abs(arr[3]) > 1e5 || Math.abs(arr[5]) > 60 || Math.abs(arr[6]) > 10 || !(arr[7] >= 0 && arr[7] < 256) || !(arr[8] >= -1 && arr[8] < 500)) return false;
     const t = now();
     // seq must grow; but a seat that has been silent for 1.5 s may restart its sequence (a reload, a stamp that ran ahead of the real clock)
     if (p.state && arr[1] <= p.state[1] && t - (p.stAt || 0) < 1500) return false;
@@ -268,6 +278,14 @@ function createRooms(opts) {
       if (t - r.created > HARD_MAX_MS) { broadcast(r, { t: 'err', code: 'closed' }); remove(r); continue; }
       if (r.phase === 'lobby' && t - r.created > LOBBY_MAX_MS) { broadcast(r, { t: 'hostleft' }); remove(r); continue; }
       if (r.emptyAt && t - r.emptyAt >= EMPTY_KEEP_MS && ![...r.players.values()].some(p => !p.lost)) { remove(r); continue; }
+      if (r.phase === 'lobby' || r.phase === 'countdown') {
+        for (const p of [...r.players.values()]) {
+          if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;
+          if (p.host) { broadcast(r, { t: 'hostleft' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; break; }
+          if (r.phase === 'lobby') { r.players.delete(p.id); pushRoom(r); }
+        }
+        if (r.phase === 'closing') continue;
+      }
       if (r.phase === 'countdown' && t >= r.T0) r.phase = 'racing';
       if (r.phase === 'racing') {
         for (const p of r.players.values()) {

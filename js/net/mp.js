@@ -44,7 +44,7 @@
 
   function connect(opts) {
     opts = opts || {};
-    const timeoutMs = opts.timeoutMs || 4000;
+    const timeoutMs = opts.timeoutMs || 7000; // a phone on a weak mobile signal needs more than 4 s for TLS + WebSocket
     return new Promise((resolve, reject) => {
       let ws = null, done = false;
       const fail = (code) => {
@@ -192,7 +192,7 @@
           break;
         }
         case 's': S.lastStates = now(); emit('states', Array.isArray(m.a) ? m.a : []); break;
-        case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, T0: m.T0, now: m.now }; emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
+        case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, fin: typeof m.fin === 'number' ? m.fin : null, T0: m.T0, now: m.now }; emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
         case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; clearToken(); emit('res', m.rows); break;
@@ -249,7 +249,7 @@
       if (S.state === 'reconnecting') return; // forceReconnect already took over
       if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej({ code: 'unreachable' }); }
       if (final || S.state === 'closed' || S.state === 'offline') return;
-      if (S.token && (S.phase === 'countdown' || S.phase === 'racing')) {
+      if (S.token && (S.phase === 'lobby' || S.phase === 'countdown' || S.phase === 'racing')) { // the lobby too: a locked phone must not lose its seat
         S.state = 'reconnecting'; lostAt = Date.now(); emit('reconnecting');
         scheduleRetry(0);
       } else { S.state = 'offline'; emit('offline'); }
