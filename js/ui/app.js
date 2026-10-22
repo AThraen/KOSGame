@@ -1521,12 +1521,30 @@
   };
 
   // ================================================================== CREDITS
+  // umage.ai Studio credit (About page only). The brand name is never translated.
+  // Switch to the kos page at launch: set STUDIO_PAGE_LIVE = true (the kos pages return 404 until the listing is live).
+  const STUDIO_PAGE_LIVE = false;
+  const STUDIO_URLS = STUDIO_PAGE_LIVE
+    ? { da: 'https://studio.umage.ai/da/spil/kos/', en: 'https://studio.umage.ai/games/kos/' }
+    : { da: 'https://studio.umage.ai/da/', en: 'https://studio.umage.ai/' };
+  function studioCredit() {
+    const lang = KOS.I18n && KOS.I18n.lang === 'en' ? 'en' : 'da';
+    const ext = ' target="_blank" rel="noopener"';
+    return '<section class="panel glass studio-credit"><a class="studio-lockup" href="' + STUDIO_URLS[lang] + '"' + ext + ' aria-label="umage.ai Studio">' +
+      '<img class="studio-logo" src="assets/brand/umage-ai-logo-white.svg" alt="umage.ai" width="84" height="30" draggable="false">' +
+      '<span class="studio-badge" aria-hidden="true">STUDIO</span></a>' +
+      '<p>' + esc(t('app.credits.studio')) + '</p>' +
+      '<p class="studio-links"><a class="credit-link" href="' + STUDIO_URLS[lang] + '"' + ext + '>umage.ai Studio</a> · ' +
+      '<a class="credit-link" href="https://umage.ai"' + ext + '>umage.ai</a> · ' +
+      '<a class="credit-link" href="https://www.kossejlsport.dk/"' + ext + '>KØS Sejlsport</a></p></section>';
+  }
   renderers.credits = function (sec) {
     sec.innerHTML = header(t('app.credits.title'), '', '') +
       '<div class="scroll"><div class="panel-col credits">' +
       '<div class="credits-logo">' + logoSvg() + '</div>' +
       '<section class="panel glass"><p class="lead">' + esc(t('app.credits.lead')) + '</p>' +
       '<p class="credit-author">' + esc(t('app.credits.idea')) + '</p><p class="credit-volunteer">' + esc(t('app.credits.volunteer')) + '</p></section>' +
+      studioCredit() +
       '<section class="panel glass"><h2>' + ico('heart') + esc(t('app.credits.made')) + '</h2>' +
       '<ul class="credit-list"><li><b>' + esc(t('app.credits.club')) + '</b><span><a class="credit-link" href="https://kossejlsport.dk" target="_blank" rel="noopener">KØS Sejlsport</a> · Svaneknoppen</span></li>' +
       '<li><b>' + esc(t('app.credits.code')) + '</b><span>' + esc(t('app.credits.codeWho')) + '</span></li>' +
@@ -1821,6 +1839,7 @@
       badge: { new: 'Nyt mærke: {name}!', have: 'Du har dette mærke!', newOne: 'Nyt mærke!', newMany: 'Nye mærker!', locked: 'Ikke låst op endnu', count: '{n} af {of} mærker' },
       credits: {
         title: 'Om spillet', lead: 'KØS SEJL er lavet til de unge sejlere i KØS Sejlsport på Svaneknoppen – så du kan øve dig hele vinteren og være skarp, når bådene kommer i vandet igen.',
+        studio: 'Lavet af umage.ai Studio i samarbejde med KØS Sejlsport. Spillet er bygget af AI-agenter, instrueret af umage.ai.',
         made: 'Lavet af', club: 'Klub', code: 'Spil og kode', codeWho: 'Frivillige i KØS med hjælp fra Claude',
         thanks: 'Tak til', thanksWho: 'Alle trænere, forældre og sejlere i KØS',
         safetyTitle: 'Sejl sikkert', safety: 'Brug altid redningsvest. Sejl aldrig alene uden en træner i nærheden, og hold dig ude af sejlrenden og badezonerne.',
@@ -1900,6 +1919,7 @@
       badge: { new: 'New badge: {name}!', have: 'You have this badge!', newOne: 'New badge!', newMany: 'New badges!', locked: 'Not unlocked yet', count: '{n} of {of} badges' },
       credits: {
         title: 'About', lead: 'KØS SEJL is made for the young sailors of KØS Sejlsport on Svaneknoppen – so you can practise all winter and be sharp when the boats go back in the water.',
+        studio: 'Made by umage.ai Studio in collaboration with KØS Sejlsport. Built by AI agents, directed by umage.ai.',
         made: 'Made by', club: 'Club', code: 'Game and code', codeWho: 'KØS volunteers with help from Claude',
         thanks: 'Thanks to', thanksWho: 'All the coaches, parents and sailors at KØS',
         safetyTitle: 'Sail safe', safety: 'Always wear a life jacket. Never sail alone without a coach nearby, and stay out of the channel and swim zones.',
