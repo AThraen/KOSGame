@@ -185,6 +185,49 @@ async function settingsScreen(browser) {
   await ctx.close();
 }
 
+// hub and title top bars: every button fully on screen and none overlapping, from 320 to 430 px wide, portrait and landscape, with the
+// system font scaled up (root 16/20 px). The settings button must always be visible, also with the "Live-kapsejlads" button showing.
+async function topBars(browser) {
+  console.log('top bars (hub + title)');
+  const SHOTS = process.env.RF3_SHOTS;
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(e.message));
+  await page.goto(INDEX);
+  await page.waitForFunction(() => window.KOS && KOS.App && KOS.modesReady);
+  await page.evaluate(() => {
+    KOS.Storage.saveProfile({ name: 'Marie-Louise', age: '10-12', sailNo: '12', boatColor: '#ff7a3d' });
+    KOS.Storage.saveSettings({ unlockAll: true, lang: 'da' });
+  });
+  const rectsOf = (screen, sel) => page.evaluate(([sc, q]) => [...document.querySelectorAll('#screen-' + sc + ' ' + q)].filter(e => { const cs = getComputedStyle(e); const r = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && !e.hidden && r.width > 0; }).map(e => { const r = e.getBoundingClientRect(); return { c: (e.getAttribute('data-act') || String(e.className).split(' ')[0]), x: r.left, y: r.top, r: r.right, b: r.bottom }; }), [screen, sel]);
+  const check = (rects, w, h, label, mustHave) => {
+    const inside = rects.every(r => r.x >= -0.5 && r.y >= -0.5 && r.r <= w + 0.5 && r.b <= h + 0.5);
+    const over = [];
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) { const a = rects[i], b = rects[j]; if (a.x < b.r - 1 && b.x < a.r - 1 && a.y < b.b - 1 && b.y < a.b - 1) over.push(a.c + '/' + b.c); }
+    ok(inside && !over.length && mustHave.every(m => rects.some(r => r.c === m)), label + ': all ' + rects.length + ' on screen, no overlap' + (inside ? '' : ' [OUTSIDE ' + JSON.stringify(rects.filter(r => r.r > w + 0.5 || r.x < -0.5).map(r => r.c + '@' + Math.round(r.r))) + ']') + (over.length ? ' [OVERLAP ' + over + ']' : ''));
+  };
+  for (const root of [16, 20]) {
+    for (const bw of [320, 360, 375, 390, 412, 430]) {
+      for (const land of [false, true]) {
+        const w = land ? Math.round(bw * 2.05) : bw, h = land ? bw : Math.round(bw * 2.05);
+        await page.setViewportSize({ width: w, height: h });
+        await page.evaluate(r => { document.documentElement.style.fontSize = r + 'px'; KOS.App.show('hub'); }, root);
+        await page.waitForTimeout(250);
+        await page.evaluate(() => { const b = document.querySelector('#screen-hub .hub-livebtn'); if (b) b.hidden = false; }); // the live button as it shows when the race server is on
+        const tag = 'hub ' + w + 'x' + h + ' root ' + root + 'px';
+        check(await rectsOf('hub', '.hub-top .hub-me, .hub-top .hub-stars, .hub-top .hub-btn'), w, h, tag, ['settings', 'live', 'garage', 'profile']);
+        if (SHOTS && root === 16 && !land && [320, 360, 390].includes(bw)) await page.screenshot({ path: SHOTS + 'rf3-hub-topbar-' + bw + '.png' });
+        await page.evaluate(() => KOS.App.show('title'));
+        await page.waitForTimeout(250);
+        check(await rectsOf('title', '.topbar .pill, .topbar .icon-btn'), w, h, 'title ' + w + 'x' + h + ' root ' + root + 'px', ['settings']);
+      }
+    }
+  }
+  ok(!errs.length, 'no page errors (' + errs.slice(0, 2).join(' | ') + ')');
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   try {
@@ -193,6 +236,7 @@ async function settingsScreen(browser) {
     await pro(browser);
     await bigScreens(browser);
     await settingsScreen(browser);
+    await topBars(browser);
   } finally { await browser.close(); }
   console.log(fails ? '\n' + fails + ' FAILED' : '\nall ok');
   process.exit(fails ? 1 : 0);
