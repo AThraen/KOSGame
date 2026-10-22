@@ -54,7 +54,8 @@
         header: 'Vinden skralder – du må falde af. Når det skralder, så slå!',
         wrongSide: 'Hov – mærket skal rundes om bagbord (mærket på din venstre side). Sejl tilbage og rund det rigtigt.',
         zone: 'Den stiplede cirkel er zonen på 3 bådlængder. Den inderste båd i zonen har ret til mærkeplads.',
-        lastLeg: 'Sidste ben – nu gælder det! Hjem over mållinjen.',
+        lastLeg: 'Sidste ben – nu gælder det! Sejl i mål mellem dommerbåden og pinden (blå flag) – følg pilene.',
+        finishWrong: 'Forkert vej over linjen! Sejl ud på den anden side og kryds den igen – følg pilene.',
         penLeft: 'Du skylder stadig en strafrunde. Tag den nu – ellers får du tidsstraf i mål.',
         irons: 'Du står i vindøjet! Læg roret til den ene side, så falder båden af.',
         heel: 'Båden krænger meget – hæng ud!',
@@ -127,7 +128,8 @@
         header: 'The wind is heading you – you have to bear away. When headed, tack!',
         wrongSide: 'Oops – leave the mark to port (mark on your left). Go back and round it properly.',
         zone: 'The dashed circle is the 3-length zone. The inside boat in the zone gets mark-room.',
-        lastLeg: 'Last leg – this is it! Home across the finish line.',
+        lastLeg: 'Last leg – this is it! Sail home between the committee boat and the pin (blue flags) – follow the arrows.',
+        finishWrong: 'Wrong way over the line! Sail out to the other side and cross again – follow the arrows.',
         penLeft: 'You still owe a penalty turn. Do it now – or you get a time penalty at the finish.',
         irons: 'You are in irons! Push the tiller to one side and the bow falls off.',
         heel: 'The boat is heeling a lot – hike out!',
@@ -329,8 +331,23 @@
       m2: B => P.course === 'tri' ? [0.5 * B, -0.75 * B] : [0.12 * B, side(B)],
       m3: B => P.course === 'tri' ? [0.1 * B, side(B)] : [-0.15 * B, side(B)],
     };
+    // Live races follow the Dansk Sejlunion standard courses (dansksejlunion.dk, "Kapsejladsbanen"). u = upwind, r = to the right (so r < 0 is to port).
+    //  op/ned: 1 on top, 1a just to port of it and a little below, gate 2s/2b above the line; start-1-1a-[2s/2b-1-1a]-finish, the finish is the start line (blue flags)
+    //  trekant: 1 on top, 2 the wing mark to port, gate 3s/3b; start-1-2-3-[1-3]-finish, the finish is its own line ABOVE mark 1, crossed upwind
+    const DSU = !!LIVE;
+    const dsuLay = B => {
+      const gw = Math.max(10 * L, 28), gu = Math.max(0.12 * B, 8 * L + 10), d1a = U.clamp(6 * L, 14, Math.max(14, 0.12 * B));
+      if (P.course === 'tri') { const gr = 0.15 * B; return { m1: [B, -0.05 * B], m2: [0.5 * B, -0.6 * B], gs: [gu, gr - gw / 2], gb: [gu, gr + gw / 2], gm: [gu, gr], fin: [B + Math.max(0.22 * B, 8 * L + 15), gr] }; }
+      return { m1: [B, 0], m1a: [B - 0.5 * d1a, -d1a], gs: [gu, -gw / 2], gb: [gu, gw / 2], gm: [gu, 0] };
+    };
     function coursePts(B, O) {
       const at = (u, r) => ({ x: O.x + up.x * u + right.x * r, y: O.y + up.y * u + right.y * r });
+      if (DSU) {
+        const D = dsuLay(B), m1 = at(...D.m1), gm = at(...D.gm), pts = [at(-0.05 * B, 0), m1];
+        if (P.course === 'tri') { pts.push(at(...D.m2), gm); for (let l = 1; l < P.laps; l++) pts.push(m1, gm); pts.push(at(...D.fin)); }
+        else { pts.push(at(...D.m1a)); for (let l = 1; l < P.laps; l++) pts.push(gm, m1, at(...D.m1a)); pts.push(at(0, 0)); }
+        return pts;
+      }
       const m1 = at(...LAY.m1(B));
       const pts = [at(-0.05 * B, 0), m1];
       if (P.course === 'tri') {
@@ -362,6 +379,7 @@
     }
     function fits(O) {
       const at = (u, r) => ({ x: O.x + up.x * u + right.x * r, y: O.y + up.y * u + right.y * r });
+      if (DSU) { const D = dsuLay(B); return [at(0, -lineLen / 2 - 10), at(0, lineLen / 2 + 10), at(-Math.max(40, 12 * L), 0), at(-20, -lineLen / 2), at(-20, lineLen / 2)].concat(Object.keys(D).map(k => at(...D[k]))).concat(D.fin ? [at(D.fin[0], D.fin[1] - lineLen / 2 - 10), at(D.fin[0], D.fin[1] + lineLen / 2 + 10)] : [], [at(B * 0.5, -0.7 * B), at(B * 0.5, 0.4 * B)]).every(p => okSpot(p.x, p.y, 12)); }
       const probes = [at(0, -lineLen / 2 - 10), at(0, lineLen / 2 + 10), at(B + 15, 0), at(-Math.max(40, 12 * L), 0), at(B * 0.5, -B * 0.4), at(B * 0.5, B * 0.4),
         at(B * 0.5, -0.7 * B), at(-20, -lineLen / 2), at(-20, lineLen / 2), at(...LAY.m2(B)), at(...LAY.m3(B))];
       return probes.every(p => okSpot(p.x, p.y, 12));
@@ -385,23 +403,55 @@
     if (nrm.x * up.x + nrm.y * up.y < 0) nrm = { x: -nrm.x, y: -nrm.y };
     const sOf = (x, y) => (x - pin.x) * nrm.x + (y - pin.y) * nrm.y; // > 0 = course side
     const mid = { x: (pin.x + com.x) / 2, y: (pin.y + com.y) / 2 };
-    const m1 = Object.assign(at(...LAY.m1(B)), { kind: 'orange', round: 'port', label: '1', r: 1.2, id: 'm1', upwind: true });
-    const marks = [m1];
-    let m2 = null, m3 = null;
-    if (P.course === 'tri') {
-      m2 = Object.assign(at(...LAY.m2(B)), { kind: 'orange', round: 'port', label: '2', r: 1.2, id: 'm2' });
-      m3 = Object.assign(at(...LAY.m3(B)), { kind: 'orange', round: 'port', label: '3', r: 1.2, id: 'm3' });
-      marks.push(m2, m3);
-    } else if (P.laps > 1) {
-      m2 = Object.assign(at(...LAY.m2(B)), { kind: 'orange', round: 'port', label: '2', r: 1.2, id: 'm2' });
-      marks.push(m2);
-    }
+    let m1, marks, m2 = null, m3 = null, fpin = null, fcom = null, gateM = null;
+    if (DSU) {
+      const D = dsuLay(B), mk = (pt, o) => Object.assign(at(...pt), { kind: 'orange', r: 1.2 }, o);
+      m1 = mk(D.m1, { round: 'port', label: '1', id: 'm1', upwind: true });
+      marks = [m1];
+      const g3 = P.course === 'tri' ? '3' : '2';
+      const gs = mk(D.gs, { round: 'starboard', label: g3 + 's', id: 'g' + g3 + 's' }), gb = mk(D.gb, { round: 'port', label: g3 + 'b', id: 'g' + g3 + 'b' });
+      gateM = Object.assign(at(...D.gm), { kind: 'gate', r: 1.2, label: g3 + 's/' + g3 + 'b', id: 'g' + g3, gate: [gs, gb] });
+      if (P.course === 'tri') {
+        m2 = mk(D.m2, { round: 'port', label: '2', id: 'm2' }); m3 = gateM;
+        marks.push(m2, gs, gb);
+        fpin = Object.assign(at(D.fin[0], D.fin[1] - h), { kind: 'finish', r: 0.9, id: 'fpin' });
+        fcom = Object.assign(at(D.fin[0], D.fin[1] + h), { kind: 'committee', r: 3.4, id: 'fcommittee', heading: wd });
+      } else {
+        marks.push(mk(D.m1a, { kind: 'yellow', round: 'port', label: '1a', id: 'm1a' }));
+        if (P.laps > 1) { m2 = gateM; marks.push(gs, gb); }
+      }
+    } else {
+      m1 = Object.assign(at(...LAY.m1(B)), { kind: 'orange', round: 'port', label: '1', r: 1.2, id: 'm1', upwind: true });
+      marks = [m1];
+      if (P.course === 'tri') {
+        m2 = Object.assign(at(...LAY.m2(B)), { kind: 'orange', round: 'port', label: '2', r: 1.2, id: 'm2' });
+        m3 = Object.assign(at(...LAY.m3(B)), { kind: 'orange', round: 'port', label: '3', r: 1.2, id: 'm3' });
+        marks.push(m2, m3);
+      } else if (P.laps > 1) {
+        m2 = Object.assign(at(...LAY.m2(B)), { kind: 'orange', round: 'port', label: '2', r: 1.2, id: 'm2' });
+        marks.push(m2);
+      }
+      }
     // the sequence every boat sails: start, marks..., finish (W-L finishes downwind through the line, triangle upwind)
     const seq = [{ type: 'start' }];
-    if (P.course === 'tri') { seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: m2 }, { type: 'mark', m: m3 }); for (let l = 1; l < P.laps; l++) seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: m3 }); }
+    if (DSU) {
+      const m1a = marks.find(m => m.id === 'm1a');
+      if (P.course === 'tri') { seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: m2 }, { type: 'mark', m: gateM }); for (let l = 1; l < P.laps; l++) seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: gateM }); }
+      else { seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: m1a }); for (let l = 1; l < P.laps; l++) seq.push({ type: 'mark', m: gateM }, { type: 'mark', m: m1 }, { type: 'mark', m: m1a }); }
+    } else if (P.course === 'tri') { seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: m2 }, { type: 'mark', m: m3 }); for (let l = 1; l < P.laps; l++) seq.push({ type: 'mark', m: m1 }, { type: 'mark', m: m3 }); }
     else { seq.push({ type: 'mark', m: m1 }); for (let l = 1; l < P.laps; l++) seq.push({ type: 'mark', m: m2 }, { type: 'mark', m: m1 }); }
-    seq.push({ type: 'finish', dir: P.course === 'tri' ? 'up' : 'down' });
-    const ptOf = it => it.type === 'mark' ? it.m : mid;
+    // the finish is crossed the way the boat arrives from the last mark: from the course side towards the start side ('down'); only a last
+    // mark on the pre-start side would turn that round. (It used to be 'up' on the triangle: the last leg comes from the course side, so it never counted.)
+    // Geometry only, never the course name: 'down' = the last mark is on the course side (cross towards the start side), 'up' = the other way round,
+    // 'any' = the last leg runs nearly along the line (within ~15 degrees), so either direction counts once all marks are rounded.
+    // the finish line: the start line, or (live triangle) its own line above mark 1
+    const FL = fpin ? { a: fpin, b: fcom, nrm: up, mid: { x: (fpin.x + fcom.x) / 2, y: (fpin.y + fcom.y) / 2 }, sep: true } : { a: pin, b: com, nrm, mid, sep: false };
+    const sOfF = (x, y) => (x - FL.a.x) * FL.nrm.x + (y - FL.a.y) * FL.nrm.y;
+    const lpF = f => ({ x: U.lerp(FL.a.x, FL.b.x, f), y: U.lerp(FL.a.y, FL.b.y, f) });
+    const finDirFrom = pt => { const sv = sOfF(pt.x, pt.y), dd = Math.hypot(pt.x - FL.mid.x, pt.y - FL.mid.y) || 1; return Math.abs(sv) / dd < 0.26 ? 'any' : sv > 0 ? 'down' : 'up'; };
+    const finOk = (dir, a0, a1) => dir === 'any' ? (a0 >= 0 && a1 < 0) || (a0 <= 0 && a1 > 0) : dir === 'down' ? (a0 >= 0 && a1 < 0) : (a0 <= 0 && a1 > 0);
+    { const lm = seq[seq.length - 1]; seq.push({ type: 'finish', dir: finDirFrom(lm.type === 'mark' ? lm.m : FL.mid) }); }
+    const ptOf = it => it.type === 'mark' ? it.m : it.type === 'finish' ? FL.mid : mid;
     const legLen = seq.map((it, i) => i === 0 ? 0 : U.dist(ptOf(seq[i - 1]), ptOf(it)));
     const remAfter = seq.map((_, i) => legLen.slice(i + 1).reduce((a, b) => a + b, 0));
     function legKind(i) {
@@ -414,7 +464,7 @@
     }
     const zoneR = 3 * L;
     const roundR = Math.min(Math.max(22, 7 * L), 0.4 * B);
-    const collMarks = marks.concat([pin, com]);
+    const collMarks = marks.concat([pin, com], fpin ? [fpin, fcom] : []);
 
     // ---------------------------------------------------------------- wind
     const wind = KOS.Wind.create({ dir: wd, speed: P.windKn, gust: P.gust, shift: P.shift, seed: P.seed,
@@ -478,7 +528,7 @@
     // AI course = our sequence (index for index), the start line first; plan.leg keeps each helm in step with our tracker
     const lp = f => ({ x: U.lerp(pin.x, com.x, f), y: U.lerp(pin.y, com.y, f) });
     // each boat aims at its own bit of the finish line, so the fleet doesn't pile up at the middle
-    const courseFor = f => seq.map(it => it.type === 'mark' ? { x: it.m.x, y: it.m.y, round: 'port' } : it.type === 'finish' ? { line: [lp(Math.max(0.05, f - 0.12)), lp(Math.min(0.95, f + 0.12))] } : { line: [pin, com] });
+    const courseFor = f => seq.map(it => it.type === 'mark' ? (it.m.gate ? (g => ({ x: g.x, y: g.y, round: g.round }))(it.m.gate[f < 0.5 ? 0 : 1]) : { x: it.m.x, y: it.m.y, round: it.m.round || 'port' }) : it.type === 'finish' ? { line: [lpF(Math.max(0.05, f - 0.12)), lpF(Math.min(0.95, f + 0.12))] } : { line: [pin, com] });
     let park = at(-Math.max(30, 8 * L), lineLen / 2 + Math.max(25, 5 * L)); // where finished boats wait (below the committee boat)
     if (!okSpot(park.x, park.y, 8)) park = at(-Math.max(30, 8 * L), -lineLen / 2 - Math.max(25, 5 * L));
     const planFor = i => ({ course: courseFor(0.2 + 0.6 * ((i * 0.618 + 0.3) % 1)), start: { line: [pin, com], t0: LIVE ? LIVE.countdownS : PRE }, marks, mode: 'race', leg: 0 });
@@ -490,12 +540,13 @@
     const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: !!LIVE });
 
     // ---------------------------------------------------------------- scene, input, HUD
-    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: WATCH ? null : me, marks: marks.concat([pin]), lines: [{ a: pin, b: com, kind: 'start' }],
+    const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: WATCH ? null : me, marks: marks.concat([pin], fpin ? [fpin] : []), lines: [{ a: pin, b: com, kind: 'start' }].concat(fpin ? [{ a: fpin, b: fcom, kind: 'finish' }] : []),
       showWindArrow: true, showNoGo: false, showLaylines: false });
     const pathLine = { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, kind: 'path' };
     scene.addOverlay(drawWorld);
     // under tilt the committee boat is a depth-sorted scene prop (its mast must not paint over boats south of it); flat keeps the overlay call
     scene.props.push({ x: com.x, y: com.y, draw(ctx, sc, tl) { if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: sc.t, windDir: wind.dir, flags: committeeFlags(), tilt: tl }); } });
+    if (fcom) scene.props.push({ x: fcom.x, y: fcom.y, draw(ctx, sc, tl) { if (KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, fcom.x, fcom.y, wd, { t: sc.t, windDir: wind.dir, flags: ['#0b5fd0'], tilt: tl }); } });
     if (!WATCH) scene.addOverlay(drawTargetArrow, { screen: true });
     let userZoom = 1;
     function applyZoom() {
@@ -508,12 +559,13 @@
     }
     applyZoom();
     // course overview first, then ease in on the boat
-    const cb = { x0: Math.min(pin.x, com.x, m1.x, (m2 || m1).x, (m3 || m1).x, me.x) - 20, y0: Math.min(pin.y, com.y, m1.y, (m2 || m1).y, (m3 || m1).y, me.y) - 20,
-      x1: Math.max(pin.x, com.x, m1.x, (m2 || m1).x, (m3 || m1).x, me.x) + 20, y1: Math.max(pin.y, com.y, m1.y, (m2 || m1).y, (m3 || m1).y, me.y) + 20 };
+    const fx = fpin ? [fpin.x, fcom.x] : [], fy = fpin ? [fpin.y, fcom.y] : [];
+    const cb = { x0: Math.min(...fx, pin.x, com.x, m1.x, (m2 || m1).x, (m3 || m1).x, me.x) - 20, y0: Math.min(...fy, pin.y, com.y, m1.y, (m2 || m1).y, (m3 || m1).y, me.y) - 20,
+      x1: Math.max(...fx, pin.x, com.x, m1.x, (m2 || m1).x, (m3 || m1).x, me.x) + 20, y1: Math.max(...fy, pin.y, com.y, m1.y, (m2 || m1).y, (m3 || m1).y, me.y) + 20 };
 
     // big screen: frame every mark, the start/finish line and the boats, and keep the leader board's side of the screen free
     function watchRect() {
-      const pts = [pin, com].concat(marks, remotes);
+      const pts = [pin, com].concat(marks, fpin ? [fpin, fcom] : [], remotes);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (const p of pts) { if (!p || !isFinite(p.x) || !isFinite(p.y)) continue; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
       x0 -= 25; y0 -= 25; x1 += 25; y1 += 25;
@@ -621,6 +673,8 @@
         let s;
         if (b === me) { const f = U.vec(b.heading, L / 2); s = sOf(b.x + f.x, b.y + f.y); rc.ocs = s > 0.1; }
         else { s = sOf(b.x, b.y); rc.ocs = s > 0.3; }
+        const hl = b.helm || (b === me && autopilot);
+        if (rc.ocs && hl && b.plan && b.plan.start) { hl.ocs = true; hl._ocsN = nrm; hl._gunChecked = b.plan.start.t0; } // the helm must return too (the tracker judges the bow, the helm the centre)
         if (!rc.ocs && s > 0) { rc.started = true; rc.startT = 0; setLeg(b, 1); }
         if (rc.ocs) anyOcs = true;
       }
@@ -644,7 +698,7 @@
 
     // ==================================================================== race progress per boat
     function setLeg(b, n) { b.rc.leg = n; if (b.plan) b.plan.leg = n; resetLeg(b.rc); }
-    function resetLeg(rc) { rc.wind = 0; rc.minD = 1e9; rc.prevB = null; rc.wrongTip = false; }
+    function resetLeg(rc) { rc.gp = null; rc.wind = 0; rc.minD = 1e9; rc.prevB = null; rc.wrongTip = false; }
     function track(b, px, py) {
       const rc = b.rc;
       if (rc.finT != null) return;
@@ -669,14 +723,23 @@
         return;
       }
       if (it.type === 'finish') {
-        const ok = it.dir === 'down' ? (s0 >= 0 && s1 < 0) : (s0 <= 0 && s1 > 0);
-        let fin = crossed && ok;
+        const f0 = sOfF(px, py), f1 = sOfF(b.x, b.y), crossedF = U.segCross(px, py, b.x, b.y, FL.a.x, FL.a.y, FL.b.x, FL.b.y);
+        const ok = finOk(it.dir, f0, f1);
+        let fin = crossedF && ok;
+        if (crossedF && !ok && b === me && !autopilot && !WATCH) { if (env.t - (S.wrongFinT || -99) > 6) { S.wrongFinT = env.t; tip('finishWrong', true); } }
         if (!fin && ((b.helm && b.helm.finished) || (b === me && autopilot && autopilot.finished))) fin = true; // the AI helm judged it
-        if (fin) finished(b);
+        if (fin) { rc.byLine = crossedF && ok; finished(b); }
         return;
       }
       // a mark: winding number of the bearing mark→boat (string rule). Port rounding = anticlockwise = negative.
       const m = it.m, d = U.dist(b, m);
+      if (m.gate) { // a gate: either mark counts, each rounded its own way (s = to starboard, b = to port) from inside the gate
+        const gp = rc.gp || (rc.gp = m.gate.map(() => ({ prev: null, wind: 0, minD: 1e9 })));
+        let done = false;
+        m.gate.forEach((gk, k) => { const g = gp[k], bb2 = U.heading(b.x - gk.x, b.y - gk.y); if (g.prev != null) g.wind += U.wrapPi(bb2 - g.prev); g.prev = bb2; const dd = U.dist(b, gk); if (dd < g.minD) g.minD = dd; if (g.minD < roundR && g.wind * (gk.round === 'port' ? -1 : 1) > 2.2) done = true; });
+        if (done) { setLeg(b, rc.leg + 1); if (b === me) markRounded(m); }
+        return;
+      }
       const bb = U.heading(b.x - m.x, b.y - m.y);
       if (rc.prevB != null) rc.wind += U.wrapPi(bb - rc.prevB);
       rc.prevB = bb;
@@ -736,7 +799,7 @@
         const wasCool = S.cool[key] > now;
         S.cool[key] = now + (wasCool ? 12 : 25); // one penalty per mark visit: staying in contact does not charge again
         if (wasCool) return;
-        if (f.mark && f.mark.id === 'committee') return;
+        if (f.mark && (f.mark.id === 'committee' || f.mark.id === 'fcommittee')) return;
         penalize(b, 1, 'R31', f);
         return;
       }
@@ -1441,7 +1504,7 @@
       }
       for (const b of ai) if (b.rc.stuckT && b.speed > 0.6) b.rc.stuckT = 0;
       boats.forEach((b, i) => { if (b.remote) return; track(b, pre[i].x, pre[i].y); if (b.rc.pen) penStep(b, dt); });
-      const fouls = monitor.update(ruled, wind, collMarks.filter(m => m.id !== 'committee'), dt) || [];
+      const fouls = monitor.update(ruled, wind, collMarks.filter(m => m.id !== 'committee' && m.id !== 'fcommittee'), dt) || [];
       for (const f of fouls) onFoul(f);
       if ((S.rankT -= dt) <= 0) { S.rankT = 0.25; order = rank(); placeFeedback(); }
     }
@@ -1554,7 +1617,7 @@
       const rc = me.rc, it = seq[rc.leg];
       if (!it || rc.finT != null) return null;
       if (it.type === 'start') return { x: mid.x, y: mid.y, color: rc.ocs ? '#ff4d5e' : '#ffffff', label: t('race.leg.start') };
-      if (it.type === 'finish') return { x: mid.x, y: mid.y, color: '#49c6f2', label: t('race.leg.finish') };
+      if (it.type === 'finish') return { x: FL.mid.x, y: FL.mid.y, color: '#49c6f2', label: t('race.leg.finish') };
       return { x: it.m.x, y: it.m.y, color: '#ff9a3d', label: it.m.label, mark: it.m };
     }
 
@@ -1573,12 +1636,12 @@
         const tg = currentTarget(), lk = legKind(me.rc.leg);
         const beat = (lk === 'beat' || (lk === 'start' && S.phase !== 'pre')) && tg;
         scene.showLaylines = !!(S.laylines && beat && S.phase !== 'finish');
-        scene.laylineTarget = beat ? (tg.mark || mid) : null;
+        scene.laylineTarget = beat ? (tg.mark || FL.mid) : null;
         const wantPath = assist === 'easy' && tg && !beat && S.phase !== 'pre';
         const has = scene.lines.indexOf(pathLine) >= 0;
         if (wantPath) { pathLine.a.x = me.x; pathLine.a.y = me.y; pathLine.b.x = tg.x; pathLine.b.y = tg.y; if (!has) scene.lines.push(pathLine); }
         else if (has) scene.lines.splice(scene.lines.indexOf(pathLine), 1);
-        scene.lines[0].kind = seq[me.rc.leg] && seq[me.rc.leg].type === 'finish' ? 'finish' : 'start';
+        scene.lines[0].kind = !FL.sep && seq[me.rc.leg] && seq[me.rc.leg].type === 'finish' ? 'finish' : 'start';
         // AI tags: place + name, red X when over early, ↻ in a penalty turn
         for (const b of LIVE ? remotes : ai) {
           b.tag = (b.lost ? '⚠ ' : '') + (S.phase !== 'pre' ? b.rc.place + ' · ' : '') + (b.short || b.name) + (b.rc.pen ? ' ↻' : '');
@@ -1758,14 +1821,16 @@
     // ==================================================================== drawing
     function committeeFlags() {
       const fl = [];
+      if (!FL.sep && !WATCH && me.rc.leg === seq.length - 1 && me.rc.finT == null && S.phase !== 'pre') return ['#0b5fd0']; // the finish line has blue flags
       if (S.flags.cls) fl.push((CLASS_FLAG[clsId] || CLASS_FLAG.opti).bg);
       if (S.flags.P) fl.push('#1a5fd4');
       if (S.flags.X) fl.push('#ffffff');
       return fl.length ? fl : ['#ff7a1a'];
     }
-    const markSeq = seq.filter(it => it.type === 'mark').map(it => it.m).filter((m, i, a) => i === 0 || m !== a[i - 1]).slice(0, P.course === 'tri' ? 3 : 2);
+    const markSeq = seq.filter(it => it.type === 'mark').map(it => it.m).filter((m, i, a) => i === 0 || m !== a[i - 1]).slice(0, DSU || P.course === 'tri' ? 3 : 2);
     function drawWorld(ctx, sc) {
       const mpp = sc.mpp, tm = sc.t;
+      if (fcom && !sc._tilt && KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, fcom.x, fcom.y, wd, { t: tm, windDir: wind.dir, flags: ['#0b5fd0'] });
       // committee boat with the signal flags (tilted: drawn by the scene prop, depth-sorted)
       if (!sc._tilt && KOS.Sprites && KOS.Sprites.drawCommittee) KOS.Sprites.drawCommittee(ctx, com.x, com.y, wd, { t: tm, windDir: wind.dir, flags: committeeFlags() });
       // favoured end sparkle (easy / normal, prestart)
@@ -1782,6 +1847,17 @@
         if (P.course === 'tri') ctx.closePath();
         ctx.stroke(); ctx.setLineDash([]);
       }
+      // last leg: chevrons across the finish line that point the way to cross it
+      { const fi = !WATCH && me.rc.finT == null && S.phase !== 'pre' && seq[me.rc.leg];
+        if (fi && fi.type === 'finish' && fi.dir !== 'any') {
+          const dx = fi.dir === 'down' ? -FL.nrm.x : FL.nrm.x, dy = fi.dir === 'down' ? -FL.nrm.y : FL.nrm.y, k = Math.max(2.5, 14 * mpp), ph = (tm * 0.9) % 1;
+          ctx.setLineDash([]); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(0.3, 3 * mpp);
+          for (let i = 0; i < 4; i++) {
+            const f = 0.2 + 0.2 * i, c = lpF(f), o = (ph - 0.5) * k * 1.6, cx = c.x + dx * o, cy = c.y + dy * o, px = -dy, py = dx;
+            ctx.strokeStyle = 'rgba(255,255,255,' + (0.9 - Math.abs(ph - 0.5) * 1.2).toFixed(2) + ')';
+            ctx.beginPath(); ctx.moveTo(cx - dx * k * 0.5 + px * k * 0.6, cy - dy * k * 0.5 + py * k * 0.6); ctx.lineTo(cx + dx * k * 0.5, cy + dy * k * 0.5); ctx.lineTo(cx - dx * k * 0.5 - px * k * 0.6, cy - dy * k * 0.5 - py * k * 0.6); ctx.stroke();
+          }
+        } }
       // next mark: pulsing target ring + 3-length zone
       const tg = currentTarget();
       if (tg && tg.mark) {
@@ -1874,6 +1950,10 @@
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
       foul(rule) { penalize(me, rule === 'R31' ? 1 : 2, rule || 'R10', { reasonKey: 'rules.reason.R10', reasonVars: { give: t('rules.you'), stand: ai[0] && ai[0].short } }); },
       penAll() { boats.forEach(b => addPen(b, 1)); },
+      finDirFrom, finOk, sOf, sOfF, get fl() { return FL; },
+      walk(pts) { for (const q of pts) { const px = me.x, py = me.y; me.x = q.x; me.y = q.y; track(me, px, py); } return me.rc.leg; },
+      crossFinish(x0, y0, x1, y1) { const px = me.x, py = me.y; me.x = x1; me.y = y1; track(me, x0, y0); me.x = px; me.y = py; return me.rc.finT != null; },
+      setLeg(n) { setLeg(me, n); },
       finishNow() { if (me.rc.finT == null) finished(me); },
       complete,
       liveFeed(frame) { if (LIVE) onStates(frame); },

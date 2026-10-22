@@ -306,8 +306,8 @@
   const chip = (act, k, v, label, on, icon) => '<button type="button" class="chip' + (on ? ' on' : '') + '" data-act="' + act + '" data-k="' + k + '" data-v="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + (icon || '') + esc(label) + '</button>';
   // tiny course diagrams on the course chips: up-and-down = two marks on a line, triangle = three marks (wind comes from the top)
   const COURSE_ICO = {
-    wl: '<svg class="live-cico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2" fill="none"/><circle cx="12" cy="4.5" r="2.4" fill="#ff7a1a"/><circle cx="12" cy="20" r="2.4" fill="#ff7a1a"/></svg>',
-    tri: '<svg class="live-cico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5L20 19H4z" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2" fill="none"/><circle cx="12" cy="4.5" r="2.4" fill="#ff7a1a"/><circle cx="20" cy="19" r="2.4" fill="#ff7a1a"/><circle cx="4" cy="19" r="2.4" fill="#ff7a1a"/></svg>',
+    wl: '<svg class="live-cico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5L10 8V15" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 2" fill="none"/><path d="M4 21H20" stroke="#49c6f2" stroke-width="1.8"/><circle cx="14" cy="4.5" r="2" fill="#ff7a1a"/><circle cx="9.5" cy="7.5" r="1.5" fill="#e8323c"/><circle cx="8" cy="16" r="1.8" fill="#ff7a1a"/><circle cx="16" cy="16" r="1.8" fill="#ff7a1a"/></svg>',
+    tri: '<svg class="live-cico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9L5 13L14 17" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 2" fill="none"/><path d="M8 2H20" stroke="#49c6f2" stroke-width="1.8"/><circle cx="15" cy="9" r="2" fill="#ff7a1a"/><circle cx="5" cy="13" r="2" fill="#ff7a1a"/><circle cx="10" cy="18.5" r="1.8" fill="#ff7a1a"/><circle cx="18" cy="18.5" r="1.8" fill="#ff7a1a"/><path d="M4 22H20" stroke="#ffd25e" stroke-width="1.2"/></svg>',
   };
   const row = (label, body) => '<div class="live-row"><div class="live-label">' + esc(label) + '</div><div class="live-chips">' + body + '</div></div>';
   function trainerHtml(text) {

@@ -575,6 +575,107 @@ async function main() {
     ok(rr.resume(mkc('B'), cr.room.code, jn.player.id, jn.player.key).room, 'the gone seat can still rejoin the results');
   }
 
+  console.log('-- a lost player never blocks the end (pure rooms, fake clock)');
+  {
+    const { createRooms } = require(path.join(ROOT, 'server', 'lib', 'rooms.js'));
+    const mkc = (n) => ({ name: n, send: () => {}, ip: '1.1.1.1' });
+    const st = (rr, r, id, seq, lg) => rr.state(r, id, [0, seq, 10, 10, 1, 3, 0, 0, lg || 1]);
+    const setup = (finishS, T) => {
+      const rr = createRooms({ now: () => T.v });
+      const cr = rr.create(mkc('A'), { countdownS: 8, maxS: 900, maxP: 4, finishS }, 'sail');
+      const b = rr.join(mkc('B'), cr.room.code), c = rr.join(mkc('C'), cr.room.code);
+      rr.start(cr.room, cr.player.id); T.v += 9000; rr.tick();
+      return { rr, r: cr.room, a: cr.player, b: b.player, c: c.player };
+    };
+    for (const fs0 of [0, 180]) {
+      // C drops mid race and never returns, A and B finish: results for everybody within the 60 s lost window, C is DNF (lost)
+      const T = { v: 3e6 }, { rr, r, a, b, c } = setup(fs0, T);
+      st(rr, r, c.id, 1, 3); T.v += 5000; rr.disconnect(r, c.id, false);
+      T.v += 40000; rr.finish(r, a.id, 50000); T.v += 3000; rr.finish(r, b.id, 53000);
+      rr.tick();
+      ok(r.phase === 'racing' && r.finishAt && r.finishAt <= T.v + 60000, 'finishS=' + fs0 + ': the lost seat gets at most a 60 s window (' + Math.round((r.finishAt - T.v) / 1000) + ' s left)');
+      T.v += 61000; rr.tick();
+      ok(r.phase === 'results' && r.results.length === 3 && r.results.filter(x => x.status === 'fin').length === 2 && r.results[2].id === c.id && r.results[2].status === 'lost', 'finishS=' + fs0 + ': results with the lost player as DNF');
+      ok(rr.resume(mkc('C'), r.code, c.id, c.key).room.results.length === 3, 'finishS=' + fs0 + ': the lost player coming back finds the results');
+    }
+    {
+      // an open socket that sends no state (frozen tab) counts as gone after 30 s, same rules
+      const T = { v: 4e6 }, { rr, r, a, b, c } = setup(0, T);
+      st(rr, r, c.id, 1); st(rr, r, a.id, 1); st(rr, r, b.id, 1); T.v += 20000; st(rr, r, a.id, 2); st(rr, r, b.id, 2);
+      rr.finish(r, a.id, 40000); rr.finish(r, b.id, 41000); rr.tick();
+      ok(r.phase === 'racing' && !r.finishAt, 'a silent but connected boat is still given 30 s');
+      T.v += 15000; rr.tick();
+      ok(r.phase === 'racing' && r.finishAt, 'after 30 s of silence the 60 s window opens (no limit chosen)');
+      T.v += 61000; rr.tick();
+      ok(r.phase === 'results' && r.results.find(x => x.id === c.id).status === 'dnf', 'the silent boat is DNF and the race has ended');
+    }
+    {
+      // the lost player returns before the end and finishes: normal result for all three
+      const T = { v: 5e6 }, { rr, r, a, b, c } = setup(0, T);
+      st(rr, r, c.id, 1); rr.disconnect(r, c.id, false);
+      T.v += 30000; rr.finish(r, a.id, 45000); rr.finish(r, b.id, 46000); rr.tick();
+      ok(r.phase === 'racing' && r.finishAt, 'window open for the lost one');
+      T.v += 20000; ok(rr.resume(mkc('C'), r.code, c.id, c.key).room, 'the lost player is back inside the window');
+      rr.finish(r, c.id, 75000); rr.tick();
+      ok(r.phase === 'results' && r.results.every(x => x.status === 'fin') && r.results[2].id === c.id, 'the returner finished: three finishers, no DNF');
+    }
+    {
+      // everybody else is lost and nobody finished: the host can end at once; without the host the race ends after 2 min of silence
+      const T = { v: 6e6 }, { rr, r, a, b, c } = setup(0, T);
+      rr.disconnect(r, b.id, false); rr.disconnect(r, c.id, false);
+      T.v += 30000; rr.tick();
+      ok(r.phase === 'racing', 'nobody finished and the others are lost: waits (the host can decide)');
+      ok(rr.endNow(r, a.id) === 'ok' && r.phase === 'results' && r.results.every(x => x.status !== 'fin'), 'the host can always end the race');
+      const T2 = { v: 7e6 }, s2 = setup(0, T2);
+      s2.rr.disconnect(s2.r, s2.a.id, false); s2.rr.disconnect(s2.r, s2.b.id, false); s2.rr.disconnect(s2.r, s2.c.id, false);
+      T2.v += 125000; s2.rr.tick();
+      ok(s2.r.phase === 'results', 'all lost and nobody finished: the race ends after 2 minutes');
+    }
+    {
+      // safety net: a boat still sailing far beyond the first finisher (3x) is DNF even with no limit
+      const T = { v: 8e6 }, { rr, r, a, b, c } = setup(0, T);
+      for (const x of [a, b, c]) st(rr, r, x.id, 1);
+      rr.finish(r, a.id, 60000);
+      const keep = () => { for (const x of [b, c]) st(rr, r, x.id, Math.round(T.v)); };
+      T.v += 200000; keep(); rr.tick();
+      ok(r.phase === 'racing', 'no limit: the others are still sailing, the race waits');
+      T.v += 180000; keep(); rr.tick();
+      ok(r.phase === 'results' && r.results.filter(x => x.status === 'fin').length === 1, 'safety net: 5 min after the first finisher the race ends (others DNF)');
+    }
+  }
+  console.log('-- a lost player never blocks the end (real server, three clients)');
+  for (const fS of [0, 5]) {
+    const gf = path.join(tmp, 'lostend' + fS + '.json');
+    fs.writeFileSync(gf, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 }));
+    const ss = createServer({ PORT: '0', KOS_STATUS_FILE: gf, KOS_STATUS_POLL_MS: '200' });
+    const sp = await ss.listen();
+    const mk = async (n) => { const c = new Client(sp, n); await c.hello(); return c; };
+    const H = await mk('Vaert'), B = await mk('Bo'), C3 = await mk('Cleo');
+    H.send({ t: 'create', cfg: { countdownS: 8, maxS: 600, finishS: fS, maxP: 3 }, hostRole: 'watch' });
+    const cr = await H.wait('created');
+    B.send({ t: 'join', code: cr.code }); await B.wait('joined');
+    C3.send({ t: 'join', code: cr.code }); const jc = await C3.wait('joined');
+    H.send({ t: 'start' }); await H.wait('start');
+    const room = ss.rooms.rooms.get(cr.code);
+    room.T0 = Date.now() + 10; await sleep(300);
+    C3.send({ t: 'st', s: [0, 5e11, 12, 34, 1, 3, 0, 0, 1] }); await sleep(200);
+    C3.ws.terminate(); await sleep(200);
+    room.players.get(jc.id).lostAt -= 40000; // gone for 40 s
+    B.send({ t: 'fin', ms: 52000 });
+    await sleep(400);
+    ok(room.phase === 'racing' && room.finishAt > 0, 'finishS=' + fS + ': the race is open for the lost boat, a window is running');
+    room.finishAt = Math.min(room.finishAt, Date.now() + 500); // do not wait the real 60 s
+    const rb = await B.wait('res', 10000);
+    ok(rb.rows.length === 2 && rb.rows[0].status === 'fin' && rb.rows[1].status === 'lost', 'finishS=' + fS + ': results to the sailor, the lost one is DNF');
+    const rh = await H.wait('res', 10000);
+    ok(rh.rows.length === 2, 'finishS=' + fS + ': the host-only big screen got the same results');
+    const back = await mk('Cleo');
+    back.send({ t: 'resume', code: cr.code, id: jc.id, key: jc.key });
+    ok((await back.wait((x) => x.t === 'res' || x.t === 'err')).t === 'res', 'finishS=' + fS + ': the returning lost player gets the results');
+    H.close(); B.close(); back.close();
+    await ss.close();
+  }
+
   console.log('-- kos-race script');
   if (process.platform !== 'win32' || process.env.KOS_TEST_BASH) {
     const sf = path.join(tmp, 'cli.json');

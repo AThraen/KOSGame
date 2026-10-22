@@ -2,6 +2,7 @@
 // steered by the AI autopilot (race instance .setAutopilot). Needs server/node_modules (ws); skips without it.
 //   1. host-only (big screen) + two sailors: everybody gets the same official table, remotes follow the real boats, big screen shows a board
 //   2. host + sailor, the server is killed mid race: ~15 s of reconnecting, then both finish locally, result marked unofficial, no freeze
+//   13. finish direction + a lost sailor (see the section at the end)
 //   3. contact between players: a port/starboard crossing steered by a fixed-heading bot ends in contact; the port boat is penalised on its own
 //      client (and the big screen board shows it), the starboard boat is not; contact OFF = boats pass through; penalties OFF = bump only
 const fs = require('fs');
@@ -283,8 +284,8 @@ async function main() {
   // Exactly the user's path: tap chips in the setup (also the already-selected "Op og ned"), change boat/venue before and after,
   // then check the chip state, the frame sent to the server, the room cfg echoed back and the marks the race builds on both clients.
   console.log('-- course and laps chosen with the real chips are the ones sailed');
-  for (const [course, laps, marks, seq] of [['wl', 1, ['m1'], ['start', 'm1', 'finish:down']], ['wl', 2, ['m1', 'm2'], ['start', 'm1', 'm2', 'm1', 'finish:down']], ['wl', 3, ['m1', 'm2'], ['start', 'm1', 'm2', 'm1', 'm2', 'm1', 'finish:down']],
-    ['tri', 1, ['m1', 'm2', 'm3'], ['start', 'm1', 'm2', 'm3', 'finish:up']], ['tri', 2, ['m1', 'm2', 'm3'], ['start', 'm1', 'm2', 'm3', 'm1', 'm3', 'finish:up']]]) {
+  for (const [course, laps, marks, seq] of [['wl', 1, ['m1', 'm1a'], ['start', 'm1', 'm1a', 'finish:down']], ['wl', 2, ['m1', 'm1a', 'g2s', 'g2b'], ['start', 'm1', 'm1a', 'g2', 'm1', 'm1a', 'finish:down']], ['wl', 3, ['m1', 'm1a', 'g2s', 'g2b'], ['start', 'm1', 'm1a', 'g2', 'm1', 'm1a', 'g2', 'm1', 'm1a', 'finish:down']],
+    ['tri', 1, ['m1', 'm2', 'g3s', 'g3b'], ['start', 'm1', 'm2', 'g3', 'finish:up']], ['tri', 2, ['m1', 'm2', 'g3s', 'g3b'], ['start', 'm1', 'm2', 'g3', 'm1', 'g3', 'finish:up']]]) {
     const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
     const port = await srv.listen();
     const clicks = course === 'wl' ? [['boat', 'zest'], ['course', 'wl'], ['laps', laps], ['venue', 'bay'], ['boat', 'ilca'], ['venue', 'sound']] : [['course', 'wl'], ['venue', 'bay'], ['course', 'tri'], ['boat', 'zest'], ['laps', laps], ['boat', 'ilca'], ['venue', 'sound']];
@@ -728,6 +729,171 @@ async function main() {
     await play(acts.race, 'ordinary race (' + acts.race + ')');
     await play(acts.sail, 'free sail');
     await play(acts.school, 'school (' + acts.school + ')');
+  }
+
+  // ================================================================== 13. the finish counts when crossed the natural way (from the last mark); AI races and live
+  // Root cause of the report "it wants you to pass the goal line from the wrong side": the triangle's finish required a crossing from the
+  // pre-start side to the course side ('up'), but the last leg (mark 3 -> line) arrives from the course side. The AI helm judged any crossing,
+  // so bots never noticed. These tests steer the player's own boat through the rule itself (debug.crossFinish) and also sail bots to the line.
+  const FIN_JS = {
+    // wrong way first (must not count and the trainer says so), then the natural way from the last mark's side
+    geometry: () => {
+      const i = KOS.App.run.inst, d = i.debug, S = i.state, fi = d.seq.length - 1, it = d.seq[fi];
+      let g = 0; while (S.phase !== 'race' && g++ < 400) d.jump(1);
+      d.setLeg(fi);
+      const lm = d.seq[fi - 1], from = lm.type === 'mark' ? lm.m : d.line.a;
+      const mid = d.fl.mid;
+      const dx = mid.x - from.x, dy = mid.y - from.y, n = Math.hypot(dx, dy) || 1, ux = dx / n, uy = dy / n;
+      const A = { x: mid.x - ux * 12, y: mid.y - uy * 12 }, B = { x: mid.x + ux * 12, y: mid.y + uy * 12 }; // A = last-mark side, B = beyond the line
+      const wrong = d.crossFinish(B.x, B.y, A.x, A.y); // from beyond the line back towards the last mark
+      const coachTxt = (document.querySelector('.coach, .trainer, .kc-coach') || {}).textContent || '';
+      const wrongDone = i.boat.rc.finT != null;
+      const right = d.crossFinish(A.x, A.y, B.x, B.y);
+      return { dir: it.dir, wrong, wrongDone, right, byLine: i.boat.rc.byLine === true, coach: coachTxt.slice(0, 80) };
+    },
+    // a bot sails the whole course; it must finish, and through the line the right way round
+    bot: () => {
+      const i = KOS.App.run.inst; i.setAutopilot(true); i.skipIntro();
+      let t = 0; // one synchronous run: the real frame loop must not interleave (it makes the sail path frame-rate dependent)
+      while (i.boat.rc.finT == null && t < 2400) { i.debug.jump(10); t += 10; }
+      return { fin: i.boat.rc.finT != null, t, leg: i.boat.rc.leg, n: i.debug.seq.length };
+    },
+  };
+  console.log('-- finish direction: W-L and triangle, 1/2/3 laps, ordinary (AI) races');
+  {
+    const errsAll = [];
+    let page;
+    const start = (id, course, laps) => page.evaluate(([i, c, l]) => {
+      if (!KOS.Activities.get(i)) KOS.Activities.add({ id: i, mode: 'race', area: 'race', boat: 'zest', pickHidden: true, params: { series: 'zest', race: 1, races: 1, venue: 'sound', course: c, laps: l, fleet: 0, windDeg: 225, windKn: 12, gust: 0, shift: 0, bias: 0, targetS: 400, seed: 11 } });
+      KOS.App.play(i, { force: true });
+    }, [id, course, laps]);
+    for (const [course, laps] of [['wl', 1], ['wl', 2], ['wl', 3], ['tri', 1], ['tri', 2], ['tri', 3]]) {
+      const id = 'race.rf3.' + course + laps;
+      page = await newPage(NOWS, '', 'Fin'); // a fresh page per course (one race per page)
+      await start(id, course, laps);
+      await page.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.debug, null, { timeout: 15000 });
+      await page.evaluate(() => KOS.App.run.inst.skipIntro());
+      const g = await page.evaluate(FIN_JS.geometry);
+      ok((g.dir === 'down' && g.wrong === false && g.wrongDone === false || g.dir === 'any') && g.right === true && g.byLine, 'AI race ' + course + ' x' + laps + ': finish is crossed from the last mark (' + g.dir + '); the wrong way does not count, the natural way does');
+      if (course === 'tri' && g.dir !== 'any') ok(/forkert|Wrong/i.test(g.coach), 'AI race ' + course + ' x' + laps + ': the wrong way gets a hint ("' + g.coach + '")');
+      errsAll.push(...page.errs);
+      await page.context().close(); pages.pop();
+      page = await newPage(NOWS, '', 'Fin'); // the bot sails on its own page
+      await start(id, course, laps);
+      await page.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.debug, null, { timeout: 15000 });
+      const b = await page.evaluate(FIN_JS.bot);
+      ok(b.fin, 'AI race ' + course + ' x' + laps + ': a bot sails the course and finishes through the line (' + b.t + ' s, leg ' + b.leg + '/' + (b.n - 1) + ')');
+      await page.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 40000 }).catch(() => {});
+      errsAll.push(...page.errs);
+      await page.context().close(); pages.pop();
+    }
+    ok(errsAll.length === 0, 'no errors (' + errsAll.join('|') + ')');
+  }
+  console.log('-- Dansk Sejlunion courses (live): layout, gates, finish direction from the real marks, bots sail every course');
+  {
+    // a live race with a stub session: no server, no clock; the race is driven synchronously through debug.jump
+    const stubRace = async (course, laps, wdeg) => {
+      const page = await newPage(NOWS, '', 'Dsu');
+      await page.evaluate(() => KOS.MPStatus.load()); // the lazy net modules (race.js packs states through KOS.MPState)
+      await page.evaluate(([c, l, w]) => {
+        const T0 = performance.now() + Date.now();
+        const live = { cfg: { boat: 'ilca', venue: 'sound', course: c, laps: l, windDeg: w, windKn: 12, gust: 0, shift: 0, seed: 11, maxP: 4, maxS: 900, countdownS: 8, pen: true, contact: false, help: 'free', rain: 0, finishS: 0 },
+          grid: [{ id: 1, slot: 0, name: 'Bot', color: '#ff7a1a' }], myId: 1, role: 'sail', countdownS: 8, T0, sent: [], serverNow: () => T0 - 8000, send(m) { this.sent.push(m); }, on() { return () => {}; }, leave() {} };
+        window.__live = live;
+        KOS.App.play('race.live', { force: true, live });
+      }, [course, laps, wdeg]);
+      await page.waitForFunction(() => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.debug, null, { timeout: 15000 });
+      await page.evaluate(() => { const i = KOS.App.run.inst; i.skipIntro(); let g = 0; while (i.state.phase !== 'race' && g++ < 400) i.debug.jump(1); });
+      return page;
+    };
+    const SEQS = { wl1: ['start', 'm1', 'm1a', 'finish:down'], wl2: ['start', 'm1', 'm1a', 'g2', 'm1', 'm1a', 'finish:down'], wl3: ['start', 'm1', 'm1a', 'g2', 'm1', 'm1a', 'g2', 'm1', 'm1a', 'finish:down'],
+      tri1: ['start', 'm1', 'm2', 'g3', 'finish:up'], tri2: ['start', 'm1', 'm2', 'g3', 'm1', 'g3', 'finish:up'], tri3: ['start', 'm1', 'm2', 'g3', 'm1', 'g3', 'm1', 'g3', 'finish:up'] };
+    const geo = () => {
+      // the natural approach: from the last mark / gate across the finish line; the reverse must not count, the wrong way gets a hint
+      const i = KOS.App.run.inst, d = i.debug, fi = d.seq.length - 1, lm = d.seq[fi - 1].m, FL = d.fl;
+      d.setLeg(fi);
+      const dx = FL.mid.x - lm.x, dy = FL.mid.y - lm.y, n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n;
+      const A = { x: FL.mid.x - ux * 12, y: FL.mid.y - uy * 12 }, B = { x: FL.mid.x + ux * 12, y: FL.mid.y + uy * 12 };
+      const sLast = d.sOfF(lm.x, lm.y), want = Math.abs(sLast) / n < 0.26 ? 'any' : sLast > 0 ? 'down' : 'up';
+      const rev = d.crossFinish(B.x, B.y, A.x, A.y), hint = ((document.querySelector('.coach, .trainer, .kc-coach') || {}).textContent || '');
+      const nat = d.crossFinish(A.x, A.y, B.x, B.y);
+      return { dir: d.seq[fi].dir, want, rev, nat, hint: hint.slice(0, 60), sep: FL.sep, seq: d.courseInfo().seq, marks: d.courseInfo().marks };
+    };
+    for (const [course, laps, wd] of [['wl', 1, 225], ['wl', 2, 45], ['wl', 3, 135], ['tri', 1, 0], ['tri', 2, 90], ['tri', 3, 315]]) {
+      const key = course + laps, page = await stubRace(course, laps, wd);
+      const g = await page.evaluate(geo);
+      ok(JSON.stringify(g.seq) === JSON.stringify(SEQS[key]), key + ' wind ' + wd + ': sequence ' + g.seq.join('-'));
+      ok(g.dir === g.want && g.dir !== 'any' && g.nat === true && g.rev === false, key + ' wind ' + wd + ': finish "' + g.dir + '" follows the last mark; natural approach counts, the reverse does not' + (g.sep ? ' (own finish line above mark 1)' : ' (start line)'));
+      if (course === 'tri') ok(g.sep === true && g.dir === 'up', key + ': the finish is a separate line crossed upwind');
+      ok(g.rev === false && /forkert|Wrong/i.test(g.hint), key + ': the wrong way shows a hint ("' + g.hint + '")');
+      await page.context().close(); pages.pop();
+    }
+    // layouts: pure rule checks on odd marks (both sides, in line)
+    {
+      const page = await stubRace('wl', 1, 200);
+      const r = await page.evaluate(() => {
+        const d = KOS.App.run.inst.debug, FL = d.fl, ex = FL.b.x - FL.a.x, ey = FL.b.y - FL.a.y, e = Math.hypot(ex, ey), nx = FL.nrm.x, ny = FL.nrm.y, out = [];
+        for (const [al, ac] of [[0, 90], [0, -90], [60, 90], [-60, 70], [60, -90], [80, 6], [-80, -6], [0, 10]]) { // metres along the line, metres across it (+ = course side)
+          const pt = { x: FL.mid.x + ex / e * al + nx * ac, y: FL.mid.y + ey / e * al + ny * ac }, dir = d.finDirFrom(pt), s = d.sOfF(pt.x, pt.y);
+          out.push({ al, ac, dir, fromSide: d.finOk(dir, s, -s), back: d.finOk(dir, -s, s) });
+        }
+        return out;
+      });
+      const good = r.every(x => x.dir === 'any' ? x.fromSide && x.back : x.fromSide && !x.back) && r.filter(x => x.dir === 'down').length >= 3 && r.filter(x => x.dir === 'up').length >= 2 && r.some(x => x.dir === 'any');
+      ok(good, 'odd last-mark layouts: crossing from the last mark\'s side counts, the reverse not; a mark nearly in line with the line accepts both (' + r.map(x => x.dir).join(',') + ')');
+      await page.context().close(); pages.pop();
+    }
+    // gates: either mark counts when rounded its own way, from inside the gate; the wrong way round does not
+    for (const course of ['wl', 'tri']) {
+      const page = await stubRace(course, 2, 225);
+      const r = await page.evaluate(() => {
+        const i = KOS.App.run.inst, d = i.debug, gi = d.seq.findIndex(it => it.m && it.m.gate), gate = d.seq[gi].m.gate, out = {}, rad = 8;
+        const circ = (mk, from, to, n) => { const pts = []; for (let k = 0; k <= n; k++) { const b = from + (to - from) * k / n, v = KOS.Util ? null : null; pts.push({ x: mk.x + Math.sin(b) * rad, y: mk.y - Math.cos(b) * rad }); } return pts; }; // bearing from the mark, 0 = north, clockwise
+        const lab = k => gate[k].label;
+        const run = (k, from, to) => { d.setLeg(gi); const leg = d.walk(circ(gate[k], from, to, 40)); return leg > gi; };
+        const D = Math.PI / 180;
+        // starboard mark (s): boat arrives from inside the gate (east of 2s when facing down => the side towards 2b), turns clockwise: bearing grows
+        out.sOK = run(0, 90 * D, 360 * D); out.sWrong = run(0, 360 * D, 90 * D);
+        out.bOK = run(1, 270 * D, 0); out.bWrong = run(1, 0, 270 * D);
+        out.labels = [lab(0), lab(1)];
+        return out;
+      });
+      ok(r.sOK && r.bOK && !r.sWrong && !r.bWrong, course + ': gate ' + r.labels.join('/') + ' accepts either mark rounded its own way (s ' + r.sOK + ', b ' + r.bOK + '), not the wrong way (' + r.sWrong + ', ' + r.bWrong + ')');
+      await page.context().close(); pages.pop();
+    }
+    // bots sail every course to the finish: the whole sequence including both gates, then the line
+    for (const [course, laps, wd] of [['wl', 1, 225], ['wl', 2, 100], ['wl', 3, 300], ['tri', 1, 20], ['tri', 2, 200], ['tri', 3, 250]]) {
+      const page = await stubRace(course, laps, wd);
+      const b = await page.evaluate(() => { const i = KOS.App.run.inst; i.setAutopilot(true); let t = 0; while (i.boat.rc.finT == null && t < 2400) { i.debug.jump(10); t += 10; } return { fin: i.boat.rc.finT != null, t, leg: i.boat.rc.leg, n: i.debug.seq.length, sent: window.__live.sent.filter(m => m.t === 'fin').length }; });
+      ok(b.fin && b.sent === 1, 'live ' + course + ' x' + laps + ' wind ' + wd + ': a bot sails the whole course and finishes (' + b.t + ' s, leg ' + b.leg + '/' + (b.n - 1) + ', fin sent ' + b.sent + 'x)');
+      await page.context().close(); pages.pop();
+    }
+  }
+  console.log('-- live: the triangle finish counts; a lost sailor never blocks the results');
+  for (const [course, lost] of [['tri', true]]) {
+    const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
+    const port = await srv.listen();
+    const L = await lobby('ws://127.0.0.1:' + port + '/ws', 'sail', ['Vaert', 'Bo', 'Cleo'], { boat: 'ilca', laps: 1, course, countdownS: 8, finishS: 0, windKn: 14, gust: 0, shift: 0, windDeg: 225 }, [['course', course]]);
+    await clickAct(L.host, 'start');
+    for (const p of L.all) await inRace(p);
+    const [h, bo, cl] = L.all;
+    await h.waitForFunction(() => KOS.App.run.inst.state.phase === 'race' && KOS.App.run.inst.state.raceT > 1, null, { timeout: 40000 });
+    ok(await h.evaluate(() => KOS.App.run.inst.debug.courseInfo().course) === course, 'live ' + course + ': the room sails a ' + course);
+    await botOn(bo); await botOn(cl);
+    await sleep(8000);
+    // Cleo loses her connection for good: the page is closed mid race and never comes back
+    { const cx = cl.context(); pages.splice(pages.indexOf(cx), 1); await cx.close(); }
+    const g = await h.evaluate(FIN_JS.geometry); // the host finishes the natural way (the wrong way first: no finish)
+    ok(g.dir === 'up' && g.wrong === false && g.wrongDone === false && g.right === true, 'live ' + course + ': the host boat counts the finish (own line above mark 1, upwind) crossed from the gate, not the wrong way');
+    // Bo (a bot) sails the whole triangle live and finishes; then the lost seat gets its window and the race ends with results on everybody
+    const t0 = Date.now();
+    await bo.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 420000 });
+    await h.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 120000 });
+    const rb = await resultOf(bo), rh = await resultOf(h);
+    ok(rb.rows.length === 3 && rh.rows.length === 3, 'live: the same three-row table on both clients (' + Math.round((Date.now() - t0) / 1000) + ' s after the host finished)');
+    ok(rb.rows.filter(r => !r.dnf).length === 2 && rb.rows.filter(r => r.dnf).length === 1 && rb.rows.find(r => r.dnf).name === 'Cleo', 'live: Bo and the host finished, Cleo (lost) is DNF');
+    ok([h, bo].every(p => p.errs.length === 0), 'no errors (' + [h, bo].map(p => p.errs.join('|')).join(' / ') + ')');
+    await closeAll({ srv });
   }
 
   await browser.close();

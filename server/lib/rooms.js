@@ -10,6 +10,12 @@ const HOSTLEFT_KEEP_MS = 5000;
 const EMPTY_KEEP_MS = 30000; // an empty LOBBY
 const EMPTY_RACE_KEEP_MS = 5 * 60000; // a countdown/race/result where everybody dropped: the seats wait (a rejoin brings the race back)
 const LOST_END_MS = 120000; // the race may end for the others when every boat that is still out is a seat that has been gone this long
+const GONE_LOST_MS = 20000; // a racing seat whose socket is gone this long no longer holds the others up
+const GONE_STALE_MS = 30000; // ...and so does a seat whose socket is open but that has sent no state for this long (frozen tab, dead tunnel)
+const LOST_WINDOW_MS = 60000; // once every boat that is still here has finished, the ones that are gone get this long to come back, then DNF
+const SAFE_FACTOR = 3; // safety net: the race ends at 3x the first finisher's time (at least 5 minutes after it), whatever the finish window says
+const SAFE_MIN_EXTRA_MS = 5 * 60000;
+const HARD_RACE_MS = 45 * 60000; // absolute cap on a race, whatever maxS is
 const LOBBY_GRACE_MS = 20000; // a lobby/countdown seat whose socket dropped (phone locked, tunnel) keeps its place this long; the host too
 const LOBBY_AFTER_MS = 12000; // the podium stays this long when the host chose "back to the lobby after the race"
 const LOBBY_MAX_MS = 30 * 60000;
@@ -95,7 +101,7 @@ function createRooms(opts) {
     const p = r && r.players.get(id);
     // the seat belongs to the key for the whole room: lobby, countdown, racing and results (only a kick or an explicit leave ends it)
     if (!p || p.key !== key || p.kicked || p.left || r.phase === 'closing') return { err: 'nocode' };
-    p.send = conn.send; p.ip = conn.ip; if (conn.ver) p.ver = P.clean(conn.ver, 16); p.lost = false; p.lostAt = 0; r.emptyAt = 0;
+    p.send = conn.send; p.ip = conn.ip; if (conn.ver) p.ver = P.clean(conn.ver, 16); p.lost = false; p.lostAt = 0; p.seenAt = now(); r.emptyAt = 0;
     pushRoom(r);
     return { room: r, player: p };
   }
@@ -210,7 +216,7 @@ function createRooms(opts) {
     // seq must grow; but a seat that has been silent for 1.5 s may restart its sequence (a reload, a stamp that ran ahead of the real clock)
     if (p.state && arr[1] <= p.state[1] && t - (p.stAt || 0) < 1500) return false;
     const a = arr.slice(); a[0] = id;
-    p.state = a; p.lg = a[8]; p.stAt = t;
+    p.state = a; p.lg = a[8]; p.stAt = t; p.seenAt = t;
     return true;
   }
 
@@ -250,13 +256,30 @@ function createRooms(opts) {
     r.lobbyAt = r.lobbyAfter ? now() + LOBBY_AFTER_MS : 0;
     broadcast(r, { t: 'res', rows: r.results });
   }
+  // how long a boat that has not finished has been out of touch: socket gone, or open but no state frame
+  function silentMs(r, p, t) { return p.lost ? t - p.lostAt : t - (p.seenAt || r.T0 || t); }
+  function isGone(r, p, t) { return silentMs(r, p, t) >= (p.lost ? GONE_LOST_MS : GONE_STALE_MS); }
+  // a short window for the boats that are gone (never longer than the one already running); everybody sees the countdown
+  function lostWindow(r) {
+    const at = now() + LOST_WINDOW_MS;
+    if (r.finishAt && r.finishAt <= at) return;
+    r.finishAt = at; broadcast(r, { t: 'fwin', endAt: r.finishAt });
+  }
+  // The race must never wait for a boat that cannot finish. Ends when: every boat is final; every boat still here is final and the
+  // gone ones have had LOST_WINDOW_MS (also with "no limit"); nobody finished and everybody still out has been gone LOST_END_MS; or
+  // the safety deadline (3x the first finisher) / maxS / HARD_RACE_MS has passed. The host can end at any time (endNow).
   function maybeFinish(r) {
     if (r.phase !== 'racing') return;
     const boats = [...r.players.values()].filter(hasBoat);
-    // a seat that dropped keeps its place (the boat stays on the others' maps as "lost") until it comes back, the race ends, or it has been
-    // gone LOST_END_MS and nobody else is still sailing
-    const t = now();
-    if (boats.length && boats.every(p => p.final || (p.lost && t - p.lostAt >= LOST_END_MS))) endRace(r);
+    if (!boats.length) return;
+    const t = now(), open = boats.filter(p => !p.final);
+    if (!open.length) { endRace(r); return; }
+    const fins = boats.filter(p => p.status === 'fin');
+    if (fins.length) {
+      const first = Math.min.apply(null, fins.map(p => p.finMs));
+      if (t >= r.T0 + Math.max(first * SAFE_FACTOR, first + SAFE_MIN_EXTRA_MS)) { endRace(r); return; }
+      if (open.every(p => isGone(r, p, t))) lostWindow(r);
+    } else if (open.every(p => silentMs(r, p, t) >= LOST_END_MS)) endRace(r);
   }
 
   // Latest-wins relay, one frame per recipient (called every 100 ms by the server).
@@ -298,7 +321,7 @@ function createRooms(opts) {
       if (r.phase === 'countdown' && t >= r.T0) r.phase = 'racing';
       if (r.phase === 'racing') {
         // (no timeout on a lost seat here any more: it stays until it returns or the race ends; see maybeFinish)
-        if (t >= r.T0 + r.cfg.maxS * 1000 || (r.finishAt && t >= r.finishAt)) endRace(r); else maybeFinish(r);
+        if (t >= r.T0 + Math.min(r.cfg.maxS * 1000, HARD_RACE_MS) || (r.finishAt && t >= r.finishAt)) endRace(r); else maybeFinish(r);
       }
       if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { r.lobbyAt = 0; if (rematch(r, r.hostId) !== 'ok') r.lobbyAfter = false; }
       if (r.phase === 'results' && t >= r.deleteAt) remove(r);
