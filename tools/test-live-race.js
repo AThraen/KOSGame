@@ -884,7 +884,7 @@ async function main() {
     // Cleo loses her connection for good: the page is closed mid race and never comes back
     { const cx = cl.context(); pages.splice(pages.indexOf(cx), 1); await cx.close(); }
     const g = await h.evaluate(FIN_JS.geometry); // the host finishes the natural way (the wrong way first: no finish)
-    ok(g.dir === 'down' && g.wrong === false && g.wrongDone === false && g.right === true, 'live ' + course + ': the host\'s boat counts the finish crossed from the last mark, not the wrong way');
+    ok(g.dir === 'up' && g.wrong === false && g.wrongDone === false && g.right === true, 'live ' + course + ': the host boat counts the finish (own line above mark 1, upwind) crossed from the gate, not the wrong way');
     // Bo (a bot) sails the whole triangle live and finishes; then the lost seat gets its window and the race ends with results on everybody
     const t0 = Date.now();
     await bo.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 420000 });

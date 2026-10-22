@@ -673,6 +673,8 @@
         let s;
         if (b === me) { const f = U.vec(b.heading, L / 2); s = sOf(b.x + f.x, b.y + f.y); rc.ocs = s > 0.1; }
         else { s = sOf(b.x, b.y); rc.ocs = s > 0.3; }
+        const hl = b.helm || (b === me && autopilot);
+        if (rc.ocs && hl && b.plan && b.plan.start) { hl.ocs = true; hl._ocsN = nrm; hl._gunChecked = b.plan.start.t0; } // the helm must return too (the tracker judges the bow, the helm the centre)
         if (!rc.ocs && s > 0) { rc.started = true; rc.startT = 0; setLeg(b, 1); }
         if (rc.ocs) anyOcs = true;
       }
