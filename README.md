@@ -137,6 +137,11 @@ and the pause menu gets **1★ / 2★ / 3★** buttons that finish the current a
 It is stored in this browser only (`localStorage` key `kos.godmode`). Stars won this way are kept;
 use *Nulstil fremskridt* in settings to start over.
 
+**Halloween 2026** (temporary): from 24 to 31 October the menus get Halloween paintings and the harbour map gets
+pumpkins, bats and ghosts; until 9 November a pumpkin pin on the map opens **Græskarjagt i mørket** (collect glowing
+pumpkins at night, dodge the ghost boats). Afterwards it all disappears by itself. Force it with `#halloween=1` (on) or
+`#halloween=0` (off); `#halloween=auto` goes back to the dates (`localStorage` key `kos.season.halloween`).
+
 All browser tests run in a hidden browser (headless Chrome via Playwright: `npm install` once).
 
 ```sh
