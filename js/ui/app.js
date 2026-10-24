@@ -167,7 +167,7 @@
   function suggest() {
     if (!KOS.Activities) return null;
     const A = KOS.Activities;
-    const open = a => a && areaOpen(a.area) && A.isUnlocked(a.id);
+    const open = a => a && !a.season && areaOpen(a.area) && A.isUnlocked(a.id); // seasonal events have their own hub banner
     const fresh = a => { const p = S().progress(a.id); return !p.done && !(p.stars > 0); };
     for (const id of PATH) { const a = A.get(id); if (open(a) && fresh(a)) return a; }
     const all = A.list().filter(open);
@@ -515,6 +515,7 @@
       doc.body.classList.add('modes-wait');
       return screenEl(App.cur || 'title');
     }
+    if (KOS.Season) KOS.Season.mark(); // seasonal event windows (Halloween art) follow the clock across screen changes
     const prev = App.cur;
     if (prev && prev !== screen && leave[prev]) { try { leave[prev](); } catch (e) { console.error(e); } }
     if (prev && !opts.isBack && !opts.replace && prev !== screen && prev !== 'play' && prev !== 'results') {

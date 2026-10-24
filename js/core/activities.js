@@ -33,6 +33,10 @@
     total: () => 0,
     unlockAll: () => false,
   };
+  // seasonal activities (`season: '<window id>'`) exist only while their window is open; js/ui/season.js plugs in the
+  // date check (core stays clock-free). Default: closed, so without KOS.Season no event activity ever shows up.
+  let seasonOn = () => false;
+  const live = a => !!a && !(a.season && !seasonOn(a.season));
 
   function norm(def) {
     if (!def || !def.id) throw new Error('KOS.Activities.add: activity needs an id');
@@ -71,10 +75,10 @@
       if (KOS.Events && KOS.Events.emit) KOS.Events.emit('activities:changed', out.map(a => a.id));
       return Array.isArray(defOrArray) ? out : out[0];
     },
-    get(id) { return acts[id] || null; },
+    get(id) { return live(acts[id]) ? acts[id] : null; },
     // filter: undefined | function(a) | {area, mode, boat}
     list(filter) {
-      let all = Object.keys(acts).map(k => acts[k]).filter(a => !a.liveRace); // live race entries are reachable by get(id) only (no stars, no lists)
+      let all = Object.keys(acts).map(k => acts[k]).filter(a => !a.liveRace && live(a)); // live race entries are reachable by get(id) only (no stars, no lists)
       if (typeof filter === 'function') all = all.filter(filter);
       else if (filter && typeof filter === 'object') {
         all = all.filter(a => Object.keys(filter).every(k => filter[k] === undefined || a[k] === filter[k]));
@@ -97,7 +101,7 @@
       return list[0] === a;
     },
     isUnlocked(id) {
-      const a = acts[id];
+      const a = Activities.get(id);
       if (!a) return false;
       if (source.unlockAll()) return true;
       if (Activities.isFirstInArea(id)) return true;
@@ -119,8 +123,9 @@
       const list = Activities.byArea(area);
       return { have: list.reduce((n, a) => n + (source.stars(a.id) || 0), 0), max: list.length * 3, count: list.length };
     },
-    maxStars() { return Object.keys(acts).filter(k => !acts[k].liveRace).length * 3; },
+    maxStars() { return Object.keys(acts).filter(k => !acts[k].liveRace && live(acts[k])).length * 3; },
     setProgressSource(src) { source = Object.assign({}, source, src || {}); },
+    setSeasonSource(fn) { if (typeof fn === 'function') seasonOn = fn; },
   };
   KOS.Activities = Activities;
 

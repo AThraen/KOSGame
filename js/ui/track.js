@@ -81,7 +81,7 @@
     settings: ['indstillinger', 'Indstillinger'], credits: ['om-spillet', 'Om spillet'], live: ['live-kapsejlads', 'Live-kapsejlads'] };
   const AREAS = { club: ['klubhuset', 'Klubhuset'], school: ['sejlerskolen', 'Sejlerskolen'], bay: ['fri-sejlads', 'Fri sejlads'],
     race: ['kapsejlads', 'Kapsejlads'], rules: ['vigeregler', 'Vigeregler'], nav: ['navigation', 'Navigation'],
-    pier: ['havnemanoevrer', 'Havnemanøvrer'], rib: ['rib-missioner', 'RIB-missioner'] };
+    pier: ['havnemanoevrer', 'Havnemanøvrer'], rib: ['rib-missioner', 'RIB-missioner'], event: ['halloween', 'Halloween'] };
   function pageFor(screen, params) {
     if (SCREENS[screen]) return { path: '/' + SCREENS[screen][0], title: [SCREENS[screen][1]] };
     const areaOf = id => AREAS[id] || [String(id || 'ukendt'), String(id || 'Ukendt')];
