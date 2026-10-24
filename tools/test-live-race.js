@@ -337,6 +337,11 @@ async function main() {
     await h.click('.host-menu [data-hm="close"]');
     await h.evaluate(() => KOS.App.run.inst.debug.finishNow());
     ok(await h.evaluate(() => /1/.test((document.querySelector('.race-board .rb-me b') || {}).textContent || '') && /2/.test((document.querySelector('.race-board .rb-me span') || {}).textContent || '')), 'my finish place and "waiting for 2 sailors" show at once');
+    ok(await h.evaluate(() => {
+      const hid = s => { const e = document.querySelector(s); return !e || getComputedStyle(e).display === 'none'; };
+      return hid('.play-layer .kc') && hid('.play-layer .hud') && hid('.race-panel') && !!document.querySelector('.race-dim') && !hid('.host-btn') &&
+        document.querySelectorAll('.race-board .rb-row').length === 3 && document.querySelectorAll('.race-board .rb-row.out').length === 2;
+    }), 'calm finish screen: controls, HUD and leg panel hidden, water dimmed, host button kept, all 3 boats listed (2 still out)');
     await a.waitForFunction(() => { const e = document.querySelector('.race-fwin'); return e && !e.hidden && /[0-9]:[0-9][0-9]/.test(e.textContent); }, null, { timeout: 5000 });
     ok(true, 'the others see the finish window countdown');
     await h.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 20000 });
