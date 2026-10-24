@@ -192,11 +192,12 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 #app > #screen-hub.hub-fallback { padding: calc(var(--safe-t) + 12px) calc(var(--safe-r) + var(--gutter)) calc(var(--safe-b) + 12px) calc(var(--safe-l) + var(--gutter)); }
 
 /* ------------------------------------------------------------------ title */
-#screen-title { align-items: stretch; }
-.title-main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px, 3vh, 32px); width: 100%; max-width: 560px; margin: 0 auto; }
+/* the title screen scrolls when it is taller than the viewport (short phones): nothing may sit under the menu cards */
+#screen-title { align-items: stretch; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.title-main { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px, 3vh, 32px); width: 100%; max-width: 560px; margin: 0 auto; }
 .title-logo { width: 100%; display: flex; flex-direction: column; align-items: center; }
 .logo-boat { width: min(78%, 360px); height: auto; margin-bottom: -4%; overflow: visible; }
-.logo-text { width: 100%; max-width: 560px; height: auto; filter: drop-shadow(0 6px 18px rgba(80, 30, 10, .35)); animation: logoIn .8s var(--ease-pop) both .1s; }
+.logo-text { width: 100%; max-width: 560px; height: auto; animation: logoIn .8s var(--ease-pop) both .1s; }
 @keyframes logoIn { from { opacity: 0; transform: scale(.7) translateY(20px); } to { opacity: 1; transform: none; } }
 .lb-bob { animation: bob 3.2s ease-in-out infinite; transform-origin: 165px 110px; }
 .lb-heel { animation: heel 5s ease-in-out infinite; transform-origin: 165px 112px; }
@@ -210,7 +211,7 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 .lb-spray { animation: spray 1.6s ease-out infinite; }
 @keyframes spray { 0% { opacity: 0; transform: translate(6px, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-10px, -10px); } }
 .lb-sun { animation: sunPulse 4s ease-in-out infinite alternate; transform-origin: 246px 44px; }
-.tagline { margin-top: 6px; font-size: clamp(1.15rem, 4.6vw, 1.6rem); font-weight: 800; text-align: center; text-shadow: 0 2px 10px rgba(20, 10, 40, .45); animation: fadeUp .6s ease both .35s; }
+.tagline { margin-top: 6px; font-size: clamp(1.15rem, 4.6vw, 1.6rem); font-weight: 800; text-align: center; text-shadow: 0 1px 3px rgba(20, 10, 40, .5); animation: fadeUp .6s ease both .35s; }
 .tagline span { color: var(--primary); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .title-menu { width: 100%; display: flex; flex-direction: column; gap: 14px; animation: fadeUp .6s ease both .5s; }
@@ -219,7 +220,24 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 .btn-play .ico { width: 34px; height: 34px; }
 .btn-play { animation: playPulse 2.4s ease-in-out infinite 1.2s; }
 @keyframes playPulse { 0%, 100% { box-shadow: 0 6px 0 #c4541f, 0 12px 26px rgba(255,122,61,.45), inset 0 2px 0 rgba(255,255,255,.45); } 50% { box-shadow: 0 6px 0 #c4541f, 0 12px 40px rgba(255,160,80,.75), inset 0 2px 0 rgba(255,255,255,.45); } }
-.title-foot { flex: none; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; text-align: center; color: rgba(255,255,255,.82); font-weight: 600; font-size: .95rem; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.title-foot { flex: none; padding-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; text-align: center; color: rgba(255,255,255,.82); font-weight: 600; font-size: .95rem; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+
+.club-link { color: var(--primary-hi); }
+.club-link:hover { color: #fff; }
+/* "Mere om KØS Sejlsport" popup */
+.dialog.club-dialog { width: min(100%, 480px); padding: 0 0 18px; text-align: left; }
+.club-dialog .dialog-title { margin: 14px 20px 10px; text-align: center; }
+.club-dialog .dialog-body { padding: 0 20px; order: 0; }
+.club-dialog .dialog-buttons { padding: 0 20px; margin-top: 10px; }
+.club-photo { margin: 0 -20px; aspect-ratio: 16 / 9; position: relative; background: rgba(255,255,255,.06); overflow: hidden; }
+.club-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.club-photo figcaption { position: absolute; right: 8px; bottom: 6px; font-size: .72rem; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.club-lead { margin-top: 14px; font-weight: 800; color: #fff; }
+.club-list { margin: 8px 0 14px; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.club-cta { display: flex; width: 100%; min-height: 56px; white-space: normal; text-align: center; text-decoration: none; line-height: 1.2; }
+.club-links { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+@media (max-height: 900px) and (min-width: 600px) { .club-photo { aspect-ratio: 2.3 / 1; } }
+@media (max-height: 520px) { .club-photo { aspect-ratio: 3 / 1; } }
 
 /* ------------------------------------------------------------------ screen header */
 .screen-head { flex: none; display: flex; align-items: center; gap: 12px; margin: 0 auto 14px; width: 100%; max-width: 1180px; }
