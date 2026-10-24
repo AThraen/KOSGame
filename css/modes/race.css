@@ -71,16 +71,44 @@
 .play-layer.race-go .kc [data-btn="ff"] { display: none; }
 .play-layer.race-layer:not(.race-pen) .kc [data-btn="turn"] { display: none; }
 .play-layer.race-pen .kc [data-btn="turn"] { animation: penBtn .9s ease-in-out infinite; }
-.play-layer.race-done .kc { opacity: .35; pointer-events: none; }
+/* ---- finished, waiting for the rest: the calm layout. Steering, sheet, AUTO, the round extras (laylines / compass), the HUD strip, the
+   leg panel and the race cards go away; the ⋯ / pause menu (play-chrome) stays so you can still leave, and the host keeps the host button.
+   The water is dimmed behind the finish board, which becomes the one thing to read. */
+.play-layer.race-done .kc, .play-layer.race-done .hud, .play-layer.race-done .race-panel, .play-layer.race-done .race-card,
+.play-layer.race-done .race-fwin { display: none !important; }
+.race-dim { position: absolute; inset: 0; z-index: 24; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(5, 10, 22, .32), rgba(5, 10, 22, .58)); animation: rbDim .8s ease-out both .3s; }
+@keyframes rbDim { from { opacity: 0; } to { opacity: 1; } }
 
-/* ---- live finish board */
+/* ---- finish board (my headline + one status line, then every boat) */
 .race-board {
   position: absolute; z-index: 25; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(360px, calc(100vw - 32px)); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 120px); display: flex; flex-direction: column; gap: 8px;
-  padding: 14px 14px 12px; border-radius: 18px; color: #fff; background: rgba(13, 19, 33, .86); border: 1px solid rgba(255,255,255,.14);
+  width: min(400px, calc(100vw - 24px - var(--safe-l, 0px) - var(--safe-r, 0px))); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 144px); display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; border-radius: 18px; color: #fff; background: rgba(13, 19, 33, .9); border: 1px solid rgba(255,255,255,.14);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 16px 40px rgba(0,0,0,.45);
   animation: rbIn .6s var(--ease-pop, ease-out) both .5s;
 }
+.race-board.rb-host { top: calc(50% - 24px); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 168px); }
+.rb-me { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 3px; padding: 10px 12px; border-radius: 12px; background: rgba(255,181,71,.16); }
+.rb-me > .ico { grid-row: span 2; width: 24px; height: 24px; color: var(--primary, #ffb547); }
+.rb-me > b { font-size: 1.04rem; font-weight: 900; line-height: 1.2; }
+.rb-line { display: flex; flex-wrap: wrap; column-gap: .45em; font-size: .8rem; font-weight: 700; color: rgba(255,255,255,.75); }
+.rb-line .rb-win::before { content: "·"; margin-right: .45em; color: rgba(255,255,255,.45); }
+@media (max-width: 480px) { /* narrow board: the finish window goes on its own line, without the dot */
+  .rb-line { flex-direction: column; }
+  .rb-line .rb-win::before { content: none; }
+}
+.rb-wrap { position: relative; flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.rb-list { min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.35) transparent; overscroll-behavior: contain; }
+.rb-wrap.rb-scroll .rb-list { -webkit-mask-image: linear-gradient(#000 calc(100% - 34px), transparent); mask-image: linear-gradient(#000 calc(100% - 34px), transparent); }
+.rb-more { display: none; position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); padding: 2px 10px; border-radius: 999px; font-size: .68rem; font-weight: 800; white-space: nowrap; pointer-events: none;
+  background: rgba(255,255,255,.16); color: rgba(255,255,255,.9); }
+.rb-more::after { content: " ↓"; }
+.rb-wrap.rb-scroll .rb-more { display: block; }
+.rb-foot { flex: none; display: flex; justify-content: center; }
+.rb-foot:empty { display: none; }
+.rb-row.out { background: rgba(255,255,255,.03); }
+.rb-row.out > span { color: rgba(255,255,255,.82); }
+.race-board.rb-settled .rb-row { animation: none; }
 .rb-head { display: flex; align-items: center; gap: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; color: var(--primary, #ffb547); }
 .rb-head .ico { width: 18px; height: 18px; }
 .rb-list { overflow: auto; display: flex; flex-direction: column; gap: 4px; }
@@ -155,9 +183,12 @@
   .race-card { top: calc(var(--safe-t) + 184px); }
 }
 
-/* short landscape screens: keep the finish board clear of the HUD strip and the coach bubble */
+/* short landscape screens: the HUD strip is gone once you are in, so the board can use nearly the full height (the ⋯ button sits
+   top-left, clear of a centred board) */
 @media (max-height: 520px) {
-  .race-board { top: calc(50% + 34px); max-height: calc(100% - var(--safe-b, 0px) - 96px); padding: 10px 12px; gap: 6px; }
+  .race-board { max-height: calc(100% - var(--safe-t) - var(--safe-b) - 20px); padding: 10px 12px; gap: 6px; }
+  .race-board.rb-host { top: calc(50% - 26px); max-height: calc(100% - var(--safe-t) - var(--safe-b) - 72px); }
+  .rb-me { padding: 7px 10px; }
   .rb-row { padding: 3px 8px; font-size: .82rem; }
 }
 .race-rtable tr.me td { background: rgba(255,181,71,.26); }
@@ -274,9 +305,6 @@
 }
 
 /* ---- live: my finish summary, finish-window chip, host menu (spec section 14) */
-.rb-me { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: rgba(255,181,71,.16); font-size: .88rem; }
-.rb-me b { font-size: 1.05em; }
-.rb-me span { color: rgba(255,255,255,.8); font-weight: 700; }
 .rb-win { font-variant-numeric: tabular-nums; }
 .rb-win.hot, .race-fwin.hot { color: var(--primary, #ffb547); }
 .race-fwin { position: absolute; z-index: 23; left: 50%; top: calc(var(--safe-t, 0px) + 70px); transform: translateX(-50%); padding: 4px 12px; border-radius: 16px; color: #fff; font-weight: 800; font-size: .82rem; font-variant-numeric: tabular-nums; background: rgba(13,19,33,.78); border: 1px solid rgba(255,255,255,.16); white-space: nowrap; pointer-events: none; }

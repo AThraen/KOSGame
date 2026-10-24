@@ -93,6 +93,7 @@
         table: 'Resultatliste', pos: 'Nr.', boat: 'Båd', time: 'Tid', pts: 'Point', still: 'sejler', est: '≈',
         series: 'Serien: {pts} point efter {n} af {of} sejladser',
       },
+      fin: { you: 'Du kom i mål som nr. {place} på {time}!', wait1: 'Venter på 1 sejler…', waitN: 'Venter på {n} sejlere…', allIn: 'Alle er i mål.', sail: 'Ben {leg}/{of} · {m} m til mål', start: 'Ved starten', more: 'Rul for flere' },
       stat: { points: 'Point (lavpoint)', series: 'Seriepoint', start: 'Start', ocs: 'Tyvstart (X)', fouls: 'Regelbrud', top: 'Topfart (knob)' },
       startQ: { perfect: 'Perfekt', good: 'God', late: 'Sen', ocs: 'Over for tidligt' },
     },
@@ -167,6 +168,7 @@
         table: 'Results', pos: 'Pos', boat: 'Boat', time: 'Time', pts: 'Pts', still: 'racing', est: '≈',
         series: 'Series: {pts} points after {n} of {of} races',
       },
+      fin: { you: 'Place {place}! You finished in {time}.', wait1: 'Waiting for 1 sailor…', waitN: 'Waiting for {n} sailors…', allIn: 'Everybody is in.', sail: 'Leg {leg}/{of} · {m} m to go', start: 'At the start', more: 'Scroll for more' },
       stat: { points: 'Points (low point)', series: 'Series points', start: 'Start', ocs: 'Over early (X)', fouls: 'Fouls', top: 'Top speed (kn)' },
       startQ: { perfect: 'Perfect', good: 'Good', late: 'Late', ocs: 'Over early' },
     },
@@ -1721,29 +1723,56 @@
     }
 
     // ---------------------------------------------------------------- finish board (live, while the rest finish)
+    // Once I am in, the screen goes calm (css .race-done): the sailing controls, the HUD strip and the leg panel give way, the water is
+    // dimmed, and this board is the one thing to read: my place and time, one line about who is still out (and the finish window),
+    // then every boat, with a live leg / distance for those still sailing. Presentation only: timing and results are unchanged.
+    let dim = null;
     function buildBoard() {
+      if (board) return;
+      dim = document.createElement('div');
+      dim.className = 'race-dim';
+      host.layer.appendChild(dim);
       board = document.createElement('div');
-      board.className = 'race-board glass';
+      board.className = 'race-board glass' + (LIVE && LIVE.isHost ? ' rb-host' : '');
+      board.setAttribute('role', 'status');
+      board.innerHTML = '<div class="rb-me"></div><div class="rb-wrap"><div class="rb-list"></div><span class="rb-more" aria-hidden="true"></span></div><div class="rb-foot"></div>';
       host.layer.appendChild(board);
       board.addEventListener('click', e => { if (e.target.closest('[data-act="next"]')) { sfx('click'); reqComplete(); } });
+      BD.me = board.querySelector('.rb-me'); BD.list = board.querySelector('.rb-list'); BD.foot = board.querySelector('.rb-foot'); BD.wrap = board.querySelector('.rb-wrap');
+      BD.list.addEventListener('scroll', boardScrollHint, { passive: true });
+      setTimeout(() => { if (board) board.classList.add('rb-settled'); }, 1400); // rows slide in once; later repaints do not replay it
+      if (scene) scene.showWindArrow = false; // the wind tag by the boat would read through the dimmed water
       paintBoard();
+    }
+    const BD = { me: null, list: null, foot: null, wrap: null, last: {} };
+    function boardSet(k, el, html) { if (BD.last[k] !== html) { el.innerHTML = html; BD.last[k] = html; return true; } return false; }
+    function boardScrollHint() { // the list scrolls inside the board: a fade + "scroll for more" while there is more below
+      const l = BD.list; if (!l) return;
+      BD.wrap.classList.toggle('rb-scroll', l.scrollHeight - l.clientHeight - l.scrollTop > 4);
+    }
+    function sailStatus(b) { // a boat still out there: which leg and how far to the finish (cheap: rank() keeps rc.rem up to date)
+      if (b.lost) return t('live.lostShort');
+      const leg = b.rc.leg || 0;
+      if (leg < 1) return t('race.fin.start');
+      return t('race.fin.sail', { leg: Math.min(leg, seq.length - 1), of: seq.length - 1, m: Math.max(0, Math.round((b.rc.rem || 0) / 10) * 10) });
     }
     function paintBoard() {
       if (!board) return;
       const esc = KOS.UI.esc;
-      const rows = tableRows();
-      let sum = '';
-      if (LIVE) { // my place and time at once, who is still out there, and the finish window
-        const mine = rows.find(r => r.me), waiting = rows.filter(r => r.timeMs == null).length, left = fwinLeft();
-        sum = '<div class="rb-me"><b>' + esc(mine && mine.timeMs != null ? t('live.fin.you', { place: mine.place, time: KOS.UI.fmtTime(mine.timeMs) }) : t('race.res.table')) + '</b>' +
-          '<span>' + esc(waiting ? t(waiting === 1 ? 'live.fin.wait1' : 'live.fin.waitN', { n: waiting }) : t('live.fin.allIn')) + '</span>' +
-          (left != null && waiting ? '<span class="rb-win' + (left <= 10 ? ' hot' : '') + '">' + esc(t('live.fin.window', { t: fmtClock(left) })) + '</span>' : '') + '</div>';
-      }
-      const html = '<div class="rb-head">' + KOS.UI.iconSvg('flag') + '<span>' + esc(t(LIVE ? 'live.fin.sailors' : 'race.res.table')) + '</span></div>' + sum + '<div class="rb-list">' +
-        rows.map(r => '<div class="rb-row' + (r.me ? ' me' : '') + (r.place <= 3 && r.timeMs != null && !r.est ? ' pod p' + r.place : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span>' + esc(r.name) + '</span><em>' +
-          (r.timeMs == null || r.est ? '<small>' + esc(t(LIVE ? 'live.fin.sailing' : 'race.res.still')) + '</small>' : esc(KOS.UI.fmtTime(r.timeMs))) + '</em></div>').join('') +
-        '</div>' + (LIVE && !S.unofficial ? '' : '<button type="button" class="btn btn-primary rb-next" data-act="next"><span>' + esc(t(S.nextReq ? 'live.res.wait' : 'race.btn.next')) + '</span>' + KOS.UI.iconSvg('next') + '</button>');
-      if (html !== paintBoard.last) { board.innerHTML = html; paintBoard.last = html; }
+      const rows = tableRows(), ord = rank();
+      const mine = rows.find(r => r.me), waiting = rows.filter(r => r.timeMs == null || r.est).length, left = fwinLeft();
+      const head = KOS.UI.iconSvg('flag') + '<b>' + esc(mine && mine.timeMs != null && !mine.est ? t('race.fin.you', { place: mine.place, time: KOS.UI.fmtTime(mine.timeMs) }) : t('race.res.table')) + '</b>' +
+        '<div class="rb-line"><span>' + esc(waiting ? t(waiting === 1 ? 'race.fin.wait1' : 'race.fin.waitN', { n: waiting }) : t(LIVE ? 'live.fin.allIn' : 'race.fin.allIn')) + '</span>' +
+        (left != null && waiting ? '<span class="rb-win' + (left <= 10 ? ' hot' : '') + '">' + esc(t('live.fin.window', { t: fmtClock(left) })) + '</span>' : '') + '</div>';
+      boardSet('me', BD.me, head);
+      const list = rows.map((r, i) => {
+        const b = ord[i], out = r.timeMs == null || r.est;
+        return '<div class="rb-row' + (r.me ? ' me' : '') + (out ? ' out' : '') + (b && b.lost ? ' lost' : '') + (r.place <= 3 && !out ? ' pod p' + r.place : '') + '"><b class="race-medal">' + r.place + '</b><i class="race-dot" style="background:' + esc(r.color) + '"></i><span>' + esc(r.name) + '</span><em>' +
+          (out ? '<small>' + esc(b ? sailStatus(b) : t('race.res.still')) + '</small>' : esc(KOS.UI.fmtTime(r.timeMs))) + '</em></div>';
+      }).join('');
+      if (boardSet('list', BD.list, list)) boardScrollHint();
+      boardSet('foot', BD.foot, LIVE && !S.unofficial ? '' : '<button type="button" class="btn btn-primary rb-next" data-act="next"><span>' + esc(t(S.nextReq ? 'live.res.wait' : 'race.btn.next')) + '</span>' + KOS.UI.iconSvg('next') + '</button>');
+      board.querySelector('.rb-more').textContent = t('race.fin.more');
     }
     function tableRows() {
       const ord = rank();
@@ -1931,7 +1960,7 @@
       host.layer.classList.remove('has-intro-card');
       if (introCard) { introCard.remove(); introCard = null; }
       if (coachIntro) coachIntro.close(true);
-      ctrl.detach(); hud.destroy(); panel.remove(); card.remove(); if (board) board.remove();
+      ctrl.detach(); hud.destroy(); panel.remove(); card.remove(); if (board) board.remove(); if (dim) dim.remove();
       scene.destroy();
       try { KOS.Audio.ambient(null); KOS.Audio.engine(null); } catch (e) { /* optional */ }
     }
