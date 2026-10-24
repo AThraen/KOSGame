@@ -624,18 +624,61 @@
   // Anonymous stats only (category 'club': open, cta, web, facebook); the link target depends on the UI language.
   const CLUB_URL = { web: 'https://www.kossejlsport.dk', facebook: 'https://www.facebook.com/kossejlsport/',
     cta: { da: 'https://www.kossejlsport.dk/klub/kos-sejlsport/sider/prov-sejlads-hos-os', en: 'https://www.kossejlsport.dk/klub/kos-sejlsport/sider/for-english-speakers2' } };
+  const CLUB_PHOTOS = [
+    { f: 'club-zest.jpg', w: 900, h: 675, pos: '50% 62%' }, { f: 'club-sailing.jpg', w: 900, h: 600, pos: '50% 55%' },
+    { f: 'club-pontoon.jpg', w: 900, h: 676, pos: '50% 62%' }, { f: 'club-hboat.jpg', w: 720, h: 900, pos: '50% 50%', contain: true },
+    { f: 'club-j70.jpg', w: 900, h: 599, pos: '50% 60%' }, { f: 'club-capsize.jpg', w: 900, h: 675, pos: '50% 55%' }];
+  // Swipeable photo slider (CSS scroll-snap). Auto-advances slowly until the user touches it; fully torn down when the dialog closes.
+  function clubSlider(sl) {
+    const scroller = sl.querySelector('.club-track'), dots = sl.querySelectorAll('.club-dot'), n = dots.length;
+    const reduce = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    let cur = 0, timer = 0, stopped = false, tracked = false;
+    const cleanup = [];
+    const on = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); cleanup.push(() => el.removeEventListener(ev, fn, o)); };
+    const mark = i => { cur = i; dots.forEach((d, k) => { if (k === i) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); }); };
+    const go = (i, smooth) => {
+      i = (i + n) % n;
+      scroller.scrollTo({ left: i * scroller.clientWidth, behavior: smooth && !reduce ? 'smooth' : 'auto' });
+      mark(i);
+    };
+    const stop = () => { stopped = true; if (timer) clearInterval(timer); timer = 0; };
+    const user = () => { stop(); if (!tracked) { tracked = true; track('club', 'swipe', ''); } };
+    on(scroller, 'scroll', () => { const i = Math.round(scroller.scrollLeft / (scroller.clientWidth || 1)); if (i !== cur && i >= 0 && i < n) mark(i); }, { passive: true });
+    on(scroller, 'pointerdown', user); on(scroller, 'wheel', user, { passive: true });
+    on(sl.querySelector('.club-prev'), 'click', () => { user(); go(cur - 1, true); });
+    on(sl.querySelector('.club-next'), 'click', () => { user(); go(cur + 1, true); });
+    dots.forEach(d => on(d, 'click', () => { user(); go(+d.getAttribute('data-i'), true); }));
+    on(sl, 'keydown', e => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); user(); go(cur - 1, true); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); user(); go(cur + 1, true); }
+    });
+    on(root, 'resize', () => go(cur, false));
+    mark(0);
+    if (!reduce) timer = setInterval(() => { if (stopped || !sl.isConnected) return stop(); if (!doc.hidden) go(cur + 1, true); }, 5000);
+    return () => { stop(); cleanup.forEach(f => f()); };
+  }
   function clubDialog() {
     const lang = KOS.I18n && KOS.I18n.lang === 'en' ? 'en' : 'da';
     const lnk = (cls, act, href, label) => '<a class="' + cls + '" data-club="' + act + '" href="' + href + '" target="_blank" rel="noopener">' + label + '</a>';
     const body =
-      '<figure class="club-photo"><img src="assets/photos/club-sailing.jpg" width="900" height="600" loading="lazy" decoding="async" alt="' + esc(t('app.club.photoAlt')) + '">' +
-      '<figcaption>' + esc(t('app.club.photoCredit')) + '</figcaption></figure>' +
+      '<div class="club-slider" tabindex="0" role="group" aria-roledescription="carousel" aria-label="' + esc(t('app.club.title')) + '">' +
+      '<figure class="club-photo"><div class="club-track">' + CLUB_PHOTOS.map((p, i) =>
+        '<div class="club-slide" role="group" aria-label="' + (i + 1) + ' / ' + CLUB_PHOTOS.length + '">' +
+        (p.contain ? '<img class="club-bg" src="assets/photos/' + p.f + '" alt="" aria-hidden="true" loading="lazy" decoding="async">' : '') +
+        '<img class="club-img' + (p.contain ? ' is-contain' : '') + '" src="assets/photos/' + p.f + '" width="' + p.w + '" height="' + p.h + '"' + (i ? ' loading="lazy"' : '') +
+        ' decoding="async" style="object-position:' + p.pos + '" alt="' + esc(t('app.club.alt' + (i + 1))) + '"></div>').join('') + '</div>' +
+      '<figcaption>' + esc(t('app.club.photoCredit')) + '</figcaption>' +
+      '<button type="button" class="club-nav club-prev" aria-label="' + esc(t('app.club.prev')) + '">&#8249;</button>' +
+      '<button type="button" class="club-nav club-next" aria-label="' + esc(t('app.club.next')) + '">&#8250;</button></figure>' +
+      '<div class="club-dots">' + CLUB_PHOTOS.map((p, i) => '<button type="button" class="club-dot" data-i="' + i + '" aria-label="' + (i + 1) + ' / ' + CLUB_PHOTOS.length + '"></button>').join('') + '</div></div>' +
       '<p class="club-lead">' + esc(t('app.club.lead')) + '</p>' +
       '<ul class="club-list"><li>' + esc(t('app.club.l1')) + '</li><li>' + esc(t('app.club.l2')) + '</li><li>' + esc(t('app.club.l3')) + '</li></ul>' +
       lnk('btn btn-primary club-cta', 'cta', CLUB_URL.cta[lang], esc(t('app.club.cta'))) +
       '<p class="club-links">' + lnk('link-btn', 'web', CLUB_URL.web, 'kossejlsport.dk') + lnk('link-btn', 'facebook', CLUB_URL.facebook, 'Facebook') + '</p>';
-    const d = UI().dialog({ title: t('app.club.title'), cls: 'club-dialog', body, buttons: [{ labelKey: 'common.close', kind: 'glass' }] });
+    let endSlider = null;
+    const d = UI().dialog({ title: t('app.club.title'), cls: 'club-dialog', body, buttons: [{ labelKey: 'common.close', kind: 'glass' }], onClose: () => { if (endSlider) endSlider(); } });
     if (!d) return;
+    endSlider = clubSlider(d.el.querySelector('.club-slider'));
     track('club', 'open', lang);
     d.el.addEventListener('click', e => {
       const a = e.target.closest && e.target.closest('a[data-club]');
@@ -1863,7 +1906,7 @@
       },
       badge: { new: 'Nyt mærke: {name}!', have: 'Du har dette mærke!', newOne: 'Nyt mærke!', newMany: 'Nye mærker!', locked: 'Ikke låst op endnu', count: '{n} af {of} mærker' },
       club: {
-        link: 'Mere om KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimistjoller og unge sejlere på vandet i Svanemøllehavnen', photoCredit: 'Foto: KØS Sejlsport',
+        link: 'Mere om KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimistjoller og unge sejlere på vandet i Svanemøllehavnen', photoCredit: 'Foto: KØS Sejlsport', prev: 'Forrige billede', next: 'Næste billede', alt1: 'Tre børn på en RS Zest med grønt sejl i solskin', alt2: 'Optimistjoller og unge sejlere på vandet i Svanemøllehavnen', alt3: 'Optimistjoller gøres klar ved pontonen, med klubbens RIB i baggrunden', alt4: 'Rød H-båd med KØS-besætning om bord', alt5: 'J70-besætning set bagfra i gyldent aftenlys', alt6: 'Kæntringstræning ved pontonen: børn reser en kæntret jolle',
         lead: 'KØS Sejlsport er en ungdomssejlklub i Svanemøllehavnen i København – for børn, unge og familier fra ca. 4 til 25 år.',
         l1: 'Vi sejler jolle (Optimist, Feva, Zest, ILCA, 29er …) og J70 kølbåd – både kapsejlads og eventyr.',
         l2: 'Der er begynderkurser, sommerlejr og et engelsktalende hold.',
@@ -1951,7 +1994,7 @@
       },
       badge: { new: 'New badge: {name}!', have: 'You have this badge!', newOne: 'New badge!', newMany: 'New badges!', locked: 'Not unlocked yet', count: '{n} of {of} badges' },
       club: {
-        link: 'More about KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimist dinghies and young sailors on the water in Svanemøllehavnen', photoCredit: 'Photo: KØS Sejlsport',
+        link: 'More about KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimist dinghies and young sailors on the water in Svanemøllehavnen', photoCredit: 'Photo: KØS Sejlsport', prev: 'Previous photo', next: 'Next photo', alt1: 'Three kids on a green-sailed RS Zest in the sunshine', alt2: 'Optimist dinghies and young sailors on the water in Svanemøllehavnen', alt3: 'Optimists being rigged at the pontoon, with the club RIB behind', alt4: 'Red H-boat with a KØS crew on board', alt5: 'J70 crew seen from behind in golden evening light', alt6: 'Capsize training at the pontoon: kids righting a capsized dinghy',
         lead: 'KØS Sejlsport is a youth sailing club in Svanemøllehavnen, Copenhagen – for children, young people and families from about 4 to 25 years old.',
         l1: 'We sail dinghies (Optimist, Feva, Zest, ILCA, 29er …) and J70 keelboats – both racing and adventure.',
         l2: 'There are beginner courses, summer camps and an English-speaking team.',
