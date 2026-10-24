@@ -392,6 +392,9 @@ async function main() {
     ok(await lost.evaluate(() => { const c = KOS.App.run.inst.debug.lostCfg; return c.thr > 0 && c.thr <= 10 && c.gap >= 15; }), 'Let: simple, frequent hints are configured');
     await botOn(good); await botOn(lost);
     await lost.waitForFunction(() => KOS.App.run.inst.boat.rc.started && KOS.App.run.inst.state.raceT > 3, null, { timeout: 90000 });
+    // the bot can cross the line late and then rightly gets a "lostStart" hint; only judge it once it is racing
+    await good.waitForFunction(() => KOS.App.run.inst.boat.rc.started, null, { timeout: 90000 });
+    await good.evaluate(() => { const l = KOS.App.run.inst.debug.lost; l.log.length = 0; l.n = 0; l.last = -999; l.away = 0; });
     // from here the "lost" sailor holds a heading straight away from the next mark; the other sailor keeps racing correctly
     await lost.evaluate(() => {
       const i = KOS.App.run.inst, b = i.boat, U = KOS.U, tg = i.debug.marks[0];
