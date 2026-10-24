@@ -95,6 +95,8 @@ Parents and coaches can unlock everything in the settings.
 | RIB throttle | ↑ ↓ | Throttle lever and wheel |
 | Pause | Esc or P | Pause button |
 
+The browser's back button (and Android's back gesture, also in the installed app) works like in a native app: it closes an open window, goes back one screen, and during a run opens the pause menu instead of leaving (in a live race the leave card, and the race keeps running). Only on the title screen does it leave the game.
+
 ## Install and offline play (PWA)
 
 Open the game over https (the GitHub Pages link above) or `http://localhost` and use the browser's *Install app* /

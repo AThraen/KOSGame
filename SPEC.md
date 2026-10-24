@@ -100,6 +100,7 @@ js/ui/ui.js           KOS.UI (toasts, dialogs, HUD, coach bubbles, results)
 js/ui/hub.js          KOS.Hub (the harbor map screen)
 js/ui/track.js        KOS.Track (anonymous Matomo stats, see Analytics)
 js/ui/app.js          KOS.App (screens, router, loop, settings, profile)
+js/ui/history.js      KOS.Nav (browser / Android / iOS back button -> the app's own back action)
 js/modes/sail.js      free sail (reference mode)
 js/modes/school.js    sailing school lessons
 js/modes/race.js      races
@@ -336,6 +337,15 @@ Screens (DOM sections in index.html): `title`, `hub`, `area` (activity list for 
 `settings`, `profile`, `garage` (boat ladder / "Sejlerpas"), `credits`.
 `KOS.App.show(screen, params)`, `KOS.App.play(activityId)`, `KOS.App.back()`. Main loop with fixed step and
 pause on `visibilitychange`.
+**Back button (`KOS.Nav`, js/ui/history.js).** The browser / Android hardware / iOS swipe back never leaves the game mid-way.
+KOS.Nav keeps one same-URL history entry (`history.state.kosNav = index`; hash and query untouched) per back step the app
+is away from the bare title: screens on `KOS.App.stack`, each open `KOS.UI.dialog` (`KOS.UI.dialogCount()`, event `dialog`),
+the hub's place list, a live-lobby sub view. Deeper: `pushState`; shallower (closed by its own button): a guarded `history.go(-n)`.
+A back popstate does ONE app back action: close the top dismissable dialog / the place list; in a run toggle the pause card
+(live race: the leave card, the race keeps running), never quit; a live lobby with a session or live results asks "Forlad løbet?"
+first; any other screen clicks its own header back button (else `App.back()`). At the title with nothing open the depth is 0,
+so back leaves the site. Forward only re-syncs. A reload on a deep entry walks back to the page's own entry. Anything that
+replaces history state must keep `history.state` (see mpstatus.js). Tests: `tools/test-back.js` (suite `back`).
 `credits` (Om spillet) names the author ("Idé og udvikling: Allan Thraen", a volunteer project for KØS Sejlsport) and, like `settings`, shows the build version (`KOS.BUILD`, js/version.js, stamped by the deploy workflow: `dev` / `v0.4.0` on prod / `<tag>+<sha>` on test) and a feedback block (`KOS.Feedback`, js/ui/feedback.js): "Rapportér en fejl" / "Ønsk en funktion" open a prefilled `mailto:` (version, screen, perf tier, activity, language, settings), "Vis adresse" reveals the address with a copy button. The address is scrambled in source and only assembled on a click (no harvestable literal, no network). Handles the PWA install prompt and update toast.
 Implemented: `KOS.App.suggest()` → the activity a player should do next (curated beginner path `KOS.App.PATH`, then the easiest
 unfinished unlocked activity) — used by the hub's "Næste udfordring" card. `KOS.App.rankOf(xp)` → `{level, key, frac, toNext}`
@@ -466,6 +476,7 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
   simulated input, fail on any console error / uncaught exception; screenshots at phone/tablet/desktop sizes into
   `docs/screenshots/` (gitignored `shot*.png` are scratch).
 - `node tools/gen-precache.js --check` must pass before finishing.
+- `node tools/test-back.js` — headless Chrome: the back button (KOS.Nav) through screens, dialogs, the place list and a run's pause card.
 - Mode builders: read `docs/MODE-AUTHORING.md` (skeleton, wiring, testing). Helpers: `node tools/playshot.js <id> [WxH]
   [ms] [keys]` (one headless screenshot), `node tools/autoplay.js <id> [boat] [assist]` (fast-forward a level to its result
   using the mode's optional `setAutopilot`/`skipIntro` test hooks), `node tools/smoke.js --only=<mode>`.
