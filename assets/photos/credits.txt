@@ -3,3 +3,8 @@ KØS SEJL - real photos (assets/photos/*.jpg)
 club-sailing.jpg  Foto: KØS Sejlsport. Optimist dinghies at Svanemøllehavnen, from the club photo carousel on
                   holdsport.dk (the club's own site). Resized to 900 px wide. Used in the "Mere om KØS Sejlsport" popup on the
                   title screen. Used with the club's permission (the club owner runs this project).
+
+club-zest.jpg, club-pontoon.jpg, club-hboat.jpg, club-j70.jpg, club-capsize.jpg
+                  Foto: KØS Sejlsport (source: kossejlsport.krogh.cc, the club's own photo site). Resized to about 900 px.
+                  Slides 1, 3-6 of the photo slider in the "Mere om KØS Sejlsport" popup (slide 2 is club-sailing.jpg).
+                  Used with the club's permission.

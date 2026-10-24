@@ -230,7 +230,23 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 .club-dialog .dialog-body { padding: 0 20px; order: 0; }
 .club-dialog .dialog-buttons { padding: 0 20px; margin-top: 10px; }
 .club-photo { margin: 0 -20px; aspect-ratio: 16 / 9; position: relative; background: rgba(255,255,255,.06); overflow: hidden; }
-.club-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.club-slider { outline: none; }
+.club-slider:focus-visible .club-photo { outline: 3px solid var(--primary-hi); outline-offset: -3px; }
+.club-track { display: flex; width: 100%; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.club-track::-webkit-scrollbar { display: none; }
+.club-slide { flex: 0 0 100%; height: 100%; position: relative; scroll-snap-align: center; scroll-snap-stop: always; overflow: hidden; }
+.club-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.club-slide img.is-contain { position: relative; object-fit: contain; }
+.club-slide img.club-bg { position: absolute; inset: -12%; width: 124%; height: 124%; filter: blur(18px) brightness(.7); }
+.club-photo figcaption { z-index: 2; pointer-events: none; }
+.club-nav { display: none; position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 0 3px; }
+.club-nav:hover { background: rgba(0,0,0,.7); }
+.club-prev { left: 8px; } .club-next { right: 8px; }
+@media (hover: hover) and (pointer: fine) { .club-nav { display: block; } }
+.club-dots { display: flex; justify-content: center; gap: 0; margin: 6px -20px 0; }
+.club-dot { width: 28px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
+.club-dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: rgba(255,255,255,.35); transition: background .2s, transform .2s; }
+.club-dot[aria-current="true"]::after { background: #fff; transform: scale(1.25); }
 .club-photo figcaption { position: absolute; right: 8px; bottom: 6px; font-size: .72rem; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 .club-lead { margin-top: 14px; font-weight: 800; color: #fff; }
 .club-list { margin: 8px 0 14px; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }

@@ -129,9 +129,17 @@ async function pass(browser, base, label, opts) {
   const club = await page.evaluate(() => {
     const d = document.querySelector('.club-dialog');
     const a = d ? Array.from(d.querySelectorAll('a')) : [];
-    return { open: !!d, n: a.length, safe: a.every(x => x.target === '_blank' && /noopener/.test(x.rel) && /^https:\/\//.test(x.href)), img: !!(d && d.querySelector('img')) };
+    return { open: !!d, n: a.length, safe: a.every(x => x.target === '_blank' && /noopener/.test(x.rel) && /^https:\/\//.test(x.href)), img: !!(d && d.querySelector('img')), slides: d ? d.querySelectorAll('.club-slide').length : 0, dots: d ? d.querySelectorAll('.club-dot').length : 0 };
   });
-  if (!club.open || club.n !== 3 || !club.safe || !club.img) problems.push('[' + label + '] club popup wrong: ' + JSON.stringify(club));
+  if (!club.open || club.n !== 3 || !club.safe || !club.img || club.slides !== 6 || club.dots !== 6) problems.push('[' + label + '] club popup wrong: ' + JSON.stringify(club));
+  // slider navigation: next button (pointer-independent via DOM click) and dot click move the current dot
+  const cur = () => page.evaluate(() => Array.from(document.querySelectorAll('.club-dot')).findIndex(d => d.getAttribute('aria-current') === 'true'));
+  await page.evaluate(() => document.querySelector('.club-next').click()); await page.waitForTimeout(700);
+  if ((await cur()) !== 1) problems.push('[' + label + '] club slider next did not advance');
+  await page.evaluate(() => document.querySelectorAll('.club-dot')[3].click()); await page.waitForTimeout(900);
+  if ((await cur()) !== 3) problems.push('[' + label + '] club slider dot did not navigate');
+  await page.focus('.club-slider'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(700);
+  if ((await cur()) !== 4) problems.push('[' + label + '] club slider arrow key did not advance');
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   if (await page.evaluate(() => !!document.querySelector('.club-dialog'))) problems.push('[' + label + '] club popup did not close on Escape');
   const areas = await page.evaluate(() => KOS.Activities.areas());
