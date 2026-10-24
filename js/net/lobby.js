@@ -122,7 +122,7 @@
     L.sess = null; L.room = null; L.busy = ''; L.results = null; L.handoff = false;
   }
   function paint() { const sec = secEl(); if (sec && app().cur === 'live') { render(sec); if (KOS.I18n) KOS.I18n.apply(sec); } }
-  function setView(v) { L.view = v; paint(); }
+  function setView(v) { L.view = v; paint(); if (KOS.Nav) KOS.Nav.sync(); } // KOS.Nav: a lobby sub view is one back step
 
   // ------------------------------------------------------------------ messages (the trainer talks)
   function trainerMsg(text, actions) {

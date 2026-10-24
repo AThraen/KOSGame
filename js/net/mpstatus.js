@@ -197,7 +197,7 @@
     // drop only join=CODE from the hash (keeps dev overrides like mp= and mpstatus=)
     try {
       const rest = String(loc().hash || '').replace(/^#/, '').split('&').filter(kv => kv && kv.indexOf('join=') !== 0).join('&');
-      if (root.history && root.history.replaceState) root.history.replaceState(null, '', loc().pathname + (loc().search || '') + (rest ? '#' + rest : ''));
+      if (root.history && root.history.replaceState) root.history.replaceState(root.history.state, '', loc().pathname + (loc().search || '') + (rest ? '#' + rest : ''));
     } catch (e) { /* ignore */ }
     const auto = !!KOS.pendingAuto; KOS.pendingAuto = false;
     KOS.joinArrival = code; // the lobby may still ask the update prompt to wait or to run first

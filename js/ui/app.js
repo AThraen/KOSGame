@@ -1862,6 +1862,7 @@
         choose: 'Vælg som min båd', chosen: '{name} er nu din båd!', unlockedToast: 'Ny båd låst op: {name}!',
       },
       badge: { new: 'Nyt mærke: {name}!', have: 'Du har dette mærke!', newOne: 'Nyt mærke!', newMany: 'Nye mærker!', locked: 'Ikke låst op endnu', count: '{n} af {of} mærker' },
+      nav: { leaveTitle: 'Forlad løbet?', leaveBody: 'Du er stadig med i live-kapsejladsen. Vil du forlade den?', stay: 'Bliv', leave: 'Forlad' },
       club: {
         link: 'Mere om KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimistjoller og unge sejlere på vandet i Svanemøllehavnen', photoCredit: 'Foto: KØS Sejlsport',
         lead: 'KØS Sejlsport er en ungdomssejlklub i Svanemøllehavnen i København – for børn, unge og familier fra ca. 4 til 25 år.',
@@ -1950,6 +1951,7 @@
         choose: 'Make it my boat', chosen: '{name} is now your boat!', unlockedToast: 'New boat unlocked: {name}!',
       },
       badge: { new: 'New badge: {name}!', have: 'You have this badge!', newOne: 'New badge!', newMany: 'New badges!', locked: 'Not unlocked yet', count: '{n} of {of} badges' },
+      nav: { leaveTitle: 'Leave the race?', leaveBody: 'You are still in the live race. Do you want to leave it?', stay: 'Stay', leave: 'Leave' },
       club: {
         link: 'More about KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimist dinghies and young sailors on the water in Svanemøllehavnen', photoCredit: 'Photo: KØS Sejlsport',
         lead: 'KØS Sejlsport is a youth sailing club in Svanemøllehavnen, Copenhagen – for children, young people and families from about 4 to 25 years old.',

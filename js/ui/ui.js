@@ -240,11 +240,16 @@
       wrap.classList.add('out');
       setTimeout(() => wrap.remove(), 220);
       if (opts.onClose) opts.onClose();
+      navNote();
     }
     api.dismissable = opts.dismissable !== false;
+    navNote();
     return api;
   }
   function topDialog() { return dialogStack[dialogStack.length - 1] || null; }
+  function dialogCount() { return dialogStack.length; }
+  // KOS.Nav (js/ui/history.js) keeps one history entry per open dialog, so the back button closes it
+  function navNote() { try { if (KOS.Events) KOS.Events.emit('dialog', dialogStack.length); } catch (e) { /* ignore */ } }
 
   // ------------------------------------------------------------------ the club's coaches
   // Anton, Maria, Storm, Marius, Ida, Nicolas, Peter and Jesper are cartoons of the real KØS coaches (user photos 2026-10-07/08); Jesper is the default.
@@ -740,7 +745,7 @@
   }
 
   KOS.UI = {
-    toast, dialog, topDialog, trapFocus, coach, coachClose, coachSvg, setCoach, currentCoach, coachName, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS, panelChip,
+    toast, dialog, topDialog, dialogCount, trapFocus, coach, coachClose, coachSvg, setCoach, currentCoach, coachName, hud, countdown, stars, starSvg, confetti, iconSvg, icons: ICONS, panelChip,
     results, avatarSvg, AVATAR, shade, esc, el, fmtTime, reduced, sfx,
   };
 
