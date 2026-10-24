@@ -603,6 +603,7 @@
       '<button type="button" class="menu-btn" data-act="quick"' + (bay ? '' : ' disabled') + '><span class="mb-ico c-blue">' + ico('wind') + '</span><span class="mb-txt"><b>' + esc(t('app.title.quick')) + '</b><small>' + esc(t('app.title.quickSub')) + '</small></span></button>' +
       '</div></div>' +
       '<footer class="title-foot"><span class="hint">' + (finePointer() ? esc(t('app.title.hint')) : '') + '</span>' +
+      '<button type="button" class="link-btn club-link" data-act="club">' + esc(t('app.club.link')) + '</button>' +
       '<button type="button" class="link-btn" data-act="credits">' + esc(t('app.credits.title')) + '</button></footer>';
     liveTitleSync(sec);
     bind(sec, {
@@ -613,10 +614,33 @@
       settings: () => { sfx('click'); App.show('settings'); },
       profile: () => { sfx('click'); App.show('profile', {}); },
       credits: () => { sfx('click'); App.show('credits'); },
+      club: () => { sfx('click'); clubDialog(); },
       fullscreen: () => { sfx('click'); toggleFullscreen(); },
       install: () => { sfx('click'); App.install(); },
     });
   };
+  // "Mere om KØS Sejlsport": a popup with a real club photo, a few warm lines and a link to the club's trial-sailing page.
+  // Anonymous stats only (category 'club': open, cta, web, facebook); the link target depends on the UI language.
+  const CLUB_URL = { web: 'https://www.kossejlsport.dk', facebook: 'https://www.facebook.com/kossejlsport/',
+    cta: { da: 'https://www.kossejlsport.dk/klub/kos-sejlsport/sider/prov-sejlads-hos-os', en: 'https://www.kossejlsport.dk/klub/kos-sejlsport/sider/for-english-speakers2' } };
+  function clubDialog() {
+    const lang = KOS.I18n && KOS.I18n.lang === 'en' ? 'en' : 'da';
+    const lnk = (cls, act, href, label) => '<a class="' + cls + '" data-club="' + act + '" href="' + href + '" target="_blank" rel="noopener">' + label + '</a>';
+    const body =
+      '<figure class="club-photo"><img src="assets/photos/club-sailing.jpg" width="900" height="600" loading="lazy" decoding="async" alt="' + esc(t('app.club.photoAlt')) + '">' +
+      '<figcaption>' + esc(t('app.club.photoCredit')) + '</figcaption></figure>' +
+      '<p class="club-lead">' + esc(t('app.club.lead')) + '</p>' +
+      '<ul class="club-list"><li>' + esc(t('app.club.l1')) + '</li><li>' + esc(t('app.club.l2')) + '</li><li>' + esc(t('app.club.l3')) + '</li></ul>' +
+      lnk('btn btn-primary club-cta', 'cta', CLUB_URL.cta[lang], esc(t('app.club.cta'))) +
+      '<p class="club-links">' + lnk('link-btn', 'web', CLUB_URL.web, 'kossejlsport.dk') + lnk('link-btn', 'facebook', CLUB_URL.facebook, 'Facebook') + '</p>';
+    const d = UI().dialog({ title: t('app.club.title'), cls: 'club-dialog', body, buttons: [{ labelKey: 'common.close', kind: 'glass' }] });
+    if (!d) return;
+    track('club', 'open', lang);
+    d.el.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('a[data-club]');
+      if (a) track('club', a.getAttribute('data-club'), lang);
+    });
+  }
   // Live-kapsejlads on the title menu: shown whenever the status file says on or closed (no unlocks needed)
   function liveTitleSync(sec) {
     const M = KOS.MPStatus, b = sec.querySelector('.menu-live');
@@ -1837,6 +1861,14 @@
         choose: 'Vælg som min båd', chosen: '{name} er nu din båd!', unlockedToast: 'Ny båd låst op: {name}!',
       },
       badge: { new: 'Nyt mærke: {name}!', have: 'Du har dette mærke!', newOne: 'Nyt mærke!', newMany: 'Nye mærker!', locked: 'Ikke låst op endnu', count: '{n} af {of} mærker' },
+      club: {
+        link: 'Mere om KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimistjoller og unge sejlere på vandet i Svanemøllehavnen', photoCredit: 'Foto: KØS Sejlsport',
+        lead: 'KØS Sejlsport er en ungdomssejlklub i Svanemøllehavnen i København – for børn, unge og familier fra ca. 4 til 25 år.',
+        l1: 'Vi sejler jolle (Optimist, Feva, Zest, ILCA, 29er …) og J70 kølbåd – både kapsejlads og eventyr.',
+        l2: 'Der er begynderkurser, sommerlejr og et engelsktalende hold.',
+        l3: 'Og masser af hygge på land. Klubben drives af frivillige og forældre.',
+        cta: 'Prøv at sejle i virkeligheden – kom og sejl med os!',
+      },
       credits: {
         title: 'Om spillet', lead: 'KØS SEJL er lavet til de unge sejlere i KØS Sejlsport på Svaneknoppen – så du kan øve dig hele vinteren og være skarp, når bådene kommer i vandet igen.',
         studio: 'Lavet af umage.ai Studio i samarbejde med KØS Sejlsport. Spillet er bygget af AI-agenter, instrueret af umage.ai.',
@@ -1917,6 +1949,14 @@
         choose: 'Make it my boat', chosen: '{name} is now your boat!', unlockedToast: 'New boat unlocked: {name}!',
       },
       badge: { new: 'New badge: {name}!', have: 'You have this badge!', newOne: 'New badge!', newMany: 'New badges!', locked: 'Not unlocked yet', count: '{n} of {of} badges' },
+      club: {
+        link: 'More about KØS Sejlsport', title: 'KØS Sejlsport', photoAlt: 'Optimist dinghies and young sailors on the water in Svanemøllehavnen', photoCredit: 'Photo: KØS Sejlsport',
+        lead: 'KØS Sejlsport is a youth sailing club in Svanemøllehavnen, Copenhagen – for children, young people and families from about 4 to 25 years old.',
+        l1: 'We sail dinghies (Optimist, Feva, Zest, ILCA, 29er …) and J70 keelboats – both racing and adventure.',
+        l2: 'There are beginner courses, summer camps and an English-speaking team.',
+        l3: 'And lots of fun on land too. The club is run by volunteers and parents.',
+        cta: 'Try sailing for real – come sail with us!',
+      },
       credits: {
         title: 'About', lead: 'KØS SEJL is made for the young sailors of KØS Sejlsport on Svaneknoppen – so you can practise all winter and be sharp when the boats go back in the water.',
         studio: 'Made by umage.ai Studio in collaboration with KØS Sejlsport. Built by AI agents, directed by umage.ai.',

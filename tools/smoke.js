@@ -123,6 +123,17 @@ async function pass(browser, base, label, opts) {
   check(page, label + ' boot');
   // screens
   for (const s of ['title', 'hub', 'garage', 'settings', 'profile', 'credits']) { await show(page, s); check(page, label + ' screen ' + s); }
+  // club promo popup on the title screen: opens, external links are safe, Escape closes it
+  await show(page, 'title');
+  await page.click('[data-act="club"]'); await page.waitForTimeout(400);
+  const club = await page.evaluate(() => {
+    const d = document.querySelector('.club-dialog');
+    const a = d ? Array.from(d.querySelectorAll('a')) : [];
+    return { open: !!d, n: a.length, safe: a.every(x => x.target === '_blank' && /noopener/.test(x.rel) && /^https:\/\//.test(x.href)), img: !!(d && d.querySelector('img')) };
+  });
+  if (!club.open || club.n !== 3 || !club.safe || !club.img) problems.push('[' + label + '] club popup wrong: ' + JSON.stringify(club));
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  if (await page.evaluate(() => !!document.querySelector('.club-dialog'))) problems.push('[' + label + '] club popup did not close on Escape');
   const areas = await page.evaluate(() => KOS.Activities.areas());
   for (const a of areas) { await show(page, 'area', { area: a }); check(page, label + ' area ' + a); }
   // English pass over a couple of screens (strings + re-render)
