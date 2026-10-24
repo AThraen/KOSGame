@@ -14,3 +14,16 @@ club.jpg         1600x892   211617828223171   warm boat shed interior: dinghies 
 race.jpg         1600x892   159742334641192   fleet of dinghies racing on choppy bright blue water, orange mark buoy
 winter.jpg       1600x892   213588807221333   snowy harbor at dusk, covered boats on cradles, clubhouse with warm windows
 results.jpg      1600x892   78468688583685    celebratory sunny sea, sailboat in spray with rainbow and sunbeams
+
+Halloween 2026 variants (*-halloween.jpg, shown only 24-31 Oct 2026 via js/ui/season.js 'halloween-deco'):
+Made with ComfyUI (comfy-studio) Qwen-Image 2.1 *edit* of the originals above (same composition), 25 steps,
+seed 31102026, ~2.1 MP output, then cover-fitted to the original size and saved as JPEG (quality 0.84) with
+headless Chrome canvas. Prompts: moonlit dusk/night, light fog, glowing jack-o'-lanterns on the pier/jetties/water,
+a few cartoon bats, orange and purple glow, friendly-spooky for kids (no gore, no text).
+file                      size       source           content
+title-land-halloween.jpg  1600x892   title-land.jpg   full moon, bats, fog, floating jack-o'-lanterns
+title-port-halloween.jpg  892x1600   title-port.jpg   same, portrait
+hub-land-halloween.jpg    1600x884   hub-land.jpg     club harbour at night, pumpkins on the pier and jetties, moon, bats
+hub-port-halloween.jpg    892x1600   hub-port.jpg     same, portrait
+club-halloween.jpg        1600x892   club.jpg         boat shed party: pumpkins, cobwebs, orange/purple lights, paper bats
+results-halloween.jpg     1600x892   results.jpg      moonlit sea, sailboat in spray, bobbing jack-o'-lanterns, bats

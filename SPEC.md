@@ -87,10 +87,12 @@ js/core/ai.js         KOS.AI
 js/core/world.js      KOS.World
 js/core/activities.js KOS.Activities, KOS.Modes
 js/render/sprites.js  KOS.Sprites
+js/render/spooky.js   KOS.Spooky (Halloween sprites: pumpkin, ghost boat, hub SVG props; seasonal)
 js/render/effects.js  KOS.Effects
 js/render/water.js    KOS.Water
 js/render/scene.js    KOS.SailScene
 js/ui/storage.js      KOS.Storage
+js/ui/season.js       KOS.Season (date windows for seasonal events, #halloween=1|0|auto)
 js/ui/audio.js        KOS.Audio
 js/ui/input.js        KOS.Input
 js/ui/sailaids.js     KOS.SailAids (daggerboard + jib controls/tips shared by sail, race, nav)
@@ -110,10 +112,11 @@ js/modes/knots.js     knot tying mini-game
 js/modes/capsize.js   capsize recovery mini-game
 js/modes/quiz.js      sailing quiz
 js/modes/shed.js      tidy-the-shed mini-game (Træner Peter)
+js/modes/halloween.js seasonal: "Græskarjagt i mørket" (only while KOS.Season 'halloween' is open)
 js/main.js            boot (runs right after the scripts above: init + title screen; sets KOS.Boot)
 js/modes-ready.js     last script: every mode ran -> KOS.Boot.modesReady()
 ```
-The 12 `js/modes/*.js` scripts are `defer`red (they download in parallel with the core scripts but run after `main.js`),
+The 13 `js/modes/*.js` scripts are `defer`red (they download in parallel with the core scripts but run after `main.js`),
 so the title is interactive without waiting for the ~1 MB of mode code. Until `KOS.modesReady`, `App.show()` holds back
 every screen except the title (a tap on Spil waits for it); `<html class="booted">` is set when the modes are ready
 (`title-ready` earlier). Mode stylesheets are linked `media="print" onload="this.media='all'"` so they do not block render.
@@ -256,7 +259,10 @@ Helpers: `KOS.World.isLand(v, x, y)`, `KOS.World.depthAt(v, x, y)`, `KOS.World.h
 - `result` = `{stars /*0..3*/, score, timeMs, success: bool, stats: {...}, titleKey?, msgKey?, msgVars?}`.
   The app shows the results screen (retry / next / back to the map), saves progress and awards XP.
 - `KOS.Activities.add(defOrArray)`: `{id, mode, area, boat, order, title: {da,en}, desc: {da,en}, icon, params,
-  unlock: {stars: n} | {after: id} | null, minutes, difficulty: 1..5}`. `area` ∈ hub areas below.
+  unlock: {stars: n} | {after: id} | null, minutes, difficulty: 1..5, season?}`. `area` ∈ hub areas below.
+- `season: '<window id>'` (optional) = a seasonal activity: `get` / `list` / `isUnlocked` / `maxStars` ignore it while
+  `KOS.Season.active(id)` is false (core asks through `Activities.setSeasonSource(fn)`, set by js/ui/season.js; default closed).
+  Stars it earned stay in the save (`Storage.totalStars`) after the event; never assume `get(id)` of a stored id is non-null.
 - `KOS.Activities.list(filter)`, `.get(id)`, `.isUnlocked(id)`, `.next(id)`, `.byArea(area)`.
 - Hub areas (`area`): `club` (clubhouse: rigging, knots, quiz, capsize, shed), `school` (sailing school in the bay),
   `bay` (free sail), `race` (race course out in the Sound), `rules` (right-of-way school), `nav` (harbor channel /
@@ -416,6 +422,24 @@ measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. 
   more than the limit = fail. Stars by mistakes and scoldings. Activities `shed.tidy` (14 things), `shed.rush` (22, masts,
   booms and tangled ropes), `shed.regatta` (30, starts messy, the whole team comes in at once now and then). It reuses
   `KOS.RigKit` (rigging.js: the ghost-finger demo and the kid) and rigging's float/sparkle CSS.
+
+## Seasonal events (KOS.Season, js/ui/season.js)
+
+`KOS.Season.active(id[, date])` checks a local-time calendar window (inclusive days) in `KOS.Season.WINDOWS`:
+`halloween` 2026-10-24 .. 2026-11-09 (the level `halloween.hunt` + its hub promo pin) and `halloween-deco` 2026-10-24 ..
+2026-10-31 (all decorative art; gone from 1 Nov 00:00). Override per group: `#halloween=1` / `#halloween=0` force both on / off,
+`#halloween=auto` clears it (stored in `localStorage['kos.season.halloween']`, like God mode); tests use `KOS.Season.force` /
+`KOS.Season.now`. `KOS.Season.mark()` (at load and on every `App.show`) sets `<html class="season-<id>">`; css/halloween.css
+hangs everything off those classes (painted `assets/bg/*-halloween.jpg` backgrounds, title tint and bats, cobwebs). The hub adds
+static map props in the deco window (no animation on the panned map: Android flashing) and, in the level window, a pumpkin place
+pin "Græskarjagt i mørket / Kun til 9. nov." at world (-25, -355) (also in "Alle steder"), plus a one-time toast
+(`kos.hw2026Toast`). Orange race marks get a floating jack-o'-lantern (flat view, deco window).
+**Halloween level** (`js/modes/halloween.js`, area `event` = not a hub area, no unlock, excluded from "Næste udfordring"): night
+sailing in the bay in an Optimist (9 kn SW, steady), 10 glowing pumpkins on a ring across the wind, 3 slow ghost boats on fixed
+loops (+10 s per touch, purple "BUUH!" flash), lantern circle and fog drawn like nav.js drawNight; ends when all are collected or
+after 6 min. Stars: all pumpkins = 3 (time incl. penalties <= 330/300/260 s Let/Normal/Pro and <= 2 ghosts) else 2; >= 85 % = 2
+(<= 1 ghost) or 1; >= 30 % = 1; less = 0. Tests: `node tools/test-core.js season`. Removing it later: delete those files, the
+windows, the `season-*` CSS and the index.html/sw.js entries.
 
 ## Analytics (Matomo)
 

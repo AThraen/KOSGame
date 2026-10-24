@@ -1249,11 +1249,25 @@
   }
 
   // race marks: {x, y, kind: 'orange'|'yellow'|'pin'|'committee'|'gate'|'finish'}
+  const pumpkinTmp = { x: 0, y: 0 };
   function drawMark(ctx, m, opts) {
     opts = opts || {};
     if (m.kind === 'committee') return drawCommittee(ctx, m.x, m.y, m.heading != null ? m.heading : opts.windDir || 0, opts);
     const kind = { orange: 'mark-orange', yellow: 'mark-yellow', gate: 'mark-orange', pin: 'pin', finish: 'finish' }[m.kind] || m.kind || 'mark-orange';
     drawBuoy(ctx, kind, m.x, m.y, Object.assign({}, opts, { scale: (opts.scale || 1.5) * (kind === 'pin' || kind === 'finish' ? 1 : 1.1) }));
+    // Halloween (KOS.Season 'halloween-deco' only): a jack-o'-lantern floats beside every orange mark
+    if (kind === 'mark-orange' && KOS.Spooky && KOS.Spooky.deco()) {
+      ctx.save();
+      if (opts.tilt && KOS.Tilt) { // tilted view: an upright billboard at the projected foot point, like the buoys
+        const T = opts.tilt, p = KOS.Tilt.project(T, m.x + 2.6, m.y + 0.8, 0, pumpkinTmp), r = 1.2 * T.Z * (KOS.Tilt.BUOY_SCALE || 1);
+        ctx.setTransform(T.dpr, 0, 0, T.dpr, T.dpr * (p.x + T.shx), T.dpr * (p.y + T.shy));
+        KOS.Spooky.drawPumpkin(ctx, 0, -r * 0.7, r, opts.t || 0);
+      } else {
+        ctx.translate(m.x, m.y); if (opts.rot) ctx.rotate(-opts.rot);
+        KOS.Spooky.drawPumpkin(ctx, 2.8, 0.6, 1.2, opts.t || 0);
+      }
+      ctx.restore();
+    }
   }
 
   // committee boat (top view, anchored head to wind), with flags streaming downwind

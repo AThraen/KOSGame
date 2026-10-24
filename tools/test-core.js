@@ -1549,6 +1549,83 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
   });
 })();
 
+// ====================================================================== seasonal event (js/ui/season.js, Halloween 2026)
+(function () {
+  for (const f of ['js/ui/season.js', 'js/modes/halloween.js']) { // just these two (harness.load(extra) would re-run the core)
+    const file = require('path').join(__dirname, '..', f);
+    require('vm').runInThisContext(require('fs').readFileSync(file, 'utf8'), { filename: file });
+  }
+  const Se = KOS.Season, A = KOS.Activities;
+  const at = (y, m, d, h, mi) => new Date(y, m - 1, d, h || 0, mi || 0); // local time
+  const realNow = Se.now;
+  const withDate = (d, fn) => { Se.now = () => d; try { fn(); } finally { Se.now = realNow; } };
+  const clean = () => { Se.force = {}; };
+  test('season: halloween level window 24 Oct - 9 Nov 2026 (local, inclusive)', () => {
+    clean();
+    ok(!Se.active('halloween', at(2026, 10, 23, 23, 59)), '23 Oct 23:59 should be off');
+    ok(Se.active('halloween', at(2026, 10, 24, 0, 0)), '24 Oct 00:00 should be on');
+    ok(Se.active('halloween', at(2026, 10, 31, 12)), '31 Oct on');
+    ok(Se.active('halloween', at(2026, 11, 2, 12)), '2 Nov: the level is still on');
+    ok(Se.active('halloween', at(2026, 11, 9, 23, 59)), '9 Nov 23:59 on');
+    ok(!Se.active('halloween', at(2026, 11, 10, 0, 0)), '10 Nov 00:00 off');
+    ok(!Se.active('halloween', at(2027, 10, 30)), 'not next year');
+  });
+  test('season: halloween decorations end 31 Oct 23:59, gone 1 Nov 00:00', () => {
+    clean();
+    ok(!Se.active('halloween-deco', at(2026, 10, 23, 23, 59)), 'deco off before');
+    ok(Se.active('halloween-deco', at(2026, 10, 24, 0, 0)), 'deco on 24 Oct');
+    ok(Se.active('halloween-deco', at(2026, 10, 31, 23, 59)), 'deco on 31 Oct 23:59');
+    ok(!Se.active('halloween-deco', at(2026, 11, 1, 0, 0)), 'deco off 1 Nov 00:00');
+    ok(Se.active('halloween', at(2026, 11, 1, 0, 0)), '...while the level is still on');
+    ok(!Se.active('nope'), 'unknown window is off');
+  });
+  test('season: override #halloween=1/0 forces level and decorations on/off', () => {
+    clean();
+    Se.force.halloween = true;
+    ok(Se.active('halloween', at(2026, 12, 24)) && Se.active('halloween-deco', at(2026, 12, 24)), 'forced on outside the window');
+    Se.force.halloween = false;
+    ok(!Se.active('halloween', at(2026, 10, 28)) && !Se.active('halloween-deco', at(2026, 10, 28)), 'forced off inside the window');
+    clean();
+    // the hash parser stores the override (localStorage stub, like the browser)
+    const store = {};
+    globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+    try {
+      Se.applyHash({ halloween: '1' });
+      ok(store['kos.season.halloween'] === '1' && Se.active('halloween-deco', at(2026, 11, 20)), '#halloween=1 stored + on');
+      Se.applyHash({ halloween: '0' });
+      ok(store['kos.season.halloween'] === '0' && !Se.active('halloween', at(2026, 10, 28)), '#halloween=0 stored + off');
+      Se.applyHash({ halloween: 'auto' });
+      ok(!('kos.season.halloween' in store) && Se.active('halloween', at(2026, 10, 28)), '#halloween=auto clears it');
+      Se.applyHash({ god: '1' });
+      ok(Se.override('halloween') === null, 'other hash flags leave it alone');
+    } finally { delete globalThis.localStorage; }
+  });
+  test('season: the Halloween activity exists only inside its window', () => {
+    clean();
+    const ID = 'halloween.hunt';
+    withDate(at(2026, 10, 28), () => {
+      const a = A.get(ID);
+      ok(a && a.mode === 'halloween' && a.boat === 'opti' && a.season === 'halloween', 'registered while on');
+      ok(A.list().some(x => x.id === ID), 'listed while on');
+      ok(A.isUnlocked(ID), 'no unlock needed');
+      ok(A.areas().indexOf(a.area) < 0, 'not a hub area (own promo pin)');
+    });
+    let maxOn = 0, maxOff = 0;
+    withDate(at(2026, 11, 9, 23, 59), () => { ok(!!A.get(ID), 'still there 9 Nov 23:59'); maxOn = A.maxStars(); });
+    withDate(at(2026, 11, 10, 0, 0), () => {
+      ok(A.get(ID) === null, 'get() is null after the event');
+      ok(!A.list().some(x => x.id === ID), 'not listed after the event');
+      ok(!A.isUnlocked(ID), 'not playable after the event');
+      maxOff = A.maxStars();
+    });
+    ok(maxOn - maxOff === 3, 'max stars drop by its 3 stars');
+    withDate(at(2026, 10, 23), () => { ok(A.get(ID) === null, 'not there before the event'); });
+    Se.force.halloween = true;
+    withDate(at(2027, 1, 1), () => ok(!!A.get(ID), 'forced on'));
+    clean();
+  });
+})();
+
 // ====================================================================== summary
 console.log('\n');
 if (failures.length) console.log('FAILURES:\n  ' + failures.join('\n  '));

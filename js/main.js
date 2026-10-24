@@ -28,6 +28,7 @@
     const h = parseHash();
     // #god=1 / #god=0 switches God mode (testing) on or off for this browser
     if (h.god === '1' || h.god === '0') KOS.Storage.setGod(h.god === '1');
+    // #halloween=1 / 0 / auto (seasonal event override) is applied by js/ui/season.js as soon as it loads
     // dev flags for Skrå visning: #tilt=on|off forces the tilted view (bypasses the setting), #chase=1 the chase cam
     if (KOS.Tilt && (h.tilt === 'on' || h.tilt === 'off')) KOS.Tilt.force = h.tilt === 'on';
     if (KOS.Tilt && h.chase === '1') KOS.Tilt.chase = true;
