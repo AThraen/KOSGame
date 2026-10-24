@@ -1349,6 +1349,7 @@
       '<button type="button" class="btn btn-danger btn-wide" data-act="reset">' + ico('trash') + '<span>' + esc(t('app.settings.reset')) + '</span></button></section>' +
       '<section class="panel glass panel-links">' +
       (canInstall() ? '<button type="button" class="btn btn-primary btn-wide" data-act="install">' + ico('download') + '<span>' + esc(t('app.install')) + '</span></button>' : '') +
+      '<button type="button" class="btn btn-glass btn-wide" data-act="club">' + ico('sail') + '<span>' + esc(t('app.club.link')) + '</span></button>' +
       '<button type="button" class="btn btn-glass btn-wide" data-act="credits">' + ico('heart') + '<span>' + esc(t('app.credits.title')) + '</span></button>' +
       KOS.Feedback.html(esc, ico) +
       '<p class="version" title="' + esc(App.version || '') + '">KØS SEJL · ' + esc(KOS.Feedback.versionText()) + '</p></section>' +
@@ -1379,6 +1380,7 @@
         });
       },
       credits: () => { sfx('click'); App.show('credits'); },
+      club: () => { sfx('click'); clubDialog(); },
       install: () => App.install(),
     });
     const range = sec.querySelector('.range');
@@ -1616,14 +1618,15 @@
       '<section class="panel glass"><h2>' + ico('heart') + esc(t('app.credits.made')) + '</h2>' +
       '<ul class="credit-list"><li><b>' + esc(t('app.credits.club')) + '</b><span><a class="credit-link" href="https://kossejlsport.dk" target="_blank" rel="noopener">KØS Sejlsport</a> · Svaneknoppen</span></li>' +
       '<li><b>' + esc(t('app.credits.code')) + '</b><span>' + esc(t('app.credits.codeWho')) + '</span></li>' +
-      '<li><b>' + esc(t('app.credits.thanks')) + '</b><span>' + esc(t('app.credits.thanksWho')) + '</span></li></ul></section>' +
+      '<li><b>' + esc(t('app.credits.thanks')) + '</b><span>' + esc(t('app.credits.thanksWho')) + '</span></li></ul>' +
+      '<button type="button" class="btn btn-glass btn-wide" data-act="club">' + ico('sail') + '<span>' + esc(t('app.club.link')) + '</span></button></section>' +
       '<section class="panel glass">' + KOS.Feedback.html(esc, ico) + '</section>' +
       '<section class="panel glass safety"><h2>' + ico('life') + esc(t('app.credits.safetyTitle')) + '</h2><p>' + esc(t('app.credits.safety')) + '</p></section>' +
       '<div class="coach-inline">' + UI().coachSvg(null, 'jesper') + '<p>' + esc(t('app.credits.coach')) + '</p></div>' +
       '<p class="version" title="' + esc(App.version || '') + '">KØS SEJL · ' + esc(KOS.Feedback.versionText()) + '</p>' +
       '</div></div>';
     KOS.Feedback.bind(sec);
-    bind(sec, { back: () => { sfx('click'); App.back(); } });
+    bind(sec, { back: () => { sfx('click'); App.back(); }, club: () => { sfx('click'); clubDialog(); } });
   };
 
   // ------------------------------------------------------------------ settings application
