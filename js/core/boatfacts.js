@@ -31,6 +31,8 @@
         f('Halvsejl eller mastforhøjer giver mindre kraft på et skrog, du kender i forvejen. Det er en god start i hård vind.', 'A half sail or a mast raiser gives less power on a hull you already know. A good start in strong wind.'),
         f('KØS’ optimister er hvide med blåt mærke og blåt sejlnummer.', 'The KØS Optimists are white with a blue logo and a blue sail number.'),
         f('Mast, sejl og bom hører sammen. Ror og sværd lægger du i båden på land.', 'The mast, sail and boom go together. You put the rudder and board in the boat on land.'),
+        f('Sejlet rulles ikke. Det bliver siddende på masten, og masten med sejlet bæres ind og ud af skuret.', 'The sail is never rolled. It stays on the mast, and the mast with the sail is carried in and out of the shed.'),
+        f('Storskødet sidder midt på bommen foran sejleren – ikke yderst på bommen som på Tera, Feva og ILCA.', 'The mainsheet is fastened to the middle of the boom in front of the sailor – not at the end of the boom as on the Tera, Feva and ILCA.'),
       ],
     },
     tera: {

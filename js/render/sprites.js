@@ -37,7 +37,10 @@
   const GEO = {
     opti: { L: 2.31, B: 1.13, bowW: 0.58, pb: 0.5, maxAt: 0.55, sternW: 0.86, bowArc: 0.05, sternArc: 0.04,
       mast: 0.2, mastH: 4.7, boom: 2.0, sprit: true, jib: 0, spi: 'none', cockpit: [0.12, 0.93, 0.12, 0.86], board: 0.44,
-      crew: [{ s: 0.68, role: 'helm' }], colors: { hull: '#ffffff', deck: '#f4efe4', sail: '#ffffff', trim: '#b8865a', floor: '#e8e4dc' }, mastCol: '#8a8f99', boomCol: '#a9763f', bags: true },
+      crew: [{ s: 0.68, role: 'helm' }], colors: { hull: '#ffffff', deck: '#f4efe4', sail: '#ffffff', trim: '#b8865a', floor: '#e8e4dc' }, mastCol: '#8a8f99', boomCol: '#a9763f', bags: true,
+      // mainsheet: from mid-boom (fraction of the boom from the mast) down to a block on the floor forward of the helm
+      // (s along the hull), not from the boom end to the transom like the other dinghies (issue #29)
+      sheetAt: 0.5, sheetTo: 0.56 },
     tera: { L: 2.87, B: 1.2, bowW: 0.12, pb: 0.45, maxAt: 0.58, sternW: 0.84, bowArc: 0.06, sternArc: 0.03,
       mast: 0.3, mastH: 4.6, boom: 1.95, jib: 0, spi: 'none', cockpit: [0.45, 0.95, 0.14, 0.78], board: 0.5,
       crew: [{ s: 0.66, role: 'helm' }], colors: { hull: '#39b8f2', deck: '#f6f8fb', sail: '#ffffff', trim: '#1b6aa8', floor: '#dfe7ef' } },
@@ -591,7 +594,13 @@
     // mainsheet line
     ctx.strokeStyle = 'rgba(30,30,40,0.45)'; ctx.lineWidth = 0.02;
     const clewX = Math.sin(boom) * g.boom, clewY = mastY + Math.cos(boom) * g.boom;
-    ctx.beginPath(); ctx.moveTo(clewX * 0.85, mastY + (clewY - mastY) * 0.85); ctx.lineTo(0, Math.min(L / 2 - 0.1, yAt(g, 0.88))); ctx.stroke();
+    const sa = g.sheetAt || 0.85, sbx = clewX * sa, sby = mastY + (clewY - mastY) * sa, sfy = Math.min(L / 2 - 0.1, yAt(g, g.sheetTo || 0.88));
+    ctx.beginPath(); ctx.moveTo(sbx, sby); ctx.lineTo(0, sfy); ctx.stroke();
+    if (g.sheetAt) { // mid-boom sheet (Opti): show the boom block and the ratchet block on the floor
+      ctx.fillStyle = 'rgba(30,30,40,0.7)';
+      ctx.beginPath(); ctx.arc(sbx, sby, 0.04, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, sfy, 0.05, 0, TAU); ctx.fill();
+    }
     // jib
     if (g.jib) {
       drawSailShape(ctx, jibTack, jibAng, jibChord, depth * (boat.jibLuffing ? 0.45 : 0.95), lee, Object.assign({}, sOpt, { flutter: jibFlutter, upper: 0.22, twist: 0.2, headX: headX * 0.75, color: colors.sail, mylar: g.mylar, lw: 0.02 }));
@@ -1038,6 +1047,15 @@
         if (g.mylar && perf >= 1) { ctx.globalAlpha = base * 0.18; ctx.fillStyle = '#7f8da3'; ctx.fill(); ctx.globalAlpha = base; }
       } else if (k === 2) { // boom, then mast (heel included through M)
         drawPost(ctx, M, T, 0, mastY, zB, clewX, clewY, zB, g.boomCol || '#4a515c', Math.max(1, (L > 6 ? 0.11 : 0.07) * Zp));
+        if (g.sheetAt) { // mid-boom mainsheet (Opti) down to the block on the floor, as in the flat view
+          const sa = g.sheetAt, sfy = yAt(g, g.sheetTo || 0.88);
+          ctx.strokeStyle = 'rgba(30,30,40,0.6)'; ctx.lineWidth = 1; ctx.beginPath();
+          prj(M, T, clewX * sa, mastY + (clewY - mastY) * sa, zB); ctx.moveTo(tP.x, tP.y); const bx = tP.x, by = tP.y;
+          prj(M, T, 0, sfy, fb); ctx.lineTo(tP.x, tP.y); ctx.stroke();
+          ctx.fillStyle = 'rgba(30,30,40,0.75)';
+          ctx.beginPath(); ctx.arc(bx, by, Math.max(1, 0.04 * Zp), 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.arc(tP.x, tP.y, Math.max(1.2, 0.05 * Zp), 0, TAU); ctx.fill();
+        }
         drawPost(ctx, M, T, 0, mastY, fb, 0, mastY, mastTop, g.mastCol || '#6b7380', Math.max(1.2, (L > 6 ? 0.13 : 0.09) * Zp));
       } else if (k === 3) drawSpiTilted(ctx, M, T, tW, g, boat, st, r.lee, fb, perf);
       else { // crew member (trapeze wire from the shoulder to the hounds)
