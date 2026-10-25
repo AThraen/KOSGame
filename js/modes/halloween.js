@@ -81,12 +81,18 @@
   // reaches (easy for a beginner Optimist) and only the two ends go a little up/downwind. Checked against land on start.
   const PUMPKINS = [[53, 53], [58, 28], [37, -4], [6, -40], [-30, -55], [-55, -50], [-58, -28], [-37, 4], [-6, 40], [28, 58]];
   // ghost loops: centre (rel. to spawn), radii, angular speed (rad/s, sign = direction), start phase.
-  // One circles the middle, one each end of the ring: slow (under 1 m/s), so you can always sail round them.
+  // One circles the middle, one each end of the ring, three more guard pumpkins on the ring. When you come close they
+  // hunt you (GHOST_CHASE), but always slower than an Optimist, tethered to their loop, and they give up after a while.
   const GHOSTS = [
-    { cx: 0, cy: 0, rx: 22, ry: 22, w: 0.035, ph: Math.PI / 2 },
-    { cx: 76, cy: 76, rx: 20, ry: 20, w: -0.04, ph: Math.PI },
-    { cx: -76, cy: -76, rx: 20, ry: 20, w: 0.04, ph: 0 },
+    { cx: 0, cy: 0, rx: 22, ry: 22, w: 0.05, ph: Math.PI / 2 },
+    { cx: 76, cy: 76, rx: 20, ry: 20, w: -0.06, ph: Math.PI },
+    { cx: -76, cy: -76, rx: 20, ry: 20, w: 0.06, ph: 0 },
+    { cx: 48, cy: -26, rx: 16, ry: 12, w: 0.07, ph: 1 },
+    { cx: -48, cy: 26, rx: 16, ry: 12, w: -0.07, ph: 2.5 },
+    { cx: -30, cy: -78, rx: 14, ry: 18, w: 0.06, ph: 4 },
   ];
+  // per help level: notice range (m), hunting speed (m/s), tether from the loop (m), seconds before giving up
+  const GHOST_CHASE = { easy: { r: 26, v: 0.8, tether: 25, give: 6 }, normal: { r: 34, v: 1.25, tether: 35, give: 9 }, pro: { r: 44, v: 1.7, tether: 45, give: 12 } };
 
   KOS.Modes.register('halloween', { kind: 'sea', create(host, activity) { return createHunt(host, activity); } });
 
@@ -110,7 +116,8 @@
       for (let i = 0; i < 8 && KOS.World.hit(venue, x, y, 6); i++) { x += (sp.x - x) * 0.2; y += (sp.y - y) * 0.2; } // nudge towards open water
       S.pumpkins.push({ x, y, taken: false, ph: (x * 0.31 + y * 0.17) % TAU, pop: 0 });
     }
-    S.ghosts = GHOSTS.map(g => ({ cx: sp.x + g.cx, cy: sp.y + g.cy, rx: g.rx, ry: g.ry, w: g.w, a: g.ph, x: 0, y: 0, h: 0, cool: 0 }));
+    S.ghosts = GHOSTS.map(g => ({ cx: sp.x + g.cx, cy: sp.y + g.cy, rx: g.rx, ry: g.ry, w: g.w, a: g.ph, x: 0, y: 0, h: 0, cool: 0, ox: 0, oy: 0, hunt: 0, rest: 0 }));
+    const CH = GHOST_CHASE[assist] || GHOST_CHASE.normal;
     const rnd = U.rng(P.seed);
     for (let i = 0; i < 9; i++) S.fog.push({ x: sp.x + (rnd() - 0.5) * 360, y: sp.y + (rnd() - 0.5) * 360, r: 45 + rnd() * 50, a: 0.1 + rnd() * 0.08 });
     placeGhosts(0);
@@ -177,7 +184,20 @@
     function placeGhosts(dt) {
       for (const g of S.ghosts) {
         g.a += g.w * dt;
-        const nx = g.cx + Math.cos(g.a) * g.rx, ny = g.cy + Math.sin(g.a) * g.ry;
+        const lx = g.cx + Math.cos(g.a) * g.rx, ly = g.cy + Math.sin(g.a) * g.ry;
+        // hunting: drift the offset from the loop towards the boat; after `give` s (or a hit) rest and float home
+        if (dt && S.phase === 'go' && S.time > 3) {
+          const dx = boat.x - (lx + g.ox), dy = boat.y - (ly + g.oy), d = Math.hypot(dx, dy);
+          if (g.rest > 0) g.rest -= dt;
+          const chase = g.rest <= 0 && g.cool <= 0 && d < CH.r && d > 0.5;
+          g.hunt = chase ? g.hunt + dt : 0;
+          if (chase && g.hunt > CH.give) { g.rest = 5; g.hunt = 0; }
+          if (chase) { g.ox += dx / d * CH.v * dt; g.oy += dy / d * CH.v * dt; }
+          else { const o = Math.hypot(g.ox, g.oy); if (o > 0.01) { const k = Math.max(0, o - 1.0 * dt) / o; g.ox *= k; g.oy *= k; } }
+          const o = Math.hypot(g.ox, g.oy);
+          if (o > CH.tether) { g.ox *= CH.tether / o; g.oy *= CH.tether / o; }
+        }
+        const nx = lx + g.ox, ny = ly + g.oy;
         if (dt) g.h = U.heading(nx - g.x, ny - g.y);
         g.x = nx; g.y = ny;
         if (g.cool > 0) g.cool -= dt;
@@ -203,7 +223,7 @@
       const R = 4.5 + cls.length * 0.5;
       for (const g of S.ghosts) {
         if (g.cool > 0 || Math.hypot(g.x - boat.x, g.y - boat.y) > R) continue;
-        g.cool = 6; S.hits++; S.penalty += P.penalty;
+        g.cool = 6; g.rest = 6; g.hunt = 0; S.hits++; S.penalty += P.penalty;
         sfx('whoosh', { pitch: 0.55, vol: 0.9 }); sfx('bump', { vol: 0.5 });
         if (!reduce) scene.shake(0.35);
         booEl.className = 'hw-boo'; void booEl.offsetWidth; booEl.className = 'hw-boo on';
