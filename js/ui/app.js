@@ -1593,7 +1593,7 @@
   // ================================================================== CREDITS
   // umage.ai Studio credit (About page only). The brand name is never translated.
   // Switch to the kos page at launch: set STUDIO_PAGE_LIVE = true (the kos pages return 404 until the listing is live).
-  const STUDIO_PAGE_LIVE = false;
+  const STUDIO_PAGE_LIVE = true;
   const STUDIO_URLS = STUDIO_PAGE_LIVE
     ? { da: 'https://studio.umage.ai/da/spil/kos/', en: 'https://studio.umage.ai/games/kos/' }
     : { da: 'https://studio.umage.ai/da/', en: 'https://studio.umage.ai/' };
