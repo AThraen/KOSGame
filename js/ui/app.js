@@ -1617,7 +1617,6 @@
       studioCredit() +
       '<section class="panel glass"><h2>' + ico('heart') + esc(t('app.credits.made')) + '</h2>' +
       '<ul class="credit-list"><li><b>' + esc(t('app.credits.club')) + '</b><span><a class="credit-link" href="https://kossejlsport.dk" target="_blank" rel="noopener">KØS Sejlsport</a> · Svaneknoppen</span></li>' +
-      '<li><b>' + esc(t('app.credits.code')) + '</b><span>' + esc(t('app.credits.codeWho')) + '</span></li>' +
       '<li><b>' + esc(t('app.credits.thanks')) + '</b><span>' + esc(t('app.credits.thanksWho')) + '</span></li></ul>' +
       '<button type="button" class="btn btn-glass btn-wide" data-act="club">' + ico('sail') + '<span>' + esc(t('app.club.link')) + '</span></button></section>' +
       '<section class="panel glass">' + KOS.Feedback.html(esc, ico) + '</section>' +
@@ -1920,7 +1919,7 @@
       credits: {
         title: 'Om spillet', lead: 'KØS SEJL er lavet til de unge sejlere i KØS Sejlsport på Svaneknoppen – så du kan øve dig hele vinteren og være skarp, når bådene kommer i vandet igen.',
         studio: 'Lavet af umage.ai Studio i samarbejde med KØS Sejlsport. Spillet er bygget af AI-agenter, instrueret af umage.ai.',
-        made: 'Lavet af', club: 'Klub', code: 'Spil og kode', codeWho: 'Frivillige i KØS med hjælp fra Claude',
+        made: 'Lavet af', club: 'Klub',
         thanks: 'Tak til', thanksWho: 'Alle trænere, forældre og sejlere i KØS',
         safetyTitle: 'Sejl sikkert', safety: 'Brug altid redningsvest. Sejl aldrig alene uden en træner i nærheden, og hold dig ude af sejlrenden og badezonerne.',
         coach: 'Vi ses på vandet!',
@@ -2009,7 +2008,7 @@
       credits: {
         title: 'About', lead: 'KØS SEJL is made for the young sailors of KØS Sejlsport on Svaneknoppen – so you can practise all winter and be sharp when the boats go back in the water.',
         studio: 'Made by umage.ai Studio in collaboration with KØS Sejlsport. Built by AI agents, directed by umage.ai.',
-        made: 'Made by', club: 'Club', code: 'Game and code', codeWho: 'KØS volunteers with help from Claude',
+        made: 'Made by', club: 'Club',
         thanks: 'Thanks to', thanksWho: 'All the coaches, parents and sailors at KØS',
         safetyTitle: 'Sail safe', safety: 'Always wear a life jacket. Never sail alone without a coach nearby, and stay out of the channel and swim zones.',
         coach: 'See you on the water!',
