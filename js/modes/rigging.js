@@ -4,7 +4,8 @@
 // parts laid out on the ground (the "tray"). Drag a part onto its glowing spot on the boat (or tap it and press
 // "Sæt på"/Enter). Order matters: wrong order = friendly coach hint + small time penalty. Tap any part (in the
 // tray or on the boat) to learn its Danish and English name. When the boat is rigged it rolls down the slipway and
-// sails off; when unrigged it is rinsed with fresh water and the sail is rolled (never folded!).
+// sails off; when unrigged it is rinsed with fresh water and the sail is rolled (never folded!) - except on the Opti
+// and Tera / Zest, whose mast goes to the shed with the sail on it (the Opti's sail is not rolled at all, issue #29).
 //
 // Activity params: {cls: 'opti'|'tera'|'feva'|'zest'|'ilca'|'29er'|'hboat'|'j70', unrig: bool, seed}
 // Test hooks on the instance: setAutopilot(on), skipIntro(), doNext(), state, steps.
@@ -18,7 +19,7 @@
   // name.da / name.en are the part's Danish and English names (shown together in both languages); desc is per language.
   const PARTS = {
     vest: ['Redningsvest', 'Life jacket', 'Tag redningsvesten på, før du går ned til broen eller bådene – og lyn den helt op. Det er regel nummer ét. Sikkerhed først!', 'Put your life jacket on before you go down to the pontoon or the boats – and zip it right up. That\'s rule number one. Safety first!'],
-    optiRig: ['Mast med sejl og bom', 'Mast with sail and boom', 'I KØS bliver optimistens sejl siddende bundet til mast og bom. Hele riggen sættes i mastefoden på én gang – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'At KØS the Optimist\'s sail stays tied to the mast and boom. The whole rig goes into the mast step in one go – remember the mast clip so it can\'t fall out if you capsize.'],
+    optiRig: ['Mast med sejl og bom', 'Mast with sail and boom', 'Optimistens sejl bliver siddende bundet til mast og bom – det rulles aldrig. Bær hele riggen ud af skuret i ét stykke og sæt masten i mastefoden. Husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'The Optimist\'s sail stays tied to the mast and boom – it is never rolled up. Carry the whole rig out of the shed in one piece and put the mast in the mast step. Remember the mast clip so it can\'t fall out if you capsize.'],
     mast: ['Mast', 'Mast', 'Den lange stang, sejlet sidder på. Masten står i mastefoden – husk mastlåsen, så den ikke falder ud, hvis du kæntrer.', 'The tall pole the sail is set on. It stands in the mast step – remember the mast clip so it can\'t fall out if you capsize.'],
     mastBottom: ['Undermast', 'Bottom mast section', 'ILCA-masten er i to dele. Den nederste, tykke del står i mastefoden og kommer først.', 'The ILCA mast comes in two parts. The thick bottom section sits in the mast step and goes in first.'],
     mastTop: ['Topmast', 'Top mast section', 'Den tynde øverste del stikkes ned i undermasten. Den skal sidde helt i bund!', 'The thin top section slots into the bottom section. Push it all the way home!'],
@@ -80,13 +81,28 @@
     da: { on: { mainsheet: 'Storskødet på bommen', daggerboard: 'Sænk sværdet', rudder: 'Sæt roret på' }, off: { mainsheet: 'Storskødet af bommen', daggerboard: 'Hiv sværdet op', rudder: 'Tag roret af' } },
     en: { on: { mainsheet: 'Clip on the mainsheet', daggerboard: 'Lower the board', rudder: 'Fit the rudder' }, off: { mainsheet: 'Unclip the mainsheet', daggerboard: 'Raise the board', rudder: 'Take the rudder off' } },
   };
-  // per-class wording (the J/70 jib lives furled on the forestay)
+  // per-class wording (the J/70 jib lives furled on the forestay; the Opti's mainsheet sits mid-boom and its sail is never
+  // rolled: the rig goes to the shed with the sail on, issue #29)
   const JOBC = {
-    da: { j70: { on: { jib: 'Rul fokken ud' }, off: { jib: 'Rul fokken ind' } } },
-    en: { j70: { on: { jib: 'Unfurl the jib' }, off: { jib: 'Furl the jib' } } },
+    da: { j70: { on: { jib: 'Rul fokken ud' }, off: { jib: 'Rul fokken ind' } },
+      opti: { on: { mainsheet: 'Storskødet midt på bommen', shed: 'Bær riggen i skuret' } } },
+    en: { j70: { on: { jib: 'Unfurl the jib' }, off: { jib: 'Furl the jib' } },
+      opti: { on: { mainsheet: 'Clip the mainsheet mid-boom', shed: 'Carry the rig to the shed' } } },
+  };
+  // per-class part descriptions (override the PARTS desc): class -> part -> [da, en]
+  const PDESC = {
+    opti: {
+      mainsheet: ['På optimisten sidder storskødet ikke yderst på bommen, men midt på den. Det går ned til en blok i bunden af båden lige foran dig. Slå et ottetalsknob i enden, så det ikke smutter ud af blokken.', 'On the Optimist the mainsheet isn\'t at the end of the boom but in the middle of it. It runs down to a block on the floor just in front of you. Tie a figure-eight knot in the end so it can\'t slip out of the block.'],
+      shed: ['Optimistens sejl rulles ikke! Det bliver siddende på mast og bom. Løft masten op af mastefoden og bær hele riggen ind i skuret. Så er den klar til næste gang.', 'The Optimist\'s sail is never rolled! It stays on the mast and boom. Lift the mast out of the mast step and carry the whole rig into the shed. Then it\'s ready for next time.'],
+      roll: ['Mange sejl rulles stramt efter turen, ligesom en plakat. Men hvad gør vi med optimistens sejl?', 'Many sails are rolled up tightly after sailing, like a poster. But what do we do with the Optimist\'s sail?'],
+    },
   };
 
-  const strDa = { p: {}, job: JOB.da, jobw: JOBW.da, jobc: JOBC.da }, strEn = { p: {}, job: JOB.en, jobw: JOBW.en, jobc: JOBC.en };
+  const strDa = { p: {}, pc: {}, job: JOB.da, jobw: JOBW.da, jobc: JOBC.da }, strEn = { p: {}, pc: {}, job: JOB.en, jobw: JOBW.en, jobc: JOBC.en };
+  for (const c in PDESC) {
+    strDa.pc[c] = {}; strEn.pc[c] = {};
+    for (const k in PDESC[c]) { strDa.pc[c][k] = PDESC[c][k][0]; strEn.pc[c][k] = PDESC[c][k][1]; }
+  }
   for (const k in PARTS) {
     const p = PARTS[k];
     strDa.p[k] = { da: p[0], en: p[1], desc: p[2] };
@@ -123,6 +139,7 @@
         water: 'Vesten er på, og båden flyder! Gør det sidste klar herude i vandet.',
         retrieve: 'Nu hiver vi båden op ad slæbestedet.',
         fold: 'Nej nej – fold aldrig sejlet! Det får knæk. Vi ruller det, ligesom en plakat.',
+        noRoll: 'Nej – optimistens sejl skal ikke rulles! Det bliver siddende på masten, og hele riggen bæres ind i skuret.',
       },
       decoy: {
         opti: 'En optimist har ingen gennaker – den har kun ét sejl. Lad den ligge!',
@@ -175,6 +192,7 @@
         water: 'Life jacket on and she\'s floating! Do the last jobs out here in the water.',
         retrieve: 'Now pull the boat up the slipway.',
         fold: 'No no – never fold the sail! It gets creases. We roll it, like a poster.',
+        noRoll: 'No – the Optimist\'s sail isn\'t rolled! It stays on the mast, and the whole rig is carried into the shed.',
       },
       decoy: {
         opti: 'An Optimist has no gennaker – it only has one sail. Leave it on the ground!',
@@ -203,7 +221,8 @@
   // after the launch the boat floats at the foot of the slipway and the rest is done there).
   // The life jacket is not a job: the player puts it on the sailor before anything else (the gate, see createRigging).
   const RIG = {
-    // KØS Optis are stored with the sail tied to mast and boom; mainsheet, painter and bailer live in the boat
+    // KØS Optis are stored with the sail tied to mast and boom; mainsheet, painter and bailer live in the boat. The rig is
+    // carried out of the shed with the sail on (nothing is unrolled), and the mainsheet clips on mid-boom (issue #29)
     opti: [['optiRig', 1], ['optiSprit', 2], ['mastLock', 3], ['optiKicker', 4], ['stow', 4],
       ['mainsheet', 5, 'on', 'w'], ['daggerboard', 5, 'on', 'w'], ['rudder', 5, 'on', 'w']],
     // Tera: mast and sail are one component
@@ -235,14 +254,19 @@
     hboat: ['rudder', 'tiller', 'halyard'],
     j70: ['rudder', 'tiller', 'halyard', 'pole', 'jibFurl'],
   };
-  // Tera / Zest unrig: the sail is rolled round the mast and the whole mast with sail goes to the shed (last job)
-  const SHED = { tera: ['mastSail'], zest: ['mastSail', 'zestJib'] };
+  // Tera / Zest unrig: the sail is rolled round the mast and the whole mast with sail goes to the shed (last job).
+  // Opti unrig: the sail is NOT rolled; the rig (mast, sail and boom) is unstepped and carried into the shed (issue #29).
+  const SHED = { opti: ['optiRig'], tera: ['mastSail'], zest: ['mastSail', 'zestJib'] };
+  // the unrigging decoy is folding the sail (we roll it) - but on the Opti, rolling it is the mistake
+  const UNRIG_DECOY = { opti: 'roll' };
   const DECOY = { opti: 'gennaker', tera: 'trapeze', feva: 'sprit', zest: 'trapeze', ilca: 'jib', '29er': 'sprit', hboat: 'daggerboard', j70: 'daggerboard' };
   const hasWater = id => RIG[id].some(s => s[3] === 'w');
 
   // side-view geometry per class (scene units; ground / waterline y = 0, bow points +x)
   const CFG = {
-    opti: { L: 230, fb: 40, hull: 'pram', mastAt: 0.24, mastR: 1.0, boomH: 20, boomL: 196, sail: 'sprit', mw: 5 },
+    // sheetAt: where the mainsheet meets the boom, as a fraction of the boom from the mast (default 0.9, near the end).
+    // The Opti's is about mid-boom, drawn a little forward of the middle so the sailor sitting aft of it doesn't hide it
+    opti: { L: 230, fb: 40, hull: 'pram', mastAt: 0.24, mastR: 1.0, boomH: 20, boomL: 196, sail: 'sprit', mw: 5, sheetAt: 0.38 },
     tera: { L: 260, fb: 34, hull: 'dinghy', mastAt: 0.3, mastR: 1.2, boomH: 24, boomL: 188, sail: 'sleeve', battens: 0, mw: 5 },
     feva: { L: 300, fb: 38, hull: 'dinghy', mastAt: 0.4, mastR: 1.3, boomH: 34, boomL: 176, sail: 'tri', battens: 3, jib: { at: 0.03, h: 0.72, back: 0.95 }, mw: 6 },
     zest: { L: 300, fb: 42, hull: 'dinghy', mastAt: 0.38, mastR: 1.25, boomH: 34, boomL: 184, sail: 'tri', battens: 2, jib: { at: 0.04, h: 0.7, back: 0.9 }, mw: 6 },
@@ -275,7 +299,8 @@
         id: 'rigging.unrig.' + id, order: 21 + i * 2, boat: id, icon: 'wrench', minutes: 2, difficulty: Math.min(5, 1 + Math.floor(i / 2)),
         unlock: { after: 'rigging.' + id },
         title: { da: 'Rig af · ' + n, en: 'Unrig the ' + n },
-        desc: SHED[id] ? { da: 'Ror og sværd op i vandet, båden op ad slæbestedet, alt af i omvendt rækkefølge – og til sidst rulles sejlet om masten, som bæres i skuret.', en: 'Rudder and board up in the water, the boat up the slipway, everything off in reverse order – and finally roll the sail round the mast and carry it to the shed.' }
+        desc: id === 'opti' ? { da: 'Ror og sværd op i vandet, båden op ad slæbestedet, alt af i omvendt rækkefølge og skyl med ferskvand – så bæres riggen ind i skuret med sejlet på. Optimistens sejl rulles ikke!', en: 'Rudder and board up in the water, the boat up the slipway, everything off in reverse order and rinse with fresh water – then carry the rig into the shed with the sail on. The Optimist\'s sail is never rolled!' }
+          : SHED[id] ? { da: 'Ror og sværd op i vandet, båden op ad slæbestedet, alt af i omvendt rækkefølge – og til sidst rulles sejlet om masten, som bæres i skuret.', en: 'Rudder and board up in the water, the boat up the slipway, everything off in reverse order – and finally roll the sail round the mast and carry it to the shed.' }
           : keel ? { da: 'Fortøj, tag sejlene ned i omvendt rækkefølge, skyl med ferskvand og rul sejlet – aldrig fold!', en: 'Tie up, drop the sails in reverse order, rinse with fresh water and roll the sail – never fold!' }
             : { da: 'Ror og sværd op i vandet, båden op ad slæbestedet, alt af i omvendt rækkefølge, skyl med ferskvand og rul sejlet – aldrig fold!', en: 'Rudder and board up in the water, the boat up the slipway, everything off in reverse order, rinse with fresh water and roll the sail – never fold!' },
         params: { cls: id, unrig: true, seed: 101 + i * 7 },
@@ -291,6 +316,8 @@
   const lang = () => (KOS.I18n && KOS.I18n.lang) || 'da';
   const pname = (k, l) => t('rigging.p.' + k + '.' + (l || (lang() === 'en' ? 'en' : 'da')));
   const pother = k => t('rigging.p.' + k + '.' + (lang() === 'en' ? 'da' : 'en'));
+  // a part's description, with the class's own wording where it differs (PDESC)
+  const pdesc = k => { const kc = 'rigging.pc.' + curCls + '.' + k; return KOS.I18n.has(kc) ? t(kc) : t('rigging.p.' + k + '.desc'); };
   // hoisting the sails is a job on boats whose mast stays up (Feva, 29er, keelboats); otherwise the card just shows the part
   const HOIST = { feva: 1, '29er': 1, hboat: 1, j70: 1 };
   let curCls = 'opti';
@@ -382,6 +409,8 @@
   function kidTf(kd, dx, dy) { return 'translate(' + f(kd.x + (dx || 0)) + ' ' + f(kd.y + (dy || 0)) + ') scale(' + f(kd.flip ? -kd.k : kd.k) + ' ' + f(kd.k) + ')'; }
 
   // ---------------------------------------------------------------- geometry
+  // x of the mainsheet on the boom (CFG sheetAt: fraction of the boom from the mast; the Opti's is mid-boom)
+  const sheetX = g => g.mx - g.boomL * (g.sheetAt || 0.9);
   function geo(id) {
     const c = CFG[id], L = c.L, g = Object.assign({ id }, c);
     g.keelboat = c.hull === 'keel';
@@ -611,7 +640,7 @@
       return s;
     },
     mainsheet(g) {
-      const bx = g.boomX + g.boomL * 0.1, dy = g.dAt(bx) - 4;
+      const bx = sheetX(g), dy = g.dAt(bx) - 4;
       return ln(bx - 3, g.boomY + 3, bx - 3, dy, '#24395c', 1.6) + ln(bx + 3, g.boomY + 3, bx + 3, dy, '#24395c', 1.6) +
         block(bx, g.boomY + 4) + block(bx, dy) + '<path d="M' + f(bx + 3) + ' ' + f(dy) + 'q14 2 22 -6t18 -2" stroke="#24395c" stroke-width="1.8" fill="none"/>';
     },
@@ -772,7 +801,7 @@
       case 'sprit': return [(g.spritLow.x + g.peak.x) / 2, (g.spritLow.y + g.peak.y) / 2];
       case 'sail': return [g.sailC.x, g.sailC.y];
       case 'ties': return [g.mx, g.boomY - (g.boomY - g.top) * 0.6];
-      case 'mainsheet': { const bx = g.boomX + g.boomL * 0.1; return [bx, (g.boomY + g.dAt(bx)) / 2]; }
+      case 'mainsheet': { const bx = sheetX(g); return [bx, (g.boomY + g.dAt(bx)) / 2]; }
       case 'daggerboard': return [g.dx, g.dAt(g.dx) - 26];
       case 'rudder': return [g.xs - 6, g.dAt(g.xs) + 16];
       case 'tiller': return [g.xs + L * 0.14, g.dAt(g.xs) - 12];
@@ -983,7 +1012,7 @@
     }
     steps.forEach((s, i) => { s.i = i; s.done = false; });
     const decoys = [];
-    if (unrig) decoys.push({ k: 'fold', decoy: true, type: 'on', i: 100, w: 'land' });
+    if (unrig) decoys.push({ k: UNRIG_DECOY[clsId] || 'fold', decoy: true, type: 'on', i: 100, w: 'land' });
     if (!unrig && assist !== 'easy') decoys.push({ k: DECOY[clsId], decoy: true, type: 'on', i: 101, w: 'land' });
     // the tray shows jobs shuffled (seeded), so the order isn't given away
     const cards = steps.concat(decoys).map(s => s);
@@ -1183,7 +1212,7 @@
       const bk = s && (s.decoy ? 'do' : s.k === 'vest' ? (s.type === 'off' ? 'unwear' : 'wear') : s.type === 'off' ? 'off' : s.pack ? 'do' : 'on');
       const btn = s ? '<button type="button" class="btn btn-primary rigging-do">' + esc(t('rigging.btn.' + bk)) + '</button>' : '';
       infoEl.innerHTML = '<div class="rgi-ico">' + icon(k, col) + '</div><div class="rgi-txt"><div class="rgi-name">' + esc(pname(k)) + ' <small>· ' + esc(pother(k)) + '</small></div>' +
-        '<div class="rgi-desc">' + esc(k === 'rudder' && g.keelboat ? t('rigging.keelRudder') : t('rigging.p.' + k + '.desc')) + '</div></div>' + btn +
+        '<div class="rgi-desc">' + esc(k === 'rudder' && g.keelboat ? t('rigging.keelRudder') : pdesc(k)) + '</div></div>' + btn +
         '<button type="button" class="icon-btn rgi-close" aria-label="' + esc(t('rigging.btn.close')) + '">' + KOS.UI.iconSvg('close') + '</button>';
       infoEl.hidden = false;
       infoEl.classList.remove('in'); void infoEl.offsetWidth; infoEl.classList.add('in');
@@ -1365,7 +1394,7 @@
       const z = s.decoy ? null : zoneScreen(s);
       floatText(t('rigging.fx.oops', { s: PEN }), z ? z.x : null, z ? z.y : null, 'bad');
       if (s.decoy) {
-        KOS.UI.coach(s.k === 'fold' ? t('rigging.coach.fold') : t('rigging.decoy.' + clsId), { pos: 'top', mood: 'oops' });
+        KOS.UI.coach(s.k === 'fold' ? t('rigging.coach.fold') : s.k === 'roll' ? t('rigging.coach.noRoll') : t('rigging.decoy.' + clsId), { pos: 'top', mood: 'oops' });
         // the decoy goes away once explained
         if (c) { c.classList.add('gone'); setTimeout(() => c.remove(), 350); }
         delete cardEl[s.i];

@@ -38,7 +38,7 @@
     vest: ['Redningsvest', 'Life jacket', 'vests', 84],
     wetsuit: ['Våddragt', 'Wetsuit', 'hooks', 92],
     spraytop: ['Spraytop', 'Spray top', 'hooks', 84],
-    sail: ['Optimistsejl', 'Optimist sail', 'sails', 96],
+    sail: ['Rullet sejl', 'Rolled sail', 'sails', 96], // not an Opti sail: those stay on the mast (issue #29)
     sailbag: ['Sejlpose', 'Sail bag', 'sails', 84],
     mast: ['Mast med sejl', 'Mast with sail', 'masts', 136],
     boom: ['Bom', 'Boom', 'booms', 112],
@@ -228,7 +228,7 @@
           '<path d="M32 33q18 7 36 0" stroke="#ff7a3d" stroke-width="3.4" fill="none"/><path d="M50 30q-2-12 6-16" stroke="#ff7a3d" stroke-width="3" fill="none" stroke-linecap="round"/>' +
           '<rect x="36" y="52" width="28" height="16" rx="4" fill="#f4f6f8"/><path d="M41 60h18" stroke="#2f6fd0" stroke-width="3"/>';
       case 'mast':
-        // a Tera / Zest mast with its sail rolled round it (that's how it lives in the shed)
+        // a Tera / Zest mast with its sail rolled round it (that's how it lives in the shed; the Opti's rig goes in unrolled)
         return '<path d="M8 92L92 8" stroke="#5b6470" stroke-width="9" stroke-linecap="round"/><path d="M8 92L92 8" stroke="#c9d0db" stroke-width="5.5" stroke-linecap="round"/>' +
           '<path d="M24 76L76 24" stroke="#8a93a6" stroke-width="17" stroke-linecap="round"/><path d="M24 76L76 24" stroke="#f4f6f8" stroke-width="13" stroke-linecap="round"/>' +
           '<path d="M34 72l-6-6M46 60l-6-6M58 48l-6-6M70 36l-6-6" stroke="#d9dee6" stroke-width="2"/><path d="M52 54l-8-8" stroke="#ff7a3d" stroke-width="3.4"/>' +

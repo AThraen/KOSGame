@@ -331,6 +331,10 @@ SVG generators returning SVG strings and cached canvases: `boat(clsId, {colors, 
 `sail(clsId, kind 'main'|'jib'|'spi')` drawn procedurally with `drawBoat(ctx, boat, opts)` (hull, crew posture by
 hike, boom & sail angle, luff flutter, spinnaker), `buoy(kind)`, `mark(kind)`, `icon(name)`, `avatar(profile)`,
 `boatCard(clsId)` (side-view SVG used in menus, garage and rigging), `rib()`.
+Mainsheet: from near the boom end to the stern by default; a class in `GEO` may set `sheetAt` (fraction of the boom from
+the mast) and `sheetTo` (s along the hull, 0 bow..1 stern). The Opti uses `sheetAt: 0.5, sheetTo: 0.56`: mid-boom down to
+a block on the floor in front of the sailor, drawn in the flat and the tilted view (issue #29). The rigging side view has
+the same `sheetAt` in its own per-class `CFG`.
 
 ### KOS.App (ui/app.js)
 Screens (DOM sections in index.html): `title`, `hub`, `area` (activity list for an area), `play`, `results`,
@@ -420,7 +424,9 @@ measured frame times; `#perf=0..3` forces a tier; setting `lowFx` caps it at 1. 
   open up. It is not a job (not in "Opgaver x/y", never a mistake); the finger demo shows it if the player has not
   dragged anything yet. Where the boom is its own job (Tera, Zest, ILCA, Feva) the sail's foot hangs loose until it is on.
   Unrigging is the exact reverse (in-water jobs, the boat pulled up the slipway, land jobs, rinse, roll the sail; the life
-  jacket comes off at the very end). **knots** (trace the rope: pælestik/bowline,
+  jacket comes off at the very end). Exceptions: Tera / Zest roll the sail round the mast and carry it to the shed; the
+  Optimist's sail is never rolled: its rig (mast, sail and boom) is lifted out and carried to the shed as it is ("Bær
+  riggen i skuret"), and its unrigging decoy is "Rul sejlet" instead of "Fold sejlet". **knots** (trace the rope: pælestik/bowline,
   ottetalsknob/figure-8, råbåndsknob/reef knot, dobbelt halvstik/clove hitch, klampe/cleat), **capsize recovery**
   (timing mini-game on the centreboard), **quiz** (rules, parts of the boat, weather, safety, knots).
   **shed** ("Ryd op i skuret", Træner Peter): the inside of the club's shed with labelled places (Redningsveste, Våddragter,
@@ -552,6 +558,10 @@ Matomo User ID = a random per-device player id (`P-` + 6 chars, localStorage `ko
     board in the boat. Water: clip the mainsheet to the boom, lower the board, fit the rudder. Mainsheet rope, painter
     and bailer live in the boat (not jobs). No paddle at all in the game's Opti (user 2026-10-08); the Opti decoy part
     is a gennaker.
+  - Optimist (club trainer, GitHub issue #29, 2026-10): the mainsheet is NOT at the aft end of the boom (as on Tera, Feva
+    and ILCA) but fastened to the middle of the boom, in front of the sailor, and led down to a block on the floor. The
+    sail is never rolled: it stays tied on the mast, and the mast with the sail (and boom) is carried out of and into the
+    shed as one unit. Unrigging: everything off in reverse, rinse, then lift the rig out and carry it to the shed.
   - RS Tera: mast and sail are one component (stepped together) → boom → outhaul, kicker, painter, rudder + board in the
     boat. Water: mainsheet, board, rudder.
   - RS Feva: mast, shrouds and bowsprit stay up all season; NO forestay, NO gennaker sock. Land: hoist the main (locked at
