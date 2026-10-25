@@ -357,7 +357,7 @@
     if (easy && kind !== 'compass') { S.pathLine = { a: P2(0, 0), b: P2(0, 0), kind: 'path' }; lines.push(S.pathLine); }
     const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto,
       venue: sceneVenue, wind, boats: [boat], follow: boat, marks: S.marks, lines,
-      showWindArrow: kind !== 'night', showNoGo: false, showLanes: kind === 'ferry', night: 0,
+      showWindArrow: true, windArrowOnTop: kind === 'night', showNoGo: false, showLanes: kind === 'ferry', night: 0,
     });
     scene.addOverlay(drawWorld);
     scene.addOverlay(drawScreen, { screen: true });

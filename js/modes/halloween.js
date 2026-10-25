@@ -138,7 +138,7 @@
 
     // ---- scene
     const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto,
-      venue, wind, boats: [boat], follow: boat, marks: [], lines: [], showWindArrow: true, showNoGo: false, night: 0 });
+      venue, wind, boats: [boat], follow: boat, marks: [], lines: [], showWindArrow: true, windArrowOnTop: true, showNoGo: false, night: 0 });
     scene.addOverlay(drawWorld);
     scene.addOverlay(drawScreen, { screen: true });
     let userZoom = 1;

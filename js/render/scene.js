@@ -39,6 +39,7 @@
     this.marks = opts.marks || [];
     this.lines = opts.lines || [];
     this.showWindArrow = opts.showWindArrow !== false;
+    this.windArrowOnTop = !!opts.windArrowOnTop; // draw it after the screen overlays (night levels darken the screen there)
     this.showLaylines = !!opts.showLaylines;
     this.showNoGo = !!opts.showNoGo;
     this.showTags = opts.showTags !== false;
@@ -301,10 +302,12 @@
     for (const fn of this.overlays) { try { ctx.save(); fn(ctx, this); ctx.restore(); } catch (e) { if (!this._ovErr) { this._ovErr = 1; console.error(e); } } }
     if (this.showTags) this.drawTags(ctx);
     if (this.night > 0) this.drawNight(ctx, t);
-    if (this.showWindArrow && this.target) this.drawWindArrow(ctx, t);
+    const arrow = this.showWindArrow && this.target, worldM = arrow && this.windArrowOnTop ? ctx.getTransform() : null;
+    if (arrow && !worldM) this.drawWindArrow(ctx, t);
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     if (this._tilt) this.drawHaze(ctx); // under the HUD / target arrows, over the world
     for (const fn of this.screenOverlays) { try { ctx.save(); fn(ctx, this); ctx.restore(); } catch (e) {} }
+    if (worldM) { ctx.save(); ctx.setTransform(worldM); this.drawWindArrow(ctx, t); ctx.restore(); }
     // soft vignette
     if (!this._vig || this._vig.w !== this.w || this._vig.h !== this.h) {
       const g = ctx.createRadialGradient(this.w / 2, this.h / 2, Math.min(this.w, this.h) * 0.45, this.w / 2, this.h / 2, Math.hypot(this.w, this.h) * 0.62);
