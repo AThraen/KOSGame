@@ -21,7 +21,7 @@
         bowline: { name: 'Pælestik', use: 'En fast løkke, der ikke strammer. Bruges til at fortøje og til redning.',
           s1: 'Kaninen kommer op af hullet …', s2: '… løber rundt om træet …', s3: '… og ned i hullet igen!' },
         clove: { name: 'Dobbelt halvstik', use: 'Hurtigt knob om en stang eller pæl – fx til fendere.',
-          s1: 'Før tampen op foran stangen og over.', s2: 'Ned bag om stangen.', s3: 'Skråt op foran stangen – det bliver krydset.', s4: 'Ned bag om stangen igen.', s5: 'Stik tampen ind UNDER krydset.' },
+          s1: 'Før tampen op foran stangen og over.', s2: 'Ned bag om stangen.', s3: 'Skråt op foran stangen – det bliver krydset.', s4: 'Ned bag om stangen igen.', s5: 'Stik tampen op UNDER det skrå stykke – nu peger enderne hver sin vej.' },
         reef: { name: 'Råbåndsknob', use: 'Binder to ender af samme tykkelse sammen – fx når sejlet rebes. Husk: højre over venstre, venstre over højre. Tampene skal ud gennem samme løkke.',
           s1: 'Slå en almindelig halv knude: højre over venstre og rundt. Før den orange tamp ned UNDER det blå tov, rundt om det og op OVER det – og ud til højre.', s2: 'Slå en halv knude mere ovenpå – men omvendt: venstre over højre og rundt. Før den blå tamp op UNDER de orange tove, hen over toppen og UNDER løkken ud til venstre.' },
         cleat: { name: 'Klampe', use: 'Sådan gør du et tov fast på en klampe – skødet, fortøjningen, faldet.',
@@ -59,7 +59,7 @@
         bowline: { name: 'Bowline', use: 'A fixed loop that does not tighten. Used for mooring and rescue.',
           s1: 'The rabbit comes out of the hole …', s2: '… runs round the tree …', s3: '… and back down the hole!' },
         clove: { name: 'Clove hitch', use: 'A quick knot around a rail or post – e.g. for fenders.',
-          s1: 'Bring the end up in front of the rail and over.', s2: 'Down behind the rail.', s3: 'Diagonally up across the front – that makes the cross.', s4: 'Down behind the rail again.', s5: 'Tuck the end UNDER the cross.' },
+          s1: 'Bring the end up in front of the rail and over.', s2: 'Down behind the rail.', s3: 'Diagonally up across the front – that makes the cross.', s4: 'Down behind the rail again.', s5: 'Tuck the end up UNDER the diagonal – now the two ends point opposite ways.' },
         reef: { name: 'Reef knot', use: 'Ties two ends of the same thickness together – e.g. when reefing the sail. Remember: right over left, left over right. Both ends must come out through the same loop.',
           s1: 'Tie an ordinary half knot: right over left and round. Take the orange end down UNDER the blue rope, round it and up OVER it – then out to the right.', s2: 'Tie one more half knot on top – but reversed: left over right and round. Take the blue end up UNDER the orange ropes, over the top and UNDER the loop, out to the left.' },
         cleat: { name: 'Cleat hitch', use: 'How to make a rope fast on a cleat – sheets, mooring lines, halyards.',
@@ -92,7 +92,7 @@
 
   // ======================================================================== 2. knot data
   // Coordinates in board units (y down). A control point is [x, y, flag?, radius?]; flags: 'o' over, 'u' under
-  // (rope-rope crossings), 'f' in front of the prop, 'b' behind the prop. `start` = index of the control point the
+  // (rope-rope crossings), 'f' in front of the prop, 'b' behind the prop, 't' under a rope yet in front of the prop. `start` = index of the control point the
   // rope is already laid up to. Steps end at a control point index of the moving rope.
   const KNOTS = {
     eight: {
@@ -125,8 +125,8 @@
         [150, 140, 'b'], [153, 165, 'b'], [160, 188],
         [174, 174, 'f'], [190, 150, 'f'], [206, 128, 'f'], [214, 110],
         [222, 140, 'b'], [224, 165, 'b'], [228, 190],
-        [208, 202], [170, 182, 'u', 13], [150, 196], [146, 240], [148, 320]] }],
-      steps: [{ to: 6, key: 's1' }, { to: 9, key: 's2' }, { to: 13, key: 's3' }, { to: 16, key: 's4' }, { to: 21, key: 's5' }],
+        [212, 202], [192, 192], [181, 163, 't', 13], [177, 130], [176, 100], [178, 74]] }],
+      steps: [{ to: 6, key: 's1' }, { to: 9, key: 's2' }, { to: 13, key: 's3' }, { to: 16, key: 's4' }, { to: 22, key: 's5' }],
       labels: [{ x: 290, y: 116, key: 'rail' }],
       tight: { cx: 178, cy: 150, r: 110, kx: 0.8, ky: 0.96 },
       vb: [40, 70, 290, 240],
@@ -205,7 +205,7 @@
     const f = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * s + (2 * a - 5 * b + 4 * c - d) * s2 + (-a + 3 * b - 3 * c + d) * s3);
     return [f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])];
   }
-  const FLAGZ = { o: 2, f: 2, u: 0, b: 0 };
+  const FLAGZ = { o: 2, f: 2, u: 0, b: 0, t: 1 }; // t: tucked UNDER a rope but still in front of the prop (badge reads 'under')
   function buildRope(def) {
     const P = def.pts, n = P.length;
     const s = [], cp = [];
@@ -225,7 +225,7 @@
       const r = p[3] || 15, c = cp[i], Lc = L[c];
       for (let j = c; j >= 0 && Lc - L[j] <= r; j--) z[j] = FLAGZ[p[2]];
       for (let j = c; j < s.length && L[j] - Lc <= r; j++) z[j] = FLAGZ[p[2]];
-      flags.push({ i, s: c, f: p[2], x: p[0], y: p[1] });
+      flags.push({ i, s: c, f: p[2] === 't' ? 'u' : p[2], x: p[0], y: p[1] });
     });
     return { def, s, cp, L, z, flags, col: COLORS[def.col] || COLORS.orange, n: s.length };
   }
