@@ -25,7 +25,7 @@
         reef: { name: 'Råbåndsknob', use: 'Binder to ender af samme tykkelse sammen – fx når sejlet rebes. Husk: højre over venstre, venstre over højre. Tampene skal ud gennem samme løkke.',
           s1: 'Slå en almindelig halv knude: højre over venstre og rundt. Før den orange tamp ned UNDER det blå tov, rundt om det og op OVER det – og ud til højre.', s2: 'Slå en halv knude mere ovenpå – men omvendt: venstre over højre og rundt. Før den blå tamp op UNDER de orange tove, hen over toppen og UNDER løkken ud til venstre.' },
         cleat: { name: 'Klampe', use: 'Sådan gør du et tov fast på en klampe – skødet, fortøjningen, faldet.',
-          s1: 'Rundtørn: før tovet langs klampen, ind under det fjerne horn og rundt om foden.', s2: 'Ottetal: skråt over klampen, under det andet horn og skråt tilbage – det giver krydset.', s3: 'Låsestik: en sidste gang over – og tampen ind under sig selv.' },
+          s1: 'Rundtørn: ind under det fjerne horn, langs klampen, ind under det nære horn – og ud over den faste part.', s2: 'Ottetal: skråt over klampen, ind under det fjerne horn og skråt tilbage – det giver krydset.', s3: 'Låsestik: lav en løkke, så tampen ligger under sig selv, og læg den over det nære horn.' },
         roundturn: { name: 'Rundtørn og to halvstik', use: 'Et stærkt knob til at fortøje båden til en pæl eller ring.',
           s1: 'Rundtørn: to gange rundt om pælen.', s2: 'Første halvstik: rundt om den faste part og hen OVER tovet, der kommer fra pælen.', s3: 'Andet halvstik: rundt samme vej – og tampen ind UNDER det skrå stykke. Sammen er de et dobbelt halvstik om den faste part.' },
       },
@@ -63,7 +63,7 @@
         reef: { name: 'Reef knot', use: 'Ties two ends of the same thickness together – e.g. when reefing the sail. Remember: right over left, left over right. Both ends must come out through the same loop.',
           s1: 'Tie an ordinary half knot: right over left and round. Take the orange end down UNDER the blue rope, round it and up OVER it – then out to the right.', s2: 'Tie one more half knot on top – but reversed: left over right and round. Take the blue end up UNDER the orange ropes, over the top and UNDER the loop, out to the left.' },
         cleat: { name: 'Cleat hitch', use: 'How to make a rope fast on a cleat – sheets, mooring lines, halyards.',
-          s1: 'Round turn: lead the rope along the cleat, under the far horn and round the base.', s2: 'Figure-eight: diagonally over the cleat, under the other horn and diagonally back – that makes the cross.', s3: 'Locking hitch: one last time over – and the end under itself.' },
+          s1: 'Round turn: under the far horn, along the cleat, under the near horn – and out over the standing part.', s2: 'Figure-eight: diagonally over the cleat, under the far horn and diagonally back – that makes the cross.', s3: 'Locking hitch: make a loop so the end lies under itself, and drop it over the near horn.' },
         roundturn: { name: 'Round turn & two half hitches', use: 'A strong knot for mooring the boat to a post or ring.',
           s1: 'Round turn: twice round the post.', s2: 'First half hitch: round the standing part and OVER the rope coming from the post.', s3: 'Second half hitch: round the same way – and tuck the end UNDER the diagonal. Together they make a clove hitch round the standing part.' },
       },
@@ -147,14 +147,15 @@
     },
     cleat: {
       props: [{ kind: 'cleat', x: 200, y: 150 }],
-      // Like a cleat-hitch photo: a round turn hugging the base, one figure-eight, and the locking hitch whose diagonal lies
-      // beside the first one (a doubled X); the tail tucks under it at the far horn and leaves opposite the standing part.
-      ropes: [{ col: 'white', start: 2, pts: [[-20, 262], [60, 226], [130, 204],
-        [190, 182], [236, 180], [262, 176], [282, 164, 'b'], [282, 136, 'b'], [262, 124], [236, 120], [200, 118], [164, 120], [138, 124], [118, 136, 'b'], [118, 164, 'b'], [138, 176],
-        [164, 170], [200, 150, 'f', 20], [236, 130], [256, 124], [278, 138, 'b'], [278, 162, 'b'], [256, 176],
-        [236, 170], [200, 150, 'f', 20], [164, 130], [144, 124], [124, 138, 'b'], [124, 162, 'b'], [144, 176],
-        [170, 178], [205, 159, 'f', 16], [242, 139, 'f', 16], [256, 132], [272, 140, 'b'], [272, 160, 'b'], [256, 174], [246, 138, 't', 10], [248, 116], [250, 90]] }],
-      steps: [{ to: 15, key: 's1' }, { to: 29, key: 's2' }, { to: 39, key: 's3' }],
+      // Dansk Sejlunion's step-by-step (klampestik), turned on its side: a round turn under the far horn, along the cleat
+      // and under the near horn, out over the standing part; a figure-eight round the far horn (the second diagonal on top);
+      // then the locking loop over the near horn, the tail under the second diagonal and out opposite the standing part.
+      ropes: [{ col: 'white', start: 2, pts: [[-20, 272], [60, 234], [132, 202],
+        [190, 184], [236, 178], [266, 166, 'b'], [268, 136, 'b'], [244, 123], [200, 119], [156, 122], [132, 136, 'b'], [132, 164, 'b'], [146, 180],
+        [164, 190, 'o', 12], [186, 173], [210, 155, 'f', 18], [236, 135], [258, 120], [284, 136, 'b'], [284, 164, 'b'], [264, 182],
+        [236, 168], [210, 155, 'f', 18], [186, 142, 'f', 14], [156, 125],
+        [122, 136, 'b'], [122, 164, 'b'], [136, 178], [160, 162], [186, 142, 't', 12], [204, 128], [214, 108], [218, 80]] }],
+      steps: [{ to: 12, key: 's1' }, { to: 24, key: 's2' }, { to: 32, key: 's3' }],
       labels: [{ x: 330, y: 110, key: 'cleat', ax: 296, ay: 146 }],
       tight: { cx: 200, cy: 150, r: 120, kx: 0.97, ky: 0.94 },
       vb: [10, 70, 350, 220],
