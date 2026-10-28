@@ -25,7 +25,7 @@
         reef: { name: 'Råbåndsknob', use: 'Binder to ender af samme tykkelse sammen – fx når sejlet rebes. Husk: højre over venstre, venstre over højre. Tampene skal ud gennem samme løkke.',
           s1: 'Slå en almindelig halv knude: højre over venstre og rundt. Før den orange tamp ned UNDER det blå tov, rundt om det og op OVER det – og ud til højre.', s2: 'Slå en halv knude mere ovenpå – men omvendt: venstre over højre og rundt. Før den blå tamp op UNDER de orange tove, hen over toppen og UNDER løkken ud til venstre.' },
         cleat: { name: 'Klampe', use: 'Sådan gør du et tov fast på en klampe – skødet, fortøjningen, faldet.',
-          s1: 'Tørn: før tovet langs klampen og ind under det fjerne horn.', s2: 'Ottetal: skråt over klampen, under det andet horn og skråt tilbage – det giver krydset.', s3: 'Låsestik: en sidste gang over – og tampen ind under sig selv.' },
+          s1: 'Rundtørn: før tovet langs klampen, ind under det fjerne horn og rundt om foden.', s2: 'Ottetal: skråt over klampen, under det andet horn og skråt tilbage – det giver krydset.', s3: 'Låsestik: en sidste gang over – og tampen ind under sig selv.' },
         roundturn: { name: 'Rundtørn og to halvstik', use: 'Et stærkt knob til at fortøje båden til en pæl eller ring.',
           s1: 'Rundtørn: to gange rundt om pælen.', s2: 'Første halvstik: rundt om den faste part og hen OVER tovet, der kommer fra pælen.', s3: 'Andet halvstik: rundt samme vej – og tampen ind UNDER det skrå stykke. Sammen er de et dobbelt halvstik om den faste part.' },
       },
@@ -63,7 +63,7 @@
         reef: { name: 'Reef knot', use: 'Ties two ends of the same thickness together – e.g. when reefing the sail. Remember: right over left, left over right. Both ends must come out through the same loop.',
           s1: 'Tie an ordinary half knot: right over left and round. Take the orange end down UNDER the blue rope, round it and up OVER it – then out to the right.', s2: 'Tie one more half knot on top – but reversed: left over right and round. Take the blue end up UNDER the orange ropes, over the top and UNDER the loop, out to the left.' },
         cleat: { name: 'Cleat hitch', use: 'How to make a rope fast on a cleat – sheets, mooring lines, halyards.',
-          s1: 'Turn: lead the rope along the cleat and in under the far horn.', s2: 'Figure-eight: diagonally over the cleat, under the other horn and diagonally back – that makes the cross.', s3: 'Locking hitch: one last time over – and the end under itself.' },
+          s1: 'Round turn: lead the rope along the cleat, under the far horn and round the base.', s2: 'Figure-eight: diagonally over the cleat, under the other horn and diagonally back – that makes the cross.', s3: 'Locking hitch: one last time over – and the end under itself.' },
         roundturn: { name: 'Round turn & two half hitches', use: 'A strong knot for mooring the boat to a post or ring.',
           s1: 'Round turn: twice round the post.', s2: 'First half hitch: round the standing part and OVER the rope coming from the post.', s3: 'Second half hitch: round the same way – and tuck the end UNDER the diagonal. Together they make a clove hitch round the standing part.' },
       },
@@ -147,14 +147,14 @@
     },
     cleat: {
       props: [{ kind: 'cleat', x: 200, y: 150 }],
-      // Traced from a cleat-hitch photo: the line runs along the cleat to the far horn and under it, one figure-eight
-      // (one X), then the locking hitch on the near horn with the tail out under the last diagonal, opposite the standing part.
-      ropes: [{ col: 'white', start: 2, pts: [[-20, 262], [60, 226], [130, 206],
-        [200, 198], [250, 190], [286, 168, 'b'], [288, 134, 'b'], [262, 116],
-        [234, 126], [200, 146, 'f', 16], [166, 166], [140, 180], [114, 166, 'b'], [114, 136, 'b'], [136, 118],
-        [166, 128], [200, 150, 'f', 16], [234, 172], [262, 182], [286, 164, 'b'], [286, 136, 'b'], [262, 120],
-        [240, 128], [208, 149, 'f', 14], [176, 170], [150, 180], [124, 166, 'b'], [122, 138, 'b'], [140, 118], [170, 126], [198, 138], [216, 145, 'u', 11], [234, 132], [242, 108], [246, 80]] }],
-      steps: [{ to: 7, key: 's1' }, { to: 21, key: 's2' }, { to: 34, key: 's3' }],
+      // Like a cleat-hitch photo: a round turn hugging the base, one figure-eight, and the locking hitch whose diagonal lies
+      // beside the first one (a doubled X); the tail tucks under it at the far horn and leaves opposite the standing part.
+      ropes: [{ col: 'white', start: 2, pts: [[-20, 262], [60, 226], [130, 204],
+        [190, 182], [236, 180], [262, 176], [282, 164, 'b'], [282, 136, 'b'], [262, 124], [236, 120], [200, 118], [164, 120], [138, 124], [118, 136, 'b'], [118, 164, 'b'], [138, 176],
+        [164, 170], [200, 150, 'f', 20], [236, 130], [256, 124], [278, 138, 'b'], [278, 162, 'b'], [256, 176],
+        [236, 170], [200, 150, 'f', 20], [164, 130], [144, 124], [124, 138, 'b'], [124, 162, 'b'], [144, 176],
+        [170, 178], [205, 159, 'f', 16], [242, 139, 'f', 16], [256, 132], [272, 140, 'b'], [272, 160, 'b'], [256, 174], [246, 138, 't', 10], [248, 116], [250, 90]] }],
+      steps: [{ to: 15, key: 's1' }, { to: 29, key: 's2' }, { to: 39, key: 's3' }],
       labels: [{ x: 330, y: 110, key: 'cleat', ax: 296, ay: 146 }],
       tight: { cx: 200, cy: 150, r: 120, kx: 0.97, ky: 0.94 },
       vb: [10, 70, 350, 220],
@@ -186,7 +186,7 @@
     ['bowline', 21, 2, { da: 'Pælestik', en: 'Bowline' }, { da: 'Kaninen, hullet og træet – sømandens yndlingsknob.', en: 'The rabbit, the hole and the tree – the sailor’s favourite.' }],
     ['clove', 22, 2, { da: 'Dobbelt halvstik', en: 'Clove hitch' }, { da: 'Hurtigt knob om en stang – perfekt til fendere.', en: 'A quick knot around a rail – perfect for fenders.' }],
     ['reef', 23, 2, { da: 'Råbåndsknob', en: 'Reef knot' }, { da: 'Højre over venstre, venstre over højre.', en: 'Right over left, left over right.' }],
-    ['cleat', 24, 3, { da: 'Klampe', en: 'Cleat hitch' }, { da: 'Gør skødet fast på klampen – tørn, ottetal, låsestik.', en: 'Make the line fast on a cleat – turn, figure-eight, lock.' }],
+    ['cleat', 24, 3, { da: 'Klampe', en: 'Cleat hitch' }, { da: 'Gør skødet fast på klampen – rundtørn, ottetal, låsestik.', en: 'Make the line fast on a cleat – round turn, figure-eight, lock.' }],
     ['roundturn', 25, 3, { da: 'Rundtørn og to halvstik', en: 'Round turn & two half hitches' }, { da: 'Fortøj båden sikkert til en pæl.', en: 'Moor the boat safely to a post.' }],
   ];
   KOS.Activities.add(ACTS.map(([k, order, diff, title, desc], i) => ({
