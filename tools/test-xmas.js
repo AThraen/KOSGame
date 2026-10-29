@@ -3,7 +3,8 @@
 //   - door 1 -> card -> play -> God win -> gold bauble; find elf 1 at its spot -> 1/24 -> gallery shows it
 //   - 1 Dec first visit: toast, then (once it has gone) the hatted coach, clear of the pin at 390x844 and 844x390; a tap
 //     on it opens the calendar. A ready door swings open (motion on). Calendar fit at 844x390 (no scroll) and 320x568
-//   - 13 Dec: the Julekalender pin clear of every other pin (badge, label, NY, "Start her") at 320x568 .. 1280x800, da and en
+//   - 13 Dec (13 ready) and 24 Dec (24/24 opened): the Julekalender pin >= 4 px clear of every other pin (badge, label, NY,
+//     "Start her") at 320x568, 390x844 and 1280x800, da and en, its label text never cut off
 //   - teaser: no elf chip; "Alle steder" lists the Julekalender first, Halloween after the areas
 //   - 28 Oct (Halloween) unchanged; the 'event' area lists no xmas activities
 //   - 29 Nov 2026 (teaser) and 7 Jan 2027 (after): pin text / no pin, no decorations, no xmas.* activities
@@ -70,25 +71,28 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
   }
 
   // ---------------------------------------------------------------- the pin is clear of every other pin (badge, label,
-  // "NY" tag, Sejlerskolen's "Start her" ring) in both languages, down to 320x568 (a fresh player: "Start her" shows)
-  for (const [w, h] of [[320, 568], [390, 844], [1280, 800]]) for (const lang of ['da', 'en']) {
-    const { ctx, page } = await open(browser, '#god=1&date=2026-12-13', w, h);
-    await page.evaluate(l => { KOS.Storage.saveSettings({ lang: l }); KOS.App.applySettings(); }, lang);
+  // "NY" tag, Sejlerskolen's "Start her" ring) by >= 4 px in both languages, down to 320x568 (a fresh player: "Start her"
+  // shows), with the shortest (13 Dec, nothing opened) and the longest status line (24 Dec, "24/24 doors opened")
+  for (const date of ['2026-12-13', '2026-12-24']) for (const [w, h] of [[320, 568], [390, 844], [1280, 800]]) for (const lang of ['da', 'en']) {
+    const { ctx, page } = await open(browser, '#god=1&date=' + date, w, h);
+    await page.evaluate(([l, all]) => { KOS.Storage.saveSettings({ lang: l }); KOS.App.applySettings(); if (all) for (let i = 1; i <= 24; i++) KOS.Xmas.openDoor(i); }, [lang, date === '2026-12-24']);
     await show(page, 'hub');
     await page.waitForTimeout(1000);
     await clean(page);
     const hits = await page.evaluate(() => {
       const R = e => e.getBoundingClientRect(), pin = document.querySelector('.hub-pin-ev-xmas');
       const mine = [pin.querySelector('.hub-pin-badge'), pin.querySelector('.hub-pin-label')];
-      const others = [...document.querySelectorAll('.hub-pin:not(.hub-pin-ev-xmas), .hub-pin:not(.hub-pin-ev-xmas) *')].filter(e => R(e).width);
+      // the visible parts of the other pins (not the pin box itself: its empty corners beside the badge show nothing)
+      const others = [...document.querySelectorAll('.hub-pin:not(.hub-pin-ev-xmas) *')].filter(e => R(e).width && getComputedStyle(e).opacity !== '0');
       const out = [];
       for (const m of mine) for (const o of others) {
-        const a = R(m), c = R(o), ix = Math.min(a.right, c.right) - Math.max(a.left, c.left), iy = Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top);
+        const a = R(m), c = R(o), ix = Math.min(a.right, c.right) + 4 - Math.max(a.left, c.left), iy = Math.min(a.bottom, c.bottom) + 4 - Math.max(a.top, c.top);
         if (ix > 0 && iy > 0) out.push(String(m.className).slice(8) + ' x ' + String(o.className).slice(0, 30) + ' ' + Math.round(ix) + 'x' + Math.round(iy));
       }
+      pin.querySelectorAll('.hub-pin-name, .hub-pin-stars').forEach(e => { if (e.scrollWidth > e.clientWidth + 1) out.push('cut off: ' + e.textContent); });
       return [...new Set(out)];
     });
-    ok(hits.length === 0, w + 'x' + h + ' ' + lang + ' the Julekalender pin is clear of the other pins ' + JSON.stringify(hits));
+    ok(hits.length === 0, date.slice(5) + ' ' + w + 'x' + h + ' ' + lang + ' the Julekalender pin is >= 4 px clear of the other pins ' + JSON.stringify(hits));
     await ctx.close();
   }
 

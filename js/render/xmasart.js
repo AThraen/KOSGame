@@ -159,7 +159,8 @@
       '<rect x="33" y="99" width="34" height="4.6" rx="1.6" fill="#d45a3e" stroke="' + OUT + '" stroke-width="1.2"/>' +
       // three tiers, bottom first, each with a scalloped hem and a snow lip
       tier(50, 49, 38, 95) + tier(50, 28, 30, 69) + tier(50, 12, 21, 46);
-    SLOTS.forEach((q, i) => (s += bauble(q[0], q[1], 3.3, b[i] | 0)));
+    const r = opts && opts.big ? 4.4 : 3.3; // big: the hub map's small tree, where the bauble state must still read
+    SLOTS.forEach((q, i) => (s += bauble(q[0], q[1], r, b[i] | 0)));
     s += b[23] > 0
       ? '<circle cx="50" cy="10" r="10" fill="#ffd23f" opacity=".28"/>' + star(50, 10, 9, 3.8, '#ffd23f', '#a8740a')
       : star(50, 10, 7, 3, 'rgba(255,255,255,.08)', 'rgba(255,255,255,.35)');

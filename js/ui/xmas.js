@@ -80,7 +80,7 @@
 
   // ------------------------------------------------------------------ elves (spec 5). spot = where elf n hides; the UI
   // (js/ui/xmascal.js, js/ui/hub.js) places it there. screen: hub (at = world point in m, like the hub's DECO table;
-  // water: true = out on open water, it peeks over an ice floe instead of a snowdrift), calendar (beside / behind the
+  // water: true = out on open water, it peeks over an ice floe instead of a snowdrift; snug: true = a narrower drift), calendar (beside / behind the
   // tree panel), title, settings, garage (the boats or the passport), places ("Alle steder"), area (that
   // area's screen), results (shown after finishing act). For the screens, sel = the host element inside the screen and
   // pos = the elf's CSS position in it. 12 hub, 2 calendar, 2 garage/passport, 1 settings,
@@ -92,25 +92,25 @@
     ['Fender-Frida', 'Ingen skrammer på hendes vagt.', 'No scratches on her watch.', { screen: 'calendar', id: 'wall-1' },
       'Fender-Frida kigger frem på julekalenderen.', 'Fender-Frida is peeking out of the advent calendar.'],
     ['Knob-Karl', 'Kan binde alle knob – med lukkede øjne.', 'Ties every knot – with his eyes shut.', { screen: 'area', area: 'club', sel: '.act-grid', pos: 'left:-12px;top:340px' },
-      'Knob-Karl gemmer sig inde i klubhuset.', 'Knob-Karl is hiding inside the clubhouse.'],
+      'Knob-Karl gemmer sig mellem aktiviteterne i klubhuset.', 'Knob-Karl is hiding between the activities in the clubhouse.'],
     ['Ror-Rikke', 'Styrer altid lige mod målet.', 'Always steers straight for the finish.', { screen: 'hub', id: 'harbour', at: [510, -110] },
       'Ror-Rikke gemmer sig ved havneindløbet på kortet.', 'Ror-Rikke is hiding at the harbour entrance on the map.'],
     ['Bom-Bent', 'Dukker sig, når bommen kommer.', 'Ducks when the boom comes over.', { screen: 'garage', id: 'garage', sel: '.boat-grid', pos: 'left:calc(50% - 22px);top:62px' },
-      'Bom-Bent gemmer sig blandt bådene i garagen.', 'Bom-Bent is hiding among the boats in the garage.'],
+      'Bom-Bent gemmer sig mellem bådene i Bådstigen.', 'Bom-Bent is hiding between the boats in your passport’s boat ladder.'],
     ['Sejl-Sofie', 'Trimmer sejlet til perfektion.', 'Trims the sail to perfection.', { screen: 'hub', id: 'school', at: [-604, -54] },
       'Sejl-Sofie gemmer sig ved sejlerskolen på kortet.', 'Sejl-Sofie is hiding by the sailing school on the map.'],
-    ['Mast-Mads', 'Klatrer helt op i masten.', 'Climbs right to the top of the mast.', { screen: 'hub', id: 'club', at: [-24, 98] },
+    ['Mast-Mads', 'Klatrer helt op i masten.', 'Climbs right to the top of the mast.', { screen: 'hub', id: 'club', at: [69, 90], snug: true },
       'Mast-Mads gemmer sig ved det store juletræ ved klubhuset.', 'Mast-Mads is hiding by the big Christmas tree at the clubhouse.'],
     ['Jolle-Julie', 'Elsker sin lille jolle.', 'Loves her little dinghy.', { screen: 'title', id: 'title', sel: '.title-logo', pos: 'right:6%;bottom:-6px' },
       'Jolle-Julie gemmer sig på forsiden af spillet.', 'Jolle-Julie is hiding on the game’s front page.'],
     ['Bøje-Bo', 'Runder altid bøjen tæt.', 'Always rounds the buoy close.', { screen: 'hub', id: 'bay', at: [-443, -812], water: true },
       'Bøje-Bo gemmer sig ved bøjerne ude i bugten.', 'Bøje-Bo is hiding by the buoys out in the bay.'],
     ['Vante-Vera', 'Har altid varme vanter med.', 'Always brings warm mittens.', { screen: 'settings', id: 'settings', sel: '.panel-col > .panel:nth-child(3)', pos: 'left:-6px;top:-36px' },
-      'Vante-Vera gemmer sig i indstillingerne.', 'Vante-Vera is hiding in the settings.'],
+      'Vante-Vera kigger frem over vindstyrken i indstillingerne.', 'Vante-Vera is peeking over the wind units in the settings.'],
     ['Ankér-Anton', 'Ligger trygt for anker.', 'Lies safely at anchor.', { screen: 'hub', id: 'pier', at: [-453, -425] },
       'Ankér-Anton gemmer sig ved molen på kortet.', 'Ankér-Anton is hiding by the pier on the map.'],
     ['Kompas-Klara', 'Finder altid nord.', 'Always finds north.', { screen: 'area', area: 'nav', sel: '.act-grid', pos: 'right:-10px;top:150px' },
-      'Kompas-Klara gemmer sig hos navigationen.', 'Kompas-Klara is hiding with the navigation.'],
+      'Kompas-Klara gemmer sig i kanten mellem navigationens sejladser.', 'Kompas-Klara is hiding at the edge between the navigation sails.'],
     ['Lucia-Lea', 'Bærer lys i mørket.', 'Carries light in the dark.', { screen: 'results', act: 'xmas.lucia' },
       'Lucia-Lea venter, når du har sejlet Luciasejladsen.', 'Lucia-Lea is waiting once you have sailed the Lucia sail.'],
     ['Pagaj-Per', 'Padler, når vinden svigter.', 'Paddles when the wind dies.', { screen: 'hub', id: 'rib', at: [330, -230], water: true },
@@ -118,9 +118,9 @@
     ['Vimpel-Vilma', 'Ved altid, hvor vinden kommer fra.', 'Always knows where the wind is from.', { screen: 'hub', id: 'race', at: [4137, -1469], water: true },
       'Vimpel-Vilma gemmer sig ved kapsejladsbanen.', 'Vimpel-Vilma is hiding by the race course.'],
     ['Klampe-Klaus', 'Gør alt fast på klampen.', 'Makes everything fast on a cleat.', { screen: 'places', id: 'places', sel: '.hub-places-grid', pos: 'left:2px;bottom:-50px' },
-      'Klampe-Klaus gemmer sig i listen over alle steder.', 'Klampe-Klaus is hiding in the list of all places.'],
+      'Klampe-Klaus gemmer sig ved Luk-knappen under alle steder.', 'Klampe-Klaus is hiding by the Close button under all places.'],
     ['Kaase-Kamma', 'Holder skøderne ryddelige.', 'Keeps the lines tidy.', { screen: 'garage', id: 'passport', sel: '.passport', pos: 'left:8px;bottom:-8px' },
-      'Kaase-Kamma gemmer sig i dit sejlerpas.', 'Kaase-Kamma is hiding in your sailing passport.'],
+      'Kaase-Kamma gemmer sig i hjørnet af dit sejlerpas.', 'Kaase-Kamma is hiding in the corner of your sailing passport.'],
     ['Bølge-Bertil', 'Surfer på hver eneste bølge.', 'Surfs every single wave.', { screen: 'hub', id: 'sea', at: [1010, -1558], water: true },
       'Bølge-Bertil gemmer sig langt ude på vandet.', 'Bølge-Bertil is hiding far out on the water.'],
     ['Spiler-Signe', 'Sætter spileren med et smil.', 'Hoists the spinnaker with a smile.', { screen: 'area', area: 'race', sel: '.screen-head', pos: 'right:18%;bottom:-42px' },

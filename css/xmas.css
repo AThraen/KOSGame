@@ -143,6 +143,8 @@
   box-shadow: 0 2px 3px rgba(20, 35, 60, .28); transition: opacity .3s;
 }
 .hub-elves .hub-elf.is-found::after { opacity: 0; }
+/* spot.snug (elf 7 beside the big tree): a narrower drift, so it never spreads over the tree's baubles or presents */
+.hub-elves .hub-elf-snug::after { left: 12px; right: 12px; height: 11px; }
 /* open water (spot.water): a flat, half-see-through ice floe; the elf sits lower and only its hat and eyes show */
 .hub-elves .hub-elf-water .xa-elf { bottom: -3px; clip-path: inset(0 0 46% 0); }
 .hub-elves .hub-elf-water::after {
@@ -159,7 +161,7 @@
 .hub-xdeco .hx-present { transform: translate(-50%, -70%); }
 .hub-xdeco .hx-bigtree { width: var(--w, 90px); transform: translate(-50%, -94%); }
 /* 320 px wide / short landscape: the map is zoomed out, so a full-size tree would reach under the RIB label and the bar */
-@media (max-width: 360px), (max-height: 380px) { .hub-xdeco .hx-bigtree { width: calc(var(--w, 90px) * .8); } }
+@media (max-width: 360px), (max-height: 380px) { .hub-xdeco .hx-bigtree { width: calc(var(--w, 90px) * .7); } }
 .hub-xdeco .hx-bigtree svg { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); }
 .hub-xdeco .hx-lights { position: absolute; display: block; overflow: visible; }
 .hub-lite .hub-xdeco .hx-bigtree svg { filter: none; }
@@ -240,6 +242,14 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
 .hub-pin-ev-xmas .hub-pin-label { background: linear-gradient(180deg, rgba(150, 24, 32, .96), rgba(96, 12, 22, .96)); border-color: rgba(255, 211, 106, .6); }
 .hub-pin-ev-xmas .hub-pin-name { color: #fff7e6; }
 .hub-pin-ev-xmas .hub-pin-stars { color: #ffd36a; }
+/* 320 px: the pin sits between Sejlerskolen's 'Start her' and the Vigeregelskolen label; a smaller, capped label keeps
+   it clear of both in Danish and English (tools/test-xmas.js) */
+@media (max-width: 360px) {
+  .hub-pin-ev-xmas .hub-pin-label { max-width: 122px; padding-left: 7px; padding-right: 7px; }
+  .hub-pin-ev-xmas .hub-pin-name { font-size: 12px; }
+  .hub-pin-ev-xmas .hub-pin-stars { font-size: 10.5px; }
+  .hub-pin-ev-xmas .hub-pin-name, .hub-pin-ev-xmas .hub-pin-stars { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+}
 .hub-pin-ev-xmas:not(.is-ready) .hub-pin-ring { display: none; }
 .hub-pin-ev-xmas.is-ready .hub-pin-ring { border-color: #ffd36a; }
 .hub-place-ev-xmas { grid-column: 1 / -1; background: linear-gradient(180deg, rgba(160, 30, 36, .85), rgba(100, 14, 24, .85)); border-color: rgba(255, 211, 106, .6); }

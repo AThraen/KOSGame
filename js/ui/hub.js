@@ -627,7 +627,7 @@
         KOS.Storage.set(HW_TOAST, true);
         KOS.UI.toast(t('halloween.toast'), { kind: 'info', icon: 'pumpkin', ms: 5000 });
       } },
-    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-95, -505], // out in the open bay between Bugten, Vigeregelskolen and Sejlerskolen's 'Start her': clear of every label down to 320 px (tools/test-xmas.js)
+    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-105, -485], // out in the open bay between Bugten, Vigeregelskolen and Sejlerskolen's 'Start her': clear of every label down to 320 px (tools/test-xmas.js; css/xmas.css caps its label there)
       on: () => !!(XC() && XC().live() && KOS.XmasArt),
       badge: () => KOS.XmasArt.svg.gift,
       name: () => t('xcal.pin'), sub: () => XC().status(), aria: () => t('xcal.pin') + ' – ' + XC().status(),
@@ -754,13 +754,13 @@
   // bauble state (re-rendered by refresh(), never animated: the map layer is panned). [kind, x, y, width in map px]
   // Every item sits clear of the pins' badges and labels at 320x568 .. 1280x800 (pins draw on top of this layer anyway).
   const XDECO = [ // presents also name their colour
-    ['fir', -12, 95, 30], ['fir', 15, 120, 24], ['fir', 66, 200, 28], ['fir', 420, -25, 34], ['fir', 460, 20, 26], ['fir', 390, 35, 22],
+    ['fir', -44, 104, 30], ['fir', 34, 124, 24], ['fir', 66, 200, 28], ['fir', 420, -25, 34], ['fir', 460, 20, 26], ['fir', 390, 35, 22],
     ['fir', -380, 260, 30], ['fir', -230, 320, 24], ['fir', -590, -820, 30], ['fir', -600, -640, 26], ['fir', -610, -470, 32],
     ['fir', 1000, 120, 28], ['fir', 1150, -60, 24], ['fir', 1350, -650, 30], ['fir', 1322, -820, 26],
     ['snowman', 313, 93, 30], ['snowman', -470, 160, 26],
-    ['present', 20, 114, 15, 'red'], ['present', 58, 110, 13, 'gold'], ['present', 44, 118, 14, 'green'],
+    ['present', -14, 103, 15, 'red'], ['present', 24, 100, 13, 'gold'], ['present', 12, 108, 14, 'green'],
   ];
-  const XTREE = [38, 102, 90]; // the big tree, on land just south of the jetties' root (clear of the pin labels): world point + width in map px
+  const XTREE = [4, 93, 90]; // the big tree, on land just south of the jetties' root, in the only gap between the Broen, RIB and Klubhuset labels and the bottom bar from 320x568 to 1280x800: world point + width in map px
   // (--w: css/xmas.css draws it a bit smaller on the smallest screens, where it would reach the RIB label / the bottom bar)
   // fairy lights along the Opti jetty and the Long jetty (KOS.World PIERS 'A' and 'B': root, heading, length)
   const XLIGHTS = [{ from: [-30, 44], hdg: -40, len: 40 }, { from: [8, 10], hdg: -25, len: 60 }];
@@ -786,7 +786,7 @@
     }
     return `<svg class="hx hx-lights" style="left:${L.toFixed(1)}px;top:${T.toFixed(1)}px;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" aria-hidden="true"><path d="${wire}" fill="none" stroke="#2a2f3d" stroke-width="1.4"/>${bulbs}</svg>`;
   }
-  function xTreeHtml() { return KOS.XmasArt.tree(xBaubles()); }
+  function xTreeHtml() { return KOS.XmasArt.tree(xBaubles(), { big: true }); }
   function xdecoHtml() {
     if (!xmasDeco()) return '';
     const A = KOS.XmasArt;
@@ -810,7 +810,7 @@
     layer.querySelectorAll('[data-xmas-elf]').forEach(b => { if (!b.classList.contains('is-found') && !want.some(e => e.n === +b.getAttribute('data-xmas-elf'))) b.remove(); });
     want.forEach(e => {
       if (layer.querySelector('[data-xmas-elf="' + e.n + '"]')) return;
-      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf' + (e.spot.water ? ' hub-elf-water' : ''), s));
+      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf' + (e.spot.water ? ' hub-elf-water' : '') + (e.spot.snug ? ' hub-elf-snug' : ''), s));
     });
   }
 
