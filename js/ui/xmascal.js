@@ -21,6 +21,7 @@
       title: 'Julekalender',
       pin: 'Julekalender',
       ready: 'Låge {n} er klar!',
+      readyN: '{n} låger er klar!',
       opens: 'Åbner 1. dec',
       allOpen: 'Alle låger åbne',
       progress: '{n}/24 låger åbnet',
@@ -45,7 +46,8 @@
       elves: 'Nisse-jagt',
       elvesChip: 'Nisse-jagt {n}/24',
       gallery: 'Nisse-jagt',
-      galleryLead: 'Find dagens nisse – lågens tip viser hvor. {n}/24 fundet.',
+      galleryLead: 'Find dagens nisse – lågens tip viser hvor.',
+      galleryCount: '{n}/24 fundet',
       unknown: '?',
       found: 'Du fandt {name}! ({n}/24)',
       elfAria: 'En nisse gemmer sig her',
@@ -61,13 +63,14 @@
   });
   KOS.I18n.add('en', {
     xcal: {
-      title: 'Christmas calendar',
-      pin: 'Christmas calendar',
+      title: 'Advent calendar',
+      pin: 'Advent calendar',
       ready: 'Door {n} is ready!',
+      readyN: '{n} doors are ready!',
       opens: 'Opens 1 Dec',
       allOpen: 'All doors open',
       progress: '{n}/24 doors opened',
-      closed: 'The Christmas calendar is closed. See you at Christmas!',
+      closed: 'The advent calendar is closed. See you at Christmas!',
       door: 'Door {n}',
       doorLocked: 'Door {n} – opens in {d} days',
       doorLocked1: 'Door {n} – opens tomorrow',
@@ -76,7 +79,7 @@
       doorGold: 'Door {n} – gold bauble',
       inDays: 'Door {n} opens in {d} days',
       tomorrow: 'Door {n} opens tomorrow',
-      teaserToast: 'The Christmas calendar opens on 1 December. Not long now!',
+      teaserToast: 'The advent calendar opens on 1 December. Not long now!',
       play: 'Play', later: 'Later',
       goldNote: 'Finish the task and the bauble turns gold!',
       isGold: 'Gold bauble! Well done.',
@@ -88,18 +91,19 @@
       elves: 'Elf hunt',
       elvesChip: 'Elf hunt {n}/24',
       gallery: 'Elf hunt',
-      galleryLead: 'Find each day’s elf – the door’s tip says where. {n}/24 found.',
+      galleryLead: 'Find each day’s elf – the door’s tip says where.',
+      galleryCount: '{n}/24 found',
       unknown: '?',
       found: 'You found {name}! ({n}/24)',
       elfAria: 'An elf is hiding here',
       godJul: 'Merry Christmas from KØS',
       julerod: 'Christmas red',
       julerodTip: 'Christmas red – your reward for finding all 24 elves!',
-      toast: 'The Christmas calendar is open! Find it on the map by the harbour.',
-      coachReady: 'Door {n} is ready! Come and open it in the Christmas calendar.',
+      toast: 'The advent calendar is open! Find it on the map by the harbour.',
+      coachReady: 'Door {n} is ready! Come and open it in the advent calendar.',
       back: 'Calendar',
       testDate: 'Test date: {d}',
-      dev: { prev: 'One day back', next: 'One day on', day: 'day', reset: 'Reset Christmas', resetDone: 'The Christmas calendar has been reset' },
+      dev: { prev: 'One day back', next: 'One day on', day: 'day', reset: 'Reset Christmas', resetDone: 'The advent calendar has been reset' },
     },
   });
 
@@ -120,30 +124,40 @@
   // the calendar exists at all (season window open, or forced with #xmas=1)
   const live = () => !!(X() && A() && KOS.Season && KOS.Season.active('xmas'));
 
-  // door n -> 'locked' | 'ready' | 'open' | 'gold'
-  function doorState(n, info) {
+  // door n -> 'locked' | 'ready' | 'open' | 'gold'. s: the KOS.Xmas.state() a loop already read (storage is read once
+  // per render, not once per door)
+  function doorState(n, info, s) {
     const x = X();
-    if (x.isGold(n)) return 'gold';
-    if (x.isOpen(n)) return 'open';
+    s = s || x.state();
+    if (x.isGold(n, s)) return 'gold';
+    if (x.isOpen(n, s)) return 'open';
     return (info || x.dayInfo()).openable.indexOf(n) >= 0 ? 'ready' : 'locked';
   }
   // baubles per door for KOS.XmasArt.tree: 0 empty, 1 silver, 2 gold
-  function baubles() { const x = X(); const b = []; for (let n = 1; n <= x.N; n++) b.push(x.isGold(n) ? 2 : x.isOpen(n) ? 1 : 0); return b; }
+  function baubles(s) { const x = X(); s = s || x.state(); const b = []; for (let n = 1; n <= x.N; n++) b.push(x.isGold(n, s) ? 2 : x.isOpen(n, s) ? 1 : 0); return b; }
 
-  // one line about where the calendar is: the hub pin's subline and the screen's header
+  // one line about where the calendar is: the hub pin's subline and the screen's header.
+  // Several doors waiting (a kid catching up) reads "6 låger er klar!", one "Låge 13 er klar!".
   function status() {
-    const x = X(), info = x.dayInfo();
+    const x = X(), info = x.dayInfo(), s = x.state();
     if (info.phase === 'teaser') return t('xcal.opens');
     if (info.phase === 'advent') {
-      if (!x.isOpen(info.today)) return t('xcal.ready', { n: info.today });
-      const missed = info.openable.filter(n => !x.isOpen(n));
-      return missed.length ? t('xcal.ready', { n: missed[missed.length - 1] }) : t('xcal.progress', { n: x.counts().open });
+      const ready = info.openable.filter(n => !x.isOpen(n, s));
+      if (ready.length > 1) return t('xcal.readyN', { n: ready.length });
+      return ready.length ? t('xcal.ready', { n: ready[0] }) : t('xcal.progress', { n: x.counts(s).open });
     }
     if (info.phase === 'after') return t('xcal.allOpen');
     return t('xcal.closed');
   }
+  // the calendar screen's header: the same, but in the teaser it counts down ("Låge 1 åbner om 2 dage")
+  function headStatus() {
+    const x = X(), info = x.dayInfo();
+    if (info.phase !== 'teaser') return status();
+    const d = x.daysUntil(1);
+    return d === 1 ? t('xcal.tomorrow', { n: 1 }) : d ? t('xcal.inDays', { n: 1, d }) : status();
+  }
   // a door is waiting: the pin glows
-  function hasReady() { const x = X(), info = x.dayInfo(); return info.openable.some(n => !x.isOpen(n)); }
+  function hasReady() { const x = X(), info = x.dayInfo(), s = x.state(); return info.openable.some(n => !x.isOpen(n, s)); }
 
   // the "Testdato: 13. dec" pill (God-mode test date in effect), '' otherwise
   function testPill(cls) {
@@ -163,9 +177,9 @@
   // ------------------------------------------------------------------ elves (any screen)
   // A hidden elf: an absolutely placed button (style = its position). '' when elf n is not out (door not opened, already
   // found, season over). The click is handled once, document-wide, so a screen only has to drop the markup in.
-  function elfHtml(n, style, cls) {
+  function elfHtml(n, style, cls, s) {
     const x = X();
-    if (!x || !A() || !x.isElfVisible(n)) return '';
+    if (!x || !A() || !x.isElfVisible(n, null, s)) return '';
     return '<button type="button" class="xmas-elf' + (cls ? ' ' + cls : '') + '" data-xmas-elf="' + n + '" style="' + (style || '') + '" aria-label="' + esc(t('xcal.elfAria')) + '">' + A().elf(n - 1) + '</button>';
   }
   // the elves that hide on one screen spot type: ELVES whose spot matches (screen, and id/act/area when given)
@@ -211,15 +225,22 @@
     });
   }
 
-  // the title in the Christmas season: a few dozen CSS snowflakes (transform-only; none with reduced motion or the
-  // battery saver) and a small "God jul fra KØS" under the tagline
+  // the title in the Christmas season (the winter-evening tint is CSS on html.season-xmas-deco): a few dozen CSS snowflakes (transform-only; none with
+  // reduced motion or the battery saver) and a small "God jul fra KØS" under the tagline. Runs on every visit to the
+  // title, so it also takes the look off again once the window has closed (6 Jan -> 7 Jan with the app open, the dev
+  // bar stepping past it, #xmas=0) or the snow once reduced motion / the battery saver is switched on.
   function decorateTitle(sec) {
-    if (!sec || !(A() && A().deco())) return;
+    if (!sec) return;
+    const drop = q => sec.querySelectorAll(q).forEach(e => e.remove());
+    if (!(A() && A().deco())) { drop('.xs-snow, .xs-godjul'); return; }
     const logo = sec.querySelector('.title-logo');
     if (logo && !logo.querySelector('.xs-godjul')) logo.insertAdjacentHTML('beforeend', '<p class="xs-godjul">' + A().svg.star + '<span>' + esc(t('xcal.godJul')) + '</span>' + A().svg.star + '</p>');
+    const gj = logo && logo.querySelector('.xs-godjul span');
+    if (gj) gj.textContent = t('xcal.godJul'); // a language switch since
     let lowFx = false;
     try { lowFx = KOS.Storage.settings().lowFx === true || !!(KOS.Hub && KOS.Hub.lite && KOS.Hub.lite.effective()); } catch (e) { /* ignore */ }
-    if (reduced() || lowFx || sec.querySelector('.xs-snow')) return;
+    if (reduced() || lowFx) { drop('.xs-snow'); return; }
+    if (sec.querySelector('.xs-snow')) return;
     let flakes = '';
     for (let i = 0; i < 36; i++) {
       // a fixed spread (no Math.random: same look every visit), three sizes, staggered so it never starts in a clump
@@ -243,10 +264,10 @@
   function gallery() {
     const x = X();
     if (!x || !UI()) return;
-    const found = x.counts().elves;
-    const body = '<p class="xc-gal-lead">' + esc(t('xcal.galleryLead', { n: found })) + '</p><div class="xc-gal">' +
+    const s = x.state(), found = x.counts(s).elves;
+    const body = '<p class="xc-gal-lead">' + esc(t('xcal.galleryLead')) + '<br><b class="xc-gal-count">' + esc(t('xcal.galleryCount', { n: found })) + '</b></p><div class="xc-gal">' +
       x.ELVES.map(e => {
-        const has = x.isFound(e.n);
+        const has = x.isFound(e.n, s);
         return '<button type="button" class="xc-gslot' + (has ? ' has' : '') + '" data-elf="' + e.n + '"' + (has ? '' : ' disabled') + ' aria-label="' + esc(has ? e.name : t('xcal.unknown')) + '">' +
           '<span class="xc-gnum">' + e.n + '</span>' + (has ? A().elf(e.n - 1) : A().elfSilhouette()) +
           '<span class="xc-gname">' + esc(has ? e.name : t('xcal.unknown')) + '</span></button>';
@@ -299,11 +320,11 @@
   function doorInner(n) {
     const d = X().door(n), U = UI();
     const body = U && U.icons && U.icons[d.icon];
-    if (!body) return A().present('gold').replace('<svg class="xa-present"', '<svg x="16" y="20" width="28" height="30"');
-    return '<svg x="17" y="21" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffd98a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" color="#ffd98a">' + body + '</svg>';
+    if (!body) return A().present('gold').replace('<svg class="xa-present"', '<svg x="12" y="25" width="26" height="28"');
+    return '<svg x="13" y="27" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffd98a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" color="#ffd98a">' + body + '</svg>';
   }
-  function doorBtn(n, info) {
-    const st = doorState(n, info);
+  function doorBtn(n, info, s) {
+    const st = doorState(n, info, s);
     const label = st === 'locked' ? (X().daysUntil(n) === 1 ? t('xcal.doorLocked1', { n }) : t('xcal.doorLocked', { n, d: X().daysUntil(n) == null ? '?' : X().daysUntil(n) }))
       : st === 'ready' ? t('xcal.doorReady', { n }) : st === 'gold' ? t('xcal.doorGold', { n }) : t('xcal.doorOpen', { n });
     return '<button type="button" class="xc-door is-' + st + (info.today === n ? ' is-today' : '') + '" data-door="' + n + '" aria-label="' + esc(label + (st === 'open' || st === 'gold' ? ': ' + tt(X().door(n).title) : '')) + '">' +
@@ -322,17 +343,17 @@
     }
     x.registerBadges();
     const info = x.dayInfo();
-    const c = x.counts();
+    const s = x.state(), c = x.counts(s);
     const elvesHere = elvesAt('calendar');
-    sec.innerHTML = KOS.App.kit.header(t('xcal.title'), '<span class="xc-status">' + esc(status()) + '</span>', chipHtml()) +
+    sec.innerHTML = KOS.App.kit.header(t('xcal.title'), '<span class="xc-status">' + esc(headStatus()) + '</span>', chipHtml()) +
       '<div class="xc-body">' +
       '<div class="xc-wall"><div class="xc-lights" aria-hidden="true"></div><div class="xc-grid" role="group" aria-label="' + esc(t('xcal.title')) + '">' +
-      x.WALL.map(n => doorBtn(n, info)).join('') + '</div></div>' +
-      '<aside class="xc-side">' + (elvesHere[0] ? elfHtml(elvesHere[0], '', 'xc-elf-a') : '') +
-      '<div class="xc-tree">' + A().tree(baubles()) + (elvesHere[1] ? elfHtml(elvesHere[1], '', 'xc-elf-b') : '') + '</div>' +
+      x.WALL.map(n => doorBtn(n, info, s)).join('') + '</div></div>' +
+      '<aside class="xc-side">' + (elvesHere[0] ? elfHtml(elvesHere[0], '', 'xc-elf-a', s) : '') +
+      '<div class="xc-tree">' + A().tree(baubles(s)) + (elvesHere[1] ? elfHtml(elvesHere[1], '', 'xc-elf-b', s) : '') + '</div>' +
       '<div class="xc-info"><b class="xc-info-t">' + esc(t('xcal.tree')) + '</b>' +
       '<span>' + esc(t('xcal.baubles', { n: c.open })) + (c.gold ? ' · ' + esc(t('xcal.gold', { n: c.gold })) : '') + '</span>' +
-      (x.isOpen(24) ? '<span class="xc-star-note">' + esc(t('xcal.star')) + '</span>' : '') +
+      (x.isOpen(24, s) ? '<span class="xc-star-note">' + esc(t('xcal.star')) + '</span>' : '') +
       testPill() + (god() ? devBar() : '') + '</div>' +
       '</aside></div>';
     const off = [];
@@ -371,24 +392,24 @@
   }
   // chip, counts, tree and door states without rebuilding (keeps focus and the enter animation)
   function softRefresh(sec) {
-    const x = X(), info = x.dayInfo();
+    const x = X(), info = x.dayInfo(), s = x.state();
     if (!cur) return;
     const chip = sec.querySelector('.xc-chip');
     if (chip) chip.outerHTML = chipHtml();
-    const st = sec.querySelector('.xc-status'); if (st) st.textContent = status();
-    const tr = sec.querySelector('.xc-tree .xa-tree:not(.xa-elf)'); if (tr) tr.outerHTML = A().tree(baubles());
+    const st = sec.querySelector('.xc-status'); if (st) st.textContent = headStatus();
+    const tr = sec.querySelector('.xc-tree .xa-tree:not(.xa-elf)'); if (tr) tr.outerHTML = A().tree(baubles(s));
     sec.querySelectorAll('.xc-door').forEach(b => {
       const n = +b.getAttribute('data-door');
       if (n === cur.opening) return; // mid swing: tapDoor redraws it
-      if (!b.classList.contains('is-' + doorState(n, info))) b.outerHTML = doorBtn(n, info);
+      if (!b.classList.contains('is-' + doorState(n, info, s))) b.outerHTML = doorBtn(n, info, s);
     });
     // a door just opened lets its calendar elf out (elf a beside the tree panel, elf b behind the tree)
     elvesAt('calendar').forEach((n, i) => {
       if (sec.querySelector('[data-xmas-elf="' + n + '"]')) return;
       const host = sec.querySelector(i ? '.xc-tree' : '.xc-side');
-      if (host) host.insertAdjacentHTML('afterbegin', elfHtml(n, '', i ? 'xc-elf-b' : 'xc-elf-a'));
+      if (host) host.insertAdjacentHTML('afterbegin', elfHtml(n, '', i ? 'xc-elf-b' : 'xc-elf-a', s));
     });
-    const c = x.counts(), inf = sec.querySelector('.xc-info span');
+    const c = x.counts(s), inf = sec.querySelector('.xc-info span');
     if (inf) inf.textContent = t('xcal.baubles', { n: c.open }) + (c.gold ? ' · ' + t('xcal.gold', { n: c.gold }) : '');
   }
 
@@ -480,5 +501,5 @@
   KOS.App.registerScreen('xmas', render, leave);
   // the badges show in the passport once the calendar is (or was) in play
   try { if (live() || X().counts().open) X().registerBadges(); } catch (e) { /* storage not ready */ }
-  KOS.XmasCal = { live, status, hasReady, testPill, hatCoach, elfHtml, elvesAt, dropElves, decorateTitle, gallery, chipHtml, doorCard, decorateResults, doorState, baubles, fit };
+  KOS.XmasCal = { live, status, headStatus, hasReady, testPill, hatCoach, elfHtml, elvesAt, dropElves, decorateTitle, gallery, chipHtml, doorCard, decorateResults, doorState, baubles, fit };
 })(typeof window !== 'undefined' ? window : globalThis);

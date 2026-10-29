@@ -10,6 +10,7 @@
 //   KOS.Xmas.markGold(n)       -> true when newly gold (only after the door was opened)
 //   KOS.Xmas.findElf(n)        -> true when newly found (only while the elf is visible: its door opened, season on)
 //   KOS.Xmas.state() / save(s) / reset()     the saved state (Storage key 'xmas2026'), validated on every read
+//   KOS.Xmas.isOpen/isGold/isFound(n, s?), isElfVisible(n, date?, s?)   s: a state() the caller already read (loops)
 //   KOS.Xmas.merge(a, b)       pure: union of open/gold/elves (earliest ts), later `seen` values (for #35 sync)
 //
 // Dates always come from KOS.Season.now() (honours the God-mode test date #date=YYYY-MM-DD), never new Date().
@@ -85,35 +86,35 @@
   // 1 title, 1 places, 3 area, 2 results.
   // [name, tagline da, tagline en, spot, hint da, hint en]
   const E = [
-    ['Skøde-Søren', 'Holder altid styr på skødet.', 'Always keeps the sheet in hand.', { screen: 'hub', id: 'jetty', at: [-50, 15] },
-      'Skøde-Søren gemmer sig ved broen på havnekortet.', 'Skøde-Søren is hiding by the jetty on the harbour map.'],
+    ['Skøde-Søren', 'Holder altid styr på skødet.', 'Always keeps the sheet in hand.', { screen: 'hub', id: 'jetty', at: [-360, 220] },
+      'Skøde-Søren gemmer sig mellem grantræerne vest for havnen.', 'Skøde-Søren is hiding among the fir trees west of the harbour.'],
     ['Fender-Frida', 'Ingen skrammer på hendes vagt.', 'No scratches on her watch.', { screen: 'calendar', id: 'wall-1' },
-      'Fender-Frida kigger frem på julekalenderen.', 'Fender-Frida is peeking out of the Christmas calendar.'],
+      'Fender-Frida kigger frem på julekalenderen.', 'Fender-Frida is peeking out of the advent calendar.'],
     ['Knob-Karl', 'Kan binde alle knob – med lukkede øjne.', 'Ties every knot – with his eyes shut.', { screen: 'area', area: 'club', sel: '.screen-head', pos: 'right:10px;bottom:-42px' },
       'Knob-Karl gemmer sig inde i klubhuset.', 'Knob-Karl is hiding inside the clubhouse.'],
     ['Ror-Rikke', 'Styrer altid lige mod målet.', 'Always steers straight for the finish.', { screen: 'hub', id: 'harbour', at: [510, -110] },
       'Ror-Rikke gemmer sig ved havneindløbet på kortet.', 'Ror-Rikke is hiding at the harbour entrance on the map.'],
     ['Bom-Bent', 'Dukker sig, når bommen kommer.', 'Ducks when the boom comes over.', { screen: 'garage', id: 'garage', sel: '.garage-wrap .sec-title', pos: 'right:6px;top:-16px' },
       'Bom-Bent gemmer sig blandt bådene i garagen.', 'Bom-Bent is hiding among the boats in the garage.'],
-    ['Sejl-Sofie', 'Trimmer sejlet til perfektion.', 'Trims the sail to perfection.', { screen: 'hub', id: 'school', at: [-540, -80] },
+    ['Sejl-Sofie', 'Trimmer sejlet til perfektion.', 'Trims the sail to perfection.', { screen: 'hub', id: 'school', at: [-604, -54] },
       'Sejl-Sofie gemmer sig ved sejlerskolen på kortet.', 'Sejl-Sofie is hiding by the sailing school on the map.'],
-    ['Mast-Mads', 'Klatrer helt op i masten.', 'Climbs right to the top of the mast.', { screen: 'hub', id: 'club', at: [95, 150] },
+    ['Mast-Mads', 'Klatrer helt op i masten.', 'Climbs right to the top of the mast.', { screen: 'hub', id: 'club', at: [30, 215] },
       'Mast-Mads gemmer sig ved klubhuset på kortet.', 'Mast-Mads is hiding by the clubhouse on the map.'],
     ['Jolle-Julie', 'Elsker sin lille jolle.', 'Loves her little dinghy.', { screen: 'title', id: 'title', sel: '.title-logo', pos: 'right:6%;bottom:-6px' },
       'Jolle-Julie gemmer sig på forsiden af spillet.', 'Jolle-Julie is hiding on the game’s front page.'],
-    ['Bøje-Bo', 'Runder altid bøjen tæt.', 'Always rounds the buoy close.', { screen: 'hub', id: 'bay', at: [-455, -812] },
+    ['Bøje-Bo', 'Runder altid bøjen tæt.', 'Always rounds the buoy close.', { screen: 'hub', id: 'bay', at: [-443, -812] },
       'Bøje-Bo gemmer sig ved bøjerne ude i bugten.', 'Bøje-Bo is hiding by the buoys out in the bay.'],
     ['Vante-Vera', 'Har altid varme vanter med.', 'Always brings warm mittens.', { screen: 'settings', id: 'settings', sel: '.panel-col', pos: 'right:10px;top:2px' },
       'Vante-Vera gemmer sig i indstillingerne.', 'Vante-Vera is hiding in the settings.'],
-    ['Ankér-Anton', 'Ligger trygt for anker.', 'Lies safely at anchor.', { screen: 'hub', id: 'pier', at: [-350, -425] },
+    ['Ankér-Anton', 'Ligger trygt for anker.', 'Lies safely at anchor.', { screen: 'hub', id: 'pier', at: [-453, -425] },
       'Ankér-Anton gemmer sig ved molen på kortet.', 'Ankér-Anton is hiding by the pier on the map.'],
     ['Kompas-Klara', 'Finder altid nord.', 'Always finds north.', { screen: 'area', area: 'nav', sel: '.screen-head', pos: 'right:34%;bottom:-42px' },
       'Kompas-Klara gemmer sig hos navigationen.', 'Kompas-Klara is hiding with the navigation.'],
     ['Lucia-Lea', 'Bærer lys i mørket.', 'Carries light in the dark.', { screen: 'results', act: 'xmas.lucia' },
       'Lucia-Lea venter, når du har sejlet Luciasejladsen.', 'Lucia-Lea is waiting once you have sailed the Lucia sail.'],
-    ['Pagaj-Per', 'Padler, når vinden svigter.', 'Paddles when the wind dies.', { screen: 'hub', id: 'rib', at: [95, 5] },
-      'Pagaj-Per gemmer sig ved RIB’erne på kortet.', 'Pagaj-Per is hiding by the RIBs on the map.'],
-    ['Vimpel-Vilma', 'Ved altid, hvor vinden kommer fra.', 'Always knows where the wind is from.', { screen: 'hub', id: 'race', at: [3725, -1640] },
+    ['Pagaj-Per', 'Padler, når vinden svigter.', 'Paddles when the wind dies.', { screen: 'hub', id: 'rib', at: [330, -230] },
+      'Pagaj-Per padler rundt i vandet øst for RIB-pontonen.', 'Pagaj-Per is paddling in the water east of the RIB pontoon.'],
+    ['Vimpel-Vilma', 'Ved altid, hvor vinden kommer fra.', 'Always knows where the wind is from.', { screen: 'hub', id: 'race', at: [4137, -1469] },
       'Vimpel-Vilma gemmer sig ved kapsejladsbanen.', 'Vimpel-Vilma is hiding by the race course.'],
     ['Klampe-Klaus', 'Gør alt fast på klampen.', 'Makes everything fast on a cleat.', { screen: 'places', id: 'places', sel: '.hub-places-in', pos: 'right:12px;top:4px' },
       'Klampe-Klaus gemmer sig i listen over alle steder.', 'Klampe-Klaus is hiding in the list of all places.'],
@@ -123,14 +124,14 @@
       'Bølge-Bertil gemmer sig langt ude på vandet.', 'Bølge-Bertil is hiding far out on the water.'],
     ['Spiler-Signe', 'Sætter spileren med et smil.', 'Hoists the spinnaker with a smile.', { screen: 'area', area: 'race', sel: '.screen-head', pos: 'right:18%;bottom:-42px' },
       'Spiler-Signe gemmer sig hos kapsejladserne.', 'Spiler-Signe is hiding with the races.'],
-    ['Tovværk-Thor', 'Stærk som et ankertov.', 'Strong as an anchor rope.', { screen: 'hub', id: 'shed', at: [300, -10] },
-      'Tovværk-Thor gemmer sig ved skuret på kortet.', 'Tovværk-Thor is hiding by the shed on the map.'],
-    ['Rorpind-Rasmus', 'Holder altid fast i rorpinden.', 'Never lets go of the tiller.', { screen: 'hub', id: 'rules', at: [312, -698] },
+    ['Tovværk-Thor', 'Stærk som et ankertov.', 'Strong as an anchor rope.', { screen: 'hub', id: 'shed', at: [450, 30] },
+      'Tovværk-Thor gemmer sig ude på spidsen af Svaneknoppen.', 'Tovværk-Thor is hiding out on the tip of Svaneknoppen.'],
+    ['Rorpind-Rasmus', 'Holder altid fast i rorpinden.', 'Never lets go of the tiller.', { screen: 'hub', id: 'rules', at: [300, -727] },
       'Rorpind-Rasmus gemmer sig ved vigereglerne på kortet.', 'Rorpind-Rasmus is hiding by the rules on the map.'],
     ['Redningsvest-Ronja', 'Altid vest på – også til jul.', 'Always wears a life jacket – even at Christmas.', { screen: 'hub', id: 'rescue', at: [-545, -560] },
       'Redningsvest-Ronja gemmer sig på stranden på kortet.', 'Redningsvest-Ronja is hiding on the beach on the map.'],
     ['Pejling-Palle', 'Pejler sig frem til julegaverne.', 'Takes bearings to find the presents.', { screen: 'calendar', id: 'wall-2' },
-      'Pejling-Palle gemmer sig på julekalenderen.', 'Pejling-Palle is hiding on the Christmas calendar.'],
+      'Pejling-Palle gemmer sig på julekalenderen.', 'Pejling-Palle is hiding on the advent calendar.'],
     ['Julestjerne-Nisse', 'Sætter stjernen på toppen.', 'Puts the star on top.', { screen: 'results', act: 'xmas.finale' },
       'Julestjerne-Nisse venter, når du har klaret juleaftens gavejagt.', 'Julestjerne-Nisse is waiting once you finish the Christmas Eve hunt.'],
   ];
@@ -144,10 +145,10 @@
   const WALL = [7, 19, 2, 13, 22, 10, 16, 4, 24, 11, 1, 18, 9, 21, 6, 14, 3, 23, 12, 17, 8, 20, 15, 5];
 
   const BADGES = [
-    { id: 'xmas-elf-8', icon: 'eye', name: { da: 'Nissespejder', en: 'Elf scout' }, desc: { da: 'Find 8 nisser i julekalenderen.', en: 'Find 8 elves in the Christmas calendar.' } },
-    { id: 'xmas-elf-16', icon: 'eye', name: { da: 'Nissedetektiv', en: 'Elf detective' }, desc: { da: 'Find 16 nisser i julekalenderen.', en: 'Find 16 elves in the Christmas calendar.' } },
+    { id: 'xmas-elf-8', icon: 'eye', name: { da: 'Nissespejder', en: 'Elf scout' }, desc: { da: 'Find 8 nisser i julekalenderen.', en: 'Find 8 elves in the advent calendar.' } },
+    { id: 'xmas-elf-16', icon: 'eye', name: { da: 'Nissedetektiv', en: 'Elf detective' }, desc: { da: 'Find 16 nisser i julekalenderen.', en: 'Find 16 elves in the advent calendar.' } },
     { id: 'xmas-elf-24', icon: 'medal', name: { da: 'Nissemester', en: 'Elf master' }, desc: { da: 'Find alle 24 nisser.', en: 'Find all 24 elves.' } },
-    { id: 'xmas-doors-24', icon: 'calendar', name: { da: 'Juleaften!', en: 'Christmas Eve!' }, desc: { da: 'Åbn alle 24 låger i julekalenderen.', en: 'Open all 24 doors of the Christmas calendar.' } },
+    { id: 'xmas-doors-24', icon: 'calendar', name: { da: 'Juleaften!', en: 'Christmas Eve!' }, desc: { da: 'Åbn alle 24 låger i julekalenderen.', en: 'Open all 24 doors of the advent calendar.' } },
     { id: 'xmas-gold-24', icon: 'trophy', name: { da: 'Guldjul', en: 'Golden Christmas' }, desc: { da: 'Gør alle 24 julekugler gyldne.', en: 'Turn all 24 baubles gold.' } },
   ];
 
@@ -236,11 +237,12 @@
   }
   const stamp = () => nowDate().getTime();
 
-  const isOpen = n => !!state().open[n];
-  const isGold = n => !!state().gold[n];
-  const isFound = n => !!state().elves[n];
+  // s: an optional state() the caller already read (a loop over 24 doors reads storage once, not 24 times)
+  const isOpen = (n, s) => !!(s || state()).open[n];
+  const isGold = (n, s) => !!(s || state()).gold[n];
+  const isFound = (n, s) => !!(s || state()).elves[n];
   // elf n sits at its spot once door n is opened, until found, while the season is on (until 6 Jan)
-  const isElfVisible = (n, date) => validN(n) && seasonOn(date || nowDate()) && isOpen(n) && !isFound(n);
+  const isElfVisible = (n, date, s) => { if (!validN(n) || !seasonOn(date || nowDate())) return false; s = s || state(); return isOpen(n, s) && !isFound(n, s); };
 
   function openDoor(n, date) {
     if (!canOpen(n, date)) return false;

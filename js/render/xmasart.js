@@ -232,11 +232,11 @@
 
   // ---- shed-wall door. state: 'locked' (frosted), 'ready' (warm, glowing; pulse it with CSS), 'open' | 'gold'
   // (swung open; silver or gold bauble hanging inside). inner: optional SVG markup drawn in the opening (the door's
-  // icon), in the door's 60x72 space, roughly the box x 14..46, y 18..58.
+  // icon), in the door's 60x72 space, roughly the box x 12..38, y 25..53 (the bauble hangs top right).
   function door(n, state, inner) {
     let s = '<svg class="xa-door xa-door-' + (state || 'locked') + '" viewBox="0 0 60 72" aria-hidden="true">';
     const num = (x, y, size, fill, stroke) => '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="' + size + '" font-weight="900" fill="' + fill + '"' +
-      (stroke ? ' stroke="' + stroke + '" stroke-width="2.4" paint-order="stroke"' : '') + '>' + (n | 0) + '</text>';
+      (stroke ? ' stroke="' + stroke + '" stroke-width="3" stroke-linejoin="round" paint-order="stroke"' : '') + '>' + (n | 0) + '</text>';
     if (state === 'open' || state === 'gold') {
       const gold = state === 'gold';
       s += '<rect x="4" y="4" width="52" height="64" rx="5" fill="' + (gold ? '#c9952a' : '#7a4f28') + '" stroke="' + OUT + '" stroke-width="2"/>' +
@@ -245,7 +245,8 @@
         (inner || '') +
         '<path d="M10 10l-6-4v64l6-8z" fill="#9c6634" stroke="' + OUT + '" stroke-width="1.6" stroke-linejoin="round"/>' +
         '<circle cx="6.6" cy="38" r="1.2" fill="#f0c74a"/>' +
-        bauble(43, 19, 4.4, gold ? 2 : 1) +
+        // the door's bauble: big enough to read at phone size, with a dark rim so silver shows on the dark opening
+        bauble(43, 20, 6.4, gold ? 2 : 1) + '<circle cx="43" cy="20" r="6.4" fill="none" stroke="' + OUT + '" stroke-width="1.3"/>' +
         '<rect x="20" y="0" width="20" height="11" rx="5.5" fill="' + (gold ? '#f5c63c' : '#eef4fb') + '" stroke="' + OUT + '" stroke-width="1.4"/>' +
         num(30, 8.8, 9, gold ? '#5a3a06' : '#1b2540');
     } else if (state === 'ready') {
@@ -260,13 +261,13 @@
         '<circle cx="48" cy="44" r="1.8" fill="#f0c74a" stroke="' + OUT + '" stroke-width=".8"/>' +
         '<path d="M6 66q24-5 48 0v2h-48z" fill="#eef4fb"/>';
     } else {
-      s += '<rect x="4" y="4" width="52" height="64" rx="5" fill="#6f87a3" stroke="' + OUT + '" stroke-width="2"/>' +
-        '<path d="M17 6v60M30 6v60M43 6v60" stroke="#5a7090" stroke-width="1.2"/>' +
+      s += '<rect x="4" y="4" width="52" height="64" rx="5" fill="#5d7696" stroke="' + OUT + '" stroke-width="2"/>' +
+        '<path d="M17 6v60M30 6v60M43 6v60" stroke="#4b6282" stroke-width="1.2"/>' +
         // frost creeping in from the corners, a snow cap on top
         '<path d="M5 18q6-1 8-8q1-4 0-5h-6q-2 0-2 2zM55 54q-7 1-9 8q-1 4 0 5h7q2 0 2-2z" fill="#dce9f7" opacity=".7"/>' +
         '<path d="M4 9q2-6 9-5q5-3 10 0q6-3 12 0q6-3 11 0q7-1 10 5v-2q0-3-3-3h-46q-3 0-3 3z" fill="#f4f8fd"/>' +
         '<g stroke="#eaf3ff" stroke-width="1.4" stroke-linecap="round" opacity=".55"><path d="M30 40v14M23.9 43.5l12.2 7M23.9 50.5l12.2-7"/></g>' +
-        num(30, 33, 15, '#eef4fb', '#3c5170') +
+        num(30, 33, 15, '#f4f8fd', '#1b2a44') +
         '<circle cx="48" cy="44" r="1.8" fill="#aab8c8" stroke="' + OUT + '" stroke-width=".8"/>';
     }
     return s + '</svg>';

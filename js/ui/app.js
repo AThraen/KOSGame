@@ -731,7 +731,8 @@
   // ================================================================== AREA
   renderers.area = function (sec, params) {
     const area = params.area || 'bay';
-    const list = KOS.Activities ? KOS.Activities.byArea(area).filter(a => !a.pickHidden) : []; // free sailing: one card, the per-boat ids stay registered
+    // free sailing: one card, the per-boat ids stay registered; the Julekalender's activities are only played from its doors
+    const list = KOS.Activities ? KOS.Activities.byArea(area).filter(a => !a.pickHidden && a.season !== 'xmas') : [];
     const st = KOS.Activities ? KOS.Activities.areaStars(area) : { have: 0, max: 0 };
     sec.innerHTML = header(t('area.' + area + '.name'), esc(t('area.' + area + '.desc')),
       '<div class="pill"><span class="pill-ico star-ico">' + ico('star') + '</span><b>' + st.have + '</b><span class="pill-dim">/ ' + st.max + '</span></div>') +

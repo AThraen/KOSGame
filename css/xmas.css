@@ -10,7 +10,7 @@
   background: radial-gradient(120% 70% at 50% 0%, rgba(40, 70, 120, .55), rgba(8, 14, 32, .88) 70%), linear-gradient(180deg, rgba(10, 18, 40, .6), rgba(6, 10, 24, .92));
 }
 .xmas-screen .screen-head { margin-bottom: 10px; }
-.xmas-screen .head-title h1 { color: #fff7e6; text-shadow: 0 3px 0 rgba(120, 20, 20, .55), 0 4px 16px rgba(0, 0, 0, .4); }
+.xmas-screen .head-title h1 { font-size: clamp(1.05rem, 5.4vw, 2rem); color: #fff7e6; text-shadow: 0 3px 0 rgba(120, 20, 20, .55), 0 4px 16px rgba(0, 0, 0, .4); }
 .xc-status { color: var(--xc-gold); font-weight: 800; }
 
 .xc-body { flex: 1; min-height: 0; width: 100%; max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
@@ -99,7 +99,7 @@
 .xc-dev { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .xc-body.is-land .xc-dev { justify-content: center; }
 .xc-dev-btn {
-  display: inline-flex; align-items: center; gap: 5px; height: 36px; min-width: 36px; padding: 0 8px; justify-content: center; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; height: 44px; min-width: 44px; padding: 0 10px; justify-content: center; cursor: pointer;
   border-radius: 10px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #fff; font: inherit; font-size: 12.5px; font-weight: 800;
 }
 .xc-dev-btn .ico { width: 18px; height: 18px; }
@@ -128,14 +128,22 @@
 .xs-host { position: relative; } /* a screen element that hosts an elf (KOS.XmasCal.dropElves) */
 .xs-elf { z-index: 4; }
 .xs-elf-places { z-index: 2; }
-/* the hub map's elves: counter-scaled like the pins (constant ~30 px drawing, 44 px+ target at every zoom) */
-.hub-elves { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.hub-elves .hub-elf { pointer-events: auto; z-index: auto; transform: translate(-50%, -88%) scale(var(--inv, 1)); transform-origin: 50% 88%; }
-.hub-elves .hub-elf .xa-elf { filter: drop-shadow(0 0 3px rgba(255, 255, 255, .55)) drop-shadow(0 2px 2px rgba(0, 0, 0, .4)); }
+/* the hub map's elves: a layer under the pins (z-index 0, before .hub-pins: never on a label or badge), counter-scaled
+   like them (a ~23 px drawing, a 44 px target at every zoom). Each one peeks over a little snowdrift - only hat and face
+   show - and jumps out of it when found (the drift fades, the whole elf hops away). */
+.hub-elves { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.hub-elves .hub-elf { pointer-events: auto; z-index: auto; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -84%) scale(var(--inv, 1)); transform-origin: 50% 84%; }
+.hub-elves .hub-elf .xa-elf { position: absolute; left: 11px; bottom: 4px; width: 22px; height: 33px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .35)); }
+.hub-elves .hub-elf::after { /* the drift in front of the elf's lower half */
+  content: ""; position: absolute; left: 9px; right: 9px; bottom: 3px; height: 13px; pointer-events: none;
+  border-radius: 50% 50% 42% 42% / 80% 80% 20% 20%; background: linear-gradient(180deg, #f4f8fc, #c9d8ea 85%);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .25); transition: opacity .3s;
+}
+.hub-elves .hub-elf.is-found::after { opacity: 0; }
 .hub-lite .hub-elves .hub-elf .xa-elf { filter: none; }
 
 /* ------------------------------------------------------------------ hub map decorations (XDECO in js/ui/hub.js; static) */
-.hub-xdeco { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.hub-xdeco { position: absolute; inset: 0; pointer-events: none; z-index: 0; } /* under the pins (z-index auto, later in the stage) */
 .hub-xdeco .hd { position: absolute; display: block; transform: translate(-50%, -85%); }
 .hub-xdeco .hd svg { display: block; width: 100%; height: auto; }
 .hub-xdeco .hx-present { transform: translate(-50%, -70%); }
@@ -151,6 +159,11 @@
 @keyframes xsFall { from { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(var(--sway, 12px), 52vh, 0); } to { transform: translate3d(0, 106vh, 0); } }
 .xs-godjul { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 6px; font-weight: 900; font-size: 1rem; letter-spacing: .03em; color: #ffe6a8; text-shadow: 0 2px 6px rgba(0, 0, 0, .55); }
 .xs-godjul .xa-star { width: 15px; height: 15px; flex: none; }
+
+/* title: a cold, clear winter evening over the sunset photo (the same layer Halloween tints) */
+html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
+  radial-gradient(110% 75% at 50% 38%, transparent 30%, rgba(8, 20, 50, .55) 100%),
+  linear-gradient(180deg, rgba(16, 40, 96, .62), rgba(30, 70, 140, .3) 45%, rgba(40, 90, 160, .22) 70%, rgba(4, 10, 30, .78)); }
 
 /* profile: the "Julerød" boat colour (reward for all 24 elves) */
 .swatch.swatch-xmas { box-shadow: inset 0 0 0 3px #ffd36a, 0 0 10px rgba(255, 211, 106, .55); }
@@ -174,6 +187,7 @@
 
 .dialog.xc-gal-dlg { width: min(100%, 560px); }
 .xc-gal-lead { font-size: .92rem; text-align: center; }
+.xc-gal-count { display: inline-block; margin-top: 6px; padding: 2px 12px; border-radius: 999px; background: rgba(255, 211, 106, .16); border: 1px solid rgba(255, 211, 106, .45); color: #ffd36a; font-weight: 900; white-space: nowrap; }
 .xc-gal { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px; }
 .xc-gslot {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px; min-width: 0; border-radius: 12px;
@@ -201,6 +215,8 @@
 .hub-pin-ev-xmas .hub-pin-stars { color: #ffd36a; }
 .hub-pin-ev-xmas:not(.is-ready) .hub-pin-ring { display: none; }
 .hub-pin-ev-xmas.is-ready .hub-pin-ring { border-color: #ffd36a; }
+.hub-place-ev-xmas { grid-column: 1 / -1; background: linear-gradient(180deg, rgba(160, 30, 36, .85), rgba(100, 14, 24, .85)); border-color: rgba(255, 211, 106, .6); }
+.hub-place-ev-xmas .hub-place-txt small { color: #ffd36a; }
 .hub-place-ev-xmas .hub-place-badge { background: radial-gradient(circle at 38% 32%, #3fb064, #1f6b39) !important; }
 .hub-place-ev-xmas .hub-place-badge svg { width: 28px; height: 28px; }
 
@@ -220,11 +236,15 @@
   .xc-chip-txt small { font-size: 9.5px; }
   .xc-chip-txt b { font-size: 15px; }
   .xc-side { padding: 6px 10px; gap: 10px; }
-  .xc-tree { height: 96px; }
+  .xc-tree { height: 116px; }
 }
 @media (max-width: 360px) {
   .xc-chip-txt small { display: none; }
   .xc-chip { padding-right: 12px; }
+}
+@media (max-width: 420px) { /* the calendar header: elf + 0/24 only, so "Christmas calendar" is not cut off */
+  .xmas-screen .screen-head .xc-chip-txt small { display: none; }
+  .xmas-screen .screen-head .xc-chip { padding-right: 12px; }
 }
 @media (max-height: 500px) {
   .xc-body.is-land .xc-side { gap: 4px; padding: 8px; }
@@ -232,7 +252,7 @@
   .xc-info { font-size: .82rem; gap: 3px; }
   .xc-info-t { font-size: .92rem; }
   .xc-dev { flex-wrap: nowrap; gap: 4px; }
-  .xc-dev-btn { height: 32px; min-width: 32px; padding: 0 6px; }
+  .xc-dev-btn { height: 44px; min-width: 44px; padding: 0 6px; }
   .xc-dev-reset span { display: none; }
   .xmas-screen .screen-head { margin-bottom: 6px; }
   .xmas-screen .head-title h1 { font-size: 1.25rem; }

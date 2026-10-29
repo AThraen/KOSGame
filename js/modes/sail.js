@@ -662,7 +662,8 @@
       ctx.beginPath(); ctx.ellipse(-0.55, -0.45, 0.2, 0.08, -0.6, 0, TAU); ctx.fill();
     }
     // light snowfall over the canvas (screen space); off for reduced motion, low-fx and the low perf tiers
-    const FLAKES = []; for (let i = 0; i < 70; i++) FLAKES.push({ x: rand(), y: rand(), v: 18 + rand() * 26, r: 1 + rand() * 1.8, ph: rand() * TAU });
+    // (only for the xmas theme, from its own RNG: the course RNG `rand` stays untouched, so no other layout shifts)
+    const FLAKES = []; if (xmas) { const fr = U.rng((P.seed || 1) * 7919 + 14); for (let i = 0; i < 70; i++) FLAKES.push({ x: fr(), y: fr(), v: 18 + fr() * 26, r: 1 + fr() * 1.8, ph: fr() * TAU }); }
     function snowOn() {
       try { if (KOS.UI && KOS.UI.reduced && KOS.UI.reduced()) return false; } catch (e) { return false; }
       try { if (KOS.Storage.settings().lowFx === true) return false; } catch (e) { /* default on */ }

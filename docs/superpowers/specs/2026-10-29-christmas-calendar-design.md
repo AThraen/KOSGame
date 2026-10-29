@@ -143,6 +143,7 @@ Coaches rotate through `anton storm marius ida maria nicolas peter jesper`.
   - 3 on area screens;
   - 2 on the results screen of specific activities (shown after finishing that activity, e.g. elf 13 after `xmas.lucia`).
   The builder may move spots for layout reasons, but must keep them visible without scrolling at 390×844 and reachable at 320×568.
+- **As built (hub spots):** the map elves live in a layer under the pins, drawn at about 23 px and peeking over a little snowdrift (hat and face only) with a 44 px target. Spots were moved so no elf touches a pin badge or label from 320×568 to 1280×800: elf 1 among the firs west of the harbour, 7 just south of the clubhouse, 14 in the water east of the RIB pontoon, 20 on the tip of Svaneknoppen (hints updated to match).
 - **The elf:** a small SVG nisse (red cap, beard, sailing jacket), about 30 px drawn with a hit area of at least 44 px, peeking from behind something. It is not shown while an activity is running (no in-canvas elves). Tapping it plays a "Hov!" pop with a bell sound, it hops away, and a toast says "Du fandt Knob-Karl! (7/24)". Recorded immediately.
 - **Badges** (via `KOS.App.addBadges`):
   - `xmas-elf-8` "Nissespejder"
@@ -156,6 +157,7 @@ Coaches rotate through `anton storm marius ida maria nicolas peter jesper`.
 ## 6. Christmas look (only while `xmas-deco`)
 - **Title:** CSS snowfall (a few dozen flakes, transform-only, off when reduced motion or low-fx is on), plus a small "God jul fra KØS" line.
 - **Hub map decorations:** a static `XDECO` table like `DECO`: small fir trees, snowy roofs/caps on club buildings if feasible, a snowman on land, string lights along the jetty, and **the big tree at the jetty showing the live bauble state** (re-rendered on refresh, never animated on the panned layer). A light snow overlay above the map (screen layer, CSS, off when low-fx is on) is allowed if it does not hurt `perftier`/`hublite`.
+- **As built:** the hub snow overlay and the snowy roofs were left out (animated layers over the panned map made Android flash, and the static firs, snowman, lights and tree already carry the look). The title gets a cool winter-evening tint over the sunset photo instead. In English the calendar is called the **advent calendar** ("Christmas calendar" did not fit the 320 px header and the hub pin).
 - **Coaches** wear a Santa hat (`coachSvg` overlay) everywhere during deco.
 - **Race marks:** no change, unless trivial.
 - **Halloween:** no conflict, because its windows end 9 Nov.

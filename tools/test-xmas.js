@@ -1,6 +1,8 @@
 // Julekalender end-to-end test (headless Chrome, never a window): docs/superpowers/specs/2026-10-29-christmas-calendar-design.md section 9.
 //   - 5 Dec 2026 (God mode) at 390x844 and 1280x800: title snow + greeting, hub pin + tree + elf chip, doors 1-5 ready / 6-24 locked
 //   - door 1 -> card -> play -> God win -> gold bauble; find elf 1 at its spot -> 1/24 -> gallery shows it
+//   - 1 Dec first visit: toast + hatted coach; calendar fit at 844x390 (no scroll) and 320x568 (scrolls, title whole)
+//   - 28 Oct (Halloween) unchanged; the 'event' area lists no xmas activities
 //   - 29 Nov 2026 (teaser) and 7 Jan 2027 (after): pin text / no pin, no decorations, no xmas.* activities
 //   - all 24 door activities launch (start, wait 1.5 s, quit) without page errors
 //   - zero pageerror / console errors throughout. Screenshots: tools/tmp/xmas/e2e-*.png
@@ -96,6 +98,58 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
     await ctx.close();
   }
 
+  // ---------------------------------------------------------------- first visit on 1 Dec (fresh profile): toast + the hatted coach
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-01', 390, 844);
+    await show(page, 'hub'); await page.waitForTimeout(2300);
+    ok(await page.$('#toasts .toast') !== null, '1 Dec first visit: the toast shows');
+    const co = await page.evaluate(() => { const c = document.querySelector('.coach'); return c ? c.textContent : ''; });
+    ok(/Låge 1 er klar/.test(co) && await page.$('.coach .xa-santahat, .coach svg') !== null, '1 Dec first visit: the coach says "Låge 1 er klar!" (' + co.slice(0, 40) + ')');
+    await shot(page, 'first-visit-1dec');
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- calendar fit: 844x390 no scroll, 320x568 scrolls to every door
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-13', 844, 390);
+    await show(page, 'xmas'); await page.waitForTimeout(300);
+    const f = await page.evaluate(() => { const b = document.querySelector('.xc-body'), r = Array.from(document.querySelectorAll('.xc-door')).map(d => d.getBoundingClientRect()); return { scroll: b.classList.contains('is-scroll'), bottom: Math.max(...r.map(q => q.bottom)), right: Math.max(...r.map(q => q.right)) }; });
+    ok(!f.scroll && f.bottom <= 390 && f.right <= 844, '844x390: all 24 doors fit without scrolling ' + JSON.stringify(f));
+    await shot(page, 'calendar-844x390');
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-13', 320, 568);
+    await show(page, 'xmas'); await page.waitForTimeout(300);
+    const f = await page.evaluate(() => {
+      const ds = Array.from(document.querySelectorAll('.xc-door'));
+      return ds.every(d => { d.scrollIntoView({ block: 'nearest' }); const q = d.getBoundingClientRect(); return q.top >= 0 && q.bottom <= innerHeight + 1 && q.width >= 44; });
+    });
+    ok(f, '320x568: every door can be scrolled into view and is >= 44 px wide');
+    const h = await page.evaluate(() => { const e = document.querySelector('#screen-xmas .head-title h1'); return e.scrollWidth <= e.clientWidth; });
+    ok(h, '320x568: the header title is not cut off');
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- Halloween still looks like Halloween (the event-pin code is shared)
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-10-28', 390, 844);
+    await show(page, 'hub'); await page.waitForTimeout(500);
+    ok(await page.$('.hub-pin-ev-halloween') !== null, '28 Oct: the Halloween pin is there');
+    ok(await page.$('.hub-pin-ev-xmas') === null && await page.$('.hub-xmas .xc-chip') === null && await page.$('.hub-xdeco') === null && await page.$('.hub-elves [data-xmas-elf]') === null, '28 Oct: no xmas pin, chip, decorations or elves');
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- the door activities stay out of the 'event' area list
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-13', 390, 844);
+    await page.evaluate(() => KOS.App.show('area', { area: 'event' })); await page.waitForTimeout(400);
+    const ids = await page.evaluate(() => Array.from(document.querySelectorAll('#screen-area [data-id], #screen-area [data-act-id]')).map(e => e.getAttribute('data-id') || e.getAttribute('data-act-id')));
+    const txt = await page.textContent('#screen-area');
+    ok(!ids.some(id => /xmas/.test(id)) && !/Julequiz|Luciasejlads|Gavejagt/.test(txt), 'area "event" lists no Julekalender activities');
+    await ctx.close();
+  }
+
   // ---------------------------------------------------------------- teaser (29 Nov)
   {
     const { ctx, page } = await open(browser, '#god=1&date=2026-11-29', 390, 844);
@@ -105,6 +159,7 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
     await shot(page, 'teaser-hub');
     await show(page, 'xmas');
     ok(await page.evaluate(() => document.querySelectorAll('.xc-door.is-locked').length) === 24, 'teaser: all 24 doors locked');
+    ok((await page.textContent('#screen-xmas .xc-status')).trim() === 'Låge 1 åbner om 2 dage', 'teaser: the header counts down to door 1');
     await shot(page, 'teaser-calendar');
     await ctx.close();
   }

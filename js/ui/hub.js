@@ -626,7 +626,7 @@
         KOS.Storage.set(HW_TOAST, true);
         KOS.UI.toast(t('halloween.toast'), { kind: 'info', icon: 'pumpkin', ms: 5000 });
       } },
-    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-106, -330],
+    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-106, -470], // out in the open bay, clear of every label down to 320 px
       on: () => !!(XC() && XC().live() && KOS.XmasArt),
       badge: () => KOS.XmasArt.svg.gift,
       name: () => t('xcal.pin'), sub: () => XC().status(), aria: () => t('xcal.pin') + ' – ' + XC().status(),
@@ -643,14 +643,15 @@
       <span class="hub-pin-label"><b class="hub-pin-name"></b><span class="hub-pin-stars"><span class="hub-pin-sub"></span></span></span>
     </button>`).join('');
   }
-  // the Julekalender's hello: a one-time toast the first time the hub opens in the season, then (at most once a day) a
-  // Santa-hatted coach line when today's door is ready. Stored in the calendar's own state (seen.toast / seen.coachDay).
+  // the Julekalender's hello: a one-time toast the first time the hub opens in the season (top of the screen), and
+  // from 1 Dec, at most once a day, a Santa-hatted coach line at the bottom when today's door is ready - on the very first
+  // visit both together, so a kid who opens the game on 1 Dec hears "Låge 1 er klar!" straight away. Stored in the
+  // calendar's own state (seen.toast / seen.coachDay); coachDay is only marked when the coach actually shows.
   function xmasHello() {
     const X = KOS.Xmas, info = X.dayInfo();
     if (!X.seen('toast')) {
       X.markSeen('toast');
       KOS.UI.toast(t(info.phase === 'teaser' ? 'xcal.teaserToast' : 'xcal.toast'), { kind: 'info', icon: 'calendar', ms: 5000 });
-      return; // one thing at a time; the coach comes on the next visit
     }
     const d0 = KOS.Season.now(), day = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
     if (info.phase !== 'advent' || X.isOpen(info.today) || X.seen('coachDay') === day || !KOS.UI.coach) return;
@@ -681,16 +682,17 @@
   }
 
   // ---- the Christmas look (only while 'xmas-deco' is open, 29 Nov - 6 Jan). Static like DECO: firs, a snowman and
-  // presents on land, fairy lights strung along both jetties, and the big tree beside the jetty root showing the live
+  // presents on land, fairy lights strung along both jetties, and the big tree near the jetty root showing the live
   // bauble state (re-rendered by refresh(), never animated: the map layer is panned). [kind, x, y, width in map px]
+  // Every item sits clear of the pins' badges and labels at 320x568 .. 1280x800 (pins draw on top of this layer anyway).
   const XDECO = [ // presents also name their colour
-    ['fir', -30, 95, 30], ['fir', 15, 120, 24], ['fir', 160, 175, 28], ['fir', 420, -25, 34], ['fir', 460, 20, 26], ['fir', 390, 35, 22],
+    ['fir', -12, 95, 30], ['fir', 15, 120, 24], ['fir', 66, 200, 28], ['fir', 420, -25, 34], ['fir', 460, 20, 26], ['fir', 390, 35, 22],
     ['fir', -380, 260, 30], ['fir', -230, 320, 24], ['fir', -590, -820, 30], ['fir', -600, -640, 26], ['fir', -610, -470, 32],
-    ['fir', 1000, 120, 28], ['fir', 1150, -60, 24], ['fir', 1350, -650, 30], ['fir', 1250, -820, 26],
-    ['snowman', 245, 25, 30], ['snowman', -470, 160, 26],
-    ['present', 24, 44, 15, 'red'], ['present', 52, 40, 13, 'gold'], ['present', 44, 48, 14, 'green'],
+    ['fir', 1000, 120, 28], ['fir', 1150, -60, 24], ['fir', 1350, -650, 30], ['fir', 1322, -820, 26],
+    ['snowman', 313, 93, 30], ['snowman', -470, 160, 26],
+    ['present', 24, 120, 15, 'red'], ['present', 52, 116, 13, 'gold'], ['present', 44, 124, 14, 'green'],
   ];
-  const XTREE = [38, 32, 64]; // the big tree, on land beside the jetties' root: world point + width in map px
+  const XTREE = [38, 108, 64]; // the big tree, on land just south of the jetties' root (clear of the pin labels): world point + width in map px
   // fairy lights along the Opti jetty and the Long jetty (KOS.World PIERS 'A' and 'B': root, heading, length)
   const XLIGHTS = [{ from: [-30, 44], hdg: -40, len: 40 }, { from: [8, 10], hdg: -25, len: 60 }];
   const xmasDeco = () => !!(KOS.XmasArt && KOS.Season && KOS.Season.active('xmas-deco'));
@@ -725,18 +727,20 @@
       `<span class="hd hx-bigtree" style="${pct(PROJ.p(XTREE[0], XTREE[1]))};width:${XTREE[2]}px">${xTreeHtml()}</span></div>`;
   }
   // the 12 hub elves (spot.at in js/ui/xmas.js): counter-scaled like the pins, so the tap target stays >= 44 px at
-  // every zoom. Synced, not rebuilt: an elf that was just found keeps its hop-away animation.
+  // every zoom. A layer under the pins (never on a label or badge), each elf a small peek over a snowdrift (css/xmas.css).
+  // Synced, not rebuilt: an elf that was just found keeps its hop-away animation.
   function syncHubElves() {
     const R = state && state.root, X = KOS.Xmas, XCal = XC();
     if (!R || !X || !XCal) return;
     let layer = R.querySelector('.hub-elves');
-    const want = X.ELVES.filter(e => e.spot && e.spot.screen === 'hub' && e.spot.at && X.isElfVisible(e.n));
+    const s = X.state();
+    const want = X.ELVES.filter(e => e.spot && e.spot.screen === 'hub' && e.spot.at && X.isElfVisible(e.n, null, s));
     if (!want.length && !layer) return;
-    if (!layer) { layer = document.createElement('div'); layer.className = 'hub-elves'; R.querySelector('.hub-pins').after(layer); }
+    if (!layer) { layer = document.createElement('div'); layer.className = 'hub-elves'; R.querySelector('.hub-pins').before(layer); }
     layer.querySelectorAll('[data-xmas-elf]').forEach(b => { if (!b.classList.contains('is-found') && !want.some(e => e.n === +b.getAttribute('data-xmas-elf'))) b.remove(); });
     want.forEach(e => {
       if (layer.querySelector('[data-xmas-elf="' + e.n + '"]')) return;
-      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf'));
+      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf', s));
     });
   }
 
@@ -1238,12 +1242,13 @@
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', t('hub.placesTitle'));
     box.innerHTML = `<div class="hub-places-in hub-glass"><h2>${esc(t('hub.placesTitle'))}</h2><div class="hub-places-grid">` +
+      // the seasonal events first: they only last a few weeks
+      eventsOn().map(e => `<button type="button" class="hub-place hub-place-event hub-place-ev-${e.id}" data-act="event" data-ev="${e.id}" style="--c:${e.color}"><span class="hub-place-badge">${e.badge()}</span><span class="hub-place-txt"><b>${esc(e.name())}</b><small>${esc(e.sub())}</small></span></button>`).join('') +
       AREAS.map(a => {
         const need = areaLockStars(a.id), st = areaStars(a.id);
         const sub = need > 0 ? t('hub.needStars', { n: a.minStars }) : st.count ? t('hub.stars', st) + ' ★' : t('hub.sub.' + a.id);
         return `<button type="button" class="hub-place${need > 0 ? ' is-locked' : ''}${next && next.area === a.id ? ' is-next' : ''}" data-area="${a.id}" style="--c:${a.color}"><span class="hub-place-badge">${icon(need > 0 ? 'lock' : a.icon)}</span><span class="hub-place-txt"><b>${esc(t('hub.loc.' + a.id))}</b><small>${esc(sub)}</small></span></button>`;
       }).join('') +
-      eventsOn().map(e => `<button type="button" class="hub-place hub-place-event hub-place-ev-${e.id}" data-act="event" data-ev="${e.id}" style="--c:${e.color}"><span class="hub-place-badge">${e.badge()}</span><span class="hub-place-txt"><b>${esc(e.name())}</b><small>${esc(e.sub())}</small></span></button>`).join('') +
       `</div><button type="button" class="hub-places-close" data-act="places-close">${esc(t('hub.close'))}</button></div>`;
     state.root.appendChild(box);
     if (XC() && XC().dropElves) XC().dropElves('places', box);

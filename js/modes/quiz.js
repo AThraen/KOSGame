@@ -301,9 +301,9 @@
   q('xmas', null, ['Hvad er adventskransen?', 'What is the advent wreath?'],
     [['En grankrans med fire lys', 'A fir wreath with four candles'], ['En krans af blomster til bryllup', 'A flower wreath for a wedding'], ['En redningskrans til båden', 'A lifebuoy for the boat'], ['En krans af kringle', 'A ring of pretzels']],
     ['Man tænder ét lys mere hver søndag i de fire uger før jul. Så kan man tælle ned til juleaften.', 'You light one more candle each Sunday in the four weeks before Christmas. That way you can count down to Christmas Eve.']);
-  q('xmas', null, ['Hvor mange låger har en julekalender?', 'How many doors does a Christmas calendar have?'],
+  q('xmas', null, ['Hvor mange låger har en julekalender?', 'How many doors does an advent calendar have?'],
     [['24 – én for hver dag til juleaften', '24 – one for each day until Christmas Eve'], ['12', '12'], ['31', '31'], ['7', '7']],
-    ['Man åbner en låge hver dag fra den 1. til den 24. december. Der er også en julekalender i KØS SEJL!', 'You open one door every day from 1 to 24 December. There is a Christmas calendar in KØS SEJL too!']);
+    ['Man åbner en låge hver dag fra den 1. til den 24. december. Der er også en julekalender i KØS SEJL!', 'You open one door every day from 1 to 24 December. There is an advent calendar in KØS SEJL too!']);
   q('xmas', null, ['Hvad gør man ofte om juletræet juleaften i Danmark?', 'What do Danes often do around the Christmas tree on Christmas Eve?'],
     [['Går rundt og holder i hånd og synger', 'Walk around it holding hands and singing'], ['Klatrer op i det', 'Climb up it'], ['Sejler rundt om det', 'Sail around it'], ['Slukker alle lys og går i seng', 'Switch off all lights and go to bed']],
     ['Man danser om juletræet og synger julesange som ”Højt fra træets grønne top”.', 'People dance around the tree and sing carols such as “Højt fra træets grønne top”.']);
@@ -469,7 +469,7 @@
     { id: 'quiz.xmas4', mode: 'quiz', area: 'event', season: 'xmas', order: 34, boat: null, icon: 'trophy', minutes: 5, difficulty: 2, unlock: null,
       title: { da: 'Store julequiz', en: 'The big Christmas quiz' },
       desc: { da: '8 spørgsmål: jul blandet med alt det vigtige om sejlads.', en: '8 questions: Christmas mixed with all the sailing basics.' },
-      params: { cats: ['xmas', 'safety', 'knots', 'club', 'weather'], n: 8, seed: 1226 } },
+      params: { cats: ['xmas', 'rules', 'parts', 'knots', 'weather', 'safety', 'nav', 'club'], n: 8, seed: 1226 } },
   ]);
 
   // ======================================================================== 4. illustrations (small inline SVGs)
