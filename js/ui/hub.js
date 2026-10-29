@@ -627,7 +627,7 @@
         KOS.Storage.set(HW_TOAST, true);
         KOS.UI.toast(t('halloween.toast'), { kind: 'info', icon: 'pumpkin', ms: 5000 });
       } },
-    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-106, -470], // out in the open bay, clear of every label down to 320 px
+    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-95, -505], // out in the open bay between Bugten, Vigeregelskolen and Sejlerskolen's 'Start her': clear of every label down to 320 px (tools/test-xmas.js)
       on: () => !!(XC() && XC().live() && KOS.XmasArt),
       badge: () => KOS.XmasArt.svg.gift,
       name: () => t('xcal.pin'), sub: () => XC().status(), aria: () => t('xcal.pin') + ' – ' + XC().status(),
@@ -758,9 +758,10 @@
     ['fir', -380, 260, 30], ['fir', -230, 320, 24], ['fir', -590, -820, 30], ['fir', -600, -640, 26], ['fir', -610, -470, 32],
     ['fir', 1000, 120, 28], ['fir', 1150, -60, 24], ['fir', 1350, -650, 30], ['fir', 1322, -820, 26],
     ['snowman', 313, 93, 30], ['snowman', -470, 160, 26],
-    ['present', 24, 120, 15, 'red'], ['present', 52, 116, 13, 'gold'], ['present', 44, 124, 14, 'green'],
+    ['present', 20, 114, 15, 'red'], ['present', 58, 110, 13, 'gold'], ['present', 44, 118, 14, 'green'],
   ];
-  const XTREE = [38, 108, 64]; // the big tree, on land just south of the jetties' root (clear of the pin labels): world point + width in map px
+  const XTREE = [38, 102, 90]; // the big tree, on land just south of the jetties' root (clear of the pin labels): world point + width in map px
+  // (--w: css/xmas.css draws it a bit smaller on the smallest screens, where it would reach the RIB label / the bottom bar)
   // fairy lights along the Opti jetty and the Long jetty (KOS.World PIERS 'A' and 'B': root, heading, length)
   const XLIGHTS = [{ from: [-30, 44], hdg: -40, len: 40 }, { from: [8, 10], hdg: -25, len: 60 }];
   const xmasDeco = () => !!(KOS.XmasArt && KOS.Season && KOS.Season.active('xmas-deco'));
@@ -792,7 +793,7 @@
     return '<div class="hub-deco hub-xdeco" aria-hidden="true">' + XDECO.map(d =>
       `<span class="hd hx-${d[0]}" style="${pct(PROJ.p(d[1], d[2]))};width:${d[3]}px">${d[0] === 'present' ? A.present(d[4]) : A[d[0]]()}</span>`).join('') +
       XLIGHTS.map(xLightsSvg).join('') +
-      `<span class="hd hx-bigtree" style="${pct(PROJ.p(XTREE[0], XTREE[1]))};width:${XTREE[2]}px">${xTreeHtml()}</span></div>`;
+      `<span class="hd hx-bigtree" style="${pct(PROJ.p(XTREE[0], XTREE[1]))};--w:${XTREE[2]}px">${xTreeHtml()}</span></div>`;
   }
   // the 12 hub elves (spot.at in js/ui/xmas.js): counter-scaled like the pins, so the tap target stays >= 44 px at
   // every zoom. A layer under the pins (never on a label or badge), each elf a small peek over a snowdrift (css/xmas.css).

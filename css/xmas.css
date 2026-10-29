@@ -157,7 +157,9 @@
 .hub-xdeco .hd { position: absolute; display: block; transform: translate(-50%, -85%); }
 .hub-xdeco .hd svg { display: block; width: 100%; height: auto; }
 .hub-xdeco .hx-present { transform: translate(-50%, -70%); }
-.hub-xdeco .hx-bigtree { transform: translate(-50%, -94%); }
+.hub-xdeco .hx-bigtree { width: var(--w, 90px); transform: translate(-50%, -94%); }
+/* 320 px wide / short landscape: the map is zoomed out, so a full-size tree would reach under the RIB label and the bar */
+@media (max-width: 360px), (max-height: 380px) { .hub-xdeco .hx-bigtree { width: calc(var(--w, 90px) * .8); } }
 .hub-xdeco .hx-bigtree svg { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); }
 .hub-xdeco .hx-lights { position: absolute; display: block; overflow: visible; }
 .hub-lite .hub-xdeco .hx-bigtree svg { filter: none; }
