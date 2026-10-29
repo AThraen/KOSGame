@@ -95,6 +95,8 @@
   background: rgba(255, 90, 60, .22); border: 1px dashed rgba(255, 160, 120, .8); color: #ffd9c9; font-size: 12.5px; font-weight: 800; white-space: nowrap;
 }
 .xc-body.is-land .xc-testdate { align-self: center; }
+.xc-testdate.xc-head-pill { margin-left: 8px; padding: 1px 8px; font-size: 11.5px; vertical-align: 1px; }
+@media (max-width: 440px) { .xc-testdate.xc-head-pill { display: flex; width: max-content; margin: 3px 0 0; } }
 .xc-testdate .ico { width: 15px; height: 15px; }
 .xc-dev { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .xc-body.is-land .xc-dev { justify-content: center; }
@@ -121,8 +123,9 @@
 .xmas-elf.is-found { pointer-events: none; }
 .xmas-elf.is-found .xa-elf { animation: xcHop .7s cubic-bezier(.3, .2, .6, 1) forwards; transform-origin: 50% 100%; }
 @keyframes xcHop { 0% { transform: none; } 30% { transform: translateY(-22px) scale(1.15); } 60% { transform: translate(18px, -30px) rotate(20deg) scale(.9); opacity: 1; } 100% { transform: translate(60px, -10px) rotate(40deg) scale(.4); opacity: 0; } }
-.xc-elf-a { right: 6px; top: -18px; } /* peeking over the tree panel's top edge */
-.xc-body.is-land .xc-elf-a { right: auto; left: 2px; top: 4px; }
+.xc-elf-a { right: 14px; top: -27px; } /* peeking over the tree panel's top rim: hat and eyes only */
+.xc-elf-a .xa-elf { clip-path: inset(0 0 48% 0); }
+.xc-body.is-land .xc-elf-a { right: auto; left: 14px; } /* clear of the header chip above the panel's right end */
 .xc-elf-b { right: -14px; bottom: 6px; } /* behind the tree's tub */
 .xc-elf-results { right: 8px; top: 6px; }
 .xs-host { position: relative; } /* a screen element that hosts an elf (KOS.XmasCal.dropElves) */
@@ -134,12 +137,19 @@
 .hub-elves { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
 .hub-elves .hub-elf { pointer-events: auto; z-index: auto; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -84%) scale(var(--inv, 1)); transform-origin: 50% 84%; }
 .hub-elves .hub-elf .xa-elf { position: absolute; left: 11px; bottom: 4px; width: 22px; height: 33px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .35)); }
-.hub-elves .hub-elf::after { /* the drift in front of the elf's lower half */
+.hub-elves .hub-elf::after { /* the drift in front of the elf's lower half: off-white like the snowy land deco */
   content: ""; position: absolute; left: 9px; right: 9px; bottom: 3px; height: 13px; pointer-events: none;
-  border-radius: 50% 50% 42% 42% / 80% 80% 20% 20%; background: linear-gradient(180deg, #f4f8fc, #c9d8ea 85%);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, .25); transition: opacity .3s;
+  border-radius: 50% 50% 42% 42% / 80% 80% 20% 20%; background: linear-gradient(180deg, #e6eef5, #c4d1de 90%);
+  box-shadow: 0 2px 3px rgba(20, 35, 60, .28); transition: opacity .3s;
 }
 .hub-elves .hub-elf.is-found::after { opacity: 0; }
+/* open water (spot.water): a flat, half-see-through ice floe; the elf sits lower and only its hat and eyes show */
+.hub-elves .hub-elf-water .xa-elf { bottom: -3px; clip-path: inset(0 0 46% 0); }
+.hub-elves .hub-elf-water::after {
+  left: 7px; right: 7px; bottom: 6px; height: 9px; border-radius: 46% 54% 40% 60% / 70% 60% 40% 30%;
+  background: linear-gradient(180deg, rgba(196, 214, 228, .78), rgba(128, 152, 174, .7)); box-shadow: 0 1px 2px rgba(10, 30, 60, .25);
+}
+.hub-elves .hub-elf-water.is-found .xa-elf { clip-path: none; }
 .hub-lite .hub-elves .hub-elf .xa-elf { filter: none; }
 
 /* ------------------------------------------------------------------ hub map decorations (XDECO in js/ui/hub.js; static) */
@@ -198,11 +208,22 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
 .xc-gslot:disabled { opacity: 1; }
 .xc-gslot .xa-elf { width: 30px; height: 44px; }
 .xc-gnum { position: absolute; left: 5px; top: 3px; font-size: 10px; font-weight: 900; color: rgba(255, 255, 255, .5); }
-.xc-gname { width: 100%; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: center; overflow-wrap: anywhere; hyphens: auto; color: rgba(240, 244, 255, .9); min-height: 2.2em; }
+.xc-gname { width: 100%; font-size: 11px; font-weight: 800; line-height: 1.15; text-align: center; word-break: normal; overflow-wrap: normal; hyphens: manual; color: rgba(240, 244, 255, .9); }
 .xc-gslot:not(.has) .xc-gname { color: rgba(255, 255, 255, .45); font-size: 13px; }
 .xc-gtag { min-height: 1.4em; margin-top: 8px !important; text-align: center; font-size: .9rem; }
 .xc-gtag b { color: #ffd36a; }
 @media (max-width: 380px) { .xc-gal { grid-template-columns: repeat(4, 1fr); } }
+@media (max-height: 500px) and (min-width: 560px) { /* landscape phones: 8 x 3, everything fits without scrolling */
+  .dialog.xc-gal-dlg { width: min(100%, 720px); padding: 12px 16px; }
+  .xc-gal-dlg .dialog-title { font-size: 1.2rem; margin-bottom: 2px; }
+  .xc-gal { grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 6px; }
+  .xc-gslot { padding: 2px 2px 3px; }
+  .xc-gslot .xa-elf { width: 24px; height: 34px; }
+  .xc-gal-lead { font-size: .85rem; }
+  .xc-gal-lead br { display: none; }
+  .xc-gal-count { margin: 0 0 0 8px; }
+  .xc-gtag { margin-top: 4px !important; }
+}
 
 /* ------------------------------------------------------------------ hub: the Julekalender pin + the Christmas strip */
 .hub-pin-ev-xmas .hub-pin-badge {
@@ -225,6 +246,7 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
   display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
 }
 .hub-xmas > * { pointer-events: auto; }
+.coach.coach-xmas { cursor: pointer; }
 .hub .xc-chip { height: 44px; border-radius: 999px; }
 .hub .xc-chip.hub-glass { background: linear-gradient(180deg, rgba(160, 30, 36, .9), rgba(110, 16, 26, .9)); border-color: rgba(255, 211, 106, .55); }
 .hub .xc-testdate.hub-glass { border-radius: 999px; padding: 4px 10px; background: rgba(120, 30, 20, .8); border: 1px dashed rgba(255, 160, 120, .85); box-shadow: none; }
@@ -270,3 +292,10 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
   .xs-snow { display: none; }
   .xc-door.is-opening { transition: none; }
 }
+
+/* the hub's daily coach line on a wide screen, moved to the half of the screen without the Julekalender pin */
+.coach.coach-xmas.coach-side-r, .coach.coach-xmas.coach-side-l { width: min(calc(50vw - 24px), 440px); transform: translate(0, 20px) scale(.95); }
+.coach.coach-xmas.coach-side-r { left: auto; right: calc(12px + var(--safe-r, 0px)); }
+.coach.coach-xmas.coach-side-l { left: calc(12px + var(--safe-l, 0px)); }
+.coach.coach-xmas.coach-side-r.in, .coach.coach-xmas.coach-side-l.in { transform: none; }
+.coach.coach-xmas.coach-side-r.out, .coach.coach-xmas.coach-side-l.out { transform: translate(0, 12px) scale(.96); }

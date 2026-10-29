@@ -1,7 +1,9 @@
 // Julekalender end-to-end test (headless Chrome, never a window): docs/superpowers/specs/2026-10-29-christmas-calendar-design.md section 9.
 //   - 5 Dec 2026 (God mode) at 390x844 and 1280x800: title snow + greeting, hub pin + tree + elf chip, doors 1-5 ready / 6-24 locked
 //   - door 1 -> card -> play -> God win -> gold bauble; find elf 1 at its spot -> 1/24 -> gallery shows it
-//   - 1 Dec first visit: toast + hatted coach; calendar fit at 844x390 (no scroll) and 320x568 (scrolls, title whole)
+//   - 1 Dec first visit: toast, then (once it has gone) the hatted coach, clear of the pin at 390x844 and 844x390; a tap
+//     on it opens the calendar. A ready door swings open (motion on). Calendar fit at 844x390 (no scroll) and 320x568
+//   - teaser: no elf chip; "Alle steder" lists the Julekalender first, Halloween after the areas
 //   - 28 Oct (Halloween) unchanged; the 'event' area lists no xmas activities
 //   - 29 Nov 2026 (teaser) and 7 Jan 2027 (after): pin text / no pin, no decorations, no xmas.* activities
 //   - all 24 door activities launch (start, wait 1.5 s, quit) without page errors
@@ -98,14 +100,32 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
     await ctx.close();
   }
 
-  // ---------------------------------------------------------------- first visit on 1 Dec (fresh profile): toast + the hatted coach
-  {
-    const { ctx, page } = await open(browser, '#god=1&date=2026-12-01', 390, 844);
+  // ---------------------------------------------------------------- first visit on 1 Dec (fresh profile): toast, then the hatted coach
+  for (const [w, h] of [[390, 844], [844, 390]]) {
+    const tag = w + 'x' + h;
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-01', w, h, true);
     await show(page, 'hub'); await page.waitForTimeout(2300);
-    ok(await page.$('#toasts .toast') !== null, '1 Dec first visit: the toast shows');
-    const co = await page.evaluate(() => { const c = document.querySelector('.coach'); return c ? c.textContent : ''; });
-    ok(/Låge 1 er klar/.test(co) && await page.$('.coach .xa-santahat, .coach svg') !== null, '1 Dec first visit: the coach says "Låge 1 er klar!" (' + co.slice(0, 40) + ')');
-    await shot(page, 'first-visit-1dec');
+    ok(await page.$('#toasts .toast') !== null && await page.$('.coach') === null, tag + ' 1 Dec first visit: the toast shows, the coach waits');
+    await page.waitForTimeout(5600);
+    const co = await page.evaluate(() => {
+      const c = document.querySelector('.coach'), p = document.querySelector('.hub-pin-ev-xmas');
+      if (!c || !p) return { text: c ? c.textContent : '' };
+      const r = e => e.getBoundingClientRect(), cr = [r(c.querySelector('.coach-avatar')), r(c.querySelector('.coach-bubble'))], pr = [r(p.querySelector('.hub-pin-badge')), r(p.querySelector('.hub-pin-label'))];
+      return { text: c.textContent, toast: !!document.querySelector('#toasts .toast.in'), over: cr.some(a => pr.some(b => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top)),
+        inView: pr.every(b => b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight) };
+    });
+    ok(/Låge 1 er klar/.test(co.text) && await page.$('.coach .xa-santahat, .coach svg') !== null && !co.toast, tag + ' then the coach says "Låge 1 er klar!" (' + String(co.text).slice(0, 40) + ')');
+    ok(co.over === false && co.inView, tag + ' the coach keeps clear of the Julekalender pin ' + JSON.stringify(co));
+    await shot(page, 'first-visit-1dec-' + tag);
+    await page.evaluate(() => { const c = document.querySelector('.coach'); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); c.click(); });
+    await page.waitForTimeout(500);
+    ok(await cur(page) === 'xmas', tag + ' a tap on the coach opens the calendar');
+    // the ready door swings open (motion on): the opening class lands on the live button
+    await page.evaluate(() => document.querySelector('.xc-door[data-door="1"]').click());
+    await page.waitForTimeout(50);
+    ok(await page.$('.xc-door.is-opening[data-door="1"]') !== null, tag + ' door 1 swings open (.is-opening in the DOM)');
+    await page.waitForTimeout(700);
+    ok(await page.$('.xc-card-dlg') !== null && await page.$('.xc-door.is-open[data-door="1"]') !== null, tag + ' then the card shows, door 1 open');
     await ctx.close();
   }
 
@@ -136,6 +156,8 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
     const { ctx, page } = await open(browser, '#god=1&date=2026-10-28', 390, 844);
     await show(page, 'hub'); await page.waitForTimeout(500);
     ok(await page.$('.hub-pin-ev-halloween') !== null, '28 Oct: the Halloween pin is there');
+    await tap(page, '[data-act="places"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => { const b = Array.from(document.querySelectorAll('.hub-places .hub-place')); return b.length > 1 && b[b.length - 1].classList.contains('hub-place-ev-halloween'); }), '28 Oct: "Alle steder" lists Halloween after the areas');
     ok(await page.$('.hub-pin-ev-xmas') === null && await page.$('.hub-xmas .xc-chip') === null && await page.$('.hub-xdeco') === null && await page.$('.hub-elves [data-xmas-elf]') === null, '28 Oct: no xmas pin, chip, decorations or elves');
     await ctx.close();
   }
@@ -155,10 +177,15 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
     const { ctx, page } = await open(browser, '#god=1&date=2026-11-29', 390, 844);
     await show(page, 'hub'); await page.waitForTimeout(500);
     ok((await page.textContent('.hub-pin-ev-xmas .hub-pin-sub')).trim() === 'Åbner 1. dec', 'teaser pin says "Åbner 1. dec"');
+    ok(await page.$('.hub-xmas .xc-chip') === null, 'teaser: no elf chip on the hub');
+    await tap(page, '[data-act="places"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => document.querySelector('.hub-places .hub-place').classList.contains('hub-place-ev-xmas')), 'teaser: "Alle steder" lists the Julekalender first');
+    await clean(page); await page.evaluate(() => document.querySelector('[data-act="places-close"]').click());
     ok(await page.$('.hub-xdeco') !== null, 'teaser: decorations are on');
     await shot(page, 'teaser-hub');
     await show(page, 'xmas');
     ok(await page.evaluate(() => document.querySelectorAll('.xc-door.is-locked').length) === 24, 'teaser: all 24 doors locked');
+    ok(await page.$('#screen-xmas .xc-chip') === null && await page.$('#screen-xmas .screen-head .xc-testdate') !== null, 'teaser: no elf chip; the test date sits in the header');
     ok((await page.textContent('#screen-xmas .xc-status')).trim() === 'Låge 1 åbner om 2 dage', 'teaser: the header counts down to door 1');
     await shot(page, 'teaser-calendar');
     await ctx.close();

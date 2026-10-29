@@ -1774,6 +1774,23 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
       ok(X.isGold(3), 'success after open -> gold (via Storage.record)');
       ok(got.some(e => e.kind === 'gold' && e.n === 3), 'xmas gold event');
     });
+    // after the season (or #xmas=0): the same regular activity finished from its area leaves an opened door alone
+    withDate(d10, () => X.openDoor(9, d10));
+    ok(X.isOpen(9) && !X.isGold(9), 'door 9 (bowline) opened, not gold');
+    withDate(at(2027, 2, 10, 10), () => {
+      const got = listen('xmas');
+      KOS.Events.emit('progress', { id: 'knots.bowline', result: { success: true } });
+      got.stop();
+      ok(!X.isGold(9) && !got.length, 'February: no gold, no xmas event');
+    });
+    withDate(d10, () => {
+      Se.force.xmas = false;
+      KOS.Events.emit('progress', { id: 'knots.bowline', result: { success: true } });
+      ok(!X.isGold(9), '#xmas=0 in December: no gold');
+      Se.force.xmas = null;
+      KOS.Events.emit('progress', { id: 'knots.bowline', result: { success: true } });
+      ok(X.isGold(9), 'season on again: gold');
+    });
     S.reset();
     clean();
   });

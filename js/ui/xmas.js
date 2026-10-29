@@ -79,15 +79,16 @@
   ];
 
   // ------------------------------------------------------------------ elves (spec 5). spot = where elf n hides; the UI
-  // (js/ui/xmascal.js, js/ui/hub.js) places it there. screen: hub (at = world point in m, like the hub's DECO table),
-  // calendar (beside / behind the tree panel), title, settings, garage (the boats or the passport), places ("Alle
-  // steder"), area (that area's screen), results (shown after finishing act). For the screens, sel = the host element
-  // inside the screen and pos = the elf's CSS position in it. 12 hub, 2 calendar, 2 garage/passport, 1 settings,
+  // (js/ui/xmascal.js, js/ui/hub.js) places it there. screen: hub (at = world point in m, like the hub's DECO table;
+  // water: true = out on open water, it peeks over an ice floe instead of a snowdrift), calendar (beside / behind the
+  // tree panel), title, settings, garage (the boats or the passport), places ("Alle steder"), area (that
+  // area's screen), results (shown after finishing act). For the screens, sel = the host element inside the screen and
+  // pos = the elf's CSS position in it. 12 hub, 2 calendar, 2 garage/passport, 1 settings,
   // 1 title, 1 places, 3 area, 2 results.
   // [name, tagline da, tagline en, spot, hint da, hint en]
   const E = [
-    ['Skøde-Søren', 'Holder altid styr på skødet.', 'Always keeps the sheet in hand.', { screen: 'hub', id: 'jetty', at: [-360, 220] },
-      'Skøde-Søren gemmer sig mellem grantræerne vest for havnen.', 'Skøde-Søren is hiding among the fir trees west of the harbour.'],
+    ['Skøde-Søren', 'Holder altid styr på skødet.', 'Always keeps the sheet in hand.', { screen: 'hub', id: 'jetty', at: [-360, 120] },
+      'Skøde-Søren gemmer sig ved snemanden vest for havnen.', 'Skøde-Søren is hiding by the snowman west of the harbour.'],
     ['Fender-Frida', 'Ingen skrammer på hendes vagt.', 'No scratches on her watch.', { screen: 'calendar', id: 'wall-1' },
       'Fender-Frida kigger frem på julekalenderen.', 'Fender-Frida is peeking out of the advent calendar.'],
     ['Knob-Karl', 'Kan binde alle knob – med lukkede øjne.', 'Ties every knot – with his eyes shut.', { screen: 'area', area: 'club', sel: '.screen-head', pos: 'right:10px;bottom:-42px' },
@@ -98,35 +99,35 @@
       'Bom-Bent gemmer sig blandt bådene i garagen.', 'Bom-Bent is hiding among the boats in the garage.'],
     ['Sejl-Sofie', 'Trimmer sejlet til perfektion.', 'Trims the sail to perfection.', { screen: 'hub', id: 'school', at: [-604, -54] },
       'Sejl-Sofie gemmer sig ved sejlerskolen på kortet.', 'Sejl-Sofie is hiding by the sailing school on the map.'],
-    ['Mast-Mads', 'Klatrer helt op i masten.', 'Climbs right to the top of the mast.', { screen: 'hub', id: 'club', at: [30, 215] },
-      'Mast-Mads gemmer sig ved klubhuset på kortet.', 'Mast-Mads is hiding by the clubhouse on the map.'],
+    ['Mast-Mads', 'Klatrer helt op i masten.', 'Climbs right to the top of the mast.', { screen: 'hub', id: 'club', at: [30, 110] },
+      'Mast-Mads gemmer sig ved det store juletræ ved klubhuset.', 'Mast-Mads is hiding by the big Christmas tree at the clubhouse.'],
     ['Jolle-Julie', 'Elsker sin lille jolle.', 'Loves her little dinghy.', { screen: 'title', id: 'title', sel: '.title-logo', pos: 'right:6%;bottom:-6px' },
       'Jolle-Julie gemmer sig på forsiden af spillet.', 'Jolle-Julie is hiding on the game’s front page.'],
-    ['Bøje-Bo', 'Runder altid bøjen tæt.', 'Always rounds the buoy close.', { screen: 'hub', id: 'bay', at: [-443, -812] },
+    ['Bøje-Bo', 'Runder altid bøjen tæt.', 'Always rounds the buoy close.', { screen: 'hub', id: 'bay', at: [-443, -812], water: true },
       'Bøje-Bo gemmer sig ved bøjerne ude i bugten.', 'Bøje-Bo is hiding by the buoys out in the bay.'],
     ['Vante-Vera', 'Har altid varme vanter med.', 'Always brings warm mittens.', { screen: 'settings', id: 'settings', sel: '.panel-col', pos: 'right:10px;top:2px' },
       'Vante-Vera gemmer sig i indstillingerne.', 'Vante-Vera is hiding in the settings.'],
     ['Ankér-Anton', 'Ligger trygt for anker.', 'Lies safely at anchor.', { screen: 'hub', id: 'pier', at: [-453, -425] },
       'Ankér-Anton gemmer sig ved molen på kortet.', 'Ankér-Anton is hiding by the pier on the map.'],
-    ['Kompas-Klara', 'Finder altid nord.', 'Always finds north.', { screen: 'area', area: 'nav', sel: '.screen-head', pos: 'right:34%;bottom:-42px' },
+    ['Kompas-Klara', 'Finder altid nord.', 'Always finds north.', { screen: 'area', area: 'nav', sel: '.screen-head', pos: 'right:10px;bottom:-46px' },
       'Kompas-Klara gemmer sig hos navigationen.', 'Kompas-Klara is hiding with the navigation.'],
     ['Lucia-Lea', 'Bærer lys i mørket.', 'Carries light in the dark.', { screen: 'results', act: 'xmas.lucia' },
       'Lucia-Lea venter, når du har sejlet Luciasejladsen.', 'Lucia-Lea is waiting once you have sailed the Lucia sail.'],
-    ['Pagaj-Per', 'Padler, når vinden svigter.', 'Paddles when the wind dies.', { screen: 'hub', id: 'rib', at: [330, -230] },
+    ['Pagaj-Per', 'Padler, når vinden svigter.', 'Paddles when the wind dies.', { screen: 'hub', id: 'rib', at: [330, -230], water: true },
       'Pagaj-Per padler rundt i vandet øst for RIB-pontonen.', 'Pagaj-Per is paddling in the water east of the RIB pontoon.'],
-    ['Vimpel-Vilma', 'Ved altid, hvor vinden kommer fra.', 'Always knows where the wind is from.', { screen: 'hub', id: 'race', at: [4137, -1469] },
+    ['Vimpel-Vilma', 'Ved altid, hvor vinden kommer fra.', 'Always knows where the wind is from.', { screen: 'hub', id: 'race', at: [4137, -1469], water: true },
       'Vimpel-Vilma gemmer sig ved kapsejladsbanen.', 'Vimpel-Vilma is hiding by the race course.'],
     ['Klampe-Klaus', 'Gør alt fast på klampen.', 'Makes everything fast on a cleat.', { screen: 'places', id: 'places', sel: '.hub-places-in', pos: 'right:12px;top:4px' },
       'Klampe-Klaus gemmer sig i listen over alle steder.', 'Klampe-Klaus is hiding in the list of all places.'],
-    ['Kaase-Kamma', 'Holder skøderne ryddelige.', 'Keeps the lines tidy.', { screen: 'garage', id: 'passport', sel: '.passport', pos: 'right:12px;bottom:4px' },
+    ['Kaase-Kamma', 'Holder skøderne ryddelige.', 'Keeps the lines tidy.', { screen: 'garage', id: 'passport', sel: '.passport', pos: 'right:8px;bottom:-8px' },
       'Kaase-Kamma gemmer sig i dit sejlerpas.', 'Kaase-Kamma is hiding in your sailing passport.'],
-    ['Bølge-Bertil', 'Surfer på hver eneste bølge.', 'Surfs every single wave.', { screen: 'hub', id: 'sea', at: [1010, -1558] },
+    ['Bølge-Bertil', 'Surfer på hver eneste bølge.', 'Surfs every single wave.', { screen: 'hub', id: 'sea', at: [1010, -1558], water: true },
       'Bølge-Bertil gemmer sig langt ude på vandet.', 'Bølge-Bertil is hiding far out on the water.'],
     ['Spiler-Signe', 'Sætter spileren med et smil.', 'Hoists the spinnaker with a smile.', { screen: 'area', area: 'race', sel: '.screen-head', pos: 'right:18%;bottom:-42px' },
       'Spiler-Signe gemmer sig hos kapsejladserne.', 'Spiler-Signe is hiding with the races.'],
     ['Tovværk-Thor', 'Stærk som et ankertov.', 'Strong as an anchor rope.', { screen: 'hub', id: 'shed', at: [450, 30] },
       'Tovværk-Thor gemmer sig ude på spidsen af Svaneknoppen.', 'Tovværk-Thor is hiding out on the tip of Svaneknoppen.'],
-    ['Rorpind-Rasmus', 'Holder altid fast i rorpinden.', 'Never lets go of the tiller.', { screen: 'hub', id: 'rules', at: [300, -727] },
+    ['Rorpind-Rasmus', 'Holder altid fast i rorpinden.', 'Never lets go of the tiller.', { screen: 'hub', id: 'rules', at: [300, -727], water: true },
       'Rorpind-Rasmus gemmer sig ved vigereglerne på kortet.', 'Rorpind-Rasmus is hiding by the rules on the map.'],
     ['Redningsvest-Ronja', 'Altid vest på – også til jul.', 'Always wears a life jacket – even at Christmas.', { screen: 'hub', id: 'rescue', at: [-545, -560] },
       'Redningsvest-Ronja gemmer sig på stranden på kortet.', 'Redningsvest-Ronja is hiding on the beach on the map.'],
@@ -303,8 +304,9 @@
   }
 
   // ------------------------------------------------------------------ gold: a successful finish after the door was opened
+  // Only while the season is on: after 6 Jan a regular activity (knots.eight ...) must not turn a December door gold.
   function onProgress(p) {
-    if (!p || !p.id || !p.result || !p.result.success) return;
+    if (!p || !p.id || !p.result || !p.result.success || !seasonOn(nowDate())) return;
     doorsFor(p.id).forEach(n => { if (isOpen(n)) markGold(n); });
   }
   if (KOS.Events && KOS.Events.on) KOS.Events.on('progress', onProgress);

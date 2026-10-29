@@ -54,7 +54,7 @@
       godJul: 'God jul fra KØS',
       julerod: 'Julerød',
       julerodTip: 'Julerød – din belønning for at finde alle 24 nisser!',
-      toast: 'Julekalenderen er åben! Find den på kortet ved havnen.',
+      toast: 'Julekalenderen er åben! Find den på kortet ude i bugten.',
       coachReady: 'Låge {n} er klar! Kom og åbn den i julekalenderen.',
       back: 'Julekalender',
       testDate: 'Testdato: {d}',
@@ -99,7 +99,7 @@
       godJul: 'Merry Christmas from KØS',
       julerod: 'Christmas red',
       julerodTip: 'Christmas red – your reward for finding all 24 elves!',
-      toast: 'The advent calendar is open! Find it on the map by the harbour.',
+      toast: 'The advent calendar is open! Find it on the map out in the bay.',
       coachReady: 'Door {n} is ready! Come and open it in the advent calendar.',
       back: 'Calendar',
       testDate: 'Test date: {d}',
@@ -285,8 +285,10 @@
       tag.innerHTML = '<b>' + esc(el.name) + '</b> – ' + esc(tt(el.tag));
     });
   }
+  // '' in the teaser (29-30 Nov): no elf can be out before door 1 opens
   function chipHtml(cls) {
     const x = X();
+    if (x.dayInfo().phase === 'teaser') return '';
     return '<button type="button" class="xc-chip' + (cls ? ' ' + cls : '') + '" data-act="xmas-elves" aria-label="' + esc(t('xcal.elvesChip', { n: x.counts().elves })) + '">' +
       '<span class="xc-chip-elf">' + A().elf(1) + '</span><span class="xc-chip-txt"><small>' + esc(t('xcal.elves')) + '</small><b>' + x.counts().elves + '/24</b></span></button>';
   }
@@ -345,7 +347,7 @@
     const info = x.dayInfo();
     const s = x.state(), c = x.counts(s);
     const elvesHere = elvesAt('calendar');
-    sec.innerHTML = KOS.App.kit.header(t('xcal.title'), '<span class="xc-status">' + esc(headStatus()) + '</span>', chipHtml()) +
+    sec.innerHTML = KOS.App.kit.header(t('xcal.title'), '<span class="xc-status">' + esc(headStatus()) + '</span>' + testPill('xc-head-pill'), chipHtml()) +
       '<div class="xc-body">' +
       '<div class="xc-wall"><div class="xc-lights" aria-hidden="true"></div><div class="xc-grid" role="group" aria-label="' + esc(t('xcal.title')) + '">' +
       x.WALL.map(n => doorBtn(n, info, s)).join('') + '</div></div>' +
@@ -354,7 +356,7 @@
       '<div class="xc-info"><b class="xc-info-t">' + esc(t('xcal.tree')) + '</b>' +
       '<span>' + esc(t('xcal.baubles', { n: c.open })) + (c.gold ? ' · ' + esc(t('xcal.gold', { n: c.gold })) : '') + '</span>' +
       (x.isOpen(24, s) ? '<span class="xc-star-note">' + esc(t('xcal.star')) + '</span>' : '') +
-      testPill() + (god() ? devBar() : '') + '</div>' +
+      (god() ? devBar() : '') + '</div>' +
       '</aside></div>';
     const off = [];
     const onClick = e => {
@@ -419,17 +421,26 @@
       sfx('bump');
       btn.classList.remove('shake'); void btn.offsetWidth; btn.classList.add('shake');
       const d = x.daysUntil(n);
-      UI().toast(d === 1 ? t('xcal.tomorrow', { n }) : d ? t('xcal.inDays', { n, d }) : t('xcal.teaserToast'), { kind: 'info', icon: 'lock', sound: false });
+      UI().toast(d === 1 ? t('xcal.tomorrow', { n }) : d ? t('xcal.inDays', { n, d }) : t('xcal.teaserToast'), { kind: 'info', icon: 'lock', sound: false, ms: 1800 });
       return;
     }
     if (st === 'ready') {
-      if (!x.openDoor(n)) return;
+      // cur.opening first: openDoor emits 'xmas' synchronously and softRefresh would otherwise swap the button out from
+      // under the swing (it skips the door being opened)
+      const c = cur;
+      if (c) c.opening = n;
+      if (!x.openDoor(n)) { if (c) c.opening = 0; return; }
       sfx('bell'); setTimeout(() => sfx('star', { pitch: 1.2 }), 160);
       const info = x.dayInfo();
-      if (reduced()) { btn.outerHTML = doorBtn(n, info); doorCard(n); return; }
-      btn.classList.add('is-opening');
-      const c = cur;
-      c.opening = n;
+      const live = () => (c ? c.sec.querySelector('.xc-door[data-door="' + n + '"]') : null) || btn;
+      if (reduced() || !c) {
+        if (c) c.opening = 0;
+        const b = live();
+        if (b && b.parentNode) b.outerHTML = doorBtn(n, info);
+        doorCard(n);
+        return;
+      }
+      live().classList.add('is-opening');
       setTimeout(() => {
         if (cur !== c) return; // left the screen meanwhile
         c.opening = 0;

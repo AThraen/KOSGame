@@ -608,7 +608,8 @@
   // One promo pin per event that is on (EVENTS): a normal place pin (counter-scaled, kept on screen by fit()) that needs
   // no decorations around it, the same entry in "Alle steder", and a hello the first time(s) the hub opens.
   //   halloween: a pumpkin pin out in the bay where the level is sailed, while the activity exists (through 9 Nov)
-  //   xmas:      the Julekalender pin at the club (29 Nov - 6 Jan, js/ui/xmascal.js); its subline is the calendar's status
+  //   xmas:      the Julekalender pin out in the bay off the club (29 Nov - 6 Jan, js/ui/xmascal.js); its subline is the
+  //              calendar's status. Listed first in "Alle steder" (first: true): it only lasts a few weeks.
   // Map decorations: only while 'halloween-deco' (through 31 Oct) or 'xmas-deco' (29 Nov - 6 Jan, XDECO) is open,
   // static (animated vectors on the panned map layer made Android flash).
   const HW_ID = 'halloween.hunt', HW_TOAST = 'hw2026Toast';
@@ -632,7 +633,7 @@
       name: () => t('xcal.pin'), sub: () => XC().status(), aria: () => t('xcal.pin') + ' – ' + XC().status(),
       ready: () => XC().hasReady(),
       open: () => go('xmas'),
-      hello: () => xmasHello() },
+      hello: () => xmasHello(), first: true },
   ];
   const eventsOn = () => EVENTS.filter(e => { try { return e.on(); } catch (err) { return false; } });
   const eventById = id => EVENTS.find(e => e.id === id);
@@ -647,18 +648,85 @@
   // from 1 Dec, at most once a day, a Santa-hatted coach line at the bottom when today's door is ready - on the very first
   // visit both together, so a kid who opens the game on 1 Dec hears "Låge 1 er klar!" straight away. Stored in the
   // calendar's own state (seen.toast / seen.coachDay); coachDay is only marked when the coach actually shows.
+  // The coach waits until the toast has gone (they never stack), a tap on it opens the calendar, and it keeps clear of
+  // the pin it talks about: on wide screens it moves to the half without the pin, and if it still covers the pin the
+  // map glides the pin clear of it (xmasPinClear).
   function xmasHello() {
-    const X = KOS.Xmas, info = X.dayInfo();
+    const X = KOS.Xmas, info = X.dayInfo(), R = state && state.root;
+    let wait = 0;
     if (!X.seen('toast')) {
       X.markSeen('toast');
       KOS.UI.toast(t(info.phase === 'teaser' ? 'xcal.teaserToast' : 'xcal.toast'), { kind: 'info', icon: 'calendar', ms: 5000 });
+      wait = 5400; // the toast's 5 s + its fade
     }
-    const d0 = KOS.Season.now(), day = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
-    if (info.phase !== 'advent' || X.isOpen(info.today) || X.seen('coachDay') === day || !KOS.UI.coach) return;
-    if (document.querySelector('.coach')) return; // the first-visit swipe tip goes first
-    X.markSeen('coachDay', day);
-    const d = X.door(info.today);
-    state.xmasCoach = KOS.UI.coach(t('xcal.coachReady', { n: info.today }), { pos: 'bottom', ms: 6500, coach: d.coach, avatar: XC().hatCoach(d.coach) });
+    const coach = () => {
+      if (!state || state.root !== R || document.querySelector('.dialog-wrap')) return;
+      const inf = X.dayInfo(), d0 = KOS.Season.now(), day = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
+      if (inf.phase !== 'advent' || X.isOpen(inf.today) || X.seen('coachDay') === day || !KOS.UI.coach) return;
+      if (document.querySelector('.coach')) return; // the first-visit swipe tip goes first
+      X.markSeen('coachDay', day);
+      const d = X.door(inf.today);
+      const co = state.xmasCoach = KOS.UI.coach(t('xcal.coachReady', { n: inf.today }), { pos: 'bottom', ms: 6500, coach: d.coach, avatar: XC().hatCoach(d.coach) });
+      if (!co || !co.el) return;
+      co.el.classList.add('coach-xmas');
+      // wide screens: when the centred bubble would land on the pin, it moves to the other half (css/xmas.css)
+      const pin = R.querySelector('.hub-pin-ev-xmas');
+      if (pin && root.innerWidth >= 600) {
+        const p = pin.getBoundingClientRect(), c = co.el.getBoundingClientRect(), pl = pin.querySelector('.hub-pin-label'), lr = pl ? pl.getBoundingClientRect() : p;
+        const L = Math.min(p.left, lr.left), Rr = Math.max(p.right, lr.right), T = Math.min(p.top, lr.top), B = Math.max(p.bottom, lr.bottom);
+        if (L < c.right && Rr > c.left && T < c.bottom && B > c.top) co.el.classList.add((L + Rr) / 2 < root.innerWidth / 2 ? 'coach-side-r' : 'coach-side-l');
+      }
+      co.el.addEventListener('click', () => { if (state && state.root === R && XC() && XC().live()) go('xmas'); });
+      requestAnimationFrame(() => requestAnimationFrame(() => { try { xmasPinClear(co.el); } catch (e) { /* cosmetic */ } }));
+    };
+    if (!wait) { coach(); return; }
+    const tm = setTimeout(coach, wait);
+    state.listeners.push(() => clearTimeout(tm));
+  }
+  // The coach bubble can sit on the Julekalender pin it talks about (844x390): glide the map the least distance that
+  // puts the pin (badge + label) beside or above the coach, whole on screen and clear of the top bar and the bottom
+  // card. Nothing moves when the pin is already clear or no such shift exists (the map edge). A drag stops the glide.
+  function xmasPinClear(coachEl) {
+    const s = state, pin = s && s.root.querySelector('.hub-pin-ev-xmas');
+    if (!pin || !coachEl || !coachEl.parentNode) return;
+    const box = els => els.filter(Boolean).map(e => e.getBoundingClientRect()).filter(r => r.width).reduce((a, r) => a ?
+      { left: Math.min(a.left, r.left), right: Math.max(a.right, r.right), top: Math.min(a.top, r.top), bottom: Math.max(a.bottom, r.bottom) } :
+      { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, null);
+    const p = box([pin.querySelector('.hub-pin-badge'), pin.querySelector('.hub-pin-label')]);
+    const c = box([coachEl.querySelector('.coach-avatar'), coachEl.querySelector('.coach-bubble')]);
+    if (!p || !c) return;
+    const pad = 10, over = (a, b, dx, dy) => a.left + dx < b.right + pad && a.right + dx > b.left - pad && a.top + dy < b.bottom + pad && a.bottom + dy > b.top - pad;
+    if (!over(p, c, 0, 0)) return;
+    const v = s.vp.getBoundingClientRect(), obst = [c];
+    s.root.querySelectorAll('.hub-top .hub-glass, .hub-xmas > *, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
+      if (el.hidden) return;
+      const r = el.getBoundingClientRect();
+      if (r.width) obst.push(r);
+    });
+    const vw = s.vp.clientWidth, vh = s.vp.clientHeight, w = PROJ.W * s.s, h = PROJ.H * s.s;
+    const okX = dx => dx === 0 || (w > vw && s.tx + dx <= 0 && s.tx + dx >= vw - w);
+    const okY = dy => dy === 0 || (h > vh && s.ty + dy <= 0 && s.ty + dy >= vh - h);
+    const L = c.left - pad - 2 - p.right, Rt = c.right + pad + 2 - p.left, U = c.top - pad - 2 - p.bottom;
+    const cand = [[L, 0], [Rt, 0], [0, U], [L, U], [Rt, U]]
+      .filter(([dx, dy]) => okX(dx) && okY(dy) && p.left + dx >= v.left + 4 && p.right + dx <= v.right - 4 && p.top + dy >= v.top + 4 && p.bottom + dy <= v.bottom - 4 &&
+        !obst.some(o => over(p, o, dx, dy)))
+      .sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]));
+    if (!cand.length) return;
+    const dx = cand[0][0], dy = cand[0][1], x0 = s.tx, y0 = s.ty;
+    let reduced = false;
+    try { reduced = !!(KOS.UI && KOS.UI.reduced && KOS.UI.reduced()); } catch (e) { /* ignore */ }
+    if (reduced) { s.tx = x0 + dx; s.ty = y0 + dy; clamp(); apply(); return; }
+    let stop = false;
+    const cancel = () => { stop = true; };
+    s.vp.addEventListener('pointerdown', cancel, { once: true });
+    const t0 = performance.now(), T = 520;
+    const step = tNow => {
+      if (stop || state !== s) return;
+      const k = Math.min(1, Math.max(0, (tNow - t0) / T)), e = 1 - Math.pow(1 - k, 3);
+      s.tx = x0 + dx * e; s.ty = y0 + dy * e; clamp(); apply();
+      if (k < 1) requestAnimationFrame(step); else s.vp.removeEventListener('pointerdown', cancel);
+    };
+    requestAnimationFrame(step);
   }
   // the hub's Christmas strip under the top bar: the "Nisse-jagt 3/24" chip and the God-mode "Testdato" pill
   function xmasBarHtml() {
@@ -734,13 +802,14 @@
     if (!R || !X || !XCal) return;
     let layer = R.querySelector('.hub-elves');
     const s = X.state();
+    // out on open water (spot.water) an elf peeks over an ice floe, hat and eyes only; on land over a snowdrift
     const want = X.ELVES.filter(e => e.spot && e.spot.screen === 'hub' && e.spot.at && X.isElfVisible(e.n, null, s));
     if (!want.length && !layer) return;
     if (!layer) { layer = document.createElement('div'); layer.className = 'hub-elves'; R.querySelector('.hub-pins').before(layer); }
     layer.querySelectorAll('[data-xmas-elf]').forEach(b => { if (!b.classList.contains('is-found') && !want.some(e => e.n === +b.getAttribute('data-xmas-elf'))) b.remove(); });
     want.forEach(e => {
       if (layer.querySelector('[data-xmas-elf="' + e.n + '"]')) return;
-      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf', s));
+      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf' + (e.spot.water ? ' hub-elf-water' : ''), s));
     });
   }
 
@@ -1231,6 +1300,7 @@
     else if (KOS.Events && KOS.Events.emit) KOS.Events.emit('hub:navigate', { screen, params });
   }
   // the list of all places: always reachable, even when a pin is panned off screen
+  const placeHtml = e => `<button type="button" class="hub-place hub-place-event hub-place-ev-${e.id}" data-act="event" data-ev="${e.id}" style="--c:${e.color}"><span class="hub-place-badge">${e.badge()}</span><span class="hub-place-txt"><b>${esc(e.name())}</b><small>${esc(e.sub())}</small></span></button>`;
   function togglePlaces(open) {
     if (!state) return;
     let box = state.root.querySelector('.hub-places');
@@ -1242,13 +1312,14 @@
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', t('hub.placesTitle'));
     box.innerHTML = `<div class="hub-places-in hub-glass"><h2>${esc(t('hub.placesTitle'))}</h2><div class="hub-places-grid">` +
-      // the seasonal events first: they only last a few weeks
-      eventsOn().map(e => `<button type="button" class="hub-place hub-place-event hub-place-ev-${e.id}" data-act="event" data-ev="${e.id}" style="--c:${e.color}"><span class="hub-place-badge">${e.badge()}</span><span class="hub-place-txt"><b>${esc(e.name())}</b><small>${esc(e.sub())}</small></span></button>`).join('') +
+      // the Julekalender first (it only lasts a few weeks); Halloween keeps its old place after the areas
+      eventsOn().filter(e => e.first).map(placeHtml).join('') +
       AREAS.map(a => {
         const need = areaLockStars(a.id), st = areaStars(a.id);
         const sub = need > 0 ? t('hub.needStars', { n: a.minStars }) : st.count ? t('hub.stars', st) + ' ★' : t('hub.sub.' + a.id);
         return `<button type="button" class="hub-place${need > 0 ? ' is-locked' : ''}${next && next.area === a.id ? ' is-next' : ''}" data-area="${a.id}" style="--c:${a.color}"><span class="hub-place-badge">${icon(need > 0 ? 'lock' : a.icon)}</span><span class="hub-place-txt"><b>${esc(t('hub.loc.' + a.id))}</b><small>${esc(sub)}</small></span></button>`;
       }).join('') +
+      eventsOn().filter(e => !e.first).map(placeHtml).join('') +
       `</div><button type="button" class="hub-places-close" data-act="places-close">${esc(t('hub.close'))}</button></div>`;
     state.root.appendChild(box);
     if (XC() && XC().dropElves) XC().dropElves('places', box);

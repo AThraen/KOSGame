@@ -160,7 +160,8 @@
       params: { kind: 'timetrial', windDeg: 250, windKn: 10, gust: 0.55, shift: 0.35, seed: 41, course: { up: 100, wing: 85 } } },
   ];
   // Julekalender events (season window 'xmas', reached through the calendar): the ring hunt with wrapped presents (theme 'xmas').
-  // No pick group = straight into the default Optimist. The finale's last pickup is a big gold star.
+  // No pick group = straight into the default Optimist. The finale's last pickup is a big gold star (count 13 = 12
+  // presents + the star; the intro and result texts count the presents only).
   acts.push(
     { id: 'xmas.presents', area: 'event', season: 'xmas', order: 10, boat: 'opti', icon: 'star', minutes: 4, difficulty: 1, unlock: null,
       title: { da: 'Gavejagt i bugten', en: 'Present hunt in the bay' },
@@ -169,7 +170,7 @@
     { id: 'xmas.finale', area: 'event', season: 'xmas', order: 20, boat: 'opti', icon: 'star', minutes: 5, difficulty: 2, unlock: null,
       title: { da: 'Juleaftens store gavejagt', en: 'The big Christmas Eve hunt' },
       desc: { da: 'Tolv gaver og til sidst den store guldstjerne. Brisen er lidt friskere i aften!', en: 'Twelve presents and then the big golden star. The breeze is a bit fresher tonight!' },
-      params: { kind: 'rings', theme: 'xmas', windDeg: 240, windKn: 9, gust: 0.45, shift: 0.3, seed: 2412, count: 12, star: true } },
+      params: { kind: 'rings', theme: 'xmas', windDeg: 240, windKn: 9, gust: 0.45, shift: 0.3, seed: 2412, count: 13, star: true } },
   );
   // one "Fri sejlads" per boat in the ladder, locked by Sejlerpas stars
   LADDER.slice(1).forEach((id, i) => {
@@ -572,7 +573,7 @@
         stars, success: true, timeMs: Math.round(time * 1000),
         score: Math.round(1000 * Math.min(3, (S.ref || 60) / time) + S.collected * 100),
         stats: prefixStats(stats),
-        msgKey: xmas ? (P.star ? 'sail.xmas.resFinale' : 'sail.xmas.res') : 'sail.res.' + P.kind, msgVars: { n: P.kind === 'timetrial' ? 0 : S.items.length, time: timeStr },
+        msgKey: xmas ? (P.star ? 'sail.xmas.resFinale' : 'sail.xmas.res') : 'sail.res.' + P.kind, msgVars: { n: P.kind === 'timetrial' ? 0 : S.items.length - (xmas && P.star ? 1 : 0), time: timeStr },
       };
     }
     function endFree() {
@@ -765,7 +766,7 @@
     let introCd = null, coachIntro = null;
     function start() {
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
-      const intro = t((xmas ? (P.star ? 'sail.xmas.introFinale' : 'sail.xmas.intro') : 'sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind === 'free' && P.heavy ? 'heavy' : P.kind)), { n: S.items.length, range: U.windVal(U.kn(10)) + '–' + U.windTxt(U.kn(14)) }) +
+      const intro = t((xmas ? (P.star ? 'sail.xmas.introFinale' : 'sail.xmas.intro') : 'sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind === 'free' && P.heavy ? 'heavy' : P.kind)), { n: S.items.length - (xmas && P.star ? 1 : 0), range: U.windVal(U.kn(10)) + '–' + U.windTxt(U.kn(14)) }) +
         (touch ? '' : '  ' + t(isRib ? 'sail.keysRib' : 'sail.keys') + (aids ? aids.keys() : ''));
       coachIntro = KOS.UI.coach(intro, { ms: P.kind === 'free' ? 9000 : 7000 });
       paintGoals();

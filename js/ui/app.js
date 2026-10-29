@@ -1222,7 +1222,9 @@
     const a = run.act;
     stopRun();
     doc.body.classList.remove('mode-sea', 'mode-dom');
-    if (a && (run.from === 'xmas' || a.season === 'xmas') && KOS.XmasCal && KOS.XmasCal.live()) App.show('xmas', {}, { replace: true });
+    const fromXmas = a && (run.from === 'xmas' || a.season === 'xmas');
+    if (fromXmas && KOS.XmasCal && KOS.XmasCal.live()) App.show('xmas', {}, { replace: true });
+    else if (fromXmas) App.show('hub', {}, { replace: true }); // the season closed mid-play (6 -> 7 Jan): not the empty 'event' area
     else if (a) App.show('area', { area: a.area }, { replace: true });
     else App.show('hub', {}, { replace: true });
   }
