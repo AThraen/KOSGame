@@ -276,6 +276,101 @@
     [['Skyller den, rigger af og lægger alt på plads', 'Rinse it, unrig and put everything away'], ['Lader den ligge på slæbestedet', 'Leave it on the slipway'], ['Lader sejlet blafre hele natten', 'Leave the sail flapping all night'], ['Giver den til en måge', 'Give it to a seagull']],
     ['En god sejler passer på grejet: skyl saltvandet af, rig af og læg tingene pænt på plads til næste gang.', 'A good sailor looks after the kit: rinse off the salt water, unrig and put things away for next time.']);
 
+  // ---- jul (Christmas: Danish tradition + winter sailing life)
+  q('xmas', null, ['Hvornår holder vi juleaften i Danmark?', 'When do we celebrate Christmas Eve in Denmark?'],
+    [['Den 24. december', '24 December'], ['Den 25. december', '25 December'], ['Den 31. december', '31 December'], ['Den 6. december', '6 December']],
+    ['Danskerne holder jul om aftenen den 24. december med god mad, gaver og juletræ.', 'Danes celebrate Christmas on the evening of 24 December with good food, presents and a Christmas tree.']);
+  q('xmas', null, ['Hvad er der i risalamande?', 'What is in risalamande?'],
+    [['Kold risengrød med flødeskum og hakkede mandler', 'Cold rice pudding with whipped cream and chopped almonds'], ['Kogt kartoffelsalat med pølser', 'Warm potato salad with sausages'], ['Is med chokolade og lakrids', 'Ice cream with chocolate and liquorice'], ['Suppe med fiskeboller', 'Soup with fish balls']],
+    ['Risalamande er en dessert af ris, fløde og mandler – serveret med varm kirsebærsauce.', 'Risalamande is a dessert of rice, cream and almonds – served with warm cherry sauce.']);
+  q('xmas', null, ['Hvad får man, hvis man finder den hele mandel i risalamanden?', 'What do you get if you find the whole almond in the risalamande?'],
+    [['En mandelgave', 'An almond present'], ['Et ekstra stykke kage', 'An extra slice of cake'], ['En tur i juletræet', 'A ride up the Christmas tree'], ['Ingenting – man må ikke sige det', 'Nothing – you must not say so']],
+    ['Der gemmer sig én hel mandel i skålen. Den, der finder den, får en lille mandelgave – og alle spiser videre og lader, som om de ikke ved, hvem det er!', 'One whole almond hides in the bowl. Whoever finds it wins a little almond present – and everyone keeps eating as if they do not know who it is!']);
+  q('xmas', null, ['Hvilken dag fejrer man Lucia i Danmark?', 'On which day do we celebrate Lucia in Denmark?'],
+    [['Den 13. december', '13 December'], ['Den 1. december', '1 December'], ['Den 24. december', '24 December'], ['Den 1. januar', '1 January']],
+    ['Lucia-dag er den 13. december. Børn i hvide kjortler går med lys og synger midt i den mørke tid.', 'Lucia Day is 13 December. Children in white gowns walk with candles and sing in the middle of the dark season.']);
+  q('xmas', null, ['Hvad bærer lucia-pigen på hovedet?', 'What does the Lucia girl wear on her head?'],
+    [['En krans med lys', 'A crown of candles'], ['En rød hue', 'A red hat'], ['En sejlerhat', 'A sailor’s hat'], ['En papirbåd', 'A paper boat']],
+    ['Lucia bærer en lyskrans som et lille lys i mørket. I skolerne bruger man ofte lys med batteri, så det er sikkert.', 'Lucia wears a crown of candles, a little light in the dark. In schools they often use battery lights so it is safe.']);
+  q('xmas', null, ['Hvad spiser den danske julenisse allerhelst?', 'What does the Danish Christmas nisse like to eat best?'],
+    [['Risengrød med et stykke smør', 'Rice porridge with a lump of butter'], ['Pizza', 'Pizza'], ['Fiskefrikadeller', 'Fish cakes'], ['Spaghetti', 'Spaghetti']],
+    ['Husk smørklatten i grøden! Glemmer man den, kan nissen blive sur og lave numser. Det siger legenden i hvert fald.', 'Remember the lump of butter in the porridge! If you forget it, the nisse may get grumpy and play tricks. That is what the legend says.']);
+  q('xmas', null, ['Hvor bor nissen ifølge den gamle danske tradition?', 'Where does the nisse live according to the old Danish tradition?'],
+    [['På loftet i gården eller laden', 'In the loft of the farm or the barn'], ['Nede i havnen under molen', 'In the harbour under the pier'], ['På Nordpolen', 'At the North Pole'], ['I en jolle', 'In a dinghy']],
+    ['Den danske nisse er en lille gårdbo, der passer på dyr og børn. Julemanden bor derimod på Grønland, siger man herhjemme.', 'The Danish nisse is a little farm-dweller who looks after animals and children. Father Christmas, on the other hand, is said to live in Greenland here in Denmark.']);
+  q('xmas', null, ['Hvad er adventskransen?', 'What is the advent wreath?'],
+    [['En grankrans med fire lys', 'A fir wreath with four candles'], ['En krans af blomster til bryllup', 'A flower wreath for a wedding'], ['En redningskrans til båden', 'A lifebuoy for the boat'], ['En krans af kringle', 'A ring of pretzels']],
+    ['Man tænder ét lys mere hver søndag i de fire uger før jul. Så kan man tælle ned til juleaften.', 'You light one more candle each Sunday in the four weeks before Christmas. That way you can count down to Christmas Eve.']);
+  q('xmas', null, ['Hvor mange låger har en julekalender?', 'How many doors does a Christmas calendar have?'],
+    [['24 – én for hver dag til juleaften', '24 – one for each day until Christmas Eve'], ['12', '12'], ['31', '31'], ['7', '7']],
+    ['Man åbner en låge hver dag fra den 1. til den 24. december. Der er også en julekalender i KØS SEJL!', 'You open one door every day from 1 to 24 December. There is a Christmas calendar in KØS SEJL too!']);
+  q('xmas', null, ['Hvad gør man ofte om juletræet juleaften i Danmark?', 'What do Danes often do around the Christmas tree on Christmas Eve?'],
+    [['Går rundt og holder i hånd og synger', 'Walk around it holding hands and singing'], ['Klatrer op i det', 'Climb up it'], ['Sejler rundt om det', 'Sail around it'], ['Slukker alle lys og går i seng', 'Switch off all lights and go to bed']],
+    ['Man danser om juletræet og synger julesange som ”Højt fra træets grønne top”.', 'People dance around the tree and sing carols such as “Højt fra træets grønne top”.']);
+  q('xmas', null, ['Hvilke hjerter hænger ofte i et dansk juletræ?', 'Which hearts often hang in a Danish Christmas tree?'],
+    [['Flettede julehjerter af papir', 'Woven paper Christmas hearts'], ['Hjerter af sten', 'Hearts made of stone'], ['Hjerter af tov', 'Hearts made of rope'], ['Hjerter af is', 'Hearts made of ice']],
+    ['De flettede julehjerter er en gammel dansk tradition – lavet af to stykker papir i forskellige farver.', 'Woven paper hearts are an old Danish tradition – made from two pieces of paper in different colours.']);
+  q('xmas', null, ['Hvad hedder den varme, krydrede drik, mange voksne drikker i julemåneden?', 'What is the warm, spiced drink many adults have in December called?'],
+    [['Gløgg', 'Gløgg (mulled wine)'], ['Sodavand', 'Soda'], ['Is-te', 'Iced tea'], ['Mælkeshake', 'Milkshake']],
+    ['Gløgg serveres varm med mandler og rosiner. Børn drikker børnegløgg uden alkohol.', 'Gløgg is served warm with almonds and raisins. Children have a child-friendly version without alcohol.']);
+  q('xmas', null, ['Hvilke runde, lune godter spiser man ofte med flormelis og syltetøj i julen?', 'Which round, warm treats are often eaten at Christmas with icing sugar and jam?'],
+    [['Æbleskiver', 'Æbleskiver'], ['Rundstykker', 'Bread rolls'], ['Frikadeller', 'Meatballs'], ['Fiskeboller', 'Fish balls']],
+    ['Æbleskiver steges i en særlig pande med små kugleformede huller – og de smager skønt til jul.', 'Æbleskiver are fried in a special pan with small round dents – and they taste wonderful at Christmas.']);
+  q('xmas', null, ['Hvilken dag er årets korteste i Danmark?', 'Which is the shortest day of the year in Denmark?'],
+    [['Omkring den 21. december', 'Around 21 December'], ['Den 24. juni', '24 June'], ['Den 1. januar', '1 January'], ['Den 13. marts', '13 March']],
+    ['Vintersolhverv er omkring den 21. december. Så går solen op sent og ned tidligt – og derefter bliver dagene længere.', 'The winter solstice is around 21 December. The sun rises late and sets early – and after that the days get longer.']);
+  q('xmas', 'cold', ['Hvad kan der ske med en båd, der ligger til vands om vinteren, hvis der kommer is i havnen?', 'What can happen to a boat left in the water in winter if ice forms in the harbour?'],
+    [['Isen kan presse og skade skroget', 'The ice can squeeze and damage the hull'], ['Båden bliver hurtigere', 'The boat gets faster'], ['Ingenting – is er blød', 'Nothing – ice is soft'], ['Båden synger', 'The boat sings']],
+    ['Derfor tager mange sejlere bådene op på land til vinter, eller de bruger iskryds og bobler, der holder vandet åbent.', 'That is why many sailors haul their boats ashore for winter, or use ice protection and bubblers that keep the water open.']);
+  q('xmas', null, ['Hvad kalder man det, når bådene tages op på land om efteråret?', 'What do you call it when the boats are taken out of the water in autumn?'],
+    [['Optagning', 'Hauling out'], ['Søsætning', 'Launching'], ['Kapsejlads', 'Racing'], ['Afmærkning', 'Buoyage']],
+    ['Om efteråret er der optagning, og om foråret er der søsætning. Så står bådene på land hele vinteren.', 'In autumn the boats are hauled out, and in spring they are launched. So the boats stay ashore all winter.']);
+  q('xmas', null, ['Hvorfor dækker man ofte en båd til med en presenning om vinteren?', 'Why is a boat often covered with a tarpaulin in winter?'],
+    [['For at holde regn, sne og snavs ude', 'To keep rain, snow and dirt out'], ['For at skjule den for nisserne', 'To hide it from the nisser'], ['For at gøre den varm som en kakkelovn', 'To make it as warm as a stove'], ['For at den kan svømme under vand', 'So it can swim underwater']],
+    ['Vand, der bliver til is i skroget eller under dækket, kan skade båden. Presenningen holder den tør.', 'Water that turns to ice inside the hull or under the deck can damage the boat. The tarpaulin keeps it dry.']);
+  q('xmas', null, ['Hvad gør man med sejlene, før de lægges i vinterhi?', 'What do you do with the sails before they go into winter storage?'],
+    [['Skyller dem, tørrer dem helt og folder dem pænt', 'Rinse them, dry them completely and fold them neatly'], ['Lægger dem våde i en sæk', 'Put them in a bag while wet'], ['Hænger dem i juletræet', 'Hang them in the Christmas tree'], ['Skærer dem i stykker', 'Cut them into pieces']],
+    ['Et vådt sejl kan få mug og blive misfarvet. Tørre sejl holder meget længere.', 'A wet sail can get mould and stains. Dry sails last much longer.']);
+  q('xmas', null, ['Hvornår fryser almindeligt ferskvand til is?', 'At what temperature does ordinary fresh water freeze?'],
+    [['Ved 0 grader', 'At 0 degrees'], ['Ved 10 grader', 'At 10 degrees'], ['Ved 20 grader', 'At 20 degrees'], ['Ved minus 50 grader', 'At minus 50 degrees']],
+    ['Ferskvand fryser ved 0 °C. Saltvand fryser først ved omkring minus to grader, så havnen fryser sjældnere end søen.', 'Fresh water freezes at 0 °C. Salt water only freezes at about minus two degrees, so the harbour freezes less often than a lake.']);
+  q('xmas', null, ['Du ser tynd is på havnen eller søen. Hvad gør du?', 'You see thin ice on the harbour or lake. What do you do?'],
+    [['Bliver på land og går ikke ud på isen', 'Stay on land and keep off the ice'], ['Tester den lige hurtigt med én fod', 'Quickly test it with one foot'], ['Løber hen over den', 'Run across it'], ['Sejler jollen ind i den', 'Sail the dinghy into it']],
+    ['Isen kan være svag, selv om den ser tyk ud. Hold dig på land – og hent en voksen, hvis nogen er faldet i.', 'Ice can be weak even if it looks thick. Stay on land – and get an adult if someone has fallen in.']);
+  q('xmas', 'cold2', ['Vandet er under 10 grader om vinteren. Hvad sker der, hvis man falder i?', 'The water is below 10 degrees in winter. What happens if you fall in?'],
+    [['Kuldechok: man gisper og trækker vejret hurtigt', 'Cold shock: you gasp and breathe fast'], ['Man får det lunt og dejligt', 'You feel warm and cosy'], ['Man bliver straks tør', 'You get dry straight away'], ['Man kan pludselig holde vejret i ti minutter', 'You can suddenly hold your breath for ten minutes']],
+    ['De første minutter er farligst: kuldechokket får én til at gispe. Flyd på ryggen og vent, til vejret falder til ro.', 'The first minutes are the most dangerous: cold shock makes you gasp. Float on your back and wait until your breathing calms down.']);
+  q('xmas', 'lifejacket', ['Hvorfor skal man have redningsvest på om vinteren, selv tæt på land?', 'Why must you wear a lifejacket even in winter when sailing close to shore?'],
+    [['Koldt vand kan gøre en hurtigt træt og svag', 'Cold water can make you tired and weak quickly'], ['Fordi den holder én varm som en pelsjakke', 'Because it keeps you warm like a fur coat'], ['Fordi nisserne har sagt det', 'Because the nisser said so'], ['Fordi vesten er flot til julefrokost', 'Because the vest looks good at the Christmas party']],
+    ['I koldt vand mister kroppen hurtigt kraft i arme og ben. Vesten får dig til at flyde, mens du venter på hjælp.', 'In cold water your arms and legs quickly lose strength. The vest keeps you afloat while you wait for help.']);
+  q('xmas', null, ['Hvad er bedst at have på, når man sejler en kold vinterdag?', 'What is best to wear when sailing on a cold winter day?'],
+    [['Flere lag tøj, vindtæt overtøj og hue og handsker', 'Several layers, a windproof outer layer, a hat and gloves'], ['Kun en t-shirt', 'Only a T-shirt'], ['Badetøj', 'Swimwear'], ['Bomuldstøj, der må blive vådt', 'Cotton clothes that may get wet']],
+    ['Flere tynde lag holder varmen bedst. Bomuld bliver koldt, når det er vådt – uld og fleece er bedre.', 'Several thin layers keep the warmth best. Cotton gets cold when wet – wool and fleece are better.']);
+  q('xmas', null, ['Hvilken beklædning bruger vintersejlere i jolle ofte for at holde sig tørre og varme?', 'What clothing do winter dinghy sailors often use to stay dry and warm?'],
+    [['Tørdragt', 'A drysuit'], ['Pyjamas', 'Pyjamas'], ['Nissehue og kjole', 'A nisse hat and a dress'], ['Almindelige jeans', 'Ordinary jeans']],
+    ['I en tørdragt kan man sejle hele vinteren. Kun de erfarne og med en voksen i RIB’en tæt på!', 'In a drysuit you can sail all winter. Only the experienced, and with an adult close by in the RIB!']);
+  q('xmas', null, ['Hvorfor skal man sige til en voksen, før man sejler om vinteren?', 'Why must you tell an adult before you go sailing in winter?'],
+    [['Fordi det bliver mørkt tidligt, og vandet er koldt', 'Because it gets dark early and the water is cold'], ['Fordi det er en gammel regel om nisser', 'Because of an old rule about nisser'], ['Fordi båden ellers ikke kan sejle', 'Because otherwise the boat cannot sail'], ['Fordi masten bliver kold', 'Because the mast gets cold']],
+    ['I december går solen ned omkring klokken 15.30. Fortæl altid, hvor du sejler, og hvornår du er tilbage – og vær i land, før det bliver mørkt.', 'In December the sun sets around 3.30 pm. Always say where you are sailing and when you will be back – and be ashore before dark.']);
+  q('xmas', 'knot:cleat', ['Hvilket knob bruger man til at binde båden fast på en klampe?', 'Which knot do you use to tie the boat to a cleat?'],
+    [['Klampehitch (klampestik)', 'Cleat hitch'], ['Pakkeknude', 'A parcel knot'], ['Sløjfe til gavepapir', 'A bow for wrapping paper'], ['Ingen – man lader den bare ligge', 'None – you just leave it']],
+    ['Et klampestik holder godt og kan løsnes igen. Det er guld værd, når storm eller is trækker i fortøjningen.', 'A cleat hitch holds well and can be undone again. It is worth its weight in gold when storm or ice pulls at the mooring.']);
+  q('xmas', 'knot:reef', ['Hvilket knob er godt til at binde en gave sammen, så den ikke går op af sig selv?', 'Which knot is good for tying up a present so it does not come undone by itself?'],
+    [['Råbåndsknob', 'Reef knot'], ['Ottetalsknob', 'Figure-of-eight knot'], ['Pælestik', 'Bowline'], ['Ingen – man bruger tape', 'None – you use tape']],
+    ['Råbåndsknobet er fladt og samler to ender pænt. Sejlerne bruger det blandt andet til at binde sejlet sammen, når det rebes.', 'The reef knot is flat and joins two ends neatly. Sailors use it among other things to tie the sail when reefing.']);
+  q('xmas', 'knot:eight', ['Hvorfor knytter man ofte et ottetalsknob for enden af et tov?', 'Why do you often tie a figure-of-eight knot at the end of a rope?'],
+    [['Så tovet ikke glider ud gennem blokken', 'So the rope does not slip out through the block'], ['Så tovet ligner et 8-tal til jul', 'So the rope looks like an 8 for Christmas'], ['Så tovet bliver kortere', 'So the rope gets shorter'], ['Så nissen kan hænge i det', 'So the nisse can hang from it']],
+    ['Knobet er en prop for enden af skødet. Det forhindrer, at enden smutter ud, mens man sejler.', 'The knot is a stopper at the end of the sheet. It stops the end from slipping out while you sail.']);
+  q('xmas', null, ['Hvad er et vigtigt vintertjek i klubben, før jollerne står på land til foråret?', 'What is an important winter job at the club while the dinghies stand ashore waiting for spring?'],
+    [['Vedligehold: lak, slibning og tjek af tove og beslag', 'Maintenance: varnish, sanding and checking ropes and fittings'], ['At lade jollerne stå helt uden tilsyn og uden tjek', 'Leaving the dinghies completely unattended and unchecked'], ['At hænge dem op i juletræet', 'Hanging them in the Christmas tree'], ['At sejle dem ind i garagen', 'Sailing them into the garage']],
+    ['Om vinteren er der tid til at pudse bådene, så de er lækre og sikre, når sæsonen starter igen. Mange hænder gør arbejdet let!', 'In winter there is time to polish the boats so they are lovely and safe when the season starts again. Many hands make light work!']);
+  q('xmas', null, ['Hvad hedder den lille hyggelige fest, mange sejlklubber holder i december?', 'What is the little cosy party many sailing clubs hold in December called?'],
+    [['Juleafslutning (julefrokost eller juletræsfest)', 'A Christmas party'], ['Optagning', 'Hauling out'], ['Kapsejlads', 'A race'], ['Søsætning', 'Launching']],
+    ['Klubben samles, spiser æbleskiver, spiller spil og ser tilbage på sæsonen. Så er foråret ikke så langt væk.', 'The club gathers, eats æbleskiver, plays games and looks back on the season. Spring is not so far away after all.']);
+  q('xmas', null, ['Hvad kaldes en kapsejlads i vinterhalvåret, hvor man sejler, selv om det er koldt?', 'What is a race called that is sailed in winter even though it is cold?'],
+    [['Frostbite-sejlads (vintersejlads)', 'Frostbite racing (winter sailing)'], ['Sommersejlads', 'Summer sailing'], ['Tropesejlads', 'Tropical sailing'], ['Isbanesejlads', 'Ice-track sailing']],
+    ['I flere lande sejler man jolle hele vinteren – kaldet frostbite-sejlads. Man klæder sig varmt og passer ekstra godt på hinanden.', 'In several countries people sail dinghies all winter – called frostbite racing. They dress warmly and take extra care of each other.']);
+
   // ======================================================================== 2. strings
   // Register every question through KOS.I18n under quiz.q.<n>.{q,a0..a3,ex} (Danish first).
   const qDa = {}, qEn = {};
@@ -289,7 +384,7 @@
   KOS.I18n.add('da', {
     quiz: {
       q: qDa,
-      cat: { rules: 'Vigeregler', parts: 'Bådens dele', knots: 'Knob', weather: 'Vejr & vind', safety: 'Sikkerhed', nav: 'Afmærkning', club: 'KØS & havnen' },
+      cat: { rules: 'Vigeregler', parts: 'Bådens dele', knots: 'Knob', weather: 'Vejr & vind', safety: 'Sikkerhed', nav: 'Afmærkning', club: 'KØS & havnen', xmas: 'Jul' },
       intro: {
         title: 'Klar til quiz?', sub: '{n} spørgsmål · {sec} sek. pr. spørgsmål', subFree: '{n} spørgsmål · tag den tid, du har brug for',
         start: 'Start quizzen', keys: 'Tastatur: 1-4 eller A-D for at svare · Enter for næste',
@@ -316,7 +411,7 @@
   KOS.I18n.add('en', {
     quiz: {
       q: qEn,
-      cat: { rules: 'Right of way', parts: 'Parts of the boat', knots: 'Knots', weather: 'Weather & wind', safety: 'Safety', nav: 'Buoyage', club: 'KØS & the harbour' },
+      cat: { rules: 'Right of way', parts: 'Parts of the boat', knots: 'Knots', weather: 'Weather & wind', safety: 'Safety', nav: 'Buoyage', club: 'KØS & the harbour', xmas: 'Christmas' },
       intro: {
         title: 'Ready for the quiz?', sub: '{n} questions · {sec} sec per question', subFree: '{n} questions · take the time you need',
         start: 'Start the quiz', keys: 'Keyboard: 1-4 or A-D to answer · Enter for next',
@@ -359,6 +454,22 @@
       title: { da: 'Mesterquizzen', en: 'The Master Quiz' },
       desc: { da: '15 spørgsmål fra alle emner – hurtigere ur!', en: '15 questions from every topic – faster clock!' },
       params: { cats: ['rules', 'parts', 'knots', 'weather', 'safety', 'nav', 'club'], n: 15, seed: 51, fast: true } },
+    { id: 'quiz.xmas1', mode: 'quiz', area: 'event', season: 'xmas', order: 31, boat: null, icon: 'quiz', minutes: 3, difficulty: 1, unlock: null,
+      title: { da: 'Julequiz 1', en: 'Christmas quiz 1' },
+      desc: { da: 'Nisser, risalamande og vintersejlads. 5 spørgsmål.', en: 'Nisser, risalamande and winter sailing. 5 questions.' },
+      params: { cats: ['xmas'], n: 5, seed: 1201 } },
+    { id: 'quiz.xmas2', mode: 'quiz', area: 'event', season: 'xmas', order: 32, boat: null, icon: 'quiz', minutes: 3, difficulty: 1, unlock: null,
+      title: { da: 'Julequiz 2', en: 'Christmas quiz 2' },
+      desc: { da: 'Lucia, advent og isen i havnen. 5 spørgsmål.', en: 'Lucia, advent and the ice in the harbour. 5 questions.' },
+      params: { cats: ['xmas'], n: 5, seed: 1213 } },
+    { id: 'quiz.xmas3', mode: 'quiz', area: 'event', season: 'xmas', order: 33, boat: null, icon: 'quiz', minutes: 3, difficulty: 1, unlock: null,
+      title: { da: 'Julequiz 3', en: 'Christmas quiz 3' },
+      desc: { da: 'Knob, kulde og klubben om vinteren. 5 spørgsmål.', en: 'Knots, cold and the club in winter. 5 questions.' },
+      params: { cats: ['xmas'], n: 5, seed: 1224 } },
+    { id: 'quiz.xmas4', mode: 'quiz', area: 'event', season: 'xmas', order: 34, boat: null, icon: 'trophy', minutes: 5, difficulty: 2, unlock: null,
+      title: { da: 'Store julequiz', en: 'The big Christmas quiz' },
+      desc: { da: '8 spørgsmål: jul blandet med alt det vigtige om sejlads.', en: '8 questions: Christmas mixed with all the sailing basics.' },
+      params: { cats: ['xmas', 'safety', 'knots', 'club', 'weather'], n: 8, seed: 1226 } },
   ]);
 
   // ======================================================================== 4. illustrations (small inline SVGs)
@@ -530,7 +641,7 @@
   // ======================================================================== 5. the mode
   KOS.Modes.register('quiz', { kind: 'dom', create(host, activity) { return createQuiz(host, activity); } });
 
-  const CAT_ICON = { rules: 'rules', parts: 'boat', knots: 'knot', weather: 'wind', safety: 'life', nav: 'buoy', club: 'house' };
+  const CAT_ICON = { rules: 'rules', parts: 'boat', knots: 'knot', weather: 'wind', safety: 'life', nav: 'buoy', club: 'house', xmas: 'star' };
 
   function sfx(name, o) { try { if (KOS.Audio) KOS.Audio.play(name, o); } catch (e) { /* sound is optional */ } }
   function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }

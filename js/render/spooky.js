@@ -43,6 +43,35 @@
     ctx.drawImage(s, x - r * 1.15, y - r * 1.25 + bob, r * 2.3, r * 2.3);
   }
 
+  // Lucia lantern (activity 'xmas.lucia'), 64x64: a little round wooden float with fir sprigs, a white candle and a golden flame
+  function lanternSprite() {
+    if (cache.l) return cache.l;
+    if (!hasDoc) return null;
+    const c = canvas(64, 64), x = c.getContext('2d');
+    x.translate(32, 38);
+    const fl = x.createRadialGradient(0, -6, 1, 0, -6, 24); // halo behind the candle
+    fl.addColorStop(0, 'rgba(255,225,140,.55)'); fl.addColorStop(1, 'rgba(255,225,140,0)');
+    x.fillStyle = fl; x.beginPath(); x.arc(0, -6, 24, 0, TAU); x.fill();
+    const wd = x.createLinearGradient(-18, 0, 18, 0); wd.addColorStop(0, '#6b3f1d'); wd.addColorStop(0.5, '#b97a3a'); wd.addColorStop(1, '#5a3417');
+    x.fillStyle = wd; x.beginPath(); x.ellipse(0, 13, 19, 7, 0, 0, TAU); x.fill();  // wooden float
+    x.fillStyle = '#2f7a46'; x.beginPath(); x.ellipse(-12, 9, 6, 3, -0.4, 0, TAU); x.ellipse(12, 9, 6, 3, 0.4, 0, TAU); x.fill(); // fir sprigs
+    x.fillStyle = '#c0392b'; x.beginPath(); x.arc(-3, 8, 2, 0, TAU); x.arc(4, 9, 2, 0, TAU); x.fill(); // berries
+    const cd = x.createLinearGradient(-6, 0, 6, 0); cd.addColorStop(0, '#f1e6cf'); cd.addColorStop(0.5, '#fffaf0'); cd.addColorStop(1, '#e2d3b5');
+    x.fillStyle = cd; x.beginPath(); x.moveTo(-5.5, 11); x.lineTo(-5.5, -7); x.quadraticCurveTo(0, -9.5, 5.5, -7); x.lineTo(5.5, 11); x.closePath(); x.fill(); // candle
+    x.strokeStyle = '#3a2a1a'; x.lineWidth = 1; x.beginPath(); x.moveTo(0, -8); x.lineTo(0, -11); x.stroke(); // wick
+    x.shadowColor = '#ffc233'; x.shadowBlur = 9;
+    x.fillStyle = '#ffd23f'; x.beginPath(); x.moveTo(0, -25); x.bezierCurveTo(7, -17, 6, -11, 0, -10); x.bezierCurveTo(-6, -11, -7, -17, 0, -25); x.closePath(); x.fill(); // flame
+    x.shadowBlur = 0;
+    x.fillStyle = '#fff6c8'; x.beginPath(); x.moveTo(0, -20); x.bezierCurveTo(3, -16, 3, -13, 0, -12); x.bezierCurveTo(-3, -13, -3, -16, 0, -20); x.closePath(); x.fill();
+    cache.l = c;
+    return c;
+  }
+  function drawLantern(ctx, x, y, r, t, o) {
+    const s = lanternSprite(); if (!s) return;
+    const bob = o && o.still ? 0 : Math.sin((t || 0) * 2.2 + x * 0.7 + y * 0.3) * r * 0.06;
+    ctx.drawImage(s, x - r * 1.15, y - r * 1.25 + bob, r * 2.3, r * 2.3);
+  }
+
   // warm glow (use with globalCompositeOperation 'lighter')
   function glow(ctx, x, y, r, a, col) {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
@@ -104,5 +133,5 @@
     web: '<svg viewBox="0 0 60 60" aria-hidden="true"><g fill="none" stroke="rgba(235,235,255,.55)" stroke-width="1"><path d="M0 0L60 60M0 0L60 24M0 0L24 60M0 0L60 0M0 0L0 60"/><path d="M14 0q2 7 0 0M0 14q6 2 14 0M14 0Q12 9 14 14q-3 4-14 0"/><path d="M28 0q-3 14 3 21q-2 9-31 7"/><path d="M44 0q-5 24 5 33q-12 10-49 12"/><path d="M60 8q-12 22 0 46q-26 0-56 6"/></g></svg>',
   };
 
-  KOS.Spooky = { pumpkinSprite, drawPumpkin, glow, ghostSprite, ghostHull, drawGhost, svg, deco() { return !!(KOS.Season && KOS.Season.on['halloween-deco']); } }; // state at the last Season.mark() (screen change)
+  KOS.Spooky = { pumpkinSprite, drawPumpkin, lanternSprite, drawLantern, glow, ghostSprite, ghostHull, drawGhost, svg, deco() { return !!(KOS.Season && KOS.Season.on['halloween-deco']); } }; // state at the last Season.mark() (screen change)
 })(typeof window !== 'undefined' ? window : globalThis);

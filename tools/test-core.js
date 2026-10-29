@@ -1626,6 +1626,243 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
   });
 })();
 
+// ====================================================================== Julekalender 2026 (js/ui/season.js xmas windows + js/ui/xmas.js)
+(function () {
+  const MODES = ['knots', 'shed', 'dock', 'rib', 'rigging', 'nav', 'sail', 'capsize', 'rowschool', 'quiz']; // the door activities
+  for (const f of ['js/ui/storage.js'].concat(MODES.map(m => 'js/modes/' + m + '.js'), ['js/ui/xmas.js'])) { // season.js: loaded above
+    const file = require('path').join(__dirname, '..', f);
+    require('vm').runInThisContext(require('fs').readFileSync(file, 'utf8'), { filename: file });
+  }
+  const Se = KOS.Season, X = KOS.Xmas, A = KOS.Activities, S = KOS.Storage;
+  const at = (y, m, d, h, mi) => new Date(y, m - 1, d, h || 0, mi || 0); // local time
+  const realNow = Se.now;
+  const withDate = (d, fn) => { Se.now = () => d; try { return fn(); } finally { Se.now = realNow; } };
+  const clean = () => { Se.force = {}; X.reset(); };
+  // a localStorage stub (God mode and the test date live there, like in the browser)
+  const withLS = (init, fn) => {
+    const store = Object.assign({}, init);
+    globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+    try { return fn(store); } finally { delete globalThis.localStorage; }
+  };
+  const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+  test('xmas: season windows 29 Nov 2026 - 6 Jan 2027 (local, inclusive), deco the same', () => {
+    clean();
+    for (const id of ['xmas', 'xmas-deco']) {
+      ok(!Se.active(id, at(2026, 11, 28, 23, 59)), id + ' off 28 Nov 23:59');
+      ok(Se.active(id, at(2026, 11, 29, 0, 0)), id + ' on 29 Nov 00:00');
+      ok(Se.active(id, at(2026, 12, 24, 12)), id + ' on 24 Dec');
+      ok(Se.active(id, at(2027, 1, 6, 23, 59)), id + ' on 6 Jan 23:59');
+      ok(!Se.active(id, at(2027, 1, 7, 0, 0)), id + ' off 7 Jan 00:00');
+      ok(!Se.active(id, at(2026, 10, 29)), id + ' off in October');
+    }
+    ok(!Se.active('halloween', at(2026, 11, 29)) && !Se.active('halloween-deco', at(2026, 12, 1)), 'no overlap with Halloween');
+  });
+  test('xmas: override #xmas=1/0/auto forces both windows, leaves Halloween alone', () => {
+    clean();
+    Se.force.xmas = true;
+    ok(Se.active('xmas', at(2026, 10, 28)) && Se.active('xmas-deco', at(2026, 10, 28)), 'forced on in October');
+    ok(Se.active('halloween', at(2026, 10, 28)) && !Se.active('halloween', at(2026, 12, 5)), 'Halloween still follows its dates');
+    Se.force.xmas = false;
+    ok(!Se.active('xmas', at(2026, 12, 5)) && !Se.active('xmas-deco', at(2026, 12, 5)), 'forced off in December');
+    clean();
+    withLS({}, store => {
+      Se.applyHash({ xmas: '1' });
+      ok(store['kos.season.xmas'] === '1' && Se.active('xmas-deco', at(2026, 6, 1)), '#xmas=1 stored + on');
+      Se.applyHash({ xmas: '0' });
+      ok(store['kos.season.xmas'] === '0' && !Se.active('xmas', at(2026, 12, 5)), '#xmas=0 stored + off');
+      Se.applyHash({ xmas: 'auto' });
+      ok(!('kos.season.xmas' in store) && Se.active('xmas', at(2026, 12, 5)), '#xmas=auto clears it');
+      ok(Se.override('halloween') === null, 'Halloween override untouched');
+    });
+  });
+  test('xmas: #date override only takes effect in God mode, keeps the time of day, #date=auto clears', () => {
+    clean();
+    ok(Math.abs(realNow().getTime() - Date.now()) < 5000, 'no override: real clock');
+    withLS({}, store => {
+      Se.applyHash({ date: '2026-12-13' });
+      ok(store['kos.season.date'] === '2026-12-13', '#date= stored');
+      ok(Se.dateOverride() === null, 'not in effect without God mode');
+      ok(ymd(Se.now()) === ymd(new Date()), 'now() is still today without God mode');
+      store['kos.godmode'] = '1';
+      ok(Se.dateOverride() === '2026-12-13', 'in effect with God mode');
+      const n = Se.now(), r = new Date();
+      ok(ymd(n) === '2026-12-13', 'now() is the test date: ' + ymd(n));
+      ok(Math.abs((n.getHours() * 60 + n.getMinutes()) - (r.getHours() * 60 + r.getMinutes())) <= 1, 'at the current time of day');
+      ok(Se.active('xmas') && Se.active('xmas-deco'), 'season windows follow the test date');
+      ok(X.dayInfo().today === 13, 'the calendar follows the test date');
+      Se.applyHash({ date: '2026-02-30' });
+      ok(store['kos.season.date'] === '2026-12-13', 'an impossible date is ignored');
+      Se.applyHash({ date: 'banana' });
+      ok(Se.dateOverride() === '2026-12-13', 'garbage is ignored');
+      store['kos.season.date'] = '2026-13-01';
+      ok(Se.dateOverride() === null && ymd(Se.now()) === ymd(new Date()), 'a corrupt stored date is ignored');
+      Se.applyHash({ date: '2027-01-07' });
+      ok(!Se.active('xmas'), '7 Jan: season over');
+      Se.applyHash({ date: 'auto' });
+      ok(!('kos.season.date' in store) && Se.dateOverride() === null, '#date=auto clears it');
+    });
+    ok(Se.dateOverride() === null, 'no localStorage: no override');
+  });
+  test('xmas: dayInfo 28 Nov -> 7 Jan (before, teaser, advent 1..24, after, closed)', () => {
+    clean();
+    const di = (y, m, d) => X.dayInfo(at(y, m, d, 12));
+    let r = di(2026, 11, 28);
+    ok(r.phase === 'before' && r.today === null && r.openable.length === 0, '28 Nov before');
+    for (const d of [29, 30]) { r = di(2026, 11, d); ok(r.phase === 'teaser' && r.today === null && r.openable.length === 0, d + ' Nov teaser'); }
+    for (let d = 1; d <= 24; d++) {
+      r = di(2026, 12, d);
+      ok(r.phase === 'advent' && r.today === d, d + ' Dec advent day ' + d);
+      ok(r.openable.length === d && r.openable[0] === 1 && r.openable[d - 1] === d, d + ' Dec: doors 1..' + d + ' openable');
+    }
+    for (const [y, m, d] of [[2026, 12, 25], [2026, 12, 31], [2027, 1, 1], [2027, 1, 6]]) {
+      r = di(y, m, d); ok(r.phase === 'after' && r.today === null && r.openable.length === 24, d + '/' + m + ' after: all open');
+    }
+    r = di(2027, 1, 7);
+    ok(r.phase === 'closed' && r.openable.length === 0, '7 Jan closed');
+    ok(X.dayInfo(at(2026, 12, 1, 0, 0)).today === 1 && X.dayInfo(at(2026, 11, 30, 23, 59)).phase === 'teaser', 'midnight boundary');
+    ok(withDate(at(2026, 12, 5, 9), () => X.dayInfo()).today === 5, 'default date is Season.now()');
+    ok(X.daysUntil(1, at(2026, 11, 29)) === 2 && X.daysUntil(9, at(2026, 12, 5)) === 4 && X.daysUntil(3, at(2026, 12, 5)) === 0, 'daysUntil');
+    Se.force.xmas = true;
+    r = di(2026, 10, 29);
+    ok(r.phase === 'after' && r.openable.length === 24, '#xmas=1 in October: every door openable');
+    Se.force.xmas = false;
+    r = di(2026, 12, 5);
+    ok(r.phase === 'closed' && r.openable.length === 0, '#xmas=0 in December: closed');
+    clean();
+  });
+  test('xmas: doors open only on/after their day; gold only after open; elf visible only after its door', () => {
+    clean();
+    const d5 = at(2026, 12, 5, 10);
+    withDate(d5, () => {
+      ok(!X.openDoor(6, d5) && !X.isOpen(6), 'door 6 locked on 5 Dec');
+      ok(!X.openDoor(0) && !X.openDoor(25) && !X.openDoor('x'), 'bad door numbers');
+      ok(!X.isElfVisible(3), 'elf 3 hidden before door 3');
+      ok(!X.findElf(3), 'cannot find a hidden elf');
+      ok(!X.markGold(3) && !X.isGold(3), 'no gold before open');
+      ok(X.openDoor(3, d5) && X.isOpen(3), 'door 3 opens on 5 Dec');
+      ok(!X.openDoor(3, d5), 'opening twice is a no-op');
+      ok(X.isElfVisible(3) && !X.isElfVisible(4), 'elf 3 visible after its door, elf 4 not');
+      ok(X.findElf(3) && X.isFound(3) && !X.isElfVisible(3), 'found elf 3, now gone from its spot');
+      ok(!X.findElf(3), 'found only once');
+      ok(X.markGold(3) && X.isGold(3) && !X.markGold(3), 'gold after open, once');
+      const c = X.counts();
+      ok(c.open === 1 && c.gold === 1 && c.elves === 1, 'counts');
+    });
+    ok(!X.openDoor(1, at(2026, 11, 30)), 'teaser: nothing opens');
+    ok(!X.openDoor(1, at(2027, 1, 7)), 'after 6 Jan: nothing opens');
+    ok(X.openDoor(20, at(2027, 1, 2)), 'missed doors open after Christmas (no penalty)');
+    withDate(at(2027, 1, 7), () => ok(!X.isElfVisible(20), 'elves gone after the season'));
+    withDate(at(2027, 1, 6, 23), () => ok(X.isElfVisible(20), '...but still there on 6 Jan'));
+    clean();
+  });
+  test('xmas: a successful finish of the door activity (progress event) turns an opened door gold', () => {
+    clean();
+    const d10 = at(2026, 12, 10, 10);
+    withDate(d10, () => {
+      ok(X.door(3).act === 'knots.eight', 'door 3 is the figure-eight');
+      KOS.Events.emit('progress', { id: 'knots.eight', result: { success: true } });
+      ok(!X.isGold(3), 'finishing before the door was opened does nothing');
+      X.openDoor(3, d10);
+      KOS.Events.emit('progress', { id: 'knots.eight', result: { success: false } });
+      ok(!X.isGold(3), 'a failed run does not gild');
+      KOS.Events.emit('progress', { reset: true });
+      ok(!X.isGold(3), 'a progress reset event is ignored');
+      const got = listen('xmas');
+      S.record('knots.eight', { stars: 2, success: true, score: 100 });
+      got.stop();
+      ok(X.isGold(3), 'success after open -> gold (via Storage.record)');
+      ok(got.some(e => e.kind === 'gold' && e.n === 3), 'xmas gold event');
+    });
+    S.reset();
+    clean();
+  });
+  test('xmas: merge is a pure union (earliest ts), idempotent and commutative', () => {
+    const a = { v: 1, open: { 1: 100, 2: 200 }, gold: { 1: 150 }, elves: { 2: 300 }, seen: { toast: 50, coachDay: '2026-12-02' } };
+    const b = { v: 1, open: { 2: 180, 5: 500 }, gold: { 5: 600 }, elves: { 2: 400, 5: 700 }, seen: { toast: 70, coachDay: '2026-12-01' } };
+    const aj = JSON.stringify(a), bj = JSON.stringify(b);
+    const m = X.merge(a, b);
+    ok(JSON.stringify(a) === aj && JSON.stringify(b) === bj, 'inputs untouched');
+    ok(m.open[1] === 100 && m.open[2] === 180 && m.open[5] === 500, 'open union, earliest ts');
+    ok(m.gold[1] === 150 && m.gold[5] === 600, 'gold union');
+    ok(m.elves[2] === 300 && m.elves[5] === 700, 'elves union, earliest ts');
+    ok(m.seen.toast === 70 && m.seen.coachDay === '2026-12-02', 'later seen values');
+    ok(JSON.stringify(X.merge(b, a)) === JSON.stringify(m), 'commutative');
+    ok(JSON.stringify(X.merge(m, m)) === JSON.stringify(m), 'idempotent');
+    ok(JSON.stringify(X.merge(m, a)) === JSON.stringify(m), 'absorbing');
+    ok(JSON.stringify(X.merge(a, null)) === JSON.stringify(X.sanitize(a)), 'merge with nothing');
+    ok(JSON.stringify(X.merge(null, 'junk')) === JSON.stringify(X.sanitize(null)), 'garbage both sides -> empty');
+  });
+  test('xmas: corrupt or hand-edited state falls back to empty / drops bad entries', () => {
+    clean();
+    const empty = JSON.stringify({ v: 1, open: {}, gold: {}, elves: {}, seen: {} });
+    for (const bad of [null, 'x', 42, [], { v: 2, open: { 1: 1 } }, { open: { 1: 1 } }]) {
+      S.set(X.KEY, bad);
+      ok(JSON.stringify(X.state()) === empty, 'garbage ' + JSON.stringify(bad) + ' -> empty');
+    }
+    S.set(X.KEY, { v: 1, open: { 1: 5, 0: 5, 25: 5, x: 5, 2: -1, 3: 'a', 4: 7 }, gold: { 1: 9, 4: 'q', 6: 9 }, elves: { 24: 3, 99: 3 }, seen: { toast: 'no', coachDay: 'yesterday' } });
+    const s = X.state();
+    ok(JSON.stringify(Object.keys(s.open)) === '["1","4"]', 'only valid doors kept: ' + Object.keys(s.open));
+    ok(JSON.stringify(Object.keys(s.gold)) === '["1"]', 'gold only on opened doors');
+    ok(JSON.stringify(Object.keys(s.elves)) === '["24"]' && !('toast' in s.seen) && !('coachDay' in s.seen), 'elves/seen cleaned');
+    S.remove(X.KEY);
+    ok(X.counts().open === 0, 'missing -> empty');
+    clean();
+  });
+  test('xmas: data tables (24 doors with coach/icon/da+en texts, 24 elves with spots, wall order)', () => {
+    ok(X.DOORS.length === 24 && X.ELVES.length === 24, '24 + 24');
+    const coaches = ['anton', 'storm', 'marius', 'ida', 'maria', 'nicolas', 'peter', 'jesper'];
+    const icons = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/ui/ui.js'), 'utf8');
+    X.DOORS.forEach((d, i) => {
+      ok(d.day === i + 1 && d.elf === i + 1, 'door ' + (i + 1) + ' numbering');
+      ok(d.coach === coaches[i % 8], 'door ' + d.day + ' coach rotates');
+      ok(new RegExp('\\n    ' + d.icon + ': ').test(icons), 'door ' + d.day + ' icon ' + d.icon + ' exists in KOS.UI icons');
+      for (const f of ['title', 'text', 'hint']) for (const l of ['da', 'en']) ok(typeof d[f][l] === 'string' && d[f][l].length > 2, 'door ' + d.day + ' ' + f + '.' + l);
+    });
+    ok(X.DOORS[12].act === 'xmas.lucia' && X.DOORS[23].act === 'xmas.finale' && X.DOORS[0].act === 'xmas.presents', 'presents on 1, Lucia on 13, finale on 24');
+    const names = X.ELVES.map(e => e.name);
+    ok(new Set(names).size === 24 && names[0] === 'Skøde-Søren' && names[23] === 'Julestjerne-Nisse', 'elf names');
+    X.ELVES.forEach(e => ok(e.tag.da && e.tag.en && e.spot && e.spot.screen, 'elf ' + e.n + ' tagline + spot'));
+    const by = {};
+    X.ELVES.forEach(e => { by[e.spot.screen] = (by[e.spot.screen] || 0) + 1; });
+    ok(by.hub === 12 && by.calendar === 2 && (by.garage + by.passport) === 2 && by.settings === 1 && by.title === 1 && by.places === 1 && by.area === 3 && by.results === 2, 'spot spread per spec: ' + JSON.stringify(by));
+    ok(X.ELVES[12].spot.act === 'xmas.lucia', 'elf 13 after the Lucia sail');
+    ok(X.WALL.length === 24 && new Set(X.WALL).size === 24 && X.WALL.every(n => n >= 1 && n <= 24), 'wall is a permutation');
+  });
+  test('xmas: every door activity exists while the season is on; xmas-only ones vanish when it is off', () => {
+    clean();
+    const NEW = /^(xmas\.|quiz\.xmas)/; // the new Christmas content (season: 'xmas')
+    Se.force.xmas = true;
+    const missing = X.DOORS.filter(d => !A.get(d.act)).map(d => d.act);
+    ok(!missing.filter(id => !NEW.test(id)).length, 'missing door activities: ' + missing);
+    X.DOORS.forEach(d => { const a = A.get(d.act); if (a && NEW.test(d.act)) ok(a.season === 'xmas' && a.area === 'event', d.act + ' is a season:xmas event activity'); });
+    Se.force.xmas = false;
+    X.DOORS.forEach(d => {
+      if (NEW.test(d.act)) ok(A.get(d.act) === null && !A.list().some(x => x.id === d.act), d.act + ' hidden when the season is off');
+      else ok(!!A.get(d.act), d.act + ' (a normal activity) stays');
+    });
+    clean();
+  });
+  test('xmas: badges at 8/16/24 elves, 24 doors, 24 gold (awarded by id; registered via KOS.App.addBadges)', () => {
+    clean();
+    const st = (o, g, e) => { const m = k => { const r = {}; for (let i = 1; i <= k; i++) r[i] = 1; return r; }; return { v: 1, open: m(o), gold: m(g), elves: m(e), seen: {} }; };
+    ok(X.badgesFor(st(0, 0, 0)).length === 0, 'none at start');
+    ok(JSON.stringify(X.badgesFor(st(7, 0, 8))) === '["xmas-elf-8"]', '8 elves');
+    ok(JSON.stringify(X.badgesFor(st(24, 0, 16))) === '["xmas-elf-8","xmas-elf-16","xmas-doors-24"]', '16 elves + all doors');
+    ok(X.badgesFor(st(24, 24, 24)).length === 5, 'all five');
+    ok(X.BADGES.length === 5 && X.BADGES.every(b => b.icon && b.name.da && b.name.en && b.desc.da && b.desc.en), 'badge defs da+en');
+    const added = [];
+    KOS.App = { addBadges: d => added.push.apply(added, d) };
+    try {
+      X.save(st(24, 0, 8));
+      const got = X.checkBadges();
+      ok(got.indexOf('xmas-elf-8') >= 0 && got.indexOf('xmas-doors-24') >= 0 && S.hasBadge('xmas-doors-24'), 'awarded: ' + got);
+      ok(X.checkBadges().length === 0, 'only once');
+      ok(added.length === 5, 'registered with the app');
+    } finally { delete KOS.App; S.reset(); clean(); }
+  });
+})();
+
 // ====================================================================== summary
 console.log('\n');
 if (failures.length) console.log('FAILURES:\n  ' + failures.join('\n  '));

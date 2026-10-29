@@ -9,6 +9,7 @@
 // jack-o'-lanterns float about: sail through them to collect them. Ghost boats drift on fixed looping routes; touching
 // one costs 10 seconds (a purple "BUUH!" flash). A lantern-light circle around the boat; drifting fog. Night drawing is
 // the same technique as nav.js drawNight (a screen overlay that darkens everything except a radial hole round the boat).
+// Param theme:'lucia' (activity 'xmas.lucia', season 'xmas') turns it into the Lucia night sail: floating candles (KOS.Spooky.drawLantern), no ghost boats, golden light, lucia.* strings.
 // Ends when every pumpkin is collected or after 6 minutes of sailing. Test hooks: setAutopilot(on), skipIntro(), state, boat.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -41,6 +42,24 @@
         none: 'Græskarrene gemte sig i mørket. Prøv igen!',
       },
     },
+    // Lucia night sail (activity 'xmas.lucia', params.theme 'lucia'): same mode, candles instead of pumpkins, no ghosts
+    lucia: {
+      title: 'Luciasejlads',
+      hud: { lights: 'Lys' },
+      stat: { lights: 'Lys samlet' },
+      intro: 'Det er Sankta Lucia i bugten, og alt er mørkt. Sejl gennem de flydende lys og tænd dem alle, så bugten lyser op igen!',
+      fx: { got: 'Lys!', all: 'Alle lys!' },
+      tip: {
+        arrow: 'Pilen viser vej til det nærmeste lys.',
+        half: 'Halvvejs! Bliv ved – bugten begynder at lyse.',
+        minute: 'Et minut tilbage – skynd dig!',
+      },
+      res: {
+        all: 'Du tændte alle {n} lys på {time}! Bugten lyser som en Lucia-krone.',
+        some: 'Du tændte {got} af {n} lys. Prøv igen og tænd resten!',
+        none: 'Lysene blev ved med at gemme sig i mørket. Prøv igen!',
+      },
+    },
   });
   KOS.I18n.add('en', {
     area: { event: { name: 'Halloween', desc: 'Pumpkin hunt in the dark – until 9 Nov.' } },
@@ -66,6 +85,23 @@
         none: 'The pumpkins hid in the dark. Try again!',
       },
     },
+    lucia: {
+      title: 'Lucia sail',
+      hud: { lights: 'Lights' },
+      stat: { lights: 'Lights lit' },
+      intro: 'It is Sankta Lucia in the bay and everything is dark. Sail through the floating lights and light them all to bring the bay back to life!',
+      fx: { got: 'Light!', all: 'All lights!' },
+      tip: {
+        arrow: 'The arrow points to the nearest light.',
+        half: 'Halfway! Keep going – the bay is starting to glow.',
+        minute: 'One minute left – hurry!',
+      },
+      res: {
+        all: 'You lit all {n} lights in {time}! The bay shines like a Lucia crown.',
+        some: 'You lit {got} of {n} lights. Try again and light the rest!',
+        none: 'The lights kept hiding in the dark. Try again!',
+      },
+    },
   });
 
   // ======================================================================== 2. activity (seasonal)
@@ -75,6 +111,14 @@
     title: { da: 'Græskarjagt i mørket', en: 'Pumpkin hunt in the dark' },
     desc: { da: 'Halloween-nat i bugten: saml de lysende græskar og undgå spøgelsesbådene.', en: 'Halloween night in the bay: collect the glowing pumpkins and dodge the ghost boats.' },
     params: { venue: 'bay', windDeg: 225, windKn: 9, gust: 0.08, shift: 0.05, seed: 3110, limit: 360, penalty: 10 },
+  });
+
+  KOS.Activities.add({
+    id: 'xmas.lucia', mode: 'halloween', area: 'event', season: 'xmas', boat: 'opti', order: 20,
+    icon: 'star', minutes: 4, difficulty: 1, unlock: null,
+    title: { da: 'Luciasejlads', en: 'Lucia sail' },
+    desc: { da: 'Sankta Lucia i bugten: sejl gennem de flydende lys og tænd dem alle.', en: 'Sankta Lucia in the bay: sail through the floating lights and light them all.' },
+    params: { theme: 'lucia', venue: 'bay', windDeg: 225, windKn: 8, gust: 0.06, shift: 0.04, seed: 1213, limit: 360, penalty: 10 },
   });
 
   // pumpkins, relative to the venue spawn (m, x east, y south): a ring stretched across the SW wind, so most legs are
@@ -98,6 +142,9 @@
 
   function createHunt(host, activity) {
     const P = Object.assign({ venue: 'bay', windDeg: 225, windKn: 9, gust: 0.08, shift: 0.05, seed: 3110, limit: 360, penalty: 10 }, activity.params || {});
+    const lucia = P.theme === 'lucia';
+    const K = lucia ? 'lucia' : 'halloween'; // string namespace; 'keys' is shared
+    const tk = sub => t((lucia && sub !== 'keys' ? 'lucia.' : 'halloween.') + sub);
     const assist = host.assist || 'easy';
     const easy = assist === 'easy', pro = assist === 'pro';
     const clsId = 'opti';
@@ -116,7 +163,7 @@
       for (let i = 0; i < 8 && KOS.World.hit(venue, x, y, 6); i++) { x += (sp.x - x) * 0.2; y += (sp.y - y) * 0.2; } // nudge towards open water
       S.pumpkins.push({ x, y, taken: false, ph: (x * 0.31 + y * 0.17) % TAU, pop: 0 });
     }
-    S.ghosts = GHOSTS.map(g => ({ cx: sp.x + g.cx, cy: sp.y + g.cy, rx: g.rx, ry: g.ry, w: g.w, a: g.ph, x: 0, y: 0, h: 0, cool: 0, ox: 0, oy: 0, hunt: 0, rest: 0 }));
+    S.ghosts = (lucia ? [] : GHOSTS).map(g => ({ cx: sp.x + g.cx, cy: sp.y + g.cy, rx: g.rx, ry: g.ry, w: g.w, a: g.ph, x: 0, y: 0, h: 0, cool: 0, ox: 0, oy: 0, hunt: 0, rest: 0 }));
     const CH = GHOST_CHASE[assist] || GHOST_CHASE.normal;
     const rnd = U.rng(P.seed);
     for (let i = 0; i < 9; i++) S.fog.push({ x: sp.x + (rnd() - 0.5) * 360, y: sp.y + (rnd() - 0.5) * 360, r: 45 + rnd() * 50, a: 0.1 + rnd() * 0.08 });
@@ -157,8 +204,9 @@
       layout: 'sail', spinnaker: false, hike: !easy, hikeKeel: false, autoTrim: controls.autoTrim, pauseButton: false,
     }, KOS.SailAids.inputOpts(cls, assist)));
     const aids = KOS.SailAids.create({ ctrl, boat, assist, coach: txt => { S.tipT = S.time; KOS.UI.coach(txt, { ms: 5600 }); } });
-    const hud = KOS.UI.hud(host.layer, ['speed', 'timer',
-      { id: 'pk', icon: 'pumpkin', labelKey: 'halloween.hud.pumpkins' }, { id: 'gh', icon: 'ghost', labelKey: 'halloween.hud.ghosts' }]);
+    const hud = KOS.UI.hud(host.layer, ['speed', 'timer'].concat(lucia
+      ? [{ id: 'pk', icon: 'star', labelKey: 'lucia.hud.lights' }]
+      : [{ id: 'pk', icon: 'pumpkin', labelKey: 'halloween.hud.pumpkins' }, { id: 'gh', icon: 'ghost', labelKey: 'halloween.hud.ghosts' }]));
     const booEl = document.createElement('div'); booEl.className = 'hw-boo'; host.layer.appendChild(booEl);
 
     const handlers = {
@@ -174,7 +222,7 @@
       if (S.tips[key] && !force) return;
       if (S.time - S.tipT < 5 && !force) return;
       S.tips[key] = true; S.tipT = S.time;
-      KOS.UI.coach(t('halloween.tip.' + key), { ms: 5000, mood: key === 'boo' ? 'oops' : undefined });
+      KOS.UI.coach(t(K + '.tip.' + key), { ms: 5000, mood: key === 'boo' ? 'oops' : undefined });
     }
     function nearest() {
       let best = null, bd = Infinity;
@@ -212,10 +260,10 @@
         p.taken = true; p.pop = 0.001; S.got++;
         sfx('coin', { pitch: 1 + 0.06 * S.got }); sfx('pop', { vol: 0.5 });
         if (scene.effects) { scene.effects.stars(p.x, p.y, 12); scene.effects.ripple(p.x, p.y, 4, 0.8); }
-        floatText(t('halloween.fx.got'), '#ffb547', p.x, p.y - 2);
+        floatText(tk('fx.got'), lucia ? '#ffe08a' : '#ffb547', p.x, p.y - 2);
         if (KOS.Input.haptic) KOS.Input.haptic(20);
         if (S.got === Math.ceil(S.pumpkins.length / 2)) tip('half');
-        if (S.got >= S.pumpkins.length) { floatText(t('halloween.fx.all'), '#ffd25e', boat.x, boat.y - 5, 30); complete(); }
+        if (S.got >= S.pumpkins.length) { floatText(tk('fx.all'), '#ffd25e', boat.x, boat.y - 5, 30); complete(); }
       }
     }
     function ghosts() {
@@ -247,13 +295,13 @@
       const success = stars > 0;
       sfx(success ? 'win' : 'lose', { vol: 0.6 }); if (stars === 3) sfx('cheer', { vol: 0.5 });
       if (success && scene.effects) { scene.effects.confetti(boat.x, boat.y, 120); scene.effects.text(boat.x, boat.y - 4, '★'.repeat(stars), { color: '#ffd25e', size: 36 }); }
-      const stats = { 'halloween.stat.pumpkins': S.got + '/' + N, 'halloween.stat.ghosts': S.hits };
+      const stats = lucia ? { 'lucia.stat.lights': S.got + '/' + N } : { 'halloween.stat.pumpkins': S.got + '/' + N, 'halloween.stat.ghosts': S.hits };
       if (S.penalty) stats['halloween.stat.penalty'] = S.penalty;
       S.result = {
         stars, success, timeMs: Math.round(time * 1000),
         score: Math.max(0, Math.round(S.got * 100 + (S.got >= N ? Math.max(0, P.limit - time) * 3 : 0) - S.hits * 50)),
         stats,
-        msgKey: S.got >= N ? 'halloween.res.all' : S.got ? 'halloween.res.some' : 'halloween.res.none',
+        msgKey: K + (S.got >= N ? '.res.all' : S.got ? '.res.some' : '.res.none'),
         msgVars: { n: N, got: S.got, g: S.hits, time: KOS.UI.fmtTime(time * 1000) },
       };
     }
@@ -267,7 +315,8 @@
         ctx.save(); ctx.translate(p.x, p.y); if (sc.camera.rot) ctx.rotate(-sc.camera.rot);
         if (p.pop > 0) { const a = p.pop / 0.5; ctx.globalAlpha = 1 - a; ctx.scale(1 + a, 1 + a); }
         ctx.fillStyle = 'rgba(0,10,30,.25)'; ctx.beginPath(); ctx.ellipse(0.3 * r, 0.9 * r, r * 1.05, r * 0.35, 0, 0, TAU); ctx.fill();
-        KOS.Spooky.drawPumpkin(ctx, 0, 0, r, reduce ? 0 : tm + p.ph);
+        if (lucia) KOS.Spooky.drawLantern(ctx, 0, 0, r, reduce ? 0 : tm + p.ph);
+        else KOS.Spooky.drawPumpkin(ctx, 0, 0, r, reduce ? 0 : tm + p.ph);
         ctx.restore();
       }
     }
@@ -281,16 +330,18 @@
         const p = sc.worldToScreen(fx, fy), rr = f.r / sc.mpp;
         if (p.x < -rr || p.x > W + rr || p.y < -rr || p.y > H + rr) continue;
         const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr);
-        g.addColorStop(0, 'rgba(205,195,255,' + f.a + ')'); g.addColorStop(1, 'rgba(205,195,255,0)');
+        const fc = lucia ? '210,220,255' : '205,195,255';
+        g.addColorStop(0, 'rgba(' + fc + ',' + f.a + ')'); g.addColorStop(1, 'rgba(' + fc + ',0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, TAU); ctx.fill();
       }
       // darkness with a lantern circle round the boat
       const R = Math.max(90, Math.min(16 / sc.mpp, 0.26 * Math.max(W, H)));
       const g = ctx.createRadialGradient(bp.x, bp.y, R * 0.25, bp.x, bp.y, R * 1.8);
-      g.addColorStop(0, 'rgba(10,6,30,0.1)'); g.addColorStop(0.55, 'rgba(10,6,30,0.58)'); g.addColorStop(1, 'rgba(8,4,24,0.88)');
+      if (lucia) { g.addColorStop(0, 'rgba(6,12,34,0.08)'); g.addColorStop(0.55, 'rgba(6,12,34,0.55)'); g.addColorStop(1, 'rgba(4,8,26,0.86)'); } // deep blue winter night
+      else { g.addColorStop(0, 'rgba(10,6,30,0.1)'); g.addColorStop(0.55, 'rgba(10,6,30,0.58)'); g.addColorStop(1, 'rgba(8,4,24,0.88)'); }
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       ctx.globalCompositeOperation = 'lighter';
-      KOS.Spooky.glow(ctx, bp.x, bp.y, R * 0.7, 0.16, '255,170,70'); // the lantern
+      KOS.Spooky.glow(ctx, bp.x, bp.y, R * 0.7, lucia ? 0.2 : 0.16, lucia ? '255,205,120' : '255,170,70'); // the lantern
       // pumpkins glow through the dark (the near ones are also drawn crisp again on top)
       const pr = Math.max(10, 1.5 / sc.mpp);
       const vis = [];
@@ -299,7 +350,7 @@
         const q = sc.worldToScreen(p.x, p.y);
         if (q.x < -60 || q.x > W + 60 || q.y < -60 || q.y > H + 60) continue;
         const fl = reduce ? 1 : 0.85 + 0.15 * Math.sin(sc.t * 5 + p.ph * 3);
-        KOS.Spooky.glow(ctx, q.x, q.y, pr * 3.2, 0.55 * fl);
+        KOS.Spooky.glow(ctx, q.x, q.y, pr * (lucia ? 3.8 : 3.2), 0.55 * fl, lucia ? '255,214,120' : undefined);
         vis.push(q);
       }
       // ghost boats: faint blue glow (always), the sprite brighter inside the lantern light
@@ -309,7 +360,7 @@
         KOS.Spooky.glow(ctx, q.x, q.y, Math.max(30, 7 / sc.mpp), gh.cool > 0 ? 0.12 : 0.3, '150,190,255');
       }
       ctx.globalCompositeOperation = 'source-over';
-      for (const q of vis) KOS.Spooky.drawPumpkin(ctx, q.x, q.y, pr, 0, { still: true });
+      for (const q of vis) { if (lucia) KOS.Spooky.drawLantern(ctx, q.x, q.y, pr, 0, { still: true }); else KOS.Spooky.drawPumpkin(ctx, q.x, q.y, pr, 0, { still: true }); }
       for (const gh of S.ghosts) {
         const q = sc.worldToScreen(gh.x, gh.y);
         if (q.x < -80 || q.x > W + 80 || q.y < -80 || q.y > H + 80) continue;
@@ -332,9 +383,10 @@
       const s = Math.min(Math.abs((dx > 0 ? W - m.r - cx : cx - m.l) / (dx || 1e-6)), Math.abs((dy > 0 ? H - m.b - cy : cy - m.t) / (dy || 1e-6)));
       const ax = cx + dx * s, ay = cy + dy * s, ang = Math.atan2(dy, dx), pulse = reduce ? 1 : 1 + 0.08 * Math.sin(sc.t * 6);
       ctx.save(); ctx.translate(ax, ay);
-      ctx.fillStyle = 'rgba(20,10,40,0.78)'; ctx.beginPath(); ctx.arc(0, 0, 22 * pulse, 0, TAU); ctx.fill();
-      ctx.strokeStyle = '#ff9a3c'; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.rotate(ang); ctx.fillStyle = '#ff9a3c'; ctx.beginPath(); ctx.moveTo(30 * pulse, 0); ctx.lineTo(19, -9); ctx.lineTo(19, 9); ctx.closePath(); ctx.fill();
+      const ac = lucia ? '#ffd56b' : '#ff9a3c';
+      ctx.fillStyle = lucia ? 'rgba(8,16,40,0.78)' : 'rgba(20,10,40,0.78)'; ctx.beginPath(); ctx.arc(0, 0, 22 * pulse, 0, TAU); ctx.fill();
+      ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.rotate(ang); ctx.fillStyle = ac; ctx.beginPath(); ctx.moveTo(30 * pulse, 0); ctx.lineTo(19, -9); ctx.lineTo(19, 9); ctx.closePath(); ctx.fill();
       ctx.restore();
       ctx.font = '900 13px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#fff'; ctx.fillText(Math.round(Math.hypot(tg.x - boat.x, tg.y - boat.y)) + ' m', ax, ay);
@@ -345,7 +397,7 @@
     function start() {
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
       ambient();
-      coachIntro = KOS.UI.coach(t('halloween.intro') + (touch ? '' : '  ' + t('halloween.keys') + aids.keys()), { ms: 8500 });
+      coachIntro = KOS.UI.coach(tk('intro') + (touch ? '' : '  ' + tk('keys') + aids.keys()), { ms: 8500 });
       S.phase = 'intro';
       introCd = KOS.UI.countdown(host.layer, 3, () => { introCd = null; if (S.phase === 'intro') { S.phase = 'go'; sfx('horn'); } });
     }
@@ -392,7 +444,7 @@
       if (S.hudT <= 0) {
         S.hudT = 0.1;
         hud.update({ speed: U.kn(Math.abs(boat.speed)), timer: (S.time + S.penalty) * 1000,
-          custom: { pk: S.got + '<small>/' + S.pumpkins.length + '</small>', gh: String(S.hits) } });
+          custom: lucia ? { pk: S.got + '<small>/' + S.pumpkins.length + '</small>' } : { pk: S.got + '<small>/' + S.pumpkins.length + '</small>', gh: String(S.hits) } });
         if (!controls.autoTrim) ctrl.setIdealSheet(boat.inIrons ? null : KOS.Physics.idealSheet(boat), 0.07);
       }
       if (S.ambT <= 0) { S.ambT = 0.5; ambient(); }

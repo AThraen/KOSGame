@@ -64,7 +64,16 @@
         timetrial: 'Banen sejlet på {time}.',
         quit: 'Du nåede ikke alle mål denne gang – prøv igen!',
       },
-      stat: { rings: 'Ringe', trash: 'Skrald samlet', top: 'Topfart (knob)', swims: 'Badezone-straf' },
+      stat: { rings: 'Ringe', trash: 'Skrald samlet', top: 'Topfart (knob)', swims: 'Badezone-straf', presents: 'Gaver' },
+      // theme 'xmas' (Julekalender): the ring hunt with wrapped presents
+      xmas: {
+        hud: 'Gaver',
+        intro: 'Julemanden har tabt {n} gaver i bugten! Saml dem alle. Pilen viser vej til den nærmeste.',
+        introFinale: 'Juleaftens store gavejagt! Saml {n} gaver – og til sidst venter den store guldstjerne. Pilen viser vej.',
+        fx: { present: '+1 gave', combo: 'Gave x{n}!', star: 'Stjernen!' },
+        res: 'Alle {n} gaver på {time}! Glædelig jul!',
+        resFinale: 'Alle {n} gaver og juletræets stjerne på {time}! Glædelig jul!',
+      },
     },
   });
   KOS.I18n.add('en', {
@@ -111,7 +120,15 @@
         timetrial: 'Course sailed in {time}.',
         quit: 'You didn\'t reach every goal this time – try again!',
       },
-      stat: { rings: 'Rings', trash: 'Rubbish collected', top: 'Top speed (kn)', swims: 'Swim-zone penalties' },
+      stat: { rings: 'Rings', trash: 'Rubbish collected', top: 'Top speed (kn)', swims: 'Swim-zone penalties', presents: 'Presents' },
+      xmas: {
+        hud: 'Presents',
+        intro: 'Santa has dropped {n} presents in the bay! Collect them all. The arrow points to the nearest one.',
+        introFinale: 'The big Christmas Eve present hunt! Collect {n} presents – and the big golden star waits at the end. Follow the arrow.',
+        fx: { present: '+1 present', combo: 'Present x{n}!', star: 'The star!' },
+        res: 'All {n} presents in {time}! Merry Christmas!',
+        resFinale: 'All {n} presents and the tree star in {time}! Merry Christmas!',
+      },
     },
   });
 
@@ -142,6 +159,18 @@
       desc: { da: 'Kryds op til mærke 1, videre til mærke 2 og hjem over mållinjen. Rund om bagbord!', en: 'Beat up to mark 1, on to mark 2 and home across the line. Leave the marks to port!' },
       params: { kind: 'timetrial', windDeg: 250, windKn: 10, gust: 0.55, shift: 0.35, seed: 41, course: { up: 100, wing: 85 } } },
   ];
+  // Julekalender events (season window 'xmas', reached through the calendar): the ring hunt with wrapped presents (theme 'xmas').
+  // No pick group = straight into the default Optimist. The finale's last pickup is a big gold star.
+  acts.push(
+    { id: 'xmas.presents', area: 'event', season: 'xmas', order: 10, boat: 'opti', icon: 'star', minutes: 4, difficulty: 1, unlock: null,
+      title: { da: 'Gavejagt i bugten', en: 'Present hunt in the bay' },
+      desc: { da: 'Julemanden har tabt gaverne i vandet! Saml dem alle i en let brise.', en: 'Santa dropped the presents in the water! Collect them all in a gentle breeze.' },
+      params: { kind: 'rings', theme: 'xmas', windDeg: 235, windKn: 7, gust: 0.3, shift: 0.2, seed: 1201, count: 8 } },
+    { id: 'xmas.finale', area: 'event', season: 'xmas', order: 20, boat: 'opti', icon: 'star', minutes: 5, difficulty: 2, unlock: null,
+      title: { da: 'Juleaftens store gavejagt', en: 'The big Christmas Eve hunt' },
+      desc: { da: 'Tolv gaver og til sidst den store guldstjerne. Brisen er lidt friskere i aften!', en: 'Twelve presents and then the big golden star. The breeze is a bit fresher tonight!' },
+      params: { kind: 'rings', theme: 'xmas', windDeg: 240, windKn: 9, gust: 0.45, shift: 0.3, seed: 2412, count: 12, star: true } },
+  );
   // one "Fri sejlads" per boat in the ladder, locked by Sejlerpas stars
   LADDER.slice(1).forEach((id, i) => {
     const rib = id === 'rib', n = boatName(id);
@@ -208,6 +237,7 @@
     const assist = host.assist || 'easy';
     const venue = KOS.World.get(P.venue || 'bay');
     const rand = U.rng((P.seed || 1) * 7919 + 13);
+    const xmas = P.kind === 'rings' && P.theme === 'xmas';   // Julekalender present hunt: presents instead of rings
     const clsId = (KOS.Boats.get(host.boat) ? host.boat : 'opti');
     const cls = KOS.Boats.get(clsId);
     const isRib = !!cls.motor;
@@ -256,6 +286,7 @@
     });
     scene.addOverlay(drawItems);
     scene.addOverlay(drawTargetArrow, { screen: true });
+    if (xmas) scene.addOverlay(drawSnow, { screen: true });
     // Gameplay zoom: the scene's auto zoom frames the boat for detail; a game wants to see further ahead.
     // We set it so √(w·h) of screen spans about (34–40 + 5 × boat length) m (a bit closer on phones), × wheel zoom:
     // the boat reads clearly (~60 px for an Opti on desktop) and the target arrow points at anything off screen.
@@ -286,7 +317,7 @@
     const hudItems = ['wind', 'speed'];
     if (P.kind === 'free' && !isRib) hudItems.push('pos');   // points of sail mean nothing in a motor boat
     else hudItems.push('timer');
-    if (P.kind === 'rings') hudItems.push({ id: 'count', icon: 'star', labelKey: 'sail.hud.rings' });
+    if (P.kind === 'rings') hudItems.push({ id: 'count', icon: 'star', labelKey: xmas ? 'sail.xmas.hud' : 'sail.hud.rings' });
     if (P.kind === 'cleanup') hudItems.push({ id: 'count', icon: 'trash', labelKey: 'sail.hud.trash' });
     if (P.kind === 'timetrial') hudItems.push({ id: 'count', icon: 'flag', labelKey: 'sail.hud.mark' });
     if (!isRib && assist !== 'easy' && !cls.keel && P.kind === 'free') hudItems.push('heel');
@@ -342,7 +373,11 @@
       }
       S.ref = routeTime(cls, P.windKn, U.rad(P.windDeg), nnRoute());
     }
-    function buildRings(n) { chain(n, 30, 52, 1.8, 22, 26, () => 'ring'); }
+    function buildRings(n) {
+      chain(n, 30, 52, 1.8, 22, 26, () => 'ring');
+      // theme 'xmas': each ring is a present (xm = colour variant); the finale's last one is the big gold star
+      if (xmas) S.items.forEach((it, i) => { it.xm = (i + (P.seed || 0)) % 3; if (P.star && i === S.items.length - 1) { it.xm = 'star'; it.r = 2.2; } });
+    }
     function buildTrash(n) {
       const kinds = ['bottle', 'can', 'bag', 'ball', 'crate', 'duck'];
       chain(n, 38, 62, 2.6, 16, 34, i => kinds[(i + (P.seed || 0)) % kinds.length]);
@@ -451,12 +486,13 @@
         if (it.taken || Math.hypot(it.x - boat.x, it.y - boat.y) > reach + it.r) continue;
         it.taken = true; S.collected++;
         S.combo = S.time - S.lastPick < 9 ? S.combo + 1 : 1; S.lastPick = S.time;
-        S.pops.push({ kind: it.kind, x: it.x, y: it.y, t: 0, rot: it.rot || 0 });
+        S.pops.push({ kind: it.kind, x: it.x, y: it.y, t: 0, rot: it.rot || 0, xm: it.xm });
         const fx = scene.effects;
         if (fx) { fx.stars(it.x, it.y, 10); fx.ripple(it.x, it.y, 3, 0.9); fx.splash(it.x, it.y, 0.4); }
         sfx(it.kind === 'ring' ? 'coin' : 'pop', { pitch: 1 + Math.min(0.6, (S.combo - 1) * 0.08) });
         if (it.kind === 'ring') {
-          floatText(S.combo > 1 ? t('sail.fx.combo', { n: S.combo }) : t('sail.fx.ring'), '#ffd25e', it.x, it.y);
+          floatText(xmas ? (it.xm === 'star' ? t('sail.xmas.fx.star') : S.combo > 1 ? t('sail.xmas.fx.combo', { n: S.combo }) : t('sail.xmas.fx.present'))
+            : S.combo > 1 ? t('sail.fx.combo', { n: S.combo }) : t('sail.fx.ring'), xmas && it.xm !== 'star' ? XM_COL[it.xm] : '#ffd25e', it.x, it.y);
         } else {
           floatText(t('sail.fx.' + it.kind), '#7dffb5', it.x, it.y);
         }
@@ -529,14 +565,14 @@
       if (scene.effects) { scene.effects.confetti(boat.x, boat.y, 140); scene.effects.text(boat.x, boat.y - 4, '★'.repeat(stars), { color: '#ffd25e', size: 34 }); }
       scene.shake(0.3);
       const stats = { distance: Math.round(boat.distanceSailed) + ' m', tacks: boat.tacks, gybes: boat.gybes, top: +S.topKn.toFixed(1) };
-      if (P.kind === 'rings') stats.rings = S.collected;
+      if (P.kind === 'rings') stats[xmas ? 'presents' : 'rings'] = S.collected;
       if (P.kind === 'cleanup') stats.trash = S.collected;
       if (S.swims) stats.swims = S.swims;
       S.result = {
         stars, success: true, timeMs: Math.round(time * 1000),
         score: Math.round(1000 * Math.min(3, (S.ref || 60) / time) + S.collected * 100),
         stats: prefixStats(stats),
-        msgKey: 'sail.res.' + P.kind, msgVars: { n: P.kind === 'timetrial' ? 0 : S.items.length, time: timeStr },
+        msgKey: xmas ? (P.star ? 'sail.xmas.resFinale' : 'sail.xmas.res') : 'sail.res.' + P.kind, msgVars: { n: P.kind === 'timetrial' ? 0 : S.items.length, time: timeStr },
       };
     }
     function endFree() {
@@ -570,7 +606,8 @@
         const rp = (tm * 0.6 + it.ph) % 1;
         ctx.strokeStyle = 'rgba(255,255,255,' + (0.45 * (1 - rp)) + ')'; ctx.lineWidth = 0.08;
         ctx.beginPath(); ctx.arc(0, 0, 1.2 + rp * 1.4, 0, TAU); ctx.stroke();
-        if (it.kind === 'ring') drawRing(ctx, tm, it.ph); else drawTrash(ctx, it.kind, (it.rot || 0) + Math.sin(tm * 0.7 + it.ph) * 0.3);
+        if (xmas && it.kind === 'ring') drawPresent(ctx, tm, it.ph, it.xm);
+        else if (it.kind === 'ring') drawRing(ctx, tm, it.ph); else drawTrash(ctx, it.kind, (it.rot || 0) + Math.sin(tm * 0.7 + it.ph) * 0.3);
         ctx.restore();
       }
       // pick-up pops: grow, lift and fade
@@ -579,7 +616,8 @@
         if (a >= 1) { S.pops.splice(i, 1); continue; }
         const k = Math.max(1, 13 * mpp / 1.4) * 1.4 * (1 + a * 0.9);
         ctx.save(); ctx.globalAlpha = 1 - a; ctx.translate(p.x, p.y - a * 3); ctx.scale(k, k);
-        if (p.kind === 'ring') drawRing(ctx, tm, 0); else drawTrash(ctx, p.kind, p.rot);
+        if (xmas && p.kind === 'ring') drawPresent(ctx, tm, 0, p.xm);
+        else if (p.kind === 'ring') drawRing(ctx, tm, 0); else drawTrash(ctx, p.kind, p.rot);
         ctx.restore();
       }
       // time-trial: pulsing ring on the next mark
@@ -591,6 +629,55 @@
           ctx.setLineDash([6 * mpp, 5 * mpp]); ctx.beginPath(); ctx.arc(tg.m.x, tg.m.y, r, 0, TAU); ctx.stroke();
         }
       }
+    }
+    // ---- theme 'xmas': wrapped presents (red / green / gold, drawn in the ring's unit space: ~1 = item radius) and the finale star
+    const XM_COL = ['#ff4d5e', '#3fcf6e', '#ffd25e'], XM_RIB = ['#ffd25e', '#ffffff', '#d8322f'], XM_DARK = ['#a3202e', '#1d7a42', '#b8801a'];
+    function drawPresent(ctx, tm, ph, v) {
+      const star = v === 'star';
+      const g = ctx.createRadialGradient(0, 0, 0.4, 0, 0, 2.1);
+      g.addColorStop(0, star ? 'rgba(255,236,140,0.75)' : 'rgba(255,230,150,0.45)'); g.addColorStop(1, 'rgba(255,230,150,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 2.1, 0, TAU); ctx.fill();
+      if (star) {   // big gold five-point star, gently rocking
+        ctx.rotate(Math.sin(tm * 1.3 + ph) * 0.18);
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.5 : 1.15; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
+        ctx.closePath(); ctx.fillStyle = '#ffd25e'; ctx.fill(); ctx.lineJoin = 'round'; ctx.strokeStyle = '#b8801a'; ctx.lineWidth = 0.1; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -1.15); ctx.lineTo(0.5 * Math.cos(-Math.PI / 2 + Math.PI / 5), 0.5 * Math.sin(-Math.PI / 2 + Math.PI / 5)); ctx.lineTo(0, 0);
+        ctx.lineTo(-0.5 * Math.cos(-Math.PI / 2 + Math.PI / 5), 0.5 * Math.sin(-Math.PI / 2 + Math.PI / 5)); ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
+      } else {
+        const c = XM_COL[v | 0], rb = XM_RIB[v | 0], dk = XM_DARK[v | 0];
+        ctx.rotate(Math.sin(tm * 1.1 + ph) * 0.12);
+        ctx.fillStyle = 'rgba(0,30,60,0.25)'; ctx.fillRect(-0.8, -0.65, 1.7, 1.7);                 // shadow on the water
+        ctx.fillStyle = c; ctx.fillRect(-0.85, -0.7, 1.7, 1.55);                                    // box
+        ctx.fillStyle = dk; ctx.fillRect(-0.85, -0.7, 1.7, 0.42);                                   // lid
+        ctx.strokeStyle = dk; ctx.lineWidth = 0.06; ctx.strokeRect(-0.85, -0.7, 1.7, 1.55);
+        ctx.fillStyle = rb; ctx.fillRect(-0.13, -0.7, 0.26, 1.55); ctx.fillRect(-0.85, 0.02, 1.7, 0.26);   // ribbon cross
+        ctx.fillStyle = rb; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.04;              // bow
+        for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * 0.3, -0.92, 0.3, 0.17, sx * -0.5, 0, TAU); ctx.fill(); ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(0, -0.78, 0.12, 0, TAU); ctx.fill(); ctx.stroke();
+      }
+      const s = 0.5 + 0.5 * Math.sin(tm * 3 + ph);   // sparkle
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.5 + 0.5 * s) + ')';
+      ctx.beginPath(); ctx.ellipse(-0.55, -0.45, 0.2, 0.08, -0.6, 0, TAU); ctx.fill();
+    }
+    // light snowfall over the canvas (screen space); off for reduced motion, low-fx and the low perf tiers
+    const FLAKES = []; for (let i = 0; i < 70; i++) FLAKES.push({ x: rand(), y: rand(), v: 18 + rand() * 26, r: 1 + rand() * 1.8, ph: rand() * TAU });
+    function snowOn() {
+      try { if (KOS.UI && KOS.UI.reduced && KOS.UI.reduced()) return false; } catch (e) { return false; }
+      try { if (KOS.Storage.settings().lowFx === true) return false; } catch (e) { /* default on */ }
+      return !(KOS.Perf && KOS.Perf.level < 2);
+    }
+    function drawSnow(ctx, sc) {
+      if (!snowOn()) return;
+      const W = sc.w, H = sc.h, n = (KOS.Perf && KOS.Perf.level < 3) ? 40 : FLAKES.length;
+      ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      for (let i = 0; i < n; i++) {
+        const f = FLAKES[i];
+        const y = ((f.y * H + sc.t * f.v) % (H + 10) + H + 10) % (H + 10) - 5, x = ((f.x * W + Math.sin(sc.t * 0.7 + f.ph) * 18) % W + W) % W;
+        ctx.beginPath(); ctx.arc(x, y, f.r, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
     }
     function drawRing(ctx, tm, ph) {   // a floating golden life ring
       const g = ctx.createRadialGradient(0, 0, 0.4, 0, 0, 2.1);
@@ -677,7 +764,7 @@
     let introCd = null, coachIntro = null;
     function start() {
       const touch = KOS.Input.isTouchDevice ? KOS.Input.isTouchDevice() : false;
-      const intro = t('sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind === 'free' && P.heavy ? 'heavy' : P.kind), { n: S.items.length, range: U.windVal(U.kn(10)) + '–' + U.windTxt(U.kn(14)) }) +
+      const intro = t((xmas ? (P.star ? 'sail.xmas.introFinale' : 'sail.xmas.intro') : 'sail.intro.' + (P.kind === 'free' && isRib ? 'freeRib' : P.kind === 'free' && P.heavy ? 'heavy' : P.kind)), { n: S.items.length, range: U.windVal(U.kn(10)) + '–' + U.windTxt(U.kn(14)) }) +
         (touch ? '' : '  ' + t(isRib ? 'sail.keysRib' : 'sail.keys') + (aids ? aids.keys() : ''));
       coachIntro = KOS.UI.coach(intro, { ms: P.kind === 'free' ? 9000 : 7000 });
       paintGoals();
