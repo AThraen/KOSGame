@@ -150,7 +150,7 @@ Coaches rotate through `anton storm marius ida maria nicolas peter jesper`.
   - `xmas-elf-8` "Nissespejder"
   - `xmas-elf-16` "Nissedetektiv"
   - `xmas-elf-24` "Nissemester"
-  - `xmas-doors-24` "Juleaften!" (all doors opened)
+  - `xmas-doors-24` "Juleaften" (all doors opened)
   - `xmas-gold-24` "Guldjul" (all 24 gold)
   `tools/check-badges.js` must still pass.
 - **Reward at 24 elves (my call):** a "Julerød" boat colour (red hull with gold stripe if the boat renderer supports stripes; otherwise red with the badge only) unlocked in the profile colour picker. If there is no colour list to extend, the badge alone is the reward. This is the builder's call; note what was done.
@@ -191,7 +191,7 @@ Coaches rotate through `anton storm marius ida maria nicolas peter jesper`.
 | `#god=1&date=2026-12-24` | finale + star |
 | `#god=1&date=2027-01-07` | everything gone, normal game |
 | `#date=auto` | back to the real date |
-| `#xmas=1` / `#xmas=0` / `#xmas=auto` | force the season on/off regardless of date |
+| `#xmas=1` / `#xmas=0` / `#xmas=auto` | force the season on/off regardless of date (before 29 Nov, forced on shows only the locked teaser unless God mode is on) |
 
 In God mode the calendar also shows a small **dev bar**: `◀ dag ▶` to step the override date by one day, plus "Nulstil jul" to clear the `xmas2026` state. God mode's existing "win" button finishes activities, for gold-bauble testing.
 

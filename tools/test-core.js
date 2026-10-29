@@ -1725,7 +1725,14 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
     ok(X.daysUntil(1, at(2026, 11, 29)) === 2 && X.daysUntil(9, at(2026, 12, 5)) === 4 && X.daysUntil(3, at(2026, 12, 5)) === 0, 'daysUntil');
     Se.force.xmas = true;
     r = di(2026, 10, 29);
-    ok(r.phase === 'after' && r.openable.length === 24, '#xmas=1 in October: every door openable');
+    ok(r.phase === 'teaser' && r.openable.length === 0 && !X.canOpen(1, at(2026, 10, 29)), '#xmas=1 in October without God mode: locked teaser (no spoiler links)');
+    ok(!X.openDoor(1, at(2026, 10, 29)) && !X.isOpen(1), '#xmas=1 in October without God mode: nothing opens or saves');
+    withLS({ 'kos.godmode': '1' }, () => {
+      r = di(2026, 10, 29);
+      ok(r.phase === 'after' && r.openable.length === 24, '#xmas=1 in October with God mode: every door openable');
+    });
+    r = di(2027, 2, 1);
+    ok(r.phase === 'after' && r.openable.length === 24, '#xmas=1 after the season (no God mode): every door openable');
     Se.force.xmas = false;
     r = di(2026, 12, 5);
     ok(r.phase === 'closed' && r.openable.length === 0, '#xmas=0 in December: closed');

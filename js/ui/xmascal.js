@@ -261,6 +261,11 @@
   if (KOS.Events && KOS.Events.on) KOS.Events.on('screen', s => { try { onScreen(s); } catch (e) { console.error(e); } });
 
   // ------------------------------------------------------------------ elf gallery
+  // the gallery slots are narrow (4-8 per row, ~46 px of text at 390 px): soft hyphens split the two words too long for any
+  // slot, and names with a long word get a smaller font (.is-long, .is-xlong) so nothing runs into the next slot
+  const SOFT = { Redningsvest: 'Rednings\u00ADvest', Julestjerne: 'Jule\u00ADstjerne' };
+  const galName = name => name.split('-').map(w => SOFT[w] || w).join('-');
+  const galLong = name => Math.max.apply(null, name.split('-').map(w => w.length));
   function gallery() {
     const x = X();
     if (!x || !UI()) return;
@@ -270,7 +275,7 @@
         const has = x.isFound(e.n, s);
         return '<button type="button" class="xc-gslot' + (has ? ' has' : '') + '" data-elf="' + e.n + '"' + (has ? '' : ' disabled') + ' aria-label="' + esc(has ? e.name : t('xcal.unknown')) + '">' +
           '<span class="xc-gnum">' + e.n + '</span>' + (has ? A().elf(e.n - 1) : A().elfSilhouette()) +
-          '<span class="xc-gname">' + esc(has ? e.name : t('xcal.unknown')) + '</span></button>';
+          '<span class="xc-gname' + (has && galLong(e.name) >= 6 ? ' is-long' : '') + (has && galLong(e.name) >= 10 ? ' is-xlong' : '') + '">' + esc(has ? galName(e.name) : t('xcal.unknown')) + '</span></button>';
       }).join('') + '</div><p class="xc-gtag" aria-live="polite"></p>';
     const d = UI().dialog({ title: t('xcal.gallery'), body, cls: 'xc-gal-dlg', buttons: [{ labelKey: 'common.ok', kind: 'primary' }] });
     if (!d) return;

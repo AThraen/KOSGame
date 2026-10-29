@@ -150,6 +150,27 @@ const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); 
     ok(h, '320x568: the header title is not cut off');
     await ctx.close();
   }
+  // 24 Dec, English, 12+ elves found (a two-digit chip): title + status still fit at 320 px; with all 24 found, no elf name
+  // in the gallery is wider than its slot (Redningsvest-Ronja, Julestjerne-Nisse) at 320, 390 and 1280
+  for (const [w, h] of [[320, 568], [390, 844], [1280, 800]]) for (const lang of ['en', 'da']) {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-24', w, h);
+    await page.evaluate(l => { KOS.Storage.saveSettings(Object.assign(KOS.Storage.settings(), { lang: l })); KOS.I18n.setLang(l); for (let i = 1; i <= 24; i++) KOS.Xmas.openDoor(i); for (let i = 1; i <= 12; i++) KOS.Xmas.findElf(i); }, lang);
+    await show(page, 'xmas'); await page.waitForTimeout(300);
+    const tag = w + 'x' + h + ' ' + lang;
+    const fit = await page.evaluate(() => ['#screen-xmas .head-title h1', '#screen-xmas .xc-status', '#screen-xmas .head-sub'].map(s => { const e = document.querySelector(s); return { s, ok: !!e && e.scrollWidth <= e.clientWidth + 1 && (s.indexOf('h1') >= 0 || e.scrollHeight <= e.clientHeight + 1) }; }));
+    ok(fit.every(f => f.ok), tag + ', 24 Dec, 12/24 elves: header title and status are not cut off ' + JSON.stringify(fit.filter(f => !f.ok)));
+    await page.evaluate(() => { for (let i = 13; i <= 24; i++) KOS.Xmas.findElf(i); });
+    await clean(page);
+    await tap(page, '#screen-xmas .xc-chip'); await page.waitForTimeout(300);
+    const bad = await page.evaluate(() => Array.from(document.querySelectorAll('.xc-gname')).filter(n => {
+      const s = n.closest('.xc-gslot').getBoundingClientRect(), r = document.createRange(); r.selectNodeContents(n);
+      return Array.from(r.getClientRects()).some(q => q.left < s.left - .5 || q.right > s.right + .5);
+    }).map(n => n.textContent));
+    const n = await page.evaluate(() => ({ has: document.querySelectorAll('.xc-gslot.has').length }));
+    ok(n.has === 24 && bad.length === 0, tag + ': all 24 elf names fit their gallery slots ' + JSON.stringify({ n, bad }));
+    if (w === 390) await shot(page, 'gallery-24-' + lang);
+    await ctx.close();
+  }
 
   // ---------------------------------------------------------------- Halloween still looks like Halloween (the event-pin code is shared)
   {

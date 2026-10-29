@@ -149,7 +149,7 @@
     { id: 'xmas-elf-8', icon: 'eye', name: { da: 'Nissespejder', en: 'Elf scout' }, desc: { da: 'Find 8 nisser i julekalenderen.', en: 'Find 8 elves in the advent calendar.' } },
     { id: 'xmas-elf-16', icon: 'eye', name: { da: 'Nissedetektiv', en: 'Elf detective' }, desc: { da: 'Find 16 nisser i julekalenderen.', en: 'Find 16 elves in the advent calendar.' } },
     { id: 'xmas-elf-24', icon: 'medal', name: { da: 'Nissemester', en: 'Elf master' }, desc: { da: 'Find alle 24 nisser.', en: 'Find all 24 elves.' } },
-    { id: 'xmas-doors-24', icon: 'calendar', name: { da: 'Juleaften!', en: 'Christmas Eve!' }, desc: { da: 'Åbn alle 24 låger i julekalenderen.', en: 'Open all 24 doors of the advent calendar.' } },
+    { id: 'xmas-doors-24', icon: 'calendar', name: { da: 'Juleaften', en: 'Christmas Eve' }, desc: { da: 'Åbn alle 24 låger i julekalenderen.', en: 'Open all 24 doors of the advent calendar.' } },
     { id: 'xmas-gold-24', icon: 'trophy', name: { da: 'Guldjul', en: 'Golden Christmas' }, desc: { da: 'Gør alle 24 julekugler gyldne.', en: 'Turn all 24 baubles gold.' } },
   ];
 
@@ -159,15 +159,18 @@
   const TEASER = YEAR * 10000 + 1129; // 1st Advent: the calendar shows, every door locked
   const nowDate = () => (KOS.Season && KOS.Season.now ? KOS.Season.now() : new Date(Date.now()));
   const seasonOn = date => !!(KOS.Season && KOS.Season.active('xmas', date));
+  const godOn = () => !!(KOS.Storage && KOS.Storage.god && KOS.Storage.god());
   const range = n => { const a = []; for (let i = 1; i <= n; i++) a.push(i); return a; };
   const validN = n => Number.isInteger(+n) && +n >= 1 && +n <= N && String(+n) === String(n);
 
-  // phase of the calendar on a day. Outside the window (or #xmas=0) it is 'before' / 'closed'. Forced on (#xmas=1) outside
-  // the dates counts as 'after', so a tester can open every door any time of year.
+  // phase of the calendar on a day. Outside the window (or #xmas=0) it is 'before' / 'closed'. Forced on (#xmas=1) before
+  // the dates is only a locked teaser, unless God mode is on: then it counts as 'after', so a tester can open every door
+  // any time of year. Without God mode a shared #xmas=1 link must not open (and save) doors before December.
   function dayInfo(date) {
     date = date || nowDate();
     const n = dateNum(date);
     if (!seasonOn(date)) return { phase: n < TEASER ? 'before' : 'closed', today: null, openable: [] };
+    if (n < TEASER && !godOn()) return { phase: 'teaser', today: null, openable: [] };
     if (n >= TEASER && n < FIRST) return { phase: 'teaser', today: null, openable: [] };
     if (n >= FIRST && n <= LAST) { const d = n - FIRST + 1; return { phase: 'advent', today: d, openable: range(d) }; }
     return { phase: 'after', today: null, openable: range(N) };

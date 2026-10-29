@@ -200,7 +200,7 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
 .xc-gal-count { display: inline-block; margin-top: 6px; padding: 2px 12px; border-radius: 999px; background: rgba(255, 211, 106, .16); border: 1px solid rgba(255, 211, 106, .45); color: #ffd36a; font-weight: 900; white-space: nowrap; }
 .xc-gal { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px; }
 .xc-gslot {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px; min-width: 0; border-radius: 12px;
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 1px 5px; min-width: 0; overflow: hidden; border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); color: #fff; font: inherit; cursor: default;
 }
 .xc-gslot.has { background: radial-gradient(circle at 50% 35%, rgba(255, 211, 106, .22), rgba(255, 255, 255, .05) 70%); border-color: rgba(255, 211, 106, .45); cursor: pointer; }
@@ -208,7 +208,11 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
 .xc-gslot:disabled { opacity: 1; }
 .xc-gslot .xa-elf { width: 30px; height: 44px; }
 .xc-gnum { position: absolute; left: 5px; top: 3px; font-size: 10px; font-weight: 900; color: rgba(255, 255, 255, .5); }
-.xc-gname { width: 100%; font-size: 11px; font-weight: 800; line-height: 1.15; text-align: center; word-break: normal; overflow-wrap: normal; hyphens: manual; color: rgba(240, 244, 255, .9); }
+.xc-gname { width: 100%; font-size: 11px; font-weight: 800; line-height: 1.15; text-align: center; word-break: normal; overflow-wrap: break-word; hyphens: manual; color: rgba(240, 244, 255, .9); }
+@media (max-width: 600px) { /* phone portrait: 4-6 narrow slots a row */
+  .xc-gname.is-long { font-size: 10px; letter-spacing: -.02em; } /* a word of 6+ letters: Klampe-, Tovværk- */
+  .xc-gname.is-xlong { font-size: 9px; } /* 10+: Redningsvest-, Julestjerne- */
+}
 .xc-gslot:not(.has) .xc-gname { color: rgba(255, 255, 255, .45); font-size: 13px; }
 .xc-gtag { min-height: 1.4em; margin-top: 8px !important; text-align: center; font-size: .9rem; }
 .xc-gtag b { color: #ffd36a; }
@@ -268,6 +272,15 @@ html.season-xmas-deco body[data-screen="title"] .mbg-vignette { background:
   .xmas-screen .screen-head .xc-chip-txt small { display: none; }
   .xmas-screen .screen-head .xc-chip { padding-right: 12px; }
 }
+@media (max-width: 360px) { /* 320 px: a slimmer chip, so "Advent calendar" and "24/24 doors opened" still fit next to "12/24" */
+  .xmas-screen .screen-head .xc-chip { height: 44px; gap: 2px; padding: 0 9px 0 2px; }
+  .xmas-screen .screen-head .xc-chip-elf { width: 22px; height: 34px; margin-top: -4px; }
+  .xmas-screen .screen-head .xc-chip-elf .xa-elf { width: 22px; height: 34px; }
+  .xmas-screen .screen-head .xc-chip-txt b { font-size: 14px; }
+}
+/* the status line may wrap rather than end in "…" (the header's usual line clamp) */
+.xmas-screen .head-sub { display: block; overflow: visible; -webkit-line-clamp: unset; }
+.xc-status { white-space: normal; }
 @media (max-height: 500px) {
   .xc-body.is-land .xc-side { gap: 4px; padding: 8px; }
   .xc-body.is-land .xc-tree { max-height: 52%; }
