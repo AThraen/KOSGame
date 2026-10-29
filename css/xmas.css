@@ -1,0 +1,218 @@
+/* KØS SEJL — css/xmas.css: the Julekalender (js/ui/xmascal.js, js/render/xmasart.js; issue #6).
+   Everything here hangs off the calendar's own classes (.xmas-screen, .xc-*, .xmas-elf, .hub-pin-ev-xmas, .hub-xmas),
+   which only exist while the 'xmas' season window is open, so outside the season nothing here matches. */
+
+/* ------------------------------------------------------------------ the calendar screen */
+.xmas-screen { --xc-gold: #ffd36a; --xc-red: #d9302c; --xc-green: #2f9a54; }
+.xmas-screen::before { /* a cold winter evening over the menu photo */
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(120% 70% at 50% 0%, rgba(40, 70, 120, .55), rgba(8, 14, 32, .88) 70%), linear-gradient(180deg, rgba(10, 18, 40, .6), rgba(6, 10, 24, .92));
+}
+.xmas-screen .screen-head { margin-bottom: 10px; }
+.xmas-screen .head-title h1 { color: #fff7e6; text-shadow: 0 3px 0 rgba(120, 20, 20, .55), 0 4px 16px rgba(0, 0, 0, .4); }
+.xc-status { color: var(--xc-gold); font-weight: 800; }
+
+.xc-body { flex: 1; min-height: 0; width: 100%; max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.xc-body.is-land { flex-direction: row; align-items: stretch; }
+.xc-body.is-scroll { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+
+/* the boat shed wall: painted navy boards, a snow lip on the roof edge, a string of lights */
+.xc-wall {
+  position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  padding: 22px 10px 10px; border-radius: 18px; border: 2px solid #0d1830;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(0, 0, 0, .25)),
+    repeating-linear-gradient(90deg, #22385a 0 34px, #1d3152 34px 36px, #263f63 36px 70px, #1b2e4d 70px 72px);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .05), inset 0 -18px 30px rgba(0, 0, 0, .3), 0 12px 32px rgba(0, 0, 0, .45);
+}
+.xc-body.is-scroll .xc-wall { flex: none; }
+.xc-wall::before { /* snow on the roof edge */
+  content: ""; position: absolute; left: -2px; right: -2px; top: -6px; height: 16px; border-radius: 12px 12px 6px 6px; pointer-events: none;
+  background: radial-gradient(14px 10px at 10% 100%, transparent 98%, #eef4fb 100%) , #eef4fb;
+  -webkit-mask: radial-gradient(10px 7px at 50% 100%, transparent 96%, #000 100%) 0 0 / 22px 100% repeat-x;
+          mask: radial-gradient(10px 7px at 50% 100%, transparent 96%, #000 100%) 0 0 / 22px 100% repeat-x;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .15);
+}
+.xc-lights { /* static fairy lights under the snow (no animation: cheap everywhere) */
+  position: absolute; left: 14px; right: 14px; top: 9px; height: 10px; pointer-events: none;
+  background:
+    radial-gradient(circle, #ff5a4f 0 3px, rgba(255, 90, 79, .35) 4px, transparent 6px) 0 50% / 72px 10px repeat-x,
+    radial-gradient(circle, #ffd36a 0 3px, rgba(255, 211, 106, .35) 4px, transparent 6px) 18px 50% / 72px 10px repeat-x,
+    radial-gradient(circle, #5fd38a 0 3px, rgba(95, 211, 138, .35) 4px, transparent 6px) 36px 50% / 72px 10px repeat-x,
+    radial-gradient(circle, #7ec8ff 0 3px, rgba(126, 200, 255, .35) 4px, transparent 6px) 54px 50% / 72px 10px repeat-x;
+}
+.xc-grid { display: grid; grid-template-columns: repeat(var(--cols, 4), var(--d, 70px)); gap: 6px; justify-content: center; align-content: center; }
+
+.xc-door {
+  position: relative; width: var(--d, 70px); height: calc(var(--d, 70px) * 1.2); padding: 0; border: 0; background: none; cursor: pointer;
+  border-radius: 8px; -webkit-tap-highlight-color: transparent; transition: transform .15s var(--ease-pop, ease);
+}
+.xc-door .xa-door { display: block; width: 100%; height: 100%; overflow: visible; }
+.xc-door:active { transform: scale(.95); }
+.xc-door:focus-visible { outline: 3px solid var(--xc-gold); outline-offset: 2px; }
+.xc-door.is-locked { filter: saturate(.85); }
+.xc-door.is-ready { filter: drop-shadow(0 0 8px rgba(255, 211, 106, .55)); animation: xcGlow 2.2s ease-in-out infinite; }
+.xc-door.is-ready.is-today { filter: drop-shadow(0 0 12px rgba(255, 220, 120, .9)); }
+@keyframes xcGlow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+.xc-door.is-gold { filter: drop-shadow(0 0 6px rgba(255, 200, 60, .55)); }
+.xc-door.is-opening { animation: none; transform-origin: 8% 50%; transition: transform .4s cubic-bezier(.5, 0, .7, .4); transform: perspective(300px) rotateY(-80deg); }
+.xc-door.just-opened { animation: xcPop .45s var(--ease-pop, ease) both; }
+@keyframes xcPop { from { transform: scale(.8); opacity: .3; } to { transform: none; opacity: 1; } }
+
+/* the tree panel: under the wall on phones, beside it when wide */
+.xc-side {
+  flex: none; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 18px;
+  background: rgba(13, 19, 33, .62); border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
+.xc-side { position: relative; }
+.xc-body.is-land .xc-side { flex-direction: column; justify-content: center; width: clamp(190px, 22%, 260px); padding: 10px; gap: 6px; }
+.xc-tree { position: relative; flex: none; height: 112px; aspect-ratio: 100 / 122; }
+.xc-tree .xa-tree { width: 100%; height: 100%; display: block; }
+.xc-body.is-land .xc-tree { height: auto; width: 100%; max-height: 62%; max-width: 100%; display: flex; justify-content: center; }
+.xc-body.is-land .xc-tree .xa-tree { width: auto; max-width: 100%; height: 100%; max-height: 100%; }
+.xc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: .92rem; color: rgba(240, 244, 255, .85); }
+.xc-body.is-land .xc-info { flex: none; align-items: center; text-align: center; }
+.xc-info-t { color: #fff7e6; font-size: 1.02rem; font-weight: 900; }
+.xc-star-note { color: var(--xc-gold); }
+
+/* header chip: "Nisse-jagt 3/24" (also on the hub) */
+.xc-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 52px; padding: 0 14px 0 6px; border-radius: 999px; cursor: pointer; flex: none;
+  background: linear-gradient(180deg, rgba(160, 30, 36, .92), rgba(110, 16, 26, .92)); border: 1px solid rgba(255, 211, 106, .55); color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .15); font: inherit; transition: transform .12s;
+}
+.xc-chip:active { transform: scale(.95); }
+.xc-chip-elf { width: 30px; height: 40px; display: grid; place-items: center; margin-top: -6px; }
+.xc-chip-elf .xa-elf { width: 30px; height: 46px; }
+.xc-chip-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.xc-chip-txt small { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--xc-gold, #ffd36a); white-space: nowrap; }
+.xc-chip-txt b { font-size: 17px; font-weight: 900; }
+
+/* God mode: test date pill + dev bar */
+.xc-testdate {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; align-self: flex-start;
+  background: rgba(255, 90, 60, .22); border: 1px dashed rgba(255, 160, 120, .8); color: #ffd9c9; font-size: 12.5px; font-weight: 800; white-space: nowrap;
+}
+.xc-body.is-land .xc-testdate { align-self: center; }
+.xc-testdate .ico { width: 15px; height: 15px; }
+.xc-dev { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.xc-body.is-land .xc-dev { justify-content: center; }
+.xc-dev-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 36px; min-width: 36px; padding: 0 8px; justify-content: center; cursor: pointer;
+  border-radius: 10px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #fff; font: inherit; font-size: 12.5px; font-weight: 800;
+}
+.xc-dev-btn .ico { width: 18px; height: 18px; }
+.xc-dev-day { font-size: 12.5px; font-weight: 800; min-width: 44px; text-align: center; }
+.xc-dev-reset { color: #ffd9c9; border-color: rgba(255, 140, 110, .5); }
+
+/* closed (outside the season, a stale deep link) */
+.xc-closed { padding: 24px; text-align: center; max-width: 360px; font-weight: 700; }
+.xc-closed .xa-tree { width: 120px; margin: 0 auto 12px; display: block; }
+
+/* ------------------------------------------------------------------ hidden elves (any screen) */
+.xmas-elf {
+  position: absolute; z-index: 3; width: 44px; height: 54px; padding: 4px 7px; border: 0; background: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transform-origin: 50% 100%;
+}
+.xmas-elf .xa-elf { width: 30px; height: 46px; display: block; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35)); }
+.xmas-elf:focus-visible { outline: 3px solid #ffd36a; outline-offset: 0; border-radius: 10px; }
+.xmas-elf.is-found { animation: xcHop .7s cubic-bezier(.3, .2, .6, 1) forwards; pointer-events: none; }
+@keyframes xcHop { 0% { transform: none; } 30% { transform: translateY(-22px) scale(1.15); } 60% { transform: translate(18px, -30px) rotate(20deg) scale(.9); opacity: 1; } 100% { transform: translate(60px, -10px) rotate(40deg) scale(.4); opacity: 0; } }
+.xc-elf-a { right: 6px; top: -18px; } /* peeking over the tree panel's top edge */
+.xc-body.is-land .xc-elf-a { right: auto; left: 2px; top: 4px; }
+.xc-elf-b { right: -14px; bottom: 6px; } /* behind the tree's tub */
+.xc-elf-results { right: 8px; top: 6px; }
+
+/* ------------------------------------------------------------------ door card + elf gallery (dialogs) */
+.dialog.xc-card-dlg { width: min(100%, 460px); border: 1px solid rgba(255, 211, 106, .35); background: linear-gradient(180deg, rgba(60, 16, 24, .95), rgba(16, 24, 42, .96) 45%); }
+.xc-card-dlg .dialog-title { color: #fff7e6; }
+.xc-card { display: flex; gap: 12px; align-items: flex-start; }
+.xc-card-coach { flex: none; width: 76px; height: 76px; margin-top: 4px; }
+.xc-card-coach svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.xc-card-main { flex: 1; min-width: 0; }
+.xc-card-who { font-size: .8rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #ffd36a; }
+.xc-card-text { margin-top: 2px; color: #fff; font-size: 1.02rem; }
+.xc-card-gold { display: flex; gap: 6px; align-items: center; margin-top: 8px !important; font-size: .88rem; color: rgba(240, 244, 255, .75); }
+.xc-card-gold.is-gold { color: #ffd36a; }
+.xc-mini { width: 18px; height: 18px; flex: none; }
+.xc-hint { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 8px 12px 8px 6px; border-radius: 14px; background: rgba(255, 255, 255, .07); border: 1px dashed rgba(255, 255, 255, .22); }
+.xc-hint .xa-elf { width: 30px; height: 46px; flex: none; }
+.xc-hint p { font-size: .92rem; }
+.xc-hint b { color: #ffd36a; }
+
+.dialog.xc-gal-dlg { width: min(100%, 560px); }
+.xc-gal-lead { font-size: .92rem; text-align: center; }
+.xc-gal { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px; }
+.xc-gslot {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px; min-width: 0; border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); color: #fff; font: inherit; cursor: default;
+}
+.xc-gslot.has { background: radial-gradient(circle at 50% 35%, rgba(255, 211, 106, .22), rgba(255, 255, 255, .05) 70%); border-color: rgba(255, 211, 106, .45); cursor: pointer; }
+.xc-gslot.on { outline: 2px solid #ffd36a; }
+.xc-gslot:disabled { opacity: 1; }
+.xc-gslot .xa-elf { width: 30px; height: 44px; }
+.xc-gnum { position: absolute; left: 5px; top: 3px; font-size: 10px; font-weight: 900; color: rgba(255, 255, 255, .5); }
+.xc-gname { width: 100%; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: center; overflow-wrap: anywhere; hyphens: auto; color: rgba(240, 244, 255, .9); min-height: 2.2em; }
+.xc-gslot:not(.has) .xc-gname { color: rgba(255, 255, 255, .45); font-size: 13px; }
+.xc-gtag { min-height: 1.4em; margin-top: 8px !important; text-align: center; font-size: .9rem; }
+.xc-gtag b { color: #ffd36a; }
+@media (max-width: 380px) { .xc-gal { grid-template-columns: repeat(4, 1fr); } }
+
+/* ------------------------------------------------------------------ hub: the Julekalender pin + the Christmas strip */
+.hub-pin-ev-xmas .hub-pin-badge {
+  background: radial-gradient(circle at 38% 32%, #3fb064 0%, #1f6b39 68%, #12401f 100%); border-color: #ffd36a;
+  box-shadow: 0 0 0 4px rgba(255, 211, 106, .3), 0 10px 22px rgba(4, 10, 25, .5), 0 0 24px rgba(255, 211, 106, .55);
+}
+.hub-pin-ev-xmas .hub-pin-badge svg { width: 38px; height: 38px; margin-top: -2px; }
+.hub-pin-ev-xmas .hub-pin-label { background: linear-gradient(180deg, rgba(150, 24, 32, .96), rgba(96, 12, 22, .96)); border-color: rgba(255, 211, 106, .6); }
+.hub-pin-ev-xmas .hub-pin-name { color: #fff7e6; }
+.hub-pin-ev-xmas .hub-pin-stars { color: #ffd36a; }
+.hub-pin-ev-xmas:not(.is-ready) .hub-pin-ring { display: none; }
+.hub-pin-ev-xmas.is-ready .hub-pin-ring { border-color: #ffd36a; }
+.hub-place-ev-xmas .hub-place-badge { background: radial-gradient(circle at 38% 32%, #3fb064, #1f6b39) !important; }
+.hub-place-ev-xmas .hub-place-badge svg { width: 28px; height: 28px; }
+
+.hub-xmas {
+  position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); top: calc(70px + var(--hub-safe-t, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+}
+.hub-xmas > * { pointer-events: auto; }
+.hub .xc-chip { height: 44px; border-radius: 999px; }
+.hub .xc-chip.hub-glass { background: linear-gradient(180deg, rgba(160, 30, 36, .9), rgba(110, 16, 26, .9)); border-color: rgba(255, 211, 106, .55); }
+.hub .xc-testdate.hub-glass { border-radius: 999px; padding: 4px 10px; background: rgba(120, 30, 20, .8); border: 1px dashed rgba(255, 160, 120, .85); box-shadow: none; }
+@media (max-height: 500px) { .hub-xmas { top: calc(58px + var(--hub-safe-t, 0px)); flex-direction: row; } }
+
+/* ------------------------------------------------------------------ small screens */
+@media (max-width: 440px) {
+  .xc-chip { height: 46px; padding-right: 10px; }
+  .xc-chip-txt small { font-size: 9.5px; }
+  .xc-chip-txt b { font-size: 15px; }
+  .xc-side { padding: 6px 10px; gap: 10px; }
+  .xc-tree { height: 96px; }
+}
+@media (max-width: 360px) {
+  .xc-chip-txt small { display: none; }
+  .xc-chip { padding-right: 12px; }
+}
+@media (max-height: 500px) {
+  .xc-body.is-land .xc-side { gap: 4px; padding: 8px; }
+  .xc-body.is-land .xc-tree { max-height: 52%; }
+  .xc-info { font-size: .82rem; gap: 3px; }
+  .xc-info-t { font-size: .92rem; }
+  .xc-dev { flex-wrap: nowrap; gap: 4px; }
+  .xc-dev-btn { height: 32px; min-width: 32px; padding: 0 6px; }
+  .xc-dev-reset span { display: none; }
+  .xmas-screen .screen-head { margin-bottom: 6px; }
+  .xmas-screen .head-title h1 { font-size: 1.25rem; }
+  .xmas-screen .head-sub { font-size: .85rem; }
+  .xmas-screen .xc-chip { height: 44px; }
+  .xc-wall { padding-top: 20px; }
+}
+
+/* reduced motion: no glow pulse, no swing, no hop */
+.reduce-motion .xc-door.is-ready, .reduce-motion .xc-door.just-opened, .reduce-motion .xmas-elf.is-found { animation: none !important; }
+.reduce-motion .xc-door.is-opening { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .xc-door.is-ready, .xc-door.just-opened, .xmas-elf.is-found { animation: none !important; }
+  .xc-door.is-opening { transition: none; }
+}

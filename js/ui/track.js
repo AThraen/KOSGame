@@ -78,7 +78,8 @@
 
   // fixed Danish names, so the statistics don't split by the player's language
   const SCREENS = { title: ['start', 'Start'], hub: ['kort', 'Kort'], profile: ['profil', 'Profil'], garage: ['sejlerpas', 'Sejlerpas'], boatcard: ['sejlerpas/baadkort', 'Bådkort'],
-    settings: ['indstillinger', 'Indstillinger'], credits: ['om-spillet', 'Om spillet'], live: ['live-kapsejlads', 'Live-kapsejlads'] };
+    settings: ['indstillinger', 'Indstillinger'], credits: ['om-spillet', 'Om spillet'], live: ['live-kapsejlads', 'Live-kapsejlads'],
+    xmas: ['julekalender', 'Julekalender'] };
   const AREAS = { club: ['klubhuset', 'Klubhuset'], school: ['sejlerskolen', 'Sejlerskolen'], bay: ['fri-sejlads', 'Fri sejlads'],
     race: ['kapsejlads', 'Kapsejlads'], rules: ['vigeregler', 'Vigeregler'], nav: ['navigation', 'Navigation'],
     pier: ['havnemanoevrer', 'Havnemanøvrer'], rib: ['rib-missioner', 'RIB-missioner'], event: ['halloween', 'Halloween'] };
@@ -90,7 +91,7 @@
       const A = KOS.Activities, run = KOS.App && KOS.App.run;
       const act = (screen === 'play' && run && run.act) || (params.id && A && A.get(params.id)) || (run && run.act);
       if (!act) return null;
-      const ar = areaOf(act.area), name = act.title ? (act.title.da || act.title.en || act.id) : act.id;
+      const ar = act.season === 'xmas' ? SCREENS.xmas : areaOf(act.area), name = act.title ? (act.title.da || act.title.en || act.id) : act.id;
       return screen === 'play' ? { path: '/' + ar[0] + '/' + act.id, title: [ar[1], name] }
         : { path: '/' + ar[0] + '/' + act.id + '/resultat', title: [ar[1], name, 'Resultat'] };
     }

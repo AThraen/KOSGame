@@ -918,6 +918,7 @@
     run.mode = mode;
     run.boatPick = null;
     run.live = opts.live || null; // live race session facade (js/net/mp.js liveFacade); only the lobby passes it
+    run.from = opts.from || null; // 'xmas': launched from a Julekalender door -> quit / results lead back to the calendar
     if (a.pick && !a.pickHidden) { // chosen boat for a pick activity (docs/specs/boat-pick.md); force:true without a boat keeps the old behaviour
       let b = opts.boat;
       if (!b && !opts.force) { const pk = pickInfo(a); if (pk && !pk.free && pk.chosen !== pk.def) b = pk.chosen; }
@@ -1196,7 +1197,7 @@
       sfx('click');
       const k = b.getAttribute('data-p');
       if (k === 'resume') setPaused(false);
-      else if (k === 'restart') App.play(run.act.id, { force: true, boat: run.boatPick });
+      else if (k === 'restart') App.play(run.act.id, { force: true, boat: run.boatPick, from: run.from });
       else if (k === 'quit') quit();
       else if (k.indexOf('win') === 0) { const n = +k.slice(3); setPaused(false); finish({ stars: n, success: true, score: n * 1000, timeMs: 60000, stats: { godmode: true } }); }
       else if (k === 'sound') {
@@ -1220,7 +1221,8 @@
     const a = run.act;
     stopRun();
     doc.body.classList.remove('mode-sea', 'mode-dom');
-    if (a) App.show('area', { area: a.area }, { replace: true });
+    if (a && (run.from === 'xmas' || a.season === 'xmas') && KOS.XmasCal && KOS.XmasCal.live()) App.show('xmas', {}, { replace: true });
+    else if (a) App.show('area', { area: a.area }, { replace: true });
     else App.show('hub', {}, { replace: true });
   }
 
@@ -1241,7 +1243,7 @@
     cancelAnimationFrame(run.raf); run.raf = 0;
     setTimeout(() => {
       stopRun();
-      run.lastResult = { result, rec, activity: a, newBadges, capsized: run.capsized };
+      run.lastResult = { result, rec, activity: a, newBadges, capsized: run.capsized, from: run.from };
       App.show('results', { id: a.id }, { replace: true });
     }, 650);
     emit('play:finish', { id: a.id, result, rec });
@@ -1252,15 +1254,18 @@
     const lr = run.lastResult;
     if (!lr) { App.show('hub', {}, { replace: true }); return; }
     const a = lr.activity;
+    // a Julekalender door (or a Christmas activity): no "Næste" in the event area, and the map button leads back to the calendar
+    const xmas = (lr.from === 'xmas' || a.season === 'xmas') && !!(KOS.XmasCal && KOS.XmasCal.live());
     // Næste: the next activity in this area that is already open (skip ones still locked behind stars or a
     // later boat); if none is open, keep the locked button and say what it takes
     const later = (() => { const list = KOS.Activities.byArea(a.area), i = list.indexOf(a); return i >= 0 ? list.slice(i + 1) : []; })();
-    const next = later.find(x => KOS.Activities.isUnlocked(x.id)) || later[0] || null;
+    const next = xmas || a.area === 'event' ? null : later.find(x => KOS.Activities.isUnlocked(x.id)) || later[0] || null;
     const nextUnlocked = !!next && KOS.Activities.isUnlocked(next.id);
     const card = UI().results(lr.result, a, { record: lr.rec, next, nextUnlocked, capsized: !!lr.capsized });
     sec.innerHTML = '<div class="scroll center"></div>';
     sec.firstChild.appendChild(card);
     if (a.liveRace && KOS.Lobby && KOS.Lobby.decorateResults) KOS.Lobby.decorateResults(card); // host: rematch button; others: a waiting note
+    if (KOS.XmasCal) { try { KOS.XmasCal.decorateResults(card, a, xmas); } catch (e) { console.error(e); } } // its hidden elf (spec 5), "Julekalender" button
     if (next && !nextUnlocked) card.querySelector('.results-buttons').insertAdjacentHTML('afterend', '<p class="results-locknote">' + ico('lock') + '<span>' + esc(tt(next.title)) + ': ' + esc(lockText(next.id)) + '</span></p>');
     const win = lr.result.live ? !!lr.result.win : lr.result.success !== false && (+lr.result.stars || 0) > 0;
     if (lr.rec && lr.rec.starsGained) {
@@ -1304,10 +1309,10 @@
     }
     lr.shown = true;
     bind(sec, {
-      retry: () => { sfx('click'); if (a.liveRace) { if (KOS.Lobby) KOS.Lobby.open(); else App.show('area', { area: 'race' }); return; } App.play(a.id, { force: true, boat: run.boatPick }); },
+      retry: () => { sfx('click'); if (a.liveRace) { if (KOS.Lobby) KOS.Lobby.open(); else App.show('area', { area: 'race' }); return; } App.play(a.id, { force: true, boat: run.boatPick, from: lr.from }); },
       rematch: () => { sfx('click'); if (KOS.Lobby) KOS.Lobby.rematch(); },
       next: () => { sfx('click'); if (next) App.play(next.id); },
-      map: () => { sfx('click'); if (a.liveRace && KOS.Lobby && KOS.Lobby.leaveParked) KOS.Lobby.leaveParked(); App.stack = App.stack.filter(s => s.screen === 'title'); App.show('hub', {}, { replace: true }); },
+      map: () => { sfx('click'); if (xmas) { App.show('xmas', {}, { replace: true }); return; } if (a.liveRace && KOS.Lobby && KOS.Lobby.leaveParked) KOS.Lobby.leaveParked(); App.stack = App.stack.filter(s => s.screen === 'title'); App.show('hub', {}, { replace: true }); },
     });
   };
 

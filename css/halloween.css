@@ -46,15 +46,15 @@ html.season-halloween-deco .results-card { box-shadow: 0 0 0 1px rgba(255, 140, 
 /* ------------------------------------------------------------------ hub promo pin (event window; self-contained, fine without the deco)
    a normal .hub-pin (counter-scaled, kept clear of the top bar and bottom card by hub.js fit()) dressed as a jack-o'-lantern */
 .hub-pin-event { z-index: 2; }
-.hub-pin-event .hub-pin-badge {
+.hub-pin-ev-halloween .hub-pin-badge {
   background: radial-gradient(circle at 40% 35%, #5b2a8c 0%, #2c1250 70%, #1a0a33 100%); border-color: #ffb547;
   box-shadow: 0 0 0 4px rgba(255, 138, 26, .35), 0 10px 22px rgba(4, 10, 25, .5), 0 0 28px rgba(255, 138, 26, .75);
 }
-.hub-pin-event .hub-pin-badge svg { width: 44px; height: 44px; margin-top: 2px; }
-.hub-pin-event .hub-pin-label { background: linear-gradient(180deg, rgba(52, 20, 86, .95), rgba(26, 10, 48, .95)); border-color: rgba(255, 160, 70, .6); }
-.hub-pin-event .hub-pin-name { color: #ffb547; }
-.hub-pin-event .hub-pin-stars { color: #e4d2ff; }
-.hub-place-event .hub-place-badge svg { width: 30px; height: 30px; }
+.hub-pin-ev-halloween .hub-pin-badge svg { width: 44px; height: 44px; margin-top: 2px; }
+.hub-pin-ev-halloween .hub-pin-label { background: linear-gradient(180deg, rgba(52, 20, 86, .95), rgba(26, 10, 48, .95)); border-color: rgba(255, 160, 70, .6); }
+.hub-pin-ev-halloween .hub-pin-name { color: #ffb547; }
+.hub-pin-ev-halloween .hub-pin-stars { color: #e4d2ff; }
+.hub-place-ev-halloween .hub-place-badge svg { width: 30px; height: 30px; }
 
 /* ------------------------------------------------------------------ the level: ghost-hit flash */
 .hw-boo { position: absolute; inset: 0; pointer-events: none; z-index: 3; opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(170, 110, 255, 0) 30%, rgba(120, 60, 220, .55) 100%); }

@@ -604,20 +604,66 @@
     </header>`;
   }
 
-  // ------------------------------------------------------------------ seasonal event (Halloween, js/ui/season.js)
-  // promo pin: a pumpkin pin out in the bay where the level is sailed, while the event activity exists (KOS.Season
-  // 'halloween', through 9 Nov). It is a normal place pin (counter-scaled, kept on screen by fit()) and needs no
-  // decorations around it. Map decorations: only while 'halloween-deco' is open (through 31 Oct), static (animated
-  // vectors on the panned map layer made Android flash).
-  const EVENT_ID = 'halloween.hunt', TOAST_KEY = 'hw2026Toast', EVENT_AT = { x: -25, y: -355 };
-  function eventAct() { try { return KOS.Activities && KOS.Activities.get(EVENT_ID); } catch (e) { return null; } }
+  // ------------------------------------------------------------------ seasonal events (js/ui/season.js)
+  // One promo pin per event that is on (EVENTS): a normal place pin (counter-scaled, kept on screen by fit()) that needs
+  // no decorations around it, the same entry in "Alle steder", and a hello the first time(s) the hub opens.
+  //   halloween: a pumpkin pin out in the bay where the level is sailed, while the activity exists (through 9 Nov)
+  //   xmas:      the Julekalender pin at the club (29 Nov - 6 Jan, js/ui/xmascal.js); its subline is the calendar's status
+  // Map decorations: only while 'halloween-deco' is open (through 31 Oct), static (animated vectors on the panned map
+  // layer made Android flash).
+  const HW_ID = 'halloween.hunt', HW_TOAST = 'hw2026Toast';
+  const actGet = id => { try { return KOS.Activities && KOS.Activities.get(id); } catch (e) { return null; } };
+  const XC = () => KOS.XmasCal;
+  // at = world point (m); off = map px offset from it
+  const EVENTS = [
+    { id: 'halloween', color: '#ff8a1a', at: { x: -25, y: -355 }, off: [0, 0],
+      on: () => !!(actGet(HW_ID) && KOS.Spooky),
+      badge: () => KOS.Spooky.svg.pumpkin,
+      name: () => t('halloween.pinName'), sub: () => t('halloween.pinSub'), aria: () => t('halloween.promo'),
+      open: () => { if (KOS.App && KOS.App.play) KOS.App.play(HW_ID); },
+      hello: () => {
+        if (KOS.Storage.get(HW_TOAST, false)) return;
+        KOS.Storage.set(HW_TOAST, true);
+        KOS.UI.toast(t('halloween.toast'), { kind: 'info', icon: 'pumpkin', ms: 5000 });
+      } },
+    { id: 'xmas', color: '#e0392e', at: { x: 60, y: 60 }, off: [-106, -330],
+      on: () => !!(XC() && XC().live() && KOS.XmasArt),
+      badge: () => KOS.XmasArt.svg.gift,
+      name: () => t('xcal.pin'), sub: () => XC().status(), aria: () => t('xcal.pin') + ' – ' + XC().status(),
+      ready: () => XC().hasReady(),
+      open: () => go('xmas'),
+      hello: () => xmasHello() },
+  ];
+  const eventsOn = () => EVENTS.filter(e => { try { return e.on(); } catch (err) { return false; } });
+  const eventById = id => EVENTS.find(e => e.id === id);
   function promoPinHtml() {
-    if (!eventAct() || !KOS.Spooky) return '';
-    return `<button class="hub-pin hub-pin-event" type="button" data-act="event" style="--c:#ff8a1a">
+    return eventsOn().map(e => `<button class="hub-pin hub-pin-event hub-pin-ev-${e.id}" type="button" data-act="event" data-ev="${e.id}" style="--c:${e.color}">
       <span class="hub-pin-ring"></span>
-      <span class="hub-pin-badge">${KOS.Spooky.svg.pumpkin}</span>
-      <span class="hub-pin-label"><b class="hub-pin-name" data-k="halloween.pinName"></b><span class="hub-pin-stars"><span data-k="halloween.pinSub"></span></span></span>
-    </button>`;
+      <span class="hub-pin-badge">${e.badge()}</span>
+      <span class="hub-pin-label"><b class="hub-pin-name"></b><span class="hub-pin-stars"><span class="hub-pin-sub"></span></span></span>
+    </button>`).join('');
+  }
+  // the Julekalender's hello: a one-time toast the first time the hub opens in the season, then (at most once a day) a
+  // Santa-hatted coach line when today's door is ready. Stored in the calendar's own state (seen.toast / seen.coachDay).
+  function xmasHello() {
+    const X = KOS.Xmas, info = X.dayInfo();
+    if (!X.seen('toast')) {
+      X.markSeen('toast');
+      KOS.UI.toast(t(info.phase === 'teaser' ? 'xcal.teaserToast' : 'xcal.toast'), { kind: 'info', icon: 'calendar', ms: 5000 });
+      return; // one thing at a time; the coach comes on the next visit
+    }
+    const d0 = KOS.Season.now(), day = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
+    if (info.phase !== 'advent' || X.isOpen(info.today) || X.seen('coachDay') === day || !KOS.UI.coach) return;
+    if (document.querySelector('.coach')) return; // the first-visit swipe tip goes first
+    X.markSeen('coachDay', day);
+    const d = X.door(info.today);
+    state.xmasCoach = KOS.UI.coach(t('xcal.coachReady', { n: info.today }), { pos: 'bottom', ms: 6500, coach: d.coach, avatar: XC().hatCoach(d.coach) });
+  }
+  // the hub's Christmas strip under the top bar: the "Nisse-jagt 3/24" chip and the God-mode "Testdato" pill
+  function xmasBarHtml() {
+    if (!XC()) return '';
+    const inner = (XC().live() ? XC().chipHtml('hub-glass') : '') + XC().testPill('hub-glass');
+    return inner ? `<div class="hub-xmas">${inner}</div>` : '';
   }
   // world points (m) + size in map px
   const DECO = [
@@ -651,7 +697,7 @@
     const rootEl = document.createElement('div');
     rootEl.className = 'hub' + (isLite ? ' hub-lite' : '');
     rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${dev ? '' : baseHtml(isLite)}${mapCache}<div class="hub-labels">${labelsHtml()}</div>${decoHtml()}${cloudsCache || ''}<div class="hub-pins">${AREAS.map(pinHtml).join('')}${promoPinHtml()}</div></div></div>
-      ${topHtml()}
+      ${topHtml()}${xmasBarHtml()}
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
       <div class="hub-bottom"><div class="hub-next hub-glass" hidden><div class="hub-next-txt"><small data-k="hub.next"></small><b class="hub-next-title"></b></div><button type="button" class="hub-next-go" data-act="next">${icon('play')}<span data-k="hub.play"></span></button></div><div class="hub-hint" data-k="hub.hint"></div></div>`;
@@ -670,12 +716,11 @@
       el.style.left = ((q[0] + a.off[0]) / PROJ.W * 100).toFixed(3) + '%';
       el.style.top = ((q[1] + a.off[1]) / PROJ.H * 100).toFixed(3) + '%';
     }
-    const evPin = rootEl.querySelector('.hub-pin-event');
-    if (evPin) {
-      const q = PROJ.p(EVENT_AT.x, EVENT_AT.y);
-      evPin.style.left = (q[0] / PROJ.W * 100).toFixed(3) + '%';
-      evPin.style.top = (q[1] / PROJ.H * 100).toFixed(3) + '%';
-    }
+    rootEl.querySelectorAll('.hub-pin-event').forEach(evPin => {
+      const ev = eventById(evPin.getAttribute('data-ev')), q = PROJ.p(ev.at.x, ev.at.y);
+      evPin.style.left = ((q[0] + ev.off[0]) / PROJ.W * 100).toFixed(3) + '%';
+      evPin.style.top = ((q[1] + ev.off[1]) / PROJ.H * 100).toFixed(3) + '%';
+    });
     const reduce = lite.reduced();
     const mapSvg = () => rootEl.querySelector('svg.hub-map');
     const stopMap = () => { try { const m = mapSvg(); m && m.pauseAnimations(); } catch (e) { /* ignore */ } };
@@ -747,7 +792,7 @@
     bindInput();
     rootEl.addEventListener('click', onClick);
     const on = (ev, fn) => { if (KOS.Events && KOS.Events.on) { KOS.Events.on(ev, fn); state.unsub.push(() => KOS.Events.off && KOS.Events.off(ev, fn)); } };
-    ['progress', 'lang', 'profile', 'settings', 'activities:changed', 'badge'].forEach(ev => on(ev, refresh));
+    ['progress', 'lang', 'profile', 'settings', 'activities:changed', 'badge', 'xmas'].forEach(ev => on(ev, refresh));
     const ro = () => fit(false);
     root.addEventListener('resize', ro);
     state.listeners.push(() => root.removeEventListener('resize', ro));
@@ -778,16 +823,13 @@
       }, 1200);
       state.listeners.push(() => { clearTimeout(tt); if (state.tip) state.tip.close(true); });
     }
-    // seasonal event: a one-time toast the first time the hub opens during the event
-    if (eventAct()) {
+    // seasonal events: their hello (a one-time toast, the calendar's daily coach line) shortly after the hub opens
+    if (eventsOn().length) {
       const et = setTimeout(() => {
-        try {
-          if (!state || state.root !== rootEl || KOS.Storage.get(TOAST_KEY, false) || document.querySelector('.dialog-wrap')) return;
-          KOS.Storage.set(TOAST_KEY, true);
-          KOS.UI.toast(t('halloween.toast'), { kind: 'info', icon: 'pumpkin', ms: 5000 });
-        } catch (e) { /* optional */ }
+        if (!state || state.root !== rootEl || document.querySelector('.dialog-wrap')) return;
+        eventsOn().forEach(e => { try { e.hello(); } catch (err) { /* optional */ } });
       }, 1800);
-      state.listeners.push(() => clearTimeout(et));
+      state.listeners.push(() => { clearTimeout(et); if (state.xmasCoach) state.xmasCoach.close(true); });
     }
     {
       let shown = false;
@@ -833,8 +875,15 @@
     R.querySelector('[data-act="home"]').setAttribute('aria-label', t('hub.recenter'));
     R.querySelector('[data-act="places"]').setAttribute('aria-label', t('hub.places'));
     R.querySelector('[data-act="places"]').setAttribute('title', t('hub.places'));
-    const evPin = R.querySelector('.hub-pin-event');
-    if (evPin) evPin.setAttribute('aria-label', t('halloween.promo'));
+    R.querySelectorAll('.hub-pin-event').forEach(el => {
+      const ev = eventById(el.getAttribute('data-ev'));
+      el.querySelector('.hub-pin-name').textContent = ev.name();
+      el.querySelector('.hub-pin-sub').textContent = ev.sub();
+      el.setAttribute('aria-label', ev.aria());
+      el.classList.toggle('is-ready', !!(ev.ready && ev.ready()));
+    });
+    const xb = R.querySelector('.hub-xmas');
+    if (xb) { const nb = document.createElement('div'); nb.innerHTML = xmasBarHtml(); if (nb.firstChild) xb.replaceWith(nb.firstChild); else xb.remove(); }
     // profile
     let prof = null;
     try { prof = KOS.Storage && KOS.Storage.profile(); } catch (e) { /* ignore */ }
@@ -972,7 +1021,7 @@
         const R_ = s.root;
         // everything the pins must stay clear of: top bar cards, the next-challenge card, zoom buttons, compass
         const obst = [];
-        R_.querySelectorAll('.hub-top .hub-glass, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
+        R_.querySelectorAll('.hub-top .hub-glass, .hub-xmas > *, .hub-next, .hub-zoom button, .hub-compass').forEach(el => {
           if (el.hidden) return;
           const r = el.getBoundingClientRect();
           if (r.width && r.height) obst.push({ l: r.left - 4, r: r.right + 4, t: r.top - 4, b: r.bottom + 4 });
@@ -1131,7 +1180,7 @@
         const sub = need > 0 ? t('hub.needStars', { n: a.minStars }) : st.count ? t('hub.stars', st) + ' ★' : t('hub.sub.' + a.id);
         return `<button type="button" class="hub-place${need > 0 ? ' is-locked' : ''}${next && next.area === a.id ? ' is-next' : ''}" data-area="${a.id}" style="--c:${a.color}"><span class="hub-place-badge">${icon(need > 0 ? 'lock' : a.icon)}</span><span class="hub-place-txt"><b>${esc(t('hub.loc.' + a.id))}</b><small>${esc(sub)}</small></span></button>`;
       }).join('') +
-      (eventAct() && KOS.Spooky ? `<button type="button" class="hub-place hub-place-event" data-act="event" style="--c:#ff8a1a"><span class="hub-place-badge">${KOS.Spooky.svg.pumpkin}</span><span class="hub-place-txt"><b>${esc(t('halloween.pinName'))}</b><small>${esc(t('halloween.pinSub'))}</small></span></button>` : '') +
+      eventsOn().map(e => `<button type="button" class="hub-place hub-place-event hub-place-ev-${e.id}" data-act="event" data-ev="${e.id}" style="--c:${e.color}"><span class="hub-place-badge">${e.badge()}</span><span class="hub-place-txt"><b>${esc(e.name())}</b><small>${esc(e.sub())}</small></span></button>`).join('') +
       `</div><button type="button" class="hub-places-close" data-act="places-close">${esc(t('hub.close'))}</button></div>`;
     state.root.appendChild(box);
     const first = box.querySelector('.hub-place.is-next') || box.querySelector('.hub-place');
@@ -1170,7 +1219,8 @@
       else if (act === 'home') { state.stage.classList.add('is-easing'); centerOn(KOS.World.poi.club.x, KOS.World.poi.club.y - 200, Math.min(state.max, state.min * 1.8)); setTimeout(() => state && state.stage.classList.remove('is-easing'), 450); }
       else if (act === 'next') { const id = actEl.closest('.hub-next').dataset.id; if (id && KOS.App && KOS.App.play) KOS.App.play(id); else if (id) go('area', { area: KOS.Activities.get(id).area }); }
       else if (act === 'live') { if (KOS.MPStatus) KOS.MPStatus.open(); }
-      else if (act === 'event') { if (eventAct() && KOS.App && KOS.App.play) KOS.App.play(EVENT_ID); }
+      else if (act === 'event') { const ev = eventById(actEl.getAttribute('data-ev')); if (ev && ev.on()) { if (actEl.classList.contains('hub-place')) togglePlaces(false); ev.open(); } }
+      else if (act === 'xmas-elves') { if (KOS.XmasCal) KOS.XmasCal.gallery(); }
       else if (act === 'places') togglePlaces(true);
       else if (act === 'places-close') togglePlaces(false);
       else go(act);
