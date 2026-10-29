@@ -1,0 +1,151 @@
+// Julekalender end-to-end test (headless Chrome, never a window): docs/superpowers/specs/2026-10-29-christmas-calendar-design.md section 9.
+//   - 5 Dec 2026 (God mode) at 390x844 and 1280x800: title snow + greeting, hub pin + tree + elf chip, doors 1-5 ready / 6-24 locked
+//   - door 1 -> card -> play -> God win -> gold bauble; find elf 1 at its spot -> 1/24 -> gallery shows it
+//   - 29 Nov 2026 (teaser) and 7 Jan 2027 (after): pin text / no pin, no decorations, no xmas.* activities
+//   - all 24 door activities launch (start, wait 1.5 s, quit) without page errors
+//   - zero pageerror / console errors throughout. Screenshots: tools/tmp/xmas/e2e-*.png
+const { chromium } = require('playwright');
+const path = require('path');
+const url = require('url');
+const fs = require('fs');
+
+const INDEX = url.pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
+const OUT = path.resolve(__dirname, 'tmp', 'xmas');
+fs.mkdirSync(OUT, { recursive: true });
+const shot = (page, name) => page.screenshot({ path: path.join(OUT, 'e2e-' + name + '.png') });
+
+let fails = 0, errs = 0;
+const ok = (c, msg) => { if (!c) { fails++; console.error('FAIL ' + msg); } else console.log('ok   ' + msg); };
+const tap = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); if (!e) throw new Error('no ' + s); e.click(); }, sel);
+const cur = p => p.evaluate(() => KOS.App.cur);
+const clean = p => p.evaluate(() => { document.getElementById('toasts').innerHTML = ''; KOS.UI.coachClose && KOS.UI.coachClose(); let d; while ((d = KOS.UI.topDialog())) d.close(); });
+
+async function open(browser, hash, w, h, motion) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: w < 900, isMobile: w < 900 });
+  const page = await ctx.newPage();
+  page.on('pageerror', e => { errs++; console.error('PAGEERR', e.message); });
+  page.on('console', m => { if (m.type() === 'error') { errs++; console.error('CONSOLE', m.text()); } });
+  await page.goto('about:blank');
+  await page.goto(INDEX + hash);
+  await page.waitForFunction(() => document.documentElement.classList.contains('booted') && window.KOS && KOS.Xmas, null, { timeout: 20000 });
+  await page.evaluate(m => {
+    KOS.Storage.saveProfile({ name: 'Nisse', age: '10-12', sailNo: '7', boatColor: '#ff7a3d' });
+    KOS.Storage.saveSettings({ sound: false, music: false, lang: 'da', reducedMotion: !m });
+    KOS.Storage.set('hubSwipeTip', true);
+    KOS.Xmas.reset();
+  }, !!motion);
+  return { ctx, page };
+}
+const show = async (page, s) => { await page.evaluate(s => KOS.App.show(s), s); await page.waitForTimeout(500); };
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+
+  // ---------------------------------------------------------------- 5 Dec, both viewports: look + calendar state
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const tag = w + 'x' + h;
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-05', w, h, true); // motion on: snow is left out with reduced motion
+    await show(page, 'title');
+    await page.waitForTimeout(1200);
+    ok(await page.$('#screen-title .xs-snow i') !== null, tag + ' title has snow');
+    ok(/God jul fra KØS/.test(await page.textContent('#screen-title')), tag + ' title greets');
+    await shot(page, 'title-' + tag);
+    await show(page, 'hub');
+    await page.waitForTimeout(1500);
+    await clean(page);
+    ok(await page.$('.hub-pin-ev-xmas') !== null, tag + ' hub has the Julekalender pin');
+    ok(await page.$('.hub-xdeco .hx-bigtree .xa-tree') !== null, tag + ' hub has the tree');
+    ok(await page.$('.hub-xmas .xc-chip') !== null, tag + ' hub has the elf chip');
+    await shot(page, 'hub-' + tag);
+    await show(page, 'xmas');
+    const n = await page.evaluate(() => ({ ready: document.querySelectorAll('.xc-door.is-ready').length, locked: document.querySelectorAll('.xc-door.is-locked').length }));
+    ok(n.ready === 5 && n.locked === 19, tag + ' doors 1-5 ready, 6-24 locked: ' + JSON.stringify(n));
+    await shot(page, 'calendar-' + tag);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- door 1 -> play -> win -> gold; elf 1 -> gallery
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-05', 390, 844);
+    await show(page, 'xmas');
+    await tap(page, '.xc-door[data-door="1"]');
+    await page.waitForTimeout(300);
+    ok(await page.$('.xc-card-dlg') !== null, 'door 1 shows the card');
+    await shot(page, 'card');
+    await tap(page, '.xc-card-dlg .btn-primary');
+    await page.waitForTimeout(1500);
+    ok(await cur(page) === 'play' && await page.evaluate(() => KOS.App.run.act.id) === 'xmas.presents', 'Spil launches xmas.presents');
+    await tap(page, '.pause-btn'); await page.waitForTimeout(250);
+    await tap(page, '[data-p="win3"]'); await page.waitForTimeout(1300);
+    ok(await cur(page) === 'results', 'God win -> results');
+    ok(await page.evaluate(() => KOS.Xmas.isGold(1)), 'door 1 bauble is gold');
+    await shot(page, 'results');
+    await tap(page, '#screen-results [data-act="map"]'); await page.waitForTimeout(400);
+    ok(await cur(page) === 'xmas' && await page.$('.xc-door.is-gold[data-door="1"]') !== null, 'back on the calendar, door 1 gold');
+    await shot(page, 'calendar-gold');
+    // elf 1 at its spot (the hub): found, counter, gallery
+    await show(page, 'hub'); await page.waitForTimeout(1200); await clean(page);
+    ok(await page.$('[data-xmas-elf="1"]') !== null, 'elf 1 is at its spot on the hub');
+    await tap(page, '[data-xmas-elf="1"]'); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => KOS.Xmas.isFound(1)), 'elf 1 found');
+    ok(/1\/24/.test(await page.textContent('.hub-xmas .xc-chip')), 'chip counts 1/24');
+    await show(page, 'xmas');
+    await tap(page, '#screen-xmas .xc-chip'); await page.waitForTimeout(300);
+    ok(await page.$('.xc-gslot.has[data-elf="1"]') !== null, 'gallery shows elf 1');
+    await shot(page, 'gallery');
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- teaser (29 Nov)
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-11-29', 390, 844);
+    await show(page, 'hub'); await page.waitForTimeout(500);
+    ok((await page.textContent('.hub-pin-ev-xmas .hub-pin-sub')).trim() === 'Åbner 1. dec', 'teaser pin says "Åbner 1. dec"');
+    ok(await page.$('.hub-xdeco') !== null, 'teaser: decorations are on');
+    await shot(page, 'teaser-hub');
+    await show(page, 'xmas');
+    ok(await page.evaluate(() => document.querySelectorAll('.xc-door.is-locked').length) === 24, 'teaser: all 24 doors locked');
+    await shot(page, 'teaser-calendar');
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- after (7 Jan 2027)
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2027-01-07', 390, 844);
+    await show(page, 'title'); await page.waitForTimeout(800);
+    ok(await page.$('#screen-title .xs-snow') === null, 'after: no title snow');
+    await show(page, 'hub'); await page.waitForTimeout(500);
+    ok(await page.$('.hub-pin-ev-xmas') === null && await page.$('.hub-xmas .xc-chip') === null, 'after: no pin, no chip');
+    ok(await page.$('.hub-xdeco') === null && await page.$('.hub-elves [data-xmas-elf]') === null, 'after: no decorations, no elves');
+    ok(await page.evaluate(() => !KOS.Activities.list().some(a => /^xmas\./.test(a.id)) && !KOS.Activities.get('quiz.xmas1')), 'after: no xmas.* activities');
+    await shot(page, 'after-hub');
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------- all 24 door activities launch, run 1.5 s, quit
+  {
+    const { ctx, page } = await open(browser, '#god=1&date=2026-12-24', 390, 844);
+    const acts = await page.evaluate(() => KOS.Xmas.DOORS.map(d => d.act));
+    ok(acts.length === 24, '24 door activities listed');
+    for (const id of acts) {
+      const e0 = errs;
+      const r = await page.evaluate(id => !!KOS.App.play(id, { force: true, from: 'xmas' }) || true, id).catch(() => false);
+      await page.waitForTimeout(1500);
+      const c = await cur(page);
+      const quit = await page.evaluate(() => {
+        const pb = document.querySelector('.pause-btn'); if (pb) pb.click();
+        return new Promise(res => setTimeout(() => { const q = document.querySelector('[data-p="quit"]'); if (q) q.click(); res(!!q); }, 250));
+      });
+      await page.waitForTimeout(350);
+      if (id === acts[acts.length - 1]) await shot(page, 'door-activity-last');
+      ok(r && c === 'play' && errs === e0, 'door activity ' + id + ' runs (screen ' + c + (quit ? ', quit' : ', no quit btn') + ')');
+      if (await cur(page) === 'play') await page.evaluate(() => KOS.App.show('xmas'));
+      await page.waitForTimeout(100);
+    }
+    await ctx.close();
+  }
+
+  await browser.close();
+  console.log(fails + ' failed, page/console errors ' + errs);
+  process.exit(fails || errs ? 1 : 0);
+})();

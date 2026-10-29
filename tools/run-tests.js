@@ -2,7 +2,7 @@
 //
 //   node tools/run-tests.js              core + precache (fast, Node-only)
 //   node tools/run-tests.js all          all suites (i18n, mobile + smoke use headless Chrome)
-//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, back, mobile, liveserver, livestate, liveclient, liverace, smoke
+//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, back, xmas, mobile, liveserver, livestate, liveclient, liverace, smoke
 //
 // Exit code: 0 all good, 1 a suite failed, 2 unknown suite name.
 // A suite whose script file does not exist is reported as SKIP (not a failure).
@@ -17,6 +17,7 @@ const SUITES = {
   precache: { script: 'tools/gen-precache.js', args: ['--check'] },
   i18n: { script: 'tools/check-i18n.js', args: [] },
   hubimg: { script: 'tools/render-hub.js', args: ['--check'] },
+  xmas: { script: 'tools/test-xmas.js', args: [] },
   hublite: { script: 'tools/test-hub-lite.js', args: [] },
   back: { script: 'tools/test-back.js', args: [] },
   perftier: { script: 'tools/test-perf-tier.js', args: [] },

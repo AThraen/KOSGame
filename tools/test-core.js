@@ -1848,6 +1848,13 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
     });
     clean();
   });
+  test('xmas: the quiz bank has >= 28 xmas questions, each with da + en text', () => {
+    ok(KOS.QuizBank && (KOS.QuizBank.cats().xmas || 0) >= 28, 'xmas questions in the bank: ' + (KOS.QuizBank && KOS.QuizBank.cats().xmas));
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/modes/quiz.js'), 'utf8');
+    const rows = src.split('\n').filter(l => /^  q\('xmas', /.test(l));
+    ok(rows.length >= 28, 'xmas q() rows: ' + rows.length);
+    rows.forEach((l, i) => ok(/\['[^']{3,}', '[^']{3,}'\]/.test(l.replace(/\\'/g, '')), 'xmas question ' + (i + 1) + ' has da + en text'));
+  });
   test('xmas: badges at 8/16/24 elves, 24 doors, 24 gold (awarded by id; registered via KOS.App.addBadges)', () => {
     clean();
     const st = (o, g, e) => { const m = k => { const r = {}; for (let i = 1; i <= k; i++) r[i] = 1; return r; }; return { v: 1, open: m(o), gold: m(g), elves: m(e), seen: {} }; };
