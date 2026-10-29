@@ -221,9 +221,10 @@
   function santaHat() { return '<svg class="xa-santahat" viewBox="20 6 76 40" aria-hidden="true">' + hatPath(0) + '</svg>'; }
   // how far each coach's hat sits above the default (hair height; see COACHES in js/ui/ui.js)
   const HAT_DY = { anton: 0, storm: -6, marius: -4, ida: -1, maria: -5, nicolas: -3, peter: -9, jesper: 1 };
-  // wrap: coachSvg(...) string -> the same portrait with a Santa hat on top
+  // wrap: coachSvg(...) string -> the same portrait with a Santa hat on top (KOS.UI.coachSvg does it by itself while
+  // 'xmas-deco' is open, so every coach portrait in the game wears one; a second call changes nothing)
   function hatCoach(svgStr, id) {
-    if (typeof svgStr !== 'string') return svgStr;
+    if (typeof svgStr !== 'string' || svgStr.indexOf('xa-hat') >= 0) return svgStr; // already wearing one
     const i = svgStr.lastIndexOf('</svg>'); if (i < 0) return svgStr;
     const dy = HAT_DY[id] != null ? HAT_DY[id] : -3;
     return svgStr.slice(0, i) + hatPath(dy) + svgStr.slice(i);

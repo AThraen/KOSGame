@@ -1418,6 +1418,10 @@
   // ================================================================== PROFILE
   const AGES = ['8-10', '11-13', '14-17', '18+'];
   const BOAT_COLORS = ['#ffffff', '#ff7a3d', '#ffb547', '#e8323c', '#18a957', '#49c6f2', '#2b6cb0', '#7b5cff', '#ff6f91', '#1d2433'];
+  // "Julerød": an extra swatch for finding all 24 Christmas elves (badge xmas-elf-24, js/ui/xmas.js); a boat already
+  // painted in it keeps it. Plain red hull (the boat sprites have no stripe to paint gold).
+  const XMAS_RED = '#a3122a';
+  const hasXmasRed = () => { try { return S().badges().indexOf('xmas-elf-24') >= 0 || (draft && draft.boatColor === XMAS_RED); } catch (e) { return false; } };
   let draft = null;
   function randomAvatar() {
     const A = UI().AVATAR, pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -1471,7 +1475,9 @@
       '<label class="field"><span>' + esc(t('app.profile.sailNo')) + '</span><span class="sailno-input"><b>DEN</b>' +
       '<input type="text" class="input" id="pf-sail" inputmode="numeric" maxlength="5" autocomplete="off" value="' + esc(draft.sailNo) + '"></span></label>' +
       '<div class="field"><span>' + esc(t('app.profile.boatColor')) + '</span><div class="swatches">' +
-      BOAT_COLORS.map(c => '<button type="button" class="swatch' + (draft.boatColor === c ? ' on' : '') + '" style="--c:' + c + '" data-act="bc" data-v="' + c + '" aria-label="' + c + '"></button>').join('') + '</div></div></section>') +
+      BOAT_COLORS.map(c => '<button type="button" class="swatch' + (draft.boatColor === c ? ' on' : '') + '" style="--c:' + c + '" data-act="bc" data-v="' + c + '" aria-label="' + c + '"></button>').join('') +
+      (hasXmasRed() ? '<button type="button" class="swatch swatch-xmas' + (draft.boatColor === XMAS_RED ? ' on' : '') + '" style="--c:' + XMAS_RED + '" data-act="bc" data-v="' + XMAS_RED + '" aria-label="' + esc(t('xcal.julerod')) + '" title="' + esc(t('xcal.julerodTip')) + '"></button>' : '') +
+      '</div></div></section>') +
       '<button type="button" class="btn btn-primary btn-wide btn-big" data-act="save">' + ico('check') + '<span>' + esc(compact ? t('live.first.go') : params.first ? t('app.profile.saveFirst') : t('common.save')) + '</span></button>' +
       '</div></div></div>';
     const upd = () => {

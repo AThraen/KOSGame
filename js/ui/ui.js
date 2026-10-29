@@ -354,7 +354,10 @@
   }
   function coachSvg(mood, who) {
     const id = COACHES[who] ? who : coachId;
-    return realCoachSvg(COACHES[id], mood, id);
+    const svg = realCoachSvg(COACHES[id], mood, id);
+    // the Christmas season (js/ui/season.js 'xmas-deco'): every coach wears a Santa hat (js/render/xmasart.js)
+    const XA = KOS.XmasArt;
+    return XA && XA.deco() ? XA.hatCoach(svg, id) : svg;
   }
   let coachCur = null;
   function coach(text, opts) {

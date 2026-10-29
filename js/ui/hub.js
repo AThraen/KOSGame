@@ -609,8 +609,8 @@
   // no decorations around it, the same entry in "Alle steder", and a hello the first time(s) the hub opens.
   //   halloween: a pumpkin pin out in the bay where the level is sailed, while the activity exists (through 9 Nov)
   //   xmas:      the Julekalender pin at the club (29 Nov - 6 Jan, js/ui/xmascal.js); its subline is the calendar's status
-  // Map decorations: only while 'halloween-deco' is open (through 31 Oct), static (animated vectors on the panned map
-  // layer made Android flash).
+  // Map decorations: only while 'halloween-deco' (through 31 Oct) or 'xmas-deco' (29 Nov - 6 Jan, XDECO) is open,
+  // static (animated vectors on the panned map layer made Android flash).
   const HW_ID = 'halloween.hunt', HW_TOAST = 'hw2026Toast';
   const actGet = id => { try { return KOS.Activities && KOS.Activities.get(id); } catch (e) { return null; } };
   const XC = () => KOS.XmasCal;
@@ -680,6 +680,66 @@
     }).join('') + '</div>';
   }
 
+  // ---- the Christmas look (only while 'xmas-deco' is open, 29 Nov - 6 Jan). Static like DECO: firs, a snowman and
+  // presents on land, fairy lights strung along both jetties, and the big tree beside the jetty root showing the live
+  // bauble state (re-rendered by refresh(), never animated: the map layer is panned). [kind, x, y, width in map px]
+  const XDECO = [ // presents also name their colour
+    ['fir', -30, 95, 30], ['fir', 15, 120, 24], ['fir', 160, 175, 28], ['fir', 420, -25, 34], ['fir', 460, 20, 26], ['fir', 390, 35, 22],
+    ['fir', -380, 260, 30], ['fir', -230, 320, 24], ['fir', -590, -820, 30], ['fir', -600, -640, 26], ['fir', -610, -470, 32],
+    ['fir', 1000, 120, 28], ['fir', 1150, -60, 24], ['fir', 1350, -650, 30], ['fir', 1250, -820, 26],
+    ['snowman', 245, 25, 30], ['snowman', -470, 160, 26],
+    ['present', 24, 44, 15, 'red'], ['present', 52, 40, 13, 'gold'], ['present', 44, 48, 14, 'green'],
+  ];
+  const XTREE = [38, 32, 64]; // the big tree, on land beside the jetties' root: world point + width in map px
+  // fairy lights along the Opti jetty and the Long jetty (KOS.World PIERS 'A' and 'B': root, heading, length)
+  const XLIGHTS = [{ from: [-30, 44], hdg: -40, len: 40 }, { from: [8, 10], hdg: -25, len: 60 }];
+  const xmasDeco = () => !!(KOS.XmasArt && KOS.Season && KOS.Season.active('xmas-deco'));
+  const pct = q => `left:${(q[0] / PROJ.W * 100).toFixed(3)}%;top:${(q[1] / PROJ.H * 100).toFixed(3)}%`;
+  const xBaubles = () => (KOS.XmasCal && KOS.XmasCal.baubles ? KOS.XmasCal.baubles() : []);
+  // a string of fairy lights in map px: a sagging wire between posts, a bulb every few px in four colours
+  function xLightsSvg(run) {
+    const a = run.hdg * Math.PI / 180, x0 = run.from[0], y0 = run.from[1];
+    const pts = [];
+    const at = d => PROJ.p(x0 + Math.sin(a) * d, y0 - Math.cos(a) * d), e0 = at(0), e1 = at(run.len);
+    const n = Math.max(4, Math.round(Math.hypot(e1[0] - e0[0], e1[1] - e0[1]) / 9)); // a bulb every ~9 map px
+    for (let i = 0; i <= n; i++) pts.push(at(run.len * i / n));
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const L = Math.min(...xs) - 8, T = Math.min(...ys) - 8, W = Math.max(...xs) - L + 8, H = Math.max(...ys) - T + 12;
+    const C = ['#ff5a4f', '#ffd36a', '#5fd38a', '#7ec8ff'];
+    let wire = '', bulbs = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p = [pts[i][0] - L, pts[i][1] - T], q = [pts[i + 1][0] - L, pts[i + 1][1] - T];
+      const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2 + 3;
+      wire += (i ? '' : 'M' + p[0].toFixed(1) + ' ' + p[1].toFixed(1)) + 'Q' + mx.toFixed(1) + ' ' + (my + 3).toFixed(1) + ' ' + q[0].toFixed(1) + ' ' + q[1].toFixed(1);
+      bulbs += '<circle cx="' + mx.toFixed(1) + '" cy="' + (my + 1.6).toFixed(1) + '" r="3.4" fill="' + C[i % 4] + '"/><circle cx="' + mx.toFixed(1) + '" cy="' + (my + 1.6).toFixed(1) + '" r="6.5" fill="' + C[i % 4] + '" opacity=".28"/>';
+    }
+    return `<svg class="hx hx-lights" style="left:${L.toFixed(1)}px;top:${T.toFixed(1)}px;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}" aria-hidden="true"><path d="${wire}" fill="none" stroke="#2a2f3d" stroke-width="1.4"/>${bulbs}</svg>`;
+  }
+  function xTreeHtml() { return KOS.XmasArt.tree(xBaubles()); }
+  function xdecoHtml() {
+    if (!xmasDeco()) return '';
+    const A = KOS.XmasArt;
+    return '<div class="hub-deco hub-xdeco" aria-hidden="true">' + XDECO.map(d =>
+      `<span class="hd hx-${d[0]}" style="${pct(PROJ.p(d[1], d[2]))};width:${d[3]}px">${d[0] === 'present' ? A.present(d[4]) : A[d[0]]()}</span>`).join('') +
+      XLIGHTS.map(xLightsSvg).join('') +
+      `<span class="hd hx-bigtree" style="${pct(PROJ.p(XTREE[0], XTREE[1]))};width:${XTREE[2]}px">${xTreeHtml()}</span></div>`;
+  }
+  // the 12 hub elves (spot.at in js/ui/xmas.js): counter-scaled like the pins, so the tap target stays >= 44 px at
+  // every zoom. Synced, not rebuilt: an elf that was just found keeps its hop-away animation.
+  function syncHubElves() {
+    const R = state && state.root, X = KOS.Xmas, XCal = XC();
+    if (!R || !X || !XCal) return;
+    let layer = R.querySelector('.hub-elves');
+    const want = X.ELVES.filter(e => e.spot && e.spot.screen === 'hub' && e.spot.at && X.isElfVisible(e.n));
+    if (!want.length && !layer) return;
+    if (!layer) { layer = document.createElement('div'); layer.className = 'hub-elves'; R.querySelector('.hub-pins').after(layer); }
+    layer.querySelectorAll('[data-xmas-elf]').forEach(b => { if (!b.classList.contains('is-found') && !want.some(e => e.n === +b.getAttribute('data-xmas-elf'))) b.remove(); });
+    want.forEach(e => {
+      if (layer.querySelector('[data-xmas-elf="' + e.n + '"]')) return;
+      layer.insertAdjacentHTML('beforeend', XCal.elfHtml(e.n, pct(PROJ.p(e.spot.at[0], e.spot.at[1])), 'hub-elf'));
+    });
+  }
+
   function mount(sectionEl) {
     if (!sectionEl) sectionEl = typeof document !== 'undefined' && document.getElementById('screen-hub');
     if (!sectionEl) return;
@@ -696,7 +756,7 @@
     else if (!isLite && cloudsCache === null) cloudsCache = buildClouds();
     const rootEl = document.createElement('div');
     rootEl.className = 'hub' + (isLite ? ' hub-lite' : '');
-    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${dev ? '' : baseHtml(isLite)}${mapCache}<div class="hub-labels">${labelsHtml()}</div>${decoHtml()}${cloudsCache || ''}<div class="hub-pins">${AREAS.map(pinHtml).join('')}${promoPinHtml()}</div></div></div>
+    rootEl.innerHTML = `<h1 class="sr-only" data-k="hub.title"></h1><div class="hub-viewport"><div class="hub-stage" style="width:${PROJ.W}px;height:${PROJ.H}px">${dev ? '' : baseHtml(isLite)}${mapCache}<div class="hub-labels">${labelsHtml()}</div>${decoHtml()}${xdecoHtml()}${cloudsCache || ''}<div class="hub-pins">${AREAS.map(pinHtml).join('')}${promoPinHtml()}</div></div></div>
       ${topHtml()}${xmasBarHtml()}
       <div class="hub-zoom"><button type="button" class="hub-glass hub-places-btn" data-act="places">${icon('list')}</button><button type="button" class="hub-glass" data-act="zin">${icon('plus')}</button><button type="button" class="hub-glass" data-act="zout">${icon('minus')}</button><button type="button" class="hub-glass" data-act="home">${icon('home')}</button></div>
       <div class="hub-compass" aria-hidden="true"><svg viewBox="-30 -30 60 60"><circle r="27" fill="rgba(13,19,33,.55)" stroke="rgba(255,255,255,.25)"/><path d="M0 -24L5 0L0 4L-5 0Z" fill="#ff5a5a"/><path d="M0 24L5 0L0 -4L-5 0Z" fill="#e8eef8"/><text y="-12" text-anchor="middle" font-size="9" fill="#fff" font-weight="800" dy="-3">N</text></svg></div>
@@ -882,6 +942,9 @@
       el.setAttribute('aria-label', ev.aria());
       el.classList.toggle('is-ready', !!(ev.ready && ev.ready()));
     });
+    const xt = R.querySelector('.hx-bigtree');
+    if (xt) { const k = xBaubles().join(''); if (xt.dataset.b !== k) { xt.dataset.b = k; xt.innerHTML = xTreeHtml(); } }
+    syncHubElves();
     const xb = R.querySelector('.hub-xmas');
     if (xb) { const nb = document.createElement('div'); nb.innerHTML = xmasBarHtml(); if (nb.firstChild) xb.replaceWith(nb.firstChild); else xb.remove(); }
     // profile
@@ -1183,6 +1246,7 @@
       eventsOn().map(e => `<button type="button" class="hub-place hub-place-event hub-place-ev-${e.id}" data-act="event" data-ev="${e.id}" style="--c:${e.color}"><span class="hub-place-badge">${e.badge()}</span><span class="hub-place-txt"><b>${esc(e.name())}</b><small>${esc(e.sub())}</small></span></button>`).join('') +
       `</div><button type="button" class="hub-places-close" data-act="places-close">${esc(t('hub.close'))}</button></div>`;
     state.root.appendChild(box);
+    if (XC() && XC().dropElves) XC().dropElves('places', box);
     const first = box.querySelector('.hub-place.is-next') || box.querySelector('.hub-place');
     if (first && first.focus) first.focus();
   }
@@ -1249,6 +1313,7 @@
     isAreaUnlocked, areaLockStars,
     iconSvg: icon,
     get mounted() { return !!state; },
+    justDragged: () => !!(state && state.dragEndT && performance.now() - state.dragEndT < 250),
     lite,
     get liteNow() { return !!(state && state.root.classList.contains('hub-lite')); },
     get probeInfo() { return state ? { firstFrameMs: state.firstFrameMs, medianMs: state.medianMs, why: state.liteWhy } : null; },

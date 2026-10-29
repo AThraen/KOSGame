@@ -5,6 +5,9 @@
 //     the "Nisse-jagt X/24" chip + elf gallery, and in God mode a dev bar (◀ dag ▶ steps the test date, Nulstil jul)
 //   - the door card (coach in a Santa hat, Spil / Senere, the day's elf hint); Spil = KOS.App.play(act, {force, from: 'xmas'})
 //   - elves: KOS.XmasCal.elfHtml(n) is a hidden elf button any screen can drop in; one delegated click handler finds it
+//   - KOS.XmasCal.dropElves(screen, el) puts that screen's elves (spot data in js/ui/xmas.js) into el; it runs by itself
+//     on every screen change, the hub places its own 12 map elves and calls it for the "Alle steder" list
+//   - the Christmas look on the title while 'xmas-deco' is open: CSS snowfall + "God jul fra KØS" (decorateTitle)
 //   - KOS.XmasCal.status() is the one-line state ("Låge 5 er klar!") the hub pin and the header share
 // Every date comes from KOS.Season.now() (honours the God-mode test date), never new Date().
 (function (root) {
@@ -46,6 +49,9 @@
       unknown: '?',
       found: 'Du fandt {name}! ({n}/24)',
       elfAria: 'En nisse gemmer sig her',
+      godJul: 'God jul fra KØS',
+      julerod: 'Julerød',
+      julerodTip: 'Julerød – din belønning for at finde alle 24 nisser!',
       toast: 'Julekalenderen er åben! Find den på kortet ved havnen.',
       coachReady: 'Låge {n} er klar! Kom og åbn den i julekalenderen.',
       back: 'Julekalender',
@@ -86,6 +92,9 @@
       unknown: '?',
       found: 'You found {name}! ({n}/24)',
       elfAria: 'An elf is hiding here',
+      godJul: 'Merry Christmas from KØS',
+      julerod: 'Christmas red',
+      julerodTip: 'Christmas red – your reward for finding all 24 elves!',
       toast: 'The Christmas calendar is open! Find it on the map by the harbour.',
       coachReady: 'Door {n} is ready! Come and open it in the Christmas calendar.',
       back: 'Calendar',
@@ -169,17 +178,66 @@
     const b = e.target && e.target.closest && e.target.closest('[data-xmas-elf]');
     if (!b) return;
     e.preventDefault(); e.stopPropagation();
+    if (KOS.Hub && KOS.Hub.justDragged && KOS.Hub.justDragged()) return; // the end of a map drag, not a tap
     const n = +b.getAttribute('data-xmas-elf'), x = X();
     if (!x || b.classList.contains('is-found')) return;
+    b.classList.add('is-found'); // first: findElf's 'xmas' event re-syncs the screen, which keeps a found elf for its hop
     if (!x.findElf(n)) { b.remove(); return; }
     sfx('pop', { pitch: 1.3 }); setTimeout(() => sfx('bell', { vol: 0.6 }), 90);
-    b.classList.add('is-found');
     b.disabled = true;
     setTimeout(() => b.remove(), reduced() ? 50 : 700);
     const el = x.elf(n);
     if (UI()) UI().toast(t('xcal.found', { name: el ? el.name : '', n: x.counts().elves }), { kind: 'good', icon: 'sparkle', ms: 3600, sound: false });
   }
   doc.addEventListener('click', onElfClick, true);
+
+  // The elves of one screen (spot.sel + spot.pos, js/ui/xmas.js) into a freshly rendered screen element. Area elves
+  // only on their own area. The hub map's elves are placed by js/ui/hub.js (world points); the calendar and results
+  // place theirs themselves. Never during an activity (no 'play' spots exist).
+  function dropElves(screen, rootEl) {
+    const x = X();
+    if (!x || !A() || !rootEl) return;
+    const area = screen === 'area' && KOS.App && KOS.App.params ? KOS.App.params.area : null;
+    x.ELVES.forEach(e => {
+      const sp = e.spot;
+      if (!sp || sp.screen !== screen || !sp.sel || (screen === 'area' && sp.area !== area)) return;
+      if (rootEl.querySelector('[data-xmas-elf="' + e.n + '"]')) return;
+      const host = rootEl.querySelector(sp.sel);
+      if (!host) return;
+      const html = elfHtml(e.n, sp.pos, 'xs-elf xs-elf-' + screen);
+      if (!html) return;
+      if (getComputedStyle(host).position === 'static') host.classList.add('xs-host');
+      host.insertAdjacentHTML('beforeend', html);
+    });
+  }
+
+  // the title in the Christmas season: a few dozen CSS snowflakes (transform-only; none with reduced motion or the
+  // battery saver) and a small "God jul fra KØS" under the tagline
+  function decorateTitle(sec) {
+    if (!sec || !(A() && A().deco())) return;
+    const logo = sec.querySelector('.title-logo');
+    if (logo && !logo.querySelector('.xs-godjul')) logo.insertAdjacentHTML('beforeend', '<p class="xs-godjul">' + A().svg.star + '<span>' + esc(t('xcal.godJul')) + '</span>' + A().svg.star + '</p>');
+    let lowFx = false;
+    try { lowFx = KOS.Storage.settings().lowFx === true || !!(KOS.Hub && KOS.Hub.lite && KOS.Hub.lite.effective()); } catch (e) { /* ignore */ }
+    if (reduced() || lowFx || sec.querySelector('.xs-snow')) return;
+    let flakes = '';
+    for (let i = 0; i < 36; i++) {
+      // a fixed spread (no Math.random: same look every visit), three sizes, staggered so it never starts in a clump
+      const x = (i * 37 % 100) + (i % 3) * .3, d = 9 + (i * 7 % 9), del = -((i * 53) % 100) / 100 * d, sz = 3 + (i % 3) * 2, sway = (i % 2 ? 1 : -1) * (10 + i % 4 * 6);
+      flakes += '<i style="left:' + x.toFixed(1) + '%;width:' + sz + 'px;height:' + sz + 'px;--sway:' + sway + 'px;animation-duration:' + d + 's;animation-delay:' + del.toFixed(2) + 's"></i>';
+    }
+    sec.insertAdjacentHTML('afterbegin', '<div class="xs-snow" aria-hidden="true">' + flakes + '</div>');
+  }
+
+  // every screen change: that screen's elves, and the title's Christmas look
+  function onScreen(screen) {
+    if (!X() || !A()) return;
+    const sec = doc.getElementById('screen-' + screen);
+    if (!sec) return;
+    if (screen === 'title') decorateTitle(sec);
+    if (screen !== 'play' && screen !== 'hub') dropElves(screen, sec);
+  }
+  if (KOS.Events && KOS.Events.on) KOS.Events.on('screen', s => { try { onScreen(s); } catch (e) { console.error(e); } });
 
   // ------------------------------------------------------------------ elf gallery
   function gallery() {
@@ -422,5 +480,5 @@
   KOS.App.registerScreen('xmas', render, leave);
   // the badges show in the passport once the calendar is (or was) in play
   try { if (live() || X().counts().open) X().registerBadges(); } catch (e) { /* storage not ready */ }
-  KOS.XmasCal = { live, status, hasReady, testPill, hatCoach, elfHtml, elvesAt, gallery, chipHtml, doorCard, decorateResults, doorState, baubles, fit };
+  KOS.XmasCal = { live, status, hasReady, testPill, hatCoach, elfHtml, elvesAt, dropElves, decorateTitle, gallery, chipHtml, doorCard, decorateResults, doorState, baubles, fit };
 })(typeof window !== 'undefined' ? window : globalThis);

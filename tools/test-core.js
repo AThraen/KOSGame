@@ -1825,8 +1825,13 @@ test('knots: every rope-rope / self crossing in every knot has a defined over/un
     X.ELVES.forEach(e => ok(e.tag.da && e.tag.en && e.spot && e.spot.screen, 'elf ' + e.n + ' tagline + spot'));
     const by = {};
     X.ELVES.forEach(e => { by[e.spot.screen] = (by[e.spot.screen] || 0) + 1; });
-    ok(by.hub === 12 && by.calendar === 2 && (by.garage + by.passport) === 2 && by.settings === 1 && by.title === 1 && by.places === 1 && by.area === 3 && by.results === 2, 'spot spread per spec: ' + JSON.stringify(by));
+    ok(by.hub === 12 && by.calendar === 2 && (by.garage + (by.passport || 0)) === 2 && by.settings === 1 && by.title === 1 && by.places === 1 && by.area === 3 && by.results === 2, 'spot spread per spec: ' + JSON.stringify(by));
     ok(X.ELVES[12].spot.act === 'xmas.lucia', 'elf 13 after the Lucia sail');
+    X.ELVES.forEach(e => {
+      const sp = e.spot;
+      if (sp.screen === 'hub') ok(Array.isArray(sp.at) && sp.at.length === 2 && sp.at.every(Number.isFinite), 'hub elf ' + e.n + ' has a world point');
+      else if (sp.screen !== 'calendar' && sp.screen !== 'results') ok(typeof sp.sel === 'string' && /^(left|right):[^;]+;(top|bottom):[^;]+$/.test(sp.pos), 'screen elf ' + e.n + ' has a host + position');
+    });
     ok(X.WALL.length === 24 && new Set(X.WALL).size === 24 && X.WALL.every(n => n >= 1 && n <= 24), 'wall is a permutation');
   });
   test('xmas: every door activity exists while the season is on; xmas-only ones vanish when it is off', () => {

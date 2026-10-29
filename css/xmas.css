@@ -1,5 +1,6 @@
 /* KØS SEJL — css/xmas.css: the Julekalender (js/ui/xmascal.js, js/render/xmasart.js; issue #6).
-   Everything here hangs off the calendar's own classes (.xmas-screen, .xc-*, .xmas-elf, .hub-pin-ev-xmas, .hub-xmas),
+   Everything here hangs off the calendar's own classes (.xmas-screen, .xc-*, .xs-*, .xmas-elf, .hub-pin-ev-xmas, .hub-xmas,
+   .hub-xdeco, .hub-elves),
    which only exist while the 'xmas' season window is open, so outside the season nothing here matches. */
 
 /* ------------------------------------------------------------------ the calendar screen */
@@ -116,12 +117,43 @@
 }
 .xmas-elf .xa-elf { width: 30px; height: 46px; display: block; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35)); }
 .xmas-elf:focus-visible { outline: 3px solid #ffd36a; outline-offset: 0; border-radius: 10px; }
-.xmas-elf.is-found { animation: xcHop .7s cubic-bezier(.3, .2, .6, 1) forwards; pointer-events: none; }
+/* found: the drawing hops away (the button itself may carry a placement transform, e.g. the hub's counter-scale) */
+.xmas-elf.is-found { pointer-events: none; }
+.xmas-elf.is-found .xa-elf { animation: xcHop .7s cubic-bezier(.3, .2, .6, 1) forwards; transform-origin: 50% 100%; }
 @keyframes xcHop { 0% { transform: none; } 30% { transform: translateY(-22px) scale(1.15); } 60% { transform: translate(18px, -30px) rotate(20deg) scale(.9); opacity: 1; } 100% { transform: translate(60px, -10px) rotate(40deg) scale(.4); opacity: 0; } }
 .xc-elf-a { right: 6px; top: -18px; } /* peeking over the tree panel's top edge */
 .xc-body.is-land .xc-elf-a { right: auto; left: 2px; top: 4px; }
 .xc-elf-b { right: -14px; bottom: 6px; } /* behind the tree's tub */
 .xc-elf-results { right: 8px; top: 6px; }
+.xs-host { position: relative; } /* a screen element that hosts an elf (KOS.XmasCal.dropElves) */
+.xs-elf { z-index: 4; }
+.xs-elf-places { z-index: 2; }
+/* the hub map's elves: counter-scaled like the pins (constant ~30 px drawing, 44 px+ target at every zoom) */
+.hub-elves { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.hub-elves .hub-elf { pointer-events: auto; z-index: auto; transform: translate(-50%, -88%) scale(var(--inv, 1)); transform-origin: 50% 88%; }
+.hub-elves .hub-elf .xa-elf { filter: drop-shadow(0 0 3px rgba(255, 255, 255, .55)) drop-shadow(0 2px 2px rgba(0, 0, 0, .4)); }
+.hub-lite .hub-elves .hub-elf .xa-elf { filter: none; }
+
+/* ------------------------------------------------------------------ hub map decorations (XDECO in js/ui/hub.js; static) */
+.hub-xdeco { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.hub-xdeco .hd { position: absolute; display: block; transform: translate(-50%, -85%); }
+.hub-xdeco .hd svg { display: block; width: 100%; height: auto; }
+.hub-xdeco .hx-present { transform: translate(-50%, -70%); }
+.hub-xdeco .hx-bigtree { transform: translate(-50%, -94%); }
+.hub-xdeco .hx-bigtree svg { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); }
+.hub-xdeco .hx-lights { position: absolute; display: block; overflow: visible; }
+.hub-lite .hub-xdeco .hx-bigtree svg { filter: none; }
+
+/* ------------------------------------------------------------------ title: snowfall + "God jul fra KØS" (xmas-deco only;
+   the flakes are only added without reduced motion / the battery saver, and only ever move with transform) */
+.xs-snow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.xs-snow i { position: absolute; top: -12px; display: block; border-radius: 50%; background: #fff; opacity: .8; box-shadow: 0 0 4px rgba(255, 255, 255, .6); animation-name: xsFall; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes xsFall { from { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(var(--sway, 12px), 52vh, 0); } to { transform: translate3d(0, 106vh, 0); } }
+.xs-godjul { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 6px; font-weight: 900; font-size: 1rem; letter-spacing: .03em; color: #ffe6a8; text-shadow: 0 2px 6px rgba(0, 0, 0, .55); }
+.xs-godjul .xa-star { width: 15px; height: 15px; flex: none; }
+
+/* profile: the "Julerød" boat colour (reward for all 24 elves) */
+.swatch.swatch-xmas { box-shadow: inset 0 0 0 3px #ffd36a, 0 0 10px rgba(255, 211, 106, .55); }
 
 /* ------------------------------------------------------------------ door card + elf gallery (dialogs) */
 .dialog.xc-card-dlg { width: min(100%, 460px); border: 1px solid rgba(255, 211, 106, .35); background: linear-gradient(180deg, rgba(60, 16, 24, .95), rgba(16, 24, 42, .96) 45%); }
@@ -210,9 +242,11 @@
 }
 
 /* reduced motion: no glow pulse, no swing, no hop */
-.reduce-motion .xc-door.is-ready, .reduce-motion .xc-door.just-opened, .reduce-motion .xmas-elf.is-found { animation: none !important; }
+.reduce-motion .xc-door.is-ready, .reduce-motion .xc-door.just-opened, .reduce-motion .xmas-elf.is-found .xa-elf, .reduce-motion .xs-snow i { animation: none !important; }
+.reduce-motion .xs-snow { display: none; }
 .reduce-motion .xc-door.is-opening { transition: none; }
 @media (prefers-reduced-motion: reduce) {
-  .xc-door.is-ready, .xc-door.just-opened, .xmas-elf.is-found { animation: none !important; }
+  .xc-door.is-ready, .xc-door.just-opened, .xmas-elf.is-found .xa-elf { animation: none !important; }
+  .xs-snow { display: none; }
   .xc-door.is-opening { transition: none; }
 }
