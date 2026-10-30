@@ -231,6 +231,9 @@
   background: #7a4a00; color: #fff; padding: 8px 16px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.35); border-radius: 999px; font-weight: 800;
 }
 .race-live-banner[hidden] { display: none; }
+.race-live-banner { display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); white-space: normal; text-align: center; }
+.race-live-banner.is-away { padding: 6px 6px 6px 16px; }
+.race-live-banner .btn { flex: none; min-height: 40px; pointer-events: auto; }
 
 /* "Kun vært" big-screen view (docs/specs/live-race.md 5.5): leader board with gap / mark / penalties, start countdown,
    follow-the-leader toggle, podium. Sizes follow the viewport so a 1920x1080 projector reads from the back of the room. */

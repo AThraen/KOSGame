@@ -26,9 +26,10 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 .pause-row .btn { flex: 1; }
 .pause-tip { display: flex; gap: 8px; align-items: flex-start; text-align: left; font-size: .9rem; font-weight: 700; color: rgba(240,244,255,.8); background: rgba(73,198,242,.12); border-radius: 12px; padding: 10px 12px; }
 .pause-tip .ico { color: var(--blue); margin-top: 1px; }
+.pause-retire { align-self: center; min-height: 44px; } /* live race: withdrawing is small and asked first; "Til kortet" keeps the seat */
 @media (orientation: landscape) and (max-height: 540px) {
   .pause-card { width: min(100%, 560px); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .pause-coach, .pause-card h2, .pause-act, .pause-tip, .pause-row { grid-column: 1 / -1; }
+  .pause-coach, .pause-card h2, .pause-act, .pause-tip, .pause-row, .pause-retire { grid-column: 1 / -1; }
   .pause-coach { display: none; }
 }
 

@@ -163,6 +163,26 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 .c-orange { color: var(--primary); } .c-blue { color: var(--blue); } .c-green { color: var(--good); }
 .menu-btn[hidden] { display: none; }
 .menu-live.is-closed { opacity: .7; }
+/* "Fortsæt live-løbet" (js/net/mpstatus.js, live-rules spec E4): on the title menu and the hub while a live-race seat is stored */
+.seatbar { width: 100%; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; animation: fadeUp .45s ease both; }
+.seatbar-go {
+  width: 100%; min-height: 68px; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 12px; text-align: left; border: 0; border-radius: 20px; cursor: pointer;
+  color: #04261a; font: inherit; background: linear-gradient(180deg, #6ff0b0, #22b673); box-shadow: 0 5px 0 #138a55, 0 10px 26px rgba(30, 200, 120, .45), inset 0 2px 0 rgba(255, 255, 255, .5);
+  animation: seatPulse 2.2s ease-in-out infinite 1s; transition: transform .12s;
+}
+.seatbar-go:active { transform: translateY(2px) scale(.99); }
+.seatbar-go:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.seatbar-ico { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: rgba(255, 255, 255, .45); }
+.seatbar-ico svg, .seatbar-arrow svg { width: 26px; height: 26px; fill: currentColor; }
+.seatbar-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.seatbar-txt b { font-size: 1.25rem; font-weight: 900; line-height: 1.15; }
+.seatbar-txt small { font-size: .9rem; font-weight: 700; opacity: .85; }
+.seatbar-arrow { flex: none; display: grid; place-items: center; }
+.seatbar-more { display: flex; justify-content: center; gap: 6px; }
+.seatbar-small { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(13, 19, 33, .55); color: #fff; font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.seatbar-small:hover { background: rgba(13, 19, 33, .75); }
+@keyframes seatPulse { 0%, 100% { box-shadow: 0 5px 0 #138a55, 0 10px 26px rgba(30, 200, 120, .45), inset 0 2px 0 rgba(255, 255, 255, .5); } 50% { box-shadow: 0 5px 0 #138a55, 0 10px 40px rgba(60, 240, 150, .8), inset 0 2px 0 rgba(255, 255, 255, .5); } }
 .mb-txt { display: flex; flex-direction: column; min-width: 0; }
 .mb-txt b { font-size: 1.25rem; font-weight: 800; }
 .mb-txt small { color: var(--text-dim); font-size: .92rem; font-weight: 600; }

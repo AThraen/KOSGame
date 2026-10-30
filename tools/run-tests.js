@@ -2,7 +2,7 @@
 //
 //   node tools/run-tests.js              core + precache (fast, Node-only)
 //   node tools/run-tests.js all          all suites (i18n, mobile + smoke use headless Chrome)
-//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, back, xmas, mobile, liveserver, livestate, livefoul, liveclient, liverace, smoke
+//   node tools/run-tests.js <name> ...   only the named suites: core, precache, i18n, back, xmas, mobile, liveserver, livestate, livefoul, liveclient, liverace, livereconnect, smoke
 //
 // Exit code: 0 all good, 1 a suite failed, 2 unknown suite name.
 // A suite whose script file does not exist is reported as SKIP (not a failure).
@@ -27,6 +27,7 @@ const SUITES = {
   livefoul: { script: 'tools/test-live-foul.js', args: [] },
   liveclient: { script: 'tools/test-live-client.js', args: [] },
   liverace: { script: 'tools/test-live-race.js', args: [] },
+  livereconnect: { script: 'tools/test-live-reconnect.js', args: [] },
   smoke: { script: 'tools/smoke.js', args: ['--no-shots'] },
 };
 const NAMES = Object.keys(SUITES);

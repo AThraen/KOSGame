@@ -56,10 +56,10 @@
       KOS.App.show(h.screen, {});
     }
     document.documentElement.classList.add('booted');
-    // #join=CODE (live race link): opens the join screen; mpstatus.js only remembered the code, no network until now
+    // #join=CODE (live race link): opens the join screen; mpstatus.js only remembered the code, no network until now.
+    // A live race this phone left (page closed, app swiped away) needs nothing here: mpstatus.js puts the "Fortsæt live-løbet" banner on the
+    // title and the hub whenever a seat is stored (reads localStorage only, no network until it is tapped)
     if (KOS.MPStatus && (KOS.pendingJoin || (KOS.MPStatus.wantsOpen && KOS.MPStatus.wantsOpen()))) KOS.MPStatus.handlePendingJoin();
-    // a live race this phone left (page closed, app swiped away): offer the way back (reads localStorage only, no network until the player agrees)
-    else if (KOS.MPStatus && KOS.MPStatus.seatPrompt) KOS.MPStatus.seatPrompt();
     if (KOS.Events && KOS.Events.emit) KOS.Events.emit('boot');
   }
 

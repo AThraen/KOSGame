@@ -663,7 +663,7 @@
       if (!state || state.root !== R || document.querySelector('.dialog-wrap')) return;
       const inf = X.dayInfo(), d0 = KOS.Season.now(), day = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
       if (inf.phase !== 'advent' || X.isOpen(inf.today) || X.seen('coachDay') === day || !KOS.UI.coach) return;
-      if (document.querySelector('.coach')) return; // the first-visit swipe tip goes first
+      if (document.querySelector('.coach, .seatbar')) return; // the first-visit swipe tip (or the live race's "Fortsæt live-løbet") goes first
       X.markSeen('coachDay', day);
       const d = X.door(inf.today);
       const co = state.xmasCoach = KOS.UI.coach(t('xcal.coachReady', { n: inf.today }), { pos: 'bottom', ms: 6500, coach: d.coach, avatar: XC().hatCoach(d.coach) });
@@ -944,7 +944,7 @@
       const tt = setTimeout(() => {
         try {
           if (!state || state.root !== rootEl || KOS.Storage.get(TIP_KEY, false)) return;
-          if (document.querySelector('.coach, .dialog-wrap')) return; // welcome/onboarding first; try again next visit
+          if (document.querySelector('.coach, .dialog-wrap, .seatbar')) return; // welcome/onboarding (or the live race's "Fortsæt live-løbet") first; try again next visit
           const vr = vp.getBoundingClientRect();
           const away = Array.from(rootEl.querySelectorAll('.hub-pin')).some(p => {
             const r = p.getBoundingClientRect();

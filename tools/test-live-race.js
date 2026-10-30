@@ -1,7 +1,7 @@
 // KØS SEJL — live race tests (suite 'liverace'). Real headless Chromium clients race a short course on a local race server,
 // steered by the AI autopilot (race instance .setAutopilot). Needs server/node_modules (ws); skips without it.
 //   1. host-only (big screen) + two sailors: everybody gets the same official table, remotes follow the real boats, big screen shows a board
-//   2. host + sailor, the server is killed mid race: ~15 s of reconnecting, then both finish locally, result marked unofficial, no freeze
+//   2. host + sailor, the server is killed mid race: after ~15 s of reconnecting both go on locally (unofficial; the retries never stop), finish, result marked unofficial, no freeze
 //   13. finish direction + a lost sailor (see the section at the end)
 //   3. contact between players: a port/starboard crossing steered by a fixed-heading bot ends in contact; the port boat is penalised on its own
 //      client (and the big screen board shows it), the starboard boat is not; contact OFF = boats pass through; penalties OFF = bump only
@@ -514,7 +514,7 @@ async function main() {
     await d.reload();
     await d.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
     await inRace(d);
-    await d.waitForFunction(() => KOS.App.run.inst.state.restored === true, null, { timeout: 8000 });
+    await d.waitForFunction(() => !!KOS.App.run.inst.state.restored, null, { timeout: 8000 }); // 'server' or 'snap': the newer copy wins (live-rules spec E2)
     await sleep(1500);
     const p1 = await mine(d);
     const dt = p1.clock - p0.clock;
@@ -615,7 +615,7 @@ async function main() {
   }
 
   // ================================================================== 11. the page is closed mid race; the prompt brings the boat back
-  console.log('-- page closed mid race: rejoin prompt, back at the last position, the others saw it lost and then back');
+  console.log('-- page closed mid race: the "Fortsæt live-løbet" banner, back at the last position, the others saw it lost and then back');
   {
     const srv = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile });
     const port = await srv.listen();
@@ -641,11 +641,11 @@ async function main() {
     ok(frozen.lost && Math.hypot(frozen.x - before.x, frozen.y - before.y) < 30, 'while she is away the boat waits at its last known place on the others\' screens (' + Math.hypot(frozen.x - before.x, frozen.y - before.y).toFixed(1) + ' m off)');
 
     const r = await newPage(WS, '', 'Dorte', stored);
-    await r.waitForSelector('.dialog .live-rejoin-body', { timeout: 10000 });
-    ok(await r.evaluate(c => document.querySelector('.dialog .live-rejoin-body').textContent.indexOf(c) > 0, L.code), 'the prompt names the race ' + L.code);
-    await r.click('.dialog .btn-primary');
+    await r.waitForSelector('#screen-title .seatbar', { timeout: 10000 });
+    ok(await r.evaluate(c => document.querySelector('#screen-title .seatbar').textContent.indexOf('Du er stadig med i løbet ' + c) >= 0, L.code), 'the title banner names the race ' + L.code);
+    await r.click('#screen-title .seatbar [data-seat="go"]');
     await inRace(r);
-    await r.waitForFunction(() => KOS.App.run.inst.state.restored === true, null, { timeout: 15000 });
+    await r.waitForFunction(() => KOS.App.run.inst.state.restored === 'server', null, { timeout: 15000 }); // a fresh tab has no sessionStorage snapshot
     const after = await r.evaluate(() => { const i = KOS.App.run.inst, S = i.state; return { x: i.boat.x, y: i.boat.y, rx: S.rest.st.x, ry: S.rest.st.y, gap: S.restoredGapS, clock: S.clock, leg: i.boat.rc.leg, phase: S.phase }; });
     const dRest = Math.hypot(after.rx - before.x, after.ry - before.y), dNow = Math.hypot(after.x - before.x, after.y - before.y);
     ok(dRest < 6, 'the server\'s copy of the boat is the last position (' + dRest.toFixed(1) + ' m from where the tab closed)');

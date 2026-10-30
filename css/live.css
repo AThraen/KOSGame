@@ -64,7 +64,10 @@
 .live-banner {
   position: fixed; top: calc(var(--safe-t) + 8px); left: 50%; transform: translateX(-50%); z-index: 60;
   background: #7a4a00; color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 800;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px); text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.35);
 }
+.live-banner.is-away { padding: 6px 6px 6px 16px; }
+.live-banner .btn { flex: none; min-height: 40px; }
 .live-banner[hidden] { display: none; }
 
 /* countdown */

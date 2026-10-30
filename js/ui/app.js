@@ -1190,7 +1190,10 @@
       '<button type="button" class="icon-btn" data-p="sound" aria-label="' + esc(t('app.settings.sound')) + '">' + ico(st.sound ? 'sound' : 'soundOff') + '</button>' +
       '<button type="button" class="btn btn-glass" data-p="quit">' + ico('map') + '<span>' + esc(t('app.pause.quit')) + '</span></button>' +
       '</div>' +
-      '<p class="pause-tip">' + ico('info') + esc(t('app.pause.tip' + (1 + Math.floor(Math.random() * 6)))) + '</p>' +
+      // live race (live-rules spec E3): "Til kortet" only steps out (the seat stays, the title/hub banner leads back); withdrawing is its own, confirmed button
+      (run.live ? '<p class="pause-tip pause-live-note">' + ico('info') + esc(t('live.detachNote')) + '</p>' +
+        '<button type="button" class="btn btn-danger btn-sm pause-retire" data-p="retire">' + ico('flag') + '<span>' + esc(t('live.retire.btn')) + '</span></button>' :
+        '<p class="pause-tip">' + ico('info') + esc(t('app.pause.tip' + (1 + Math.floor(Math.random() * 6)))) + '</p>') +
       '</div>';
     o.addEventListener('click', e => {
       const b = e.target.closest('[data-p]');
@@ -1200,6 +1203,7 @@
       if (k === 'resume') setPaused(false);
       else if (k === 'restart') App.play(run.act.id, { force: true, boat: run.boatPick, from: run.from });
       else if (k === 'quit') quit();
+      else if (k === 'retire') confirmRetire();
       else if (k.indexOf('win') === 0) { const n = +k.slice(3); setPaused(false); finish({ stars: n, success: true, score: n * 1000, timeMs: 60000, stats: { godmode: true } }); }
       else if (k === 'sound') {
         const s = S().saveSettings({ sound: !settings().sound });
@@ -1212,6 +1216,13 @@
     run.pauseRelease = UI().trapFocus ? UI().trapFocus(o.querySelector('.pause-card'), [doc.getElementById('play-layer')]) : null;
     requestAnimationFrame(() => o.classList.add('in'));
     setTimeout(() => { const r = o.querySelector('[data-p=resume]'); if (r) try { r.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 50);
+  }
+  // "Udgå af løbet": asked first; then the server makes this boat RET/DNF (leave) and the seat is forgotten
+  function confirmRetire() {
+    UI().dialog({ icon: 'flag', titleKey: 'live.retire.title', bodyKey: 'live.retire.body', cls: 'live-retire',
+      buttons: [{ labelKey: 'live.retire.stay', kind: 'primary' }, { labelKey: 'live.retire.yes', kind: 'danger', onClick: () => {
+        setTimeout(() => { const L = run.live; if (!L || App.cur !== 'play') return; track('Live', 'retire', ''); try { L.retire(); } catch (e) { /* ignore */ } quit(); }, 0);
+      } }] });
   }
   function hidePause() {
     if (run.pauseRelease) { run.pauseRelease(); run.pauseRelease = null; }

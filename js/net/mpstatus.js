@@ -9,7 +9,8 @@
 //   open(opts)         -> Promise<void>        refresh(force) + load() + KOS.Lobby.open(opts); unavailable => message, never throws
 //   handlePendingJoin()                         #join=CODE (or #live=CODE) arrived with the page: opens the join screen (no network before this)
 //   tooOld(status)     -> boolean              this build is below the status file's minClient / minProto (the server is the judge too: err 'old')
-//   seatPrompt(then)   -> boolean              a rejoin entry (localStorage, kos.mp.seat) exists: asks "back to the race?"; reads storage only, no network
+//   readSeat()         -> seat|null            the rejoin entry (localStorage kos.mp.seat); reads storage only, no network
+//   seatBar(screen)                            puts the "Fortsæt live-løbet" banner on 'title' / 'hub' (runs on every KOS.Events 'screen')
 // Missing, unreachable, non-200, unparseable or unknown mode => {mode:'hidden'}. See docs/specs/live-race.md section 6.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -130,8 +131,6 @@
   function open(opts) {
     opts = opts || {};
     const A = KOS.App;
-    // a way back into a race this phone left (page closed, app swiped away, process killed): ask first, then carry on with what was asked
-    if (!opts.join && !opts.rejoin && !opts.noSeat && seatPrompt(() => open(Object.assign({}, opts, { noSeat: true })))) return Promise.resolve();
     if (A && KOS.Storage && KOS.Storage.profile && !KOS.Storage.profile() && A.show) {
       if (opts.join) writePending({ code: opts.join, auto: true }); // the setup may be interrupted by a reload: the link's code is not lost
       A._afterProfile = () => open(opts);
@@ -150,8 +149,10 @@
     });
   }
 
-  // ---- rejoin after leaving the page (spec section 16): mp.js keeps {code, id, key, url, exp} in localStorage while a seat is alive
-  // (cleared on leave, results, kick; 2 h at most). This only READS storage: the network is touched after the player says yes.
+  // ---- "Fortsæt live-løbet" (spec E4; replaces the old one-time dialog): mp.js keeps {code, id, key, url, exp, phase, startedAt} in
+  // localStorage while a seat is alive (exp = last contact + 2 h; cleared on retire, results, kick, hostleft). Whenever one is stored, the
+  // title screen and the hub show a prominent banner. Building it only READS storage: no network and no lazy script until it is tapped,
+  // so it also shows offline. "Ikke nu" hides it for this visit; "Udgå" (asked first) withdraws from the race.
   function readSeat() {
     try {
       const o = JSON.parse(root.localStorage.getItem(SEAT_KEY));
@@ -161,22 +162,63 @@
     return null;
   }
   function dropSeat() { try { root.localStorage.removeItem(SEAT_KEY); } catch (e) { /* ignore */ } }
-  let seatShown = false;
-  function seatPrompt(then) {
-    const s = readSeat(), UI = KOS.UI;
-    if (!s || seatShown || KOS.Config.liveRace === false || !UI || !UI.dialog) return false;
+  let seatLater = ''; // "Ikke nu": the code hidden for this visit (page load)
+  // the seat to offer, or null: none, hidden for now, live switched off, or a seat on another server (test vs prod: not offered, not deleted)
+  function offerSeat() {
+    const s = readSeat();
+    if (!s || s.code === seatLater || KOS.Config.liveRace === false) return null;
     let url = ''; try { url = resolve().wsUrl; } catch (e) { /* ignore */ }
-    if (s.url && url && s.url !== url) return false; // a seat on another server (test vs prod): not offered, not deleted
-    seatShown = true;
-    const done = typeof then === 'function' ? then : () => {};
-    const dlg = UI.dialog({ icon: 'flag', titleKey: 'live.rejoin.title', body: '<p class="live-rejoin-body">' + UI.esc(KOS.t('live.rejoin.body', { code: s.code })) + '</p>', dismissable: false,
-      buttons: [
-        { label: KOS.t('live.rejoin.no'), onClick: () => { dropSeat(); lt('rejoin', 'declined'); done(); } },
-        { label: KOS.t('live.rejoin.yes'), kind: 'primary', icon: 'play', onClick: () => { lt('rejoin', 'accepted'); open({ join: s.code, auto: true, rejoin: true, via: 'seat' }); } },
-      ] });
-    if (!dlg) { seatShown = false; return false; }
-    return true;
+    return s.url && url && s.url !== url ? null : s;
   }
+  function resumeSeat(s) { lt('rejoin', 'banner'); return open({ join: s.code, auto: true, rejoin: true, via: 'seat' }); }
+  function retireSeat(s, done) {
+    const UI = KOS.UI;
+    const go = () => {
+      lt('rejoin', 'retired');
+      const B = KOS.BUILD || {}, p = KOS.Storage && KOS.Storage.profile ? KOS.Storage.profile() : null;
+      const fin = () => { dropSeat(); try { UI.toast(KOS.t('live.seat.retired'), { kind: 'info' }); } catch (e) { /* optional */ } if (done) done(); };
+      load().then(() => KOS.MP.retire(s, { url: resolve().wsUrl, name: (p && p.name) || '', build: B.version || 'web', ver: B.version || 'dev', sha: B.sha || '' })).then(fin, fin);
+    };
+    if (!UI || !UI.dialog) { go(); return; }
+    UI.dialog({ icon: 'flag', titleKey: 'live.seat.retireTitle', body: '<p>' + UI.esc(KOS.t('live.seat.retireBody', { code: s.code })) + '</p>', cls: 'live-seat-retire',
+      buttons: [{ label: KOS.t('live.seat.stay'), kind: 'primary' }, { label: KOS.t('live.seat.retire'), kind: 'danger', onClick: go }] });
+  }
+  // the banner itself: one big button (straight back into the race) and two small ones
+  function seatBarHtml(s) {
+    const UI = KOS.UI, ic = n => (UI && UI.iconSvg ? UI.iconSvg(n) : '');
+    const sub = KOS.t(s.phase === 'lobby' ? 'live.seat.subLobby' : 'live.seat.sub', { code: s.code });
+    return '<div class="seatbar" role="region" aria-label="' + UI.esc(KOS.t('live.seat.go')) + '" data-code="' + s.code + '">' +
+      '<button type="button" class="seatbar-go" data-seat="go"><span class="seatbar-ico">' + ic('flag') + '</span><span class="seatbar-txt"><b>' + UI.esc(KOS.t('live.seat.go')) + '</b>' +
+      '<small>' + UI.esc(sub) + '</small></span><span class="seatbar-arrow">' + ic('play') + '</span></button>' +
+      '<div class="seatbar-more"><button type="button" class="seatbar-small" data-seat="later">' + UI.esc(KOS.t('live.seat.later')) + '</button>' +
+      '<button type="button" class="seatbar-small" data-seat="retire">' + UI.esc(KOS.t('live.seat.retire')) + '</button></div></div>';
+  }
+  // put the banner on the title screen (top of the menu) or the hub (above the "next" card); remove it when there is nothing to offer
+  function seatBar(screen) {
+    const doc = root.document; if (!doc || !KOS.UI) return;
+    const sec = doc.getElementById('screen-' + screen);
+    if (!sec || sec.hidden) return;
+    const old = sec.querySelector('.seatbar'), s = offerSeat();
+    if (!s) { if (old) old.remove(); return; }
+    if (old && old.getAttribute('data-code') === s.code) return;
+    const slot = screen === 'title' ? sec.querySelector('.title-menu') : sec.querySelector('.hub-bottom');
+    if (!slot) return;
+    if (old) old.remove();
+    slot.insertAdjacentHTML('afterbegin', seatBarHtml(s));
+    const bar = slot.querySelector('.seatbar');
+    bar.addEventListener('click', e => {
+      const b = e.target.closest('[data-seat]');
+      if (!b) return;
+      e.stopPropagation();
+      try { KOS.Audio && KOS.Audio.sfx && KOS.Audio.sfx('click'); } catch (x) { /* optional */ }
+      const a = b.getAttribute('data-seat'), cur = readSeat();
+      if (!cur || cur.code !== s.code) { bar.remove(); return; }
+      if (a === 'go') resumeSeat(cur);
+      else if (a === 'later') { seatLater = cur.code; lt('rejoin', 'later'); bar.remove(); }
+      else if (a === 'retire') retireSeat(cur, () => bar.remove());
+    });
+  }
+  if (KOS.Events && KOS.Events.on) KOS.Events.on('screen', scr => { if (scr === 'title' || scr === 'hub') { try { seatBar(scr); } catch (e) { /* the banner never breaks a screen */ } } });
 
   // an update reload from the entry card / hub / host flow: open Live again by itself afterwards (a join keeps its code in the pending key instead)
   const OKEY = 'kos.mp.openlive';
@@ -201,6 +243,12 @@
     } catch (e) { /* ignore */ }
     const auto = !!KOS.pendingAuto; KOS.pendingAuto = false;
     KOS.joinArrival = code; // the lobby may still ask the update prompt to wait or to run first
+    // a race link while this phone still holds a seat (spec E4): the same race is simply resumed; another race is a choice
+    const s = offerSeat(), UI = KOS.UI;
+    if (s && s.code === code) return resumeSeat(s);
+    if (s && UI && UI.dialog && UI.dialog({ icon: 'flag', titleKey: 'live.seat.choiceTitle', body: '<p>' + UI.esc(KOS.t('live.seat.choiceBody', { code: s.code, other: code })) + '</p>', cls: 'live-seat-choice', dismissable: false,
+      buttons: [{ label: KOS.t('live.seat.choiceNew', { code }), onClick: () => open({ join: code, auto, via: 'link' }) },
+        { label: KOS.t('live.seat.choiceOld', { code: s.code }), kind: 'primary', icon: 'play', onClick: () => resumeSeat(s) }] })) return Promise.resolve();
     return open({ join: code, auto, via: 'link' });
   }
 
@@ -245,13 +293,17 @@
     if (p && p.auto) { KOS.pendingJoin = p.code; KOS.pendingAuto = true; }
   })();
 
-  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, tooOld, seatPrompt, readSeat, keepIntent, busy, keepForReload, canAutoUpdate, markUpdated, wantsOpen };
+  KOS.MPStatus = { resolve, cached, refresh, visible, load, open, handlePendingJoin, tooOld, readSeat, seatBar, keepIntent, busy, keepForReload, canAutoUpdate, markUpdated, wantsOpen };
 
   // the only strings the hub needs before the lobby is loaded
   if (KOS.I18n) {
     KOS.I18n.add('da', { live: { title: 'Live-kapsejlads', menuSub: 'Sejl mod dine venner, lige nu', first: { title: 'Hvem sejler?', sub: 'Skriv dit navn og vælg dit udseende. Så kan dine venner se dig i løbet.', go: 'Videre til løbet' }, card: { desc: 'Sejl mod dine kammerater i et rigtigt løb – på samme tid, hver på sin skærm.', closedTag: 'Lukket' }, unavailable: 'Live-kapsejlads er ikke tilgængelig lige nu. Prøv igen senere – eller sejl mod computeren imens.',
-      rejoin: { title: 'Tilbage i løbet?', body: 'Du er stadig med i løbet {code} – vil du tilbage?', yes: 'Tilbage til løbet', no: 'Nej tak' } } });
+      seat: { go: 'Fortsæt live-løbet', sub: 'Du er stadig med i løbet {code}', subLobby: 'Du venter på starten i løbet {code}', later: 'Ikke nu', retire: 'Udgå',
+        retireTitle: 'Udgå af løbet?', retireBody: 'Så er du ude af løbet {code} og får ikke en placering. Det kan ikke fortrydes.', stay: 'Bliv i løbet', retired: 'Du er udgået af løbet.',
+        choiceTitle: 'Du er med i et andet løb', choiceBody: 'Du er stadig med i løbet {code}. Linket er til løbet {other}.', choiceOld: 'Fortsæt løbet {code}', choiceNew: 'Gå til {code}' } } });
     KOS.I18n.add('en', { live: { title: 'Live race', menuSub: 'Race your friends, right now', first: { title: 'Who is sailing?', sub: 'Type your name and pick your look. Then your friends can see you in the race.', go: 'On to the race' }, card: { desc: 'Race your friends in a real race – at the same time, each on their own screen.', closedTag: 'Closed' }, unavailable: 'Live race is not available right now. Try again later – or race the computer meanwhile.',
-      rejoin: { title: 'Back in the race?', body: 'You are still in race {code} – do you want to go back?', yes: 'Back to the race', no: 'No thanks' } } });
+      seat: { go: 'Continue the live race', sub: 'You are still in race {code}', subLobby: 'You are waiting for the start of race {code}', later: 'Not now', retire: 'Retire',
+        retireTitle: 'Retire from the race?', retireBody: 'You leave race {code} and get no place. This cannot be undone.', stay: 'Stay in the race', retired: 'You have retired from the race.',
+        choiceTitle: 'You are in another race', choiceBody: 'You are still in race {code}. The link is for race {other}.', choiceOld: 'Continue race {code}', choiceNew: 'Go to {code}' } } });
   }
 })(typeof window !== 'undefined' ? window : globalThis);

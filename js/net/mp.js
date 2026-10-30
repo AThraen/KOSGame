@@ -9,11 +9,18 @@
 //     schedule(cfg, title, startAt) -> Promise<{code, secret, title, startAt, opensAt, cfg}>   rejects {code:'badtime'|'schedlimit'|'schedfull'|'closed'|'busy'|'bad'}
 //     schedCancel(code, secret)     -> Promise<{code, why}>   rejects {code:'nocode'|'bad'}
 //     setCfg(partial), kick(id), start(), rematch(), resume(token), hostEnd(), hostAbort(), hostLobby(on), leave(), send(msg), close()
-//     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, schedcancelled, reconnecting, reconnected, offline, status, error
+//     retryNow()            the "Prøv nu" button / back online: an immediate resume attempt (still one retry chain)
+//     detach()              the race screen was left ("Til kortet", back, quit): the socket is closed, the seat is KEPT (no leave)
+//     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, schedcancelled, reconnecting, reconnected,
+//                            away (15 s reconnecting: "still trying"), gone ({rows}: the race ended while away, nocode), replaced (4409:
+//                            the seat is open in another window), detached, offline (lost with no seat), status, error
 //   KOS.MP.parseJoin(hash) -> 'ABCD'|null     KOS.MP.normCode(str) -> 'ABCD'|null
 //   KOS.MP.fetchRooms(wsUrl, {timeoutMs}) -> Promise<rows>   GET /rooms next to the socket URL (no socket); rejects {code:'unreachable'|'rate'}
 //   KOS.MP.roomsUrl(wsUrl) -> 'https://host/mp/rooms'
-//   KOS.MP.seat() -> {code,id,key,url,exp}|null   the rejoin entry kept in localStorage for 2 h (survives closing the page / an update reload)
+//   KOS.MP.seat() -> {code,id,key,url,exp,phase,startedAt}|null   the rejoin entry in localStorage (spec E4): exp = last contact + 2 h,
+//                         refreshed on contact and every 60 s; cleared on retire (leave), kick, hostleft, results and expiry
+//   KOS.MP.lastResult(code?) -> {code, rows, myId, at}|null   the official table of the last race (30 min, localStorage)
+//   KOS.MP.retire(seat, {url, name}) -> Promise   "Udgå" from the title/hub banner: resume + leave, then the seat is forgotten (always resolves)
 //   KOS.MP.clearSeat()    KOS.MP.LEVEL   client protocol level sent in hello (cp); the server can refuse builds below it ('old')
 // All rejections are plain {code} objects; nothing is thrown out of socket handlers; no console output.
 (function (root) {
@@ -21,12 +28,15 @@
   const ALPHABET = 'ACDEFGHJKMNPRTUVWXY34679';
   const CODE_RE = new RegExp('^[' + ALPHABET + ']{4}$');
   const TOKEN_KEY = 'kos.mp.rejoin';
-  const SEAT_KEY = 'kos.mp.seat';   // localStorage: {code, id, key, url, exp}: the way back into a race after the page was closed, swiped away or killed
-  const SEAT_MS = 2 * 3600000;      // the room lives at most this long on the server
+  const SEAT_KEY = 'kos.mp.seat';   // localStorage: {code, id, key, url, exp, phase, startedAt}: the way back into a race after the page was closed, swiped away or killed
+  const SEAT_MS = 2 * 3600000;      // exp = last contact + this (the server keeps a seat, or its archived result, as long)
+  const RESULT_KEY = 'kos.mp.lastResult', RESULT_MS = 30 * 60000; // localStorage: {code, rows, myId, at}: the official table, for a late resume
   const LEVEL = 2;                  // client protocol level (hello.cp): 2 = version gate, seat rejoin in every phase
   const PENDING_KEY = 'kos.mp.pending'; // {code, at, auto}: the page may reload (update, refresh); on load the lobby resumes or joins again
-  const RECONNECT_MS = 15000; // counted from the moment the page is in the foreground again (a hidden phone must not run it down)
-  const WATCHDOG_MS = 2500;   // racing: nothing at all from the server (no S batch, no pong) for this long = the socket is dead, reconnect
+  const AWAY_MS = 15000;      // reconnecting this long (counted in the foreground): "still trying" + "Prøv nu", the race shows unofficial (reversible)
+  const BACKOFF = [500, 1000, 2000, 5000, 10000]; // then every 10 s, +-20 % jitter; retries never stop while a seat exists (spec E1)
+  const WATCHDOG_MS = 2500;   // countdown/racing: nothing at all from the server (no S batch, no pong) for this long = the socket is dead, reconnect
+  const LOBBY_DOG_MS = 8000;  // lobby: pongs come every 3 s; a half-open socket must not miss the start
   const STATE = () => KOS.MPState || (typeof require === 'function' ? require('./mpstate.js') : null);
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -41,12 +51,28 @@
     try { v = decodeURIComponent(v); } catch (e) { /* keep raw */ }
     return normCode(v);
   }
-  function storeSeat(tok, url) {
+  // x: {phase, startedAt (the gun, server ms; 0 before it), at (last contact)}. Clearing with x.code only removes the record of that race
+  // (a session that ends must not wipe the seat of another race this phone is still in)
+  function storeSeat(tok, url, x) {
     try {
       if (typeof localStorage === 'undefined') return;
-      if (tok) localStorage.setItem(SEAT_KEY, JSON.stringify({ code: tok.code, id: tok.id, key: tok.key, url: String(url || ''), exp: Date.now() + SEAT_MS }));
+      x = x || {};
+      if (!tok && x.code) { const o = JSON.parse(localStorage.getItem(SEAT_KEY)); if (o && o.code !== x.code) return; }
+      if (tok) localStorage.setItem(SEAT_KEY, JSON.stringify({ code: tok.code, id: tok.id, key: tok.key, url: String(url || ''), exp: (x.at || Date.now()) + SEAT_MS,
+        phase: String(x.phase || 'lobby'), startedAt: +x.startedAt || 0 }));
       else localStorage.removeItem(SEAT_KEY);
     } catch (e) { /* private mode, storage full */ }
+  }
+  function saveResult(code, rows, myId) {
+    try { if (Array.isArray(rows) && normCode(code)) localStorage.setItem(RESULT_KEY, JSON.stringify({ code, rows, myId, at: Date.now() })); } catch (e) { /* ignore */ }
+  }
+  function lastResult(code) {
+    try {
+      const o = JSON.parse(localStorage.getItem(RESULT_KEY));
+      if (o && Array.isArray(o.rows) && Date.now() - (+o.at || 0) < RESULT_MS) return !code || o.code === code ? o : null;
+      if (o) localStorage.removeItem(RESULT_KEY);
+    } catch (e) { /* none */ }
+    return null;
   }
   function seat() {
     try {
@@ -56,10 +82,11 @@
     } catch (e) { /* none */ }
     return null;
   }
-  function store(tok, url) {
-    storeSeat(tok, url);
+  function store(tok, url, x) {
+    storeSeat(tok, url, x);
     try {
       if (typeof sessionStorage === 'undefined') return;
+      if (!tok && x && x.code) { const o = JSON.parse(sessionStorage.getItem(TOKEN_KEY)); if (o && o.code !== x.code) return; }
       if (tok) { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(tok)); sessionStorage.setItem(PENDING_KEY, JSON.stringify({ code: tok.code, at: Date.now(), auto: true })); }
       else { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(PENDING_KEY); }
     } catch (e) { /* private mode */ }
@@ -116,6 +143,7 @@
     if (m.min) e.min = m.min;
     if (m.code === 'notopen') ['opensAt', 'startAt', 'now'].forEach(k => { if (typeof m[k] === 'number') e[k] = m[k]; });
     if (m.code === 'notopen' && typeof m.title === 'string') e.title = m.title;
+    if (m.code === 'nocode' && Array.isArray(m.rows)) e.rows = m.rows; // a resume after the race ended: the official table (spec E4)
     return e;
   }
 
@@ -148,16 +176,19 @@
     const subs = {};
     let sock = sock0, samples = [], bestRtt = Infinity, pings = 0, pingTimer = 0, fastTimer = 0;
     let final = false, lostAt = 0, retryTimer = 0, pending = null, lastRx = now(), grace = 0, dogTimer = 0, lastForce = 0;
+    let tries = 0, trying = false, awayTimer = 0, lastContact = Date.now(), seatAt = 0, seatTimer = 0;
     S.serverNow = () => now() + S.offset;
+    S.away = false;
 
-    const emit = (evt, arg) => {
-      (subs[evt] || []).slice().forEach(fn => { try { fn(arg); } catch (e) { /* listener bug must not kill the socket */ } });
+    const emit = (evt, arg, arg2) => {
+      (subs[evt] || []).slice().forEach(fn => { try { fn(arg, arg2); } catch (e) { /* listener bug must not kill the socket */ } });
     };
     S.on = (evt, fn) => {
       (subs[evt] = subs[evt] || []).push(fn);
       return () => { const l = subs[evt] || []; const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); };
     };
     const racing = () => S.phase === 'countdown' || S.phase === 'racing';
+    const seated = () => !!S.token && (S.phase === 'lobby' || racing()); // a seat the server keeps for us: a lost socket is resumed, never given up
     // a send that fails, or a socket that is not OPEN while racing, starts the reconnect (the watchdog below does the same on silence)
     const raw = (msg) => {
       try {
@@ -211,28 +242,42 @@
       else if (Math.abs(err) > 120 && samples.length >= 3) { S.offset = pk.offset; c.steps++; }
       else { let d = 0.3 * err; if (d > 15) d = 15; else if (d < -15) d = -15; S.offset += d; }
     }
-    // a phone that was asleep or a hidden tab: timers stood still, so measure again as soon as we are back
+    // a phone that was asleep or a hidden tab: timers stood still, so measure again as soon as we are back. Back in the foreground, back
+    // online, a bfcache restore or focus: a lost seat is tried again AT ONCE (spec E1; still one retry chain)
+    function wake(ev) {
+      if (final) return;
+      if (ev && ev.type === 'visibilitychange' && document.hidden) return;
+      if (ev && ev.type !== 'online') grace = now() + 3000; // timers were starved while hidden: the silence is not the server's fault, measure again first
+      if (S.state === 'reconnecting') { if (!S.away) armAway(); retryNow(); } // the 15 s count starts again, in the foreground
+      else if (S.state === 'ok' && sock && sock.readyState === 1) { if (ev && ev.type !== 'focus') { resync(); raw({ t: 'ping', c: now() }); } }
+      else if (S.state === 'ok' && seated()) forceReconnect('wake');
+    }
+    const wakeOn = [];
     try {
-      if (typeof document !== 'undefined' && document.addEventListener) {
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) return;
-          grace = now() + 3000; // timers were starved while hidden: the silence is not the server's fault, measure again first
-          if (S.state === 'reconnecting') { lostAt = Date.now(); clearTimeout(retryTimer); scheduleRetry(0); } // the 15 s start now, in the foreground
-          else if (S.state === 'ok' && sock && sock.readyState === 1) { resync(); raw({ t: 'ping', c: now() }); }
-          else if (S.state === 'ok' && racing()) forceReconnect('visible');
-        });
-      }
+      if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', wake); wakeOn.push([document, 'visibilitychange']); }
+      if (typeof window !== 'undefined' && window.addEventListener) ['online', 'pageshow', 'focus'].forEach(e => { window.addEventListener(e, wake); wakeOn.push([window, e]); });
     } catch (e) { /* no document */ }
 
     function setRoom(room) {
+      const ph = S.phase;
       S.room = room; S.phase = room.phase;
       S.role = room.hostId === S.id ? 'host' : 'player';
+      if (ph !== S.phase) touchSeat(true);
     }
     function setToken(m) {
       S.id = m.id; S.code = m.code; S.token = { code: m.code, id: m.id, key: m.key };
-      store(S.token, opts.url);
+      store(S.token, opts.url, seatX());
     }
-    function clearToken() { S.token = null; store(null); }
+    function clearToken() { S.token = null; store(null, null, { code: S.code }); }
+    // the seat record (spec E4): exp = last contact + 2 h, rewritten at most once a minute (and at once when the phase changes)
+    const seatX = () => ({ phase: S.phase, startedAt: S.T0 || 0, at: lastContact });
+    function touchSeat(force) {
+      if (!S.token || final) return;
+      const t = Date.now();
+      if (!force && t - seatAt < 60000) return;
+      seatAt = t; storeSeat(S.token, opts.url, seatX());
+    }
+    seatTimer = setInterval(() => touchSeat(true), 60000); seatTimer.unref && seatTimer.unref();
 
     // ---- message handling (shared by the first socket and reconnected sockets)
     function handle(m) {
@@ -253,6 +298,7 @@
         case 'start': { // the server repeats 'start' on every resume: the same gun on a session that already has it is NOT a new race (it used to relaunch the race screen = the boat went back to the start line)
           const dup = S.T0 === m.T0 && !!S.grid;
           S.T0 = m.T0; S.cfg = m.cfg; S.grid = m.grid; if (S.phase === 'lobby') S.phase = 'countdown';
+          touchSeat(true);
           if (!dup) emit('start', { T0: m.T0, cfg: m.cfg, grid: m.grid });
           break;
         }
@@ -261,9 +307,9 @@
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
         case 'foul': if (typeof m.from === 'number') emit('foul', { from: m.from, r: String(m.r || ''), self: m.s === 1 }); break; // another phone says our boat fouled theirs (self: its own boat fouled ours)
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
-        case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; clearToken(); emit('res', m.rows); break;
+        case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; saveResult(S.code, m.rows, S.id); clearToken(); emit('res', m.rows); break;
         case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token
-          if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token, opts.url); } S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; setRoom(m.room); emit('rematch', m.room, !!m.aborted); }
+          if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token, opts.url, seatX()); } S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; setRoom(m.room); emit('rematch', m.room, !!m.aborted); }
           break;
         case 'hostleft': clearToken(); S.phase = 'closed'; emit('hostleft'); break;
         case 'kicked': clearToken(); final = true; emit('kicked'); break;
@@ -277,32 +323,32 @@
     }
     function attach(s) {
       s.onmessage = (ev) => {
-        lastRx = now();
+        lastRx = now(); lastContact = Date.now();
         let m; try { m = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data)); } catch (e) { return; }
         if (m && typeof m === 'object') { try { handle(m); } catch (e) { /* ignore */ } }
+        touchSeat(false);
       };
       s.onerror = () => {};
-      s.onclose = () => { if (s === sock) onLost(); };
+      s.onclose = (ev) => { if (s !== sock) return; if (ev && ev.code === 4409) replaced(); else onLost(); }; // a socket we dropped ourselves never gets here
     }
 
-    // ---- loss and reconnect (spec 4.7)
-    // the watchdog: racing, state ok, no frame at all for WATCHDOG_MS (and not just back from the background) => drop the socket and resume
+    // ---- loss and reconnect (spec 4.7, live-rules spec E1/E5/E7)
+    // the watchdog, in every phase with a seat: no frame at all for WATCHDOG_MS (countdown/racing) or LOBBY_DOG_MS (lobby), and not just
+    // back from the background => drop the socket and resume
     function forceReconnect(why) {
-      if (final || S.state !== 'ok' || !S.token || !racing()) return;
+      if (final || S.state !== 'ok' || !seated()) return;
       const t = Date.now();
       if (t - lastForce < 1500) return;
       lastForce = t; S.forced = (S.forced || 0) + 1; S.forcedWhy = why;
       const old = sock; sock = null;
       if (old) { old.onclose = old.onmessage = old.onerror = null; try { old.close(); } catch (e) { /* ignore */ } }
-      clearTimeout(fastTimer); clearInterval(pingTimer);
-      S.state = 'reconnecting'; lostAt = t; emit('reconnecting');
-      scheduleRetry(0);
+      lose();
     }
     function dog() {
-      if (final || S.state !== 'ok' || !racing()) return;
+      if (final || S.state !== 'ok' || !seated()) return;
       if (now() < grace) return;
       if (!sock || sock.readyState !== 1) { forceReconnect('notopen'); return; }
-      if (now() - lastRx > WATCHDOG_MS) forceReconnect('silent');
+      if (now() - lastRx > (racing() ? WATCHDOG_MS : LOBBY_DOG_MS)) forceReconnect('silent');
     }
     dogTimer = setInterval(dog, 500); dogTimer.unref && dogTimer.unref();
     S.watchdog = dog;
@@ -315,42 +361,72 @@
       if (S.state === 'reconnecting') return; // forceReconnect already took over
       if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej({ code: 'unreachable' }); }
       if (final || S.state === 'closed' || S.state === 'offline') return;
-      if (S.token && (S.phase === 'lobby' || S.phase === 'countdown' || S.phase === 'racing')) { // the lobby too: a locked phone must not lose its seat
-        S.state = 'reconnecting'; lostAt = Date.now(); emit('reconnecting');
-        scheduleRetry(0);
-      } else { S.state = 'offline'; emit('offline'); }
+      if (seated()) lose(); // the lobby too: a locked phone must not lose its seat
+      else { S.state = 'offline'; emit('offline'); }
     }
-    function scheduleRetry(n) {
-      const delays = [500, 1000, 2000, 3000, 4000];
-      const wait = delays[Math.min(n, delays.length - 1)];
-      const left = RECONNECT_MS - (Date.now() - lostAt);
-      if (left <= 0) { giveUp(); return; }
-      retryTimer = setTimeout(() => attempt(n), Math.min(wait, left));
+    // the seat may still be alive: there is no final "offline" while we hold it. Retries stop only on nocode, res, kicked, hostleft
+    // (and 4409, a leave, a detach).
+    function lose() {
+      clearTimeout(fastTimer); clearInterval(pingTimer);
+      S.state = 'reconnecting'; lostAt = Date.now(); tries = 0; S.away = false;
+      emit('reconnecting');
+      armAway();
+      scheduleRetry();
     }
-    function giveUp() { if (S.state === 'reconnecting') { S.state = 'offline'; emit('offline'); } }
-    function attempt(n) {
-      if (S.state !== 'reconnecting') return;
+    function armAway() {
+      clearTimeout(awayTimer);
+      awayTimer = setTimeout(() => { if (S.state === 'reconnecting' && !S.away) { S.away = true; emit('away'); } }, AWAY_MS);
+    }
+    function scheduleRetry() {
+      clearTimeout(retryTimer);
+      if (S.state !== 'reconnecting' || trying) return; // one retry chain at a time
+      const wait = BACKOFF[Math.min(tries, BACKOFF.length - 1)] * (0.8 + 0.4 * Math.random());
+      retryTimer = setTimeout(attempt, Math.round(wait));
+    }
+    // "Prøv nu", back online, back in the foreground: the backoff starts over with an immediate try
+    function retryNow() {
+      if (final || S.state !== 'reconnecting') return;
+      tries = 0;
+      if (trying) return; // the attempt in flight goes on; when it fails the next one is 0.5 s later
+      clearTimeout(retryTimer); attempt();
+    }
+    S.retryNow = retryNow;
+    function attempt() {
+      if (S.state !== 'reconnecting' || trying || final) return;
+      trying = true; tries++; S.tries = (S.tries || 0) + 1;
       let s2 = null, over = false;
-      const next = () => { if (over) return; over = true; try { s2 && s2.close(); } catch (e) { /* ignore */ } scheduleRetry(n + 1); };
-      const guard = setTimeout(next, 3000);
+      const next = () => { if (over) return; over = true; trying = false; clearTimeout(guard); try { s2 && s2.close(); } catch (e) { /* ignore */ } scheduleRetry(); };
+      const guard = setTimeout(next, 6000); // TLS + hello + resume on a weak phone signal
       openSocket(opts, (sk) => {
         if (over || S.state !== 'reconnecting') { try { sk.close(); } catch (e) { /* ignore */ } return; }
         s2 = sk;
         let resumed = false;
         sk.onmessage = (ev) => {
           let m; try { m = JSON.parse(String(ev.data)); } catch (e) { return; }
-          if (!resumed) {
-            if (m.t === 'joined') {
-              resumed = true; clearTimeout(guard); over = true;
-              sock = sk; attach(sk); lastRx = now(); grace = now() + 2000;
-              S.state = 'ok'; S.reconnects++; handle(m); startSync(); emit('reconnected');
-            } else if (m.t === 'err') { clearTimeout(guard); next(); }
-          }
+          if (resumed) return;
+          if (m.t === 'joined') {
+            resumed = true; clearTimeout(guard); over = true; trying = false;
+            clearTimeout(awayTimer); clearTimeout(retryTimer);
+            sock = sk; attach(sk); lastRx = now(); lastContact = Date.now(); grace = now() + 2000;
+            S.state = 'ok'; S.away = false; S.reconnects++; handle(m); touchSeat(true); startSync(); emit('reconnected');
+          } else if (m.t === 'err' && m.code === 'nocode') { // the race is over and its room gone (or the seat was dropped): stop for good
+            over = true; clearTimeout(guard); trying = false;
+            try { sk.close(); } catch (e) { /* ignore */ }
+            const rows = Array.isArray(m.rows) ? m.rows : null;
+            if (rows) saveResult(S.code, rows, S.id);
+            clearToken(); shut(); emit('gone', { rows: rows || (lastResult(S.code) || {}).rows || null });
+          } else if (m.t === 'err') next();
         };
-        sk.onclose = () => { if (!resumed) { clearTimeout(guard); next(); } };
+        sk.onclose = () => { if (!resumed) next(); };
         sk.onerror = () => {};
-        try { sk.send(JSON.stringify({ t: 'resume', code: S.token.code, id: S.token.id, key: S.token.key })); } catch (e) { clearTimeout(guard); next(); }
-      }, () => { clearTimeout(guard); next(); }, (s) => { s2 = s; });
+        try { sk.send(JSON.stringify({ t: 'resume', code: S.token.code, id: S.token.id, key: S.token.key })); } catch (e) { next(); }
+      }, () => next(), (s) => { s2 = s; });
+    }
+    // 4409: the server gave this seat to a newer socket (the race is open in another window). Never steal it back.
+    function replaced() {
+      S.token = null; // this tab forgets it (a reload here must not resume); the seat record in localStorage belongs to the other window now
+      try { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* ignore */ }
+      S.replaced = true; shut(); emit('replaced');
     }
 
     // ---- requests
@@ -382,11 +458,16 @@
     S.hostLobby = (on) => raw({ t: 'hlobby', on: !!on });
     function shut() {
       final = true; S.state = 'closed';
-      clearTimeout(fastTimer); clearTimeout(retryTimer); clearInterval(pingTimer); clearInterval(dogTimer);
-      try { sock && sock.close(); } catch (e) { /* ignore */ }
+      clearTimeout(fastTimer); clearTimeout(retryTimer); clearTimeout(awayTimer); clearInterval(pingTimer); clearInterval(dogTimer); clearInterval(seatTimer);
+      wakeOn.forEach(([el, e]) => { try { el.removeEventListener(e, wake); } catch (x) { /* ignore */ } });
+      const s = sock; sock = null;
+      if (s) { s.onclose = s.onmessage = s.onerror = null; try { s.close(); } catch (e) { /* ignore */ } }
     }
+    // withdrawing: the server makes the seat RET/DNF. Only the explicit "Udgå af løbet" / lobby "Forlad" does this (spec E3)
     S.leave = () => { raw({ t: 'leave' }); clearToken(); shut(); };
     S.close = () => shut();
+    // leaving the race screen ("Til kortet", back, the app closed): the seat stays for a resume from the title/hub banner
+    S.detach = () => { if (final) return; touchSeat(true); shut(); emit('detached'); };
 
     attach(sock);
     startSync();
@@ -398,10 +479,10 @@
     const room = sess.room || {};
     const cfg = sess.cfg || room.cfg || {};
     return {
-      cfg, grid: sess.grid || [], T0: sess.T0, myId: sess.id,
+      cfg, grid: sess.grid || [], T0: sess.T0, myId: sess.id, code: sess.code,
       role: room.hostRole === 'watch' && room.hostId === sess.id ? 'watch' : 'sail',
       countdownS: cfg.countdownS || 20,
-      get state() { return sess.state; },
+      get state() { return sess.state; }, get away() { return !!sess.away; },
       get resumed() { return !!sess.resumed; }, get restore() { return sess.me || null; }, // after a reload: the seat's last state from the server (me = null: nothing stored)
       serverNow: () => sess.serverNow(),
       get rtt() { return sess.rtt || 0; }, // ms, lowest of the last 8 pings
@@ -414,9 +495,24 @@
       get players() { return (sess.room && sess.room.players) || room.players || []; },
       hostEnd: () => sess.hostEnd(), hostAbort: () => sess.hostAbort(), hostLobby: on => sess.hostLobby(on), kick: id => sess.kick(id),
       leave: () => { if (sess.phase === 'lobby' && sess.state === 'ok') return; /* the host aborted/rematched: the lobby owns the seat now */ try { sess.leave(); } catch (e) { /* ignore */ } },
+      // leaving the race screen keeps the seat (spec E3); the lobby still owns the session after an official result or a rematch
+      detach: () => { if (sess.state === 'closed' || sess.phase === 'results' || sess.phase === 'lobby' && sess.state === 'ok') return; try { sess.detach(); } catch (e) { /* ignore */ } },
+      retire: () => { try { sess.leave(); } catch (e) { /* ignore */ } }, // "Udgå af løbet": the server makes it RET/DNF
+      retryNow: () => { try { sess.retryNow(); } catch (e) { /* ignore */ } },
     };
   }
 
-  KOS.MP = { connect, parseJoin, normCode, liveFacade, savedToken, seat, clearSeat: () => storeSeat(null), fetchRooms, roomsUrl, LEVEL, ALPHABET };
+  // "Udgå" on the title/hub banner (spec E4): resume the seat just long enough to send leave. Offline or gone: the seat is forgotten here
+  // anyway (the server lists it lost/DNF). Always resolves.
+  function retire(st, o) {
+    o = o || {};
+    const forget = () => { storeSeat(null); try { const t = JSON.parse(sessionStorage.getItem(TOKEN_KEY)); if (!t || t.code === st.code) { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(PENDING_KEY); } } catch (e) { /* ignore */ } };
+    if (!st || !st.code) { forget(); return Promise.resolve(false); }
+    return connect({ url: st.url || o.url, name: o.name, build: o.build, ver: o.ver, sha: o.sha, timeoutMs: 6000 })
+      .then(sess => sess.resume({ code: st.code, id: st.id, key: st.key }).then(() => { sess.leave(); return true; }, () => { sess.close(); return false; }))
+      .catch(() => false).then(v => { forget(); return v; });
+  }
+
+  KOS.MP = { connect, parseJoin, normCode, liveFacade, savedToken, seat, clearSeat: () => storeSeat(null), lastResult, retire, fetchRooms, roomsUrl, LEVEL, ALPHABET };
   if (typeof module !== 'undefined' && module.exports) module.exports = KOS.MP;
 })(typeof window !== 'undefined' ? window : globalThis);

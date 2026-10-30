@@ -778,7 +778,7 @@
       if (LIVE && b === me) { // the official time carries +20 s per penalty turn still owed (spec 5.2 no. 6)
         const owed = S.pen ? Math.ceil((S.pen.need - Math.abs(S.pen.acc)) / TAU - 0.01) : 0;
         rc.finT += Math.max(0, owed) * 20;
-        if (!S.unofficial) LIVE.send({ t: 'fin', ms: Math.round(rc.finT * 1000) });
+        if (!S.unofficial) S.finSent = LIVE.send({ t: 'fin', ms: Math.round(rc.finT * 1000) }) !== false; // not sent (the socket is away): sent once we are back
       }
       S.fin.push(b);
       const place = S.fin.length;
@@ -1028,8 +1028,22 @@
     const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, tack: 'starboard', r13: false, rc: null };
     S.flog = LIVE && !WATCH ? new MPS.FoulLog(LIVE.myId, 2000) : null;
     S.near = {}; S.foulQ = []; S.selfQ = []; // per remote rid: env.t of our last contact / close call with it; foul messages held for TOLD_HOLD
+    // the connection banner (spec E1): 'retry' "Forbinder igen…"; 'away' (15 s) "Forbindelsen er væk – vi prøver stadig" + "Prøv nu";
+    // 'gone' the race ended while we were away and nobody has its table; 'replaced' the race is open in another window
     const banner = LIVE ? document.createElement('div') : null;
-    if (banner) { banner.className = 'race-live-banner'; banner.hidden = true; banner.textContent = t('live.reconnecting'); host.layer.appendChild(banner); }
+    const BANNER_KEYS = { retry: 'live.reconnecting', away: 'live.stillTrying', gone: 'live.rejoinGone', replaced: 'live.replaced' };
+    function paintBanner(mode) {
+      if (!banner) return;
+      S.netMode = mode || '';
+      banner.hidden = !mode;
+      banner.classList.toggle('is-away', mode === 'away');
+      banner.innerHTML = mode ? '<span>' + KOS.UI.esc(t(BANNER_KEYS[mode])) + '</span>' + (mode === 'away' ? '<button type="button" class="btn btn-sm btn-primary" data-net="try">' + KOS.UI.esc(t('live.tryNow')) + '</button>' : '') : '';
+    }
+    if (banner) {
+      banner.className = 'race-live-banner'; banner.setAttribute('role', 'status'); paintBanner('');
+      banner.addEventListener('click', e => { if (e.target.closest('[data-net]')) { sfx('tap'); LIVE.retryNow && LIVE.retryNow(); } });
+      host.layer.appendChild(banner);
+    }
     const liveOffs = [];
     // network overlay for real-device testing: #diag=1 (remembered, see diag.js) or #net=1 -> clock offset, rtt, and per remote boat buffer depth, state age, arrival lag, correction
     let netEl = null, netT = 0;
@@ -1097,23 +1111,54 @@
       if (lag < 1) S.catchMax = CATCH_MAX;
       return U.clamp(Math.round(lag / KOS.DT), 0, 300);
     }
-    // a reloaded page: the server sends back the last state of this seat. Skip the clock to the time of that state, put the boat there
-    // (position, heading, speed, mark progress, penalty) and sail the gap since then.
+    // a reloaded page (or a resume from the title/hub banner): the server sends back the last state of this seat, and this tab may have a
+    // snapshot of its own (sessionStorage, every 2 s and on pagehide). The newer of the two wins (spec E2); the snapshot also knows the
+    // exact penalty turns owed and how far they got. Skip the clock to the time of that state, put the boat there and sail the gap since then.
+    const SNAP_KEY = 'kos.mp.snap';
+    function saveSnap() {
+      if (!LIVE || WATCH || S.holdSend || (S.rest && !S.rest.done) || S.gone) return; // never before the restore landed (the start line would overwrite it)
+      if (!(Number.isFinite(me.x) && Number.isFinite(me.y))) return;
+      const p = me.rc.pen;
+      try {
+        sessionStorage.setItem(SNAP_KEY, JSON.stringify({ code: LIVE.code, id: LIVE.myId, T0: LIVE.T0, ts: Math.round(LIVE.T0 + S.clock * 1000),
+          x: me.x, y: me.y, hd: me.heading, sp: me.speed, hl: me.heel, vx: me.vx, vy: me.vy, cap: !!me.capsized, lg: me.rc.leg, ocs: !!me.rc.ocs,
+          pen: p ? { need: p.need, acc: p.acc, dir: p.dir || 0, auto: !!p.auto } : null, served: S.penServed, fouls: S.fouls,
+          fin: me.rc.finT != null ? Math.round(me.rc.finT * 1000) : null }));
+      } catch (e) { /* private mode */ }
+    }
+    function readSnap() {
+      try {
+        const o = JSON.parse(sessionStorage.getItem(SNAP_KEY));
+        return o && o.code === LIVE.code && o.id === LIVE.myId && o.T0 === LIVE.T0 && Number.isFinite(o.ts) && Number.isFinite(o.x) && Number.isFinite(o.y) ? o : null;
+      } catch (e) { return null; }
+    }
     function onRestore(m) {
-      if (WATCH || S.restoreSeen || S.sentOnce) return;
+      if (WATCH || S.restoreSeen || S.sentOnce) return; // a reconnect inside the same race: our own boat is the truth, no teleport
       S.restoreSeen = true;
-      const st = m && m.s ? MPS.unpackState(m.s) : null;
-      if (!st || !st.ts) { S.holdSend = false; return; }
+      let st = m && m.s ? MPS.unpackState(m.s) : null;
+      if (st && !st.ts) st = null;
+      const sn = readSnap();
+      if (sn && (!st || sn.ts >= st.ts)) {
+        st = { ts: sn.ts, x: sn.x, y: sn.y, hd: sn.hd, sp: sn.sp, hl: sn.hl, vx: sn.vx, vy: sn.vy, capsized: !!sn.cap, lg: sn.lg, ocs: !!sn.ocs, penalty: !!sn.pen, snap: true };
+      }
+      if (!st) { S.holdSend = false; return; }
       const clock = (st.ts - LIVE.T0) / 1000;
       if (!(clock > S.clock - 0.5) || S.phase === 'finish') { S.holdSend = false; return; }
-      S.rest = { st, clock, done: false, fin: Number.isFinite(m.fin) ? m.fin : null };
+      const fin = m && Number.isFinite(m.fin) ? m.fin : sn && Number.isFinite(sn.fin) ? sn.fin : null;
+      S.rest = { st, clock, done: false, fin, sn };
     }
     function applyRestore() {
-      const st = S.rest.st; S.rest.done = true; S.holdSend = false; S.restored = true;
+      const st = S.rest.st, sn = S.rest.sn; S.rest.done = true; S.holdSend = false; S.restored = st.snap ? 'snap' : 'server';
       me.x = st.x; me.y = st.y; me.heading = st.hd; me.speed = st.sp; me.heel = st.hl; me.capsized = st.capsized;
+      if (Number.isFinite(st.vx) && Number.isFinite(st.vy)) { me.vx = st.vx; me.vy = st.vy; }
       if (st.lg > 0 && st.lg < seq.length) { me.rc.started = true; me.rc.startT = S.raceT; setLeg(me, st.lg); }
       me.rc.ocs = st.ocs;
-      if (st.penalty && !me.rc.pen) addPen(me, 1);
+      if (sn) { S.penServed = Math.max(S.penServed, sn.served || 0); S.fouls = Math.max(S.fouls, sn.fouls || 0); }
+      if (S.rest.fin == null) { // a finished boat owes nothing more (its time already carries the owed turns)
+        if (sn && sn.pen && sn.pen.need > 0 && (st.snap || st.penalty)) { // the exact turns owed and the progress (the server only knows: a penalty)
+          addPen(me, 0); Object.assign(me.rc.pen, { need: sn.pen.need, acc: sn.pen.acc || 0, dir: sn.pen.dir || 0, auto: !!sn.pen.auto, prevH: me.heading });
+        } else if (st.penalty && !me.rc.pen) addPen(me, 1);
+      }
       // a short gap (an update reload) is sailed on from the restored pose; a long absence (page closed, app killed) is NOT flown open-loop:
       // the boat stays where the others last saw it (they showed it as lost there) and only the last second is sailed
       S.catchMax = (LIVE.serverNow() - st.ts) > 4000 ? CATCH_MAX : 30; S.sendNow = true; S.restoredGapS = Math.round((LIVE.serverNow() - st.ts) / 100) / 10;
@@ -1211,13 +1256,28 @@
       PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.tack = me.tack; PK.r13 = !!me.r13; PK.rc = me.rc;
       LIVE.send({ t: 'st', s: MPS.packState(PK, LIVE.myId, S.seq = MPS.stamp(LIVE.T0 + S.clock * 1000, S.seq)) });
     }
-    // the connection is gone for good: carry on on our own clock, the result is marked unofficial (spec 5.6)
+    // the connection has been away for 15 s: carry on on our own clock, the result shows as unofficial (spec 5.6). This is a display state
+    // only (spec E1): mp.js keeps trying, and once we are back everything is official again (backOnline)
     function goOffline() {
       if (S.unofficial) return;
       lt('disconnect');
       S.unofficial = true; S.offAt = env.t;
       if (!WATCH) { try { say(t('live.offlineNote'), 9000); } catch (e) { /* optional */ } }
-      if (banner) banner.hidden = true;
+    }
+    function backOnline() {
+      if (!S.unofficial || S.gone) return;
+      S.unofficial = false; S.sendNow = true; S.backOnline = (S.backOnline || 0) + 1;
+      for (const b of remotes) { b.hidden = false; b.ghost = false; } // applyRemotes hides the finished ones again from their own times
+      if (me.rc.finT != null && !S.finSent && !WATCH) S.finSent = LIVE.send({ t: 'fin', ms: Math.round(me.rc.finT * 1000) }) !== false; // finished while away
+      if (!WATCH) { try { say(t('live.backOnline'), 4000); } catch (e) { /* optional */ } }
+    }
+    // the official table arrived ('res', or the rows of a late resume after the room was gone)
+    function onRes(rows) {
+      toggleHostMenu(false);
+      S.liveRes = Array.isArray(rows) ? rows : null;
+      if (S.liveRes) { try { sessionStorage.removeItem(SNAP_KEY); } catch (e) { /* ignore */ } }
+      if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf();
+      if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); }
     }
     function liveRows() {
       const res = S.liveRes;
@@ -1517,16 +1577,23 @@
       liveOffs.push(LIVE.on('states', onStates));
       if (S.flog) liveOffs.push(LIVE.on('foul', onFoulMsg));
       liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
-      liveOffs.push(LIVE.on('res', rows => { toggleHostMenu(false); S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
-      liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
-      liveOffs.push(LIVE.on('reconnected', () => { if (banner) banner.hidden = true; S.sendNow = true; S.reconnected = (S.reconnected || 0) + 1; })); // my own boat is the truth: no teleport, just say where I am at once
+      liveOffs.push(LIVE.on('res', onRes));
+      // spec E1: never a final offline while the seat lives. 15 s away = unofficial (reversible) + "vi prøver stadig"; back = official again
+      liveOffs.push(LIVE.on('reconnecting', () => { if (!S.gone) paintBanner(S.unofficial ? 'away' : 'retry'); }));
+      liveOffs.push(LIVE.on('away', () => { if (S.gone) return; goOffline(); paintBanner('away'); }));
+      liveOffs.push(LIVE.on('reconnected', () => { paintBanner(''); backOnline(); S.sendNow = true; S.reconnected = (S.reconnected || 0) + 1; })); // my own boat is the truth: no teleport, just say where I am at once
+      liveOffs.push(LIVE.on('gone', e => { // the race ended while we were away (nocode): its official table if anybody has it, else a kind word
+        S.gone = true;
+        if (e && Array.isArray(e.rows) && e.rows.length) { S.unofficial = false; paintBanner(''); onRes(e.rows); } else { goOffline(); paintBanner('gone'); }
+      }));
+      liveOffs.push(LIVE.on('replaced', () => { S.gone = true; goOffline(); paintBanner('replaced'); })); // 4409: the race is open in another window
       liveOffs.push(LIVE.on('restore', onRestore));
       if (LIVE.resumed && !WATCH) { // a reloaded page: wait (max 1.5 s) for the restore message before the first state goes out
         S.holdSend = true;
         setTimeout(() => { S.holdSend = false; }, 1500);
         if (LIVE.restore) onRestore(LIVE.restore);
       }
-      liveOffs.push(LIVE.on('offline', goOffline));
+      liveOffs.push(LIVE.on('offline', () => { goOffline(); paintBanner(''); }));
     }
 
     function simStep(dt) {
@@ -1612,7 +1679,7 @@
       if (!LIVE && S.phase === 'race' && S.fin.length === ai.length && !S.dnfT) S.dnfT = S.raceT;
       if (LIVE ? (S.unofficial && S.phase === 'race' && S.raceT > LIVE.cfg.maxS) : (S.phase === 'race' && ((S.dnfT && S.raceT - S.dnfT > (assist === 'easy' ? 240 : 150)) || S.raceT > P.targetS * 6))) dnf();
       if (S.finishT > 0) { S.finishT -= dt; if (S.finishT <= 0 && S.result) host.finish(S.result); }
-      if (LIVE) { liveExtrasTick(dt); netDiagTick(dt); }
+      if (LIVE) { liveExtrasTick(dt); netDiagTick(dt); if ((S.snapT = (S.snapT || 0) - dt) <= 0) { S.snapT = 2; saveSnap(); } } // a reload puts the boat back here (spec E2)
       hudTick(dt);
     }
 
@@ -2025,6 +2092,9 @@
       } catch (e) { /* not supported */ }
     }
     if (LIVE) { takeWake(); wakeVis = () => { if (!document.hidden && !wakeLock) takeWake(); }; document.addEventListener('visibilitychange', wakeVis); }
+    // the snapshot also goes out when the page is hidden or unloaded (a phone may be killed in the background without a pagehide)
+    const snapOn = LIVE && !WATCH ? e => { if (e.type === 'pagehide' || document.hidden) saveSnap(); } : null;
+    if (snapOn) { window.addEventListener('pagehide', snapOn); document.addEventListener('visibilitychange', snapOn); }
     function destroy() {
       destroyed = true;
       if (wakeVis) document.removeEventListener('visibilitychange', wakeVis);
@@ -2032,7 +2102,10 @@
       liveOffs.forEach(f => f());
       if (banner) banner.remove();
       if (netEl) netEl.remove();
-      if (LIVE && !(S.liveRes && !S.unofficial)) LIVE.leave(); // an official result keeps the room open for a rematch; the lobby owns the session then
+      if (snapOn) { window.removeEventListener('pagehide', snapOn); document.removeEventListener('visibilitychange', snapOn); }
+      // leaving the race screen ("Til kortet", back, quit) only detaches: the seat stays and the title/hub banner leads back (spec E3).
+      // An official result keeps the room open for a rematch; the lobby owns the session then
+      if (LIVE && !(S.liveRes && !S.unofficial)) { saveSnap(); LIVE.detach ? LIVE.detach() : LIVE.leave(); }
       [wCount, wFollow, wEnd, fwinEl, hostBtn, hostMenu].forEach(e => { if (e) e.remove(); });
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
       host.layer.removeEventListener('wheel', onWheel);

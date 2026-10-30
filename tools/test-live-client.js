@@ -427,7 +427,7 @@ async function main() {
     setSrv({});
   }
 
-  console.log('-- rejoin prompt: a seat survives closing the page; yes goes back, no forgets it');
+  console.log('-- "Fortsæt live-løbet": a seat survives closing the page; the title banner goes back, "Ikke nu" hides it for this visit');
   {
     const hostP = await newPage('area=race', 'Vaert5');
     await hostP.page.waitForSelector('.live-card', { timeout: 8000 });
@@ -439,33 +439,34 @@ async function main() {
     await jp.page.fill('#live-code', code); await clickAct(jp.page, 'join'); await waitView(jp.page, 'room');
     const myId = await jp.page.evaluate(() => KOS.Lobby.state.sess.id);
     const seat = await jp.page.evaluate(() => JSON.parse(localStorage.getItem('kos.mp.seat')));
-    ok(seat && seat.code === code && seat.id === myId && typeof seat.key === 'string' && seat.key.length >= 8 && /\/ws$/.test(seat.url) && seat.exp > Date.now() + 100 * 60000 && seat.exp < Date.now() + 130 * 60000, 'localStorage keeps {code, id, key, server url, expiry about 2 h} while seated');
+    ok(seat && seat.code === code && seat.id === myId && typeof seat.key === 'string' && seat.key.length >= 8 && /\/ws$/.test(seat.url) && seat.exp > Date.now() + 100 * 60000 && seat.exp < Date.now() + 130 * 60000 && seat.phase === 'lobby' && seat.startedAt === 0,
+      'localStorage keeps {code, id, key, server url, exp = last contact + 2 h, phase, startedAt} while seated');
     const stored = await jp.ctx.storageState();
     await jp.ctx.close(); // the tab is closed / the app swiped away
     await hostP.page.waitForFunction(() => KOS.Lobby.state.room.players.some(p => p.lost), null, { timeout: 8000 });
     ok(true, 'the host sees the closed phone as lost, the seat is still there');
 
-    // back with the same storage: the prompt (before any network), "yes" resumes the same seat
+    // back with the same storage: the banner (before any network), tapping it resumes the same seat
     let r = await newPage('', 'Bent', { storage: stored });
-    await r.page.waitForSelector('.dialog .live-rejoin-body', { timeout: 8000 });
-    ok(await r.page.evaluate(c => document.querySelector('.dialog .live-rejoin-body').textContent === 'Du er stadig med i løbet ' + c + ' – vil du tilbage?' && window.__ws === 0, code), 'the prompt asks "Du er stadig med i løbet ' + code + ' – vil du tilbage?" and nothing has touched the network yet');
-    ok(await r.page.evaluate(() => [...document.querySelectorAll('.dialog .btn')].map(b => b.textContent.trim()).join('|') === 'Nej tak|Tilbage til løbet'), 'two buttons: Nej tak / Tilbage til løbet');
-    if (process.env.SHOTS) await r.page.screenshot({ path: process.env.SHOTS + 'live6-rejoin-prompt.png' });
-    await r.page.click('.dialog .btn-primary');
+    await r.page.waitForSelector('#screen-title .seatbar', { timeout: 8000 });
+    ok(await r.page.evaluate(c => { const t = document.querySelector('#screen-title .seatbar').textContent; return /Fortsæt live-løbet/.test(t) && t.indexOf('Du venter på starten i løbet ' + c) >= 0 && window.__ws === 0; }, code), 'the title banner says "Fortsæt live-løbet · Du venter på starten i løbet ' + code + '" and nothing has touched the network yet');
+    ok(await r.page.evaluate(() => [...document.querySelectorAll('.seatbar .seatbar-small')].map(b => b.textContent.trim()).join('|') === 'Ikke nu|Udgå' && !document.querySelector('.dialog')), 'two small buttons (Ikke nu / Udgå), no dialog in the way');
+    if (process.env.SHOTS) await r.page.screenshot({ path: process.env.SHOTS + 'live6-rejoin-banner.png' });
+    await r.page.click('#screen-title .seatbar [data-seat="go"]');
     await waitView(r.page, 'room', 15000);
-    ok(await r.page.evaluate(id => KOS.Lobby.state.sess.id === id && KOS.Lobby.state.room.players.length === 2, myId), 'yes: the same seat is back in the lobby (no second player)');
+    ok(await r.page.evaluate(id => KOS.Lobby.state.sess.id === id && KOS.Lobby.state.room.players.length === 2, myId), 'tapped: the same seat is back in the lobby (no second player)');
     ok(await hostP.page.evaluate(() => KOS.Lobby.state.room.players.length === 2 && KOS.Lobby.state.room.players.every(p => !p.lost)), 'the host sees the player back');
     ok(r.page.errs.length === 0, 'no errors (' + r.page.errs.join(' | ') + ')');
     await r.ctx.close();
 
-    // "no thanks": the entry is cleared, nothing connects, the next start does not ask again
+    // "Ikke nu": hidden for this visit (the hub too), the seat is kept, nothing connects; the next visit shows it again
     r = await newPage('', 'Bent', { storage: stored });
-    await r.page.waitForSelector('.dialog .live-rejoin-body', { timeout: 8000 });
-    await r.page.click('.dialog .btn-glass');
-    await r.page.waitForFunction(() => !document.querySelector('.dialog .live-rejoin-body'));
-    ok(await r.page.evaluate(() => localStorage.getItem('kos.mp.seat') === null && window.__ws === 0), 'no thanks: the entry is cleared and no connection was made');
+    await r.page.waitForSelector('#screen-title .seatbar', { timeout: 8000 });
+    await r.page.click('#screen-title .seatbar [data-seat="later"]');
+    await r.page.evaluate(() => KOS.App.show('hub')); await r.page.waitForTimeout(500);
+    ok(await r.page.evaluate(() => !document.querySelector('.seatbar') && localStorage.getItem('kos.mp.seat') !== null && window.__ws === 0), '"Ikke nu": gone for this visit, the entry kept, no connection made');
     await r.page.reload(); await r.page.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 }); await r.page.waitForTimeout(600);
-    ok(await r.page.evaluate(() => !document.querySelector('.dialog .live-rejoin-body')), 'the next start does not ask again');
+    ok(await r.page.evaluate(() => !!document.querySelector('#screen-title .seatbar')), 'the next visit offers it again');
     await r.ctx.close();
 
     // an expired entry is never offered and is removed
@@ -473,12 +474,12 @@ async function main() {
     for (const o of old.origins) for (const it of o.localStorage) if (it.name === 'kos.mp.seat') { const v = JSON.parse(it.value); v.exp = Date.now() - 1000; it.value = JSON.stringify(v); }
     r = await newPage('', 'Bent', { storage: old });
     await r.page.waitForTimeout(800);
-    ok(await r.page.evaluate(() => !document.querySelector('.dialog .live-rejoin-body') && localStorage.getItem('kos.mp.seat') === null && window.__ws === 0), 'an expired entry is not offered, is removed, and no network is touched');
+    ok(await r.page.evaluate(() => !document.querySelector('.seatbar') && localStorage.getItem('kos.mp.seat') === null && window.__ws === 0), 'an expired entry is not offered, is removed, and no network is touched');
     await r.ctx.close();
-    // a normal visit without any entry: no prompt, no network
+    // a normal visit without any entry: no banner, no network
     const clean = await newPage('', 'Frisk');
     await clean.page.waitForTimeout(600);
-    ok(await clean.page.evaluate(() => !document.querySelector('.dialog') && window.__ws === 0), 'no entry: no prompt and still no WebSocket at startup');
+    ok(await clean.page.evaluate(() => !document.querySelector('.dialog') && !document.querySelector('.seatbar') && window.__ws === 0), 'no entry: no banner and still no WebSocket at startup');
     await clean.ctx.close(); await hostP.ctx.close();
   }
 
