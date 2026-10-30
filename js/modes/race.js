@@ -1114,23 +1114,35 @@
     // a reloaded page (or a resume from the title/hub banner): the server sends back the last state of this seat, and this tab may have a
     // snapshot of its own (sessionStorage, every 2 s and on pagehide). The newer of the two wins (spec E2); the snapshot also knows the
     // exact penalty turns owed and how far they got. Skip the clock to the time of that state, put the boat there and sail the gap since then.
+    // The same snapshot is mirrored to localStorage: a killed app (or a new tab from the banner) has no sessionStorage, and the server's copy
+    // only knows "a penalty", not how many turns. It is only used for the same seat and race (code, id, T0); KOS.MP clears it with the seat.
     const SNAP_KEY = 'kos.mp.snap';
     function saveSnap() {
       if (!LIVE || WATCH || S.holdSend || (S.rest && !S.rest.done) || S.gone) return; // never before the restore landed (the start line would overwrite it)
       if (!(Number.isFinite(me.x) && Number.isFinite(me.y))) return;
       const p = me.rc.pen;
       try {
-        sessionStorage.setItem(SNAP_KEY, JSON.stringify({ code: LIVE.code, id: LIVE.myId, T0: LIVE.T0, ts: Math.round(LIVE.T0 + S.clock * 1000),
+        const js = JSON.stringify({ code: LIVE.code, id: LIVE.myId, T0: LIVE.T0, ts: Math.round(LIVE.T0 + S.clock * 1000),
           x: me.x, y: me.y, hd: me.heading, sp: me.speed, hl: me.heel, vx: me.vx, vy: me.vy, cap: !!me.capsized, lg: me.rc.leg, ocs: !!me.rc.ocs,
           pen: p ? { need: p.need, acc: p.acc, dir: p.dir || 0, auto: !!p.auto } : null, served: S.penServed, fouls: S.fouls,
-          fin: me.rc.finT != null ? Math.round(me.rc.finT * 1000) : null }));
+          fin: me.rc.finT != null ? Math.round(me.rc.finT * 1000) : null });
+        try { sessionStorage.setItem(SNAP_KEY, js); } catch (e) { /* private mode */ }
+        localStorage.setItem(SNAP_KEY, js);
       } catch (e) { /* private mode */ }
     }
     function readSnap() {
-      try {
-        const o = JSON.parse(sessionStorage.getItem(SNAP_KEY));
-        return o && o.code === LIVE.code && o.id === LIVE.myId && o.T0 === LIVE.T0 && Number.isFinite(o.ts) && Number.isFinite(o.x) && Number.isFinite(o.y) ? o : null;
-      } catch (e) { return null; }
+      const one = k => {
+        try {
+          const o = JSON.parse(window[k].getItem(SNAP_KEY));
+          return o && o.code === LIVE.code && o.id === LIVE.myId && o.T0 === LIVE.T0 && Number.isFinite(o.ts) && Number.isFinite(o.x) && Number.isFinite(o.y) ? o : null;
+        } catch (e) { return null; }
+      };
+      const a = one('sessionStorage'), b = one('localStorage'); // this tab's own, or the last one this phone wrote for the seat
+      return a && b ? (b.ts > a.ts ? b : a) : a || b;
+    }
+    function dropSnap() {
+      try { sessionStorage.removeItem(SNAP_KEY); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(SNAP_KEY); } catch (e) { /* ignore */ }
     }
     function onRestore(m) {
       if (WATCH || S.restoreSeen || S.sentOnce) return; // a reconnect inside the same race: our own boat is the truth, no teleport
@@ -1275,7 +1287,7 @@
     function onRes(rows) {
       toggleHostMenu(false);
       S.liveRes = Array.isArray(rows) ? rows : null;
-      if (S.liveRes) { try { sessionStorage.removeItem(SNAP_KEY); } catch (e) { /* ignore */ } }
+      if (S.liveRes) dropSnap();
       if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf();
       if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); }
     }

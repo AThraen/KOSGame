@@ -30,6 +30,7 @@
   const TOKEN_KEY = 'kos.mp.rejoin';
   const SEAT_KEY = 'kos.mp.seat';   // localStorage: {code, id, key, url, exp, phase, startedAt}: the way back into a race after the page was closed, swiped away or killed
   const SEAT_MS = 2 * 3600000;      // exp = last contact + this (the server keeps a seat, or its archived result, as long)
+  const SNAP_KEY = 'kos.mp.snap';   // localStorage copy of the race screen's own-boat snapshot (js/modes/race.js): goes with the seat
   const RESULT_KEY = 'kos.mp.lastResult', RESULT_MS = 30 * 60000; // localStorage: {code, rows, myId, at}: the official table, for a late resume
   const LEVEL = 2;                  // client protocol level (hello.cp): 2 = version gate, seat rejoin in every phase
   const PENDING_KEY = 'kos.mp.pending'; // {code, at, auto}: the page may reload (update, refresh); on load the lobby resumes or joins again
@@ -60,7 +61,11 @@
       if (!tok && x.code) { const o = JSON.parse(localStorage.getItem(SEAT_KEY)); if (o && o.code !== x.code) return; }
       if (tok) localStorage.setItem(SEAT_KEY, JSON.stringify({ code: tok.code, id: tok.id, key: tok.key, url: String(url || ''), exp: (x.at || Date.now()) + SEAT_MS,
         phase: String(x.phase || 'lobby'), startedAt: +x.startedAt || 0 }));
-      else localStorage.removeItem(SEAT_KEY);
+      else {
+        localStorage.removeItem(SEAT_KEY);
+        const sn = JSON.parse(localStorage.getItem(SNAP_KEY));
+        if (sn && (!x.code || sn.code === x.code)) localStorage.removeItem(SNAP_KEY);
+      }
     } catch (e) { /* private mode, storage full */ }
   }
   function saveResult(code, rows, myId) {
@@ -176,7 +181,7 @@
     const subs = {};
     let sock = sock0, samples = [], bestRtt = Infinity, pings = 0, pingTimer = 0, fastTimer = 0;
     let final = false, lostAt = 0, retryTimer = 0, pending = null, lastRx = now(), grace = 0, dogTimer = 0, lastForce = 0;
-    let tries = 0, trying = false, awayTimer = 0, lastContact = Date.now(), seatAt = 0, seatTimer = 0;
+    let tries = 0, trying = false, dropTry = null, tryAt = 0, awayTimer = 0, lastContact = Date.now(), seatAt = 0, seatTimer = 0;
     S.serverNow = () => now() + S.offset;
     S.away = false;
 
@@ -248,7 +253,7 @@
       if (final) return;
       if (ev && ev.type === 'visibilitychange' && document.hidden) return;
       if (ev && ev.type !== 'online') grace = now() + 3000; // timers were starved while hidden: the silence is not the server's fault, measure again first
-      if (S.state === 'reconnecting') { if (!S.away) armAway(); retryNow(); } // the 15 s count starts again, in the foreground
+      if (S.state === 'reconnecting') { if (!S.away) armAway(); retryNow(ev && ev.type === 'online'); } // the 15 s count starts again, in the foreground
       else if (S.state === 'ok' && sock && sock.readyState === 1) { if (ev && ev.type !== 'focus') { resync(); raw({ t: 'ping', c: now() }); } }
       else if (S.state === 'ok' && seated()) forceReconnect('wake');
     }
@@ -383,19 +388,24 @@
       const wait = BACKOFF[Math.min(tries, BACKOFF.length - 1)] * (0.8 + 0.4 * Math.random());
       retryTimer = setTimeout(attempt, Math.round(wait));
     }
-    // "Prøv nu", back online, back in the foreground: the backoff starts over with an immediate try
-    function retryNow() {
+    // "Prøv nu", back online, back in the foreground: the backoff starts over with an immediate try. An attempt still in flight that went
+    // out over the dead network (its packets are lost, it would only end at its 6 s guard) is dropped for a new one: always when the
+    // network just came back (fresh = the 'online' event), else when it is older than 1.5 s
+    function retryNow(fresh) {
       if (final || S.state !== 'reconnecting') return;
       tries = 0;
-      if (trying) return; // the attempt in flight goes on; when it fails the next one is 0.5 s later
+      if (trying && dropTry && (fresh === true || now() - tryAt > 1500)) dropTry();
+      if (trying) return; // a fresh attempt in flight goes on; when it fails the next one is 0.5 s later
       clearTimeout(retryTimer); attempt();
     }
     S.retryNow = retryNow;
     function attempt() {
       if (S.state !== 'reconnecting' || trying || final) return;
-      trying = true; tries++; S.tries = (S.tries || 0) + 1;
+      trying = true; tries++; S.tries = (S.tries || 0) + 1; tryAt = now();
       let s2 = null, over = false;
-      const next = () => { if (over) return; over = true; trying = false; clearTimeout(guard); try { s2 && s2.close(); } catch (e) { /* ignore */ } scheduleRetry(); };
+      const drop = () => { if (over) return false; over = true; trying = false; dropTry = null; clearTimeout(guard); try { s2 && s2.close(); } catch (e) { /* ignore */ } return true; };
+      const next = () => { if (drop()) scheduleRetry(); };
+      dropTry = drop;
       const guard = setTimeout(next, 6000); // TLS + hello + resume on a weak phone signal
       openSocket(opts, (sk) => {
         if (over || S.state !== 'reconnecting') { try { sk.close(); } catch (e) { /* ignore */ } return; }
@@ -404,6 +414,7 @@
         sk.onmessage = (ev) => {
           let m; try { m = JSON.parse(String(ev.data)); } catch (e) { return; }
           if (resumed) return;
+          if (over) { try { sk.close(); } catch (e) { /* ignore */ } return; } // a dropped attempt that got through late: the newer one is the chain
           if (m.t === 'joined') {
             resumed = true; clearTimeout(guard); over = true; trying = false;
             clearTimeout(awayTimer); clearTimeout(retryTimer);
