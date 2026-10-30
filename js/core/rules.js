@@ -416,7 +416,7 @@
             if (e.t < g0.t) continue;
             ghost.x = g0.x + v.x * (e.t - g0.t); ghost.y = g0.y + v.y * (e.t - g0.t);
             o.x = e.x; o.y = e.y; o.heading = e.h;
-            if (hullGap(ghost, o) <= 0.05) return false;
+            if (hullGap(ghost, o) <= 0.2) return false; // a margin: two phones see the tracks a few cm apart (quantised states)
           }
           return true;
         };
