@@ -838,16 +838,29 @@
       const rel = Math.hypot(vxOf(a) - vxOf(v), vyOf(a) - vyOf(v)); // measured before the bump took the speed out of it (spec A8)
       if (rel < 0.35) return; // a gentle rub is not worth a penalty (live and AI races alike)
       if (a === me && now < (S.myFoulT || 0)) return;
-      const key = a.id + '|' + v.id;
+      const key = S.flog ? pairKey(a, v) : a.id + '|' + v.id; // live: one incident is one incident, whichever boat a later re-judge blames
       if (S.cool[key] > now) return;
-      if (S.flog) { // live: both phones judge the contact; the stand-on phone tells the offender (spec A10)
-        const act = S.flog.own((a === me ? v : a).rid, a === me, LIVE.serverNow());
-        if (!act) return; // the other phone's verdict already gave us this penalty
-        if (act === 'send') LIVE.send({ t: 'foul', o: a.rid, r: f.rule });
+      if (S.flog && other.remote) { // live: both phones judge the contact and tell each other (spec A10)
+        const act = S.flog.own(other.rid, a === me, LIVE.serverNow());
+        S.cool[key] = now + 12; // also when the other phone settled it: the same contact (e.g. R22 during that penalty turn) is not judged again
+        if (!act) return; // this pair already has a verdict for this incident (ours, or the other phone's)
+        if (act === 'send') { LIVE.send({ t: 'foul', o: a.rid, r: f.rule }); penalize(a, 2, f.rule, f); return; }
+        // we blame our own boat: say so, and wait for the other phone's verdict on the same contact (it may blame its own boat too,
+        // at the edge of a time-to-react window); then the lower id turns (FoulLog.recvSelf), else we take it when the hold ends
+        LIVE.send({ t: 'foul', o: other.rid, r: f.rule, s: 1 });
+        S.myFoulT = now + 15;
+        S.selfQ.push({ rid: other.rid, f, at: now + TOLD_HOLD + 0.2 + Math.min(1, (LIVE.rtt || 0) / 1000) });
+        return;
       }
       S.cool[key] = now + 12;
       if (a === me) S.myFoulT = now + 15;
       penalize(a, 2, f.rule, f);
+    }
+    const pairKey = (a, b) => (String(a.id) < String(b.id) ? a.id + '|' + b.id : b.id + '|' + a.id);
+    // the hold is over: take the penalty our own monitor gave us, unless the other phone's message settled the incident meanwhile
+    function settleSelf(q) {
+      if (!S.flog.settle(q.rid, LIVE.serverNow()) || me.rc.finT != null || S.unofficial) return;
+      penalize(me, 2, q.f.rule, q.f);
     }
     const vxOf = b => (b.cvx !== undefined ? b.cvx : b.vx), vyOf = b => (b.cvy !== undefined ? b.cvy : b.vy);
     // another phone says our boat fouled theirs: we take the penalty if our own verdict did not already (de-duplicated per pair, spec A10)
@@ -855,6 +868,7 @@
     const TOLD_HOLD = 0.3; // s: our own monitor judges the same contact first, so its excuse (R15/R16: nobody) can veto the message
     function onFoulMsg(m) {
       if (!m || !byRid[m.from] || WATCH || S.unofficial || TOLD_RULES.indexOf(m.r) < 0) return;
+      if (m.self) { S.flog.recvSelf(m.from, LIVE.serverNow()); S.cool[pairKey(me, byRid[m.from])] = env.t + 12; return; } // its boat takes the penalty: ours does not, for this incident
       (S.foulQ || (S.foulQ = [])).push({ m, at: env.t + TOLD_HOLD });
     }
     function applyFoulMsg(m) {
@@ -868,7 +882,7 @@
       if (me.rc.finT != null || b.rc.finT != null || b.rc.pen) return; // as onFoul: a boat taking a penalty has no right of way (RRS 22.2)
       if (now < (S.myFoulT || 0)) return;
       if (!S.flog.recv(b.rid, LIVE.serverNow())) return;
-      S.cool[me.id + '|' + b.id] = now + 12;
+      S.cool[pairKey(me, b)] = now + 12;
       S.myFoulT = now + 15;
       const who = b.short || b.name;
       penalize(me, 2, m.r, { type: 'foul', offender: me, victim: b, rule: m.r, contact: true, reasonKey: 'race.pen.told', reasonVars: { other: who, rule: KOS.Rules.ruleName(m.r) } });
@@ -1013,7 +1027,7 @@
     const REMOTE_PEN = { need: TAU, acc: 0 }; // only shown (tag arrow, standings); never stepped
     const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, tack: 'starboard', r13: false, rc: null };
     S.flog = LIVE && !WATCH ? new MPS.FoulLog(LIVE.myId, 2000) : null;
-    S.near = {}; S.foulQ = []; // per remote rid: env.t of our last contact / close call with it; foul messages held for TOLD_HOLD
+    S.near = {}; S.foulQ = []; S.selfQ = []; // per remote rid: env.t of our last contact / close call with it; foul messages held for TOLD_HOLD
     const banner = LIVE ? document.createElement('div') : null;
     if (banner) { banner.className = 'race-live-banner'; banner.hidden = true; banner.textContent = t('live.reconnecting'); host.layer.appendChild(banner); }
     const liveOffs = [];
@@ -1571,6 +1585,7 @@
       const fouls = monitor.update(ruled, wind, collMarks.filter(m => m.id !== 'committee' && m.id !== 'fcommittee'), dt) || [];
       for (const f of fouls) onFoul(f);
       while (S.foulQ && S.foulQ.length && S.foulQ[0].at <= env.t) applyFoulMsg(S.foulQ.shift().m);
+      while (S.selfQ && S.selfQ.length && S.selfQ[0].at <= env.t) settleSelf(S.selfQ.shift());
       if ((S.rankT -= dt) <= 0) { S.rankT = 0.25; order = rank(); placeFeedback(); }
     }
 

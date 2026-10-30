@@ -83,9 +83,10 @@ function validate(raw) {
     }
     case 'list': // open race list; answered with {t:'rooms'}
       return { ok: true, msg: { t: 'list' } };
-    case 'foul': { // the stand-on phone tells the offender's phone: o = offender id, r = the rule (a fixed label, never free text)
+    case 'foul': { // the stand-on phone tells the offender's phone: o = offender id, r = the rule (a fixed label, never free text);
+      // s: 1 = the sender gave its OWN boat the penalty for the incident with o (o's phone must not penalise o as well)
       if (!int(m.o) || m.o < 1 || FOUL_RULES.indexOf(m.r) < 0) return bad;
-      return { ok: true, msg: { t: 'foul', o: m.o, r: m.r } };
+      return { ok: true, msg: m.s === 1 ? { t: 'foul', o: m.o, r: m.r, s: 1 } : { t: 'foul', o: m.o, r: m.r } };
     }
     case 'sched': { // schedule a race: fixed title id, UTC start, cfg
       if (!m.cfg || typeof m.cfg !== 'object' || SCHED_TITLES.indexOf(m.title) < 0 || !int(m.startAt)) return bad;

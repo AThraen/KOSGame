@@ -41,6 +41,7 @@ async function main() {
     page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) page.errs.push('console ' + m.text()); });
     page.on('request', r => { if (/\/mp[-/]/.test(new URL(r.url()).pathname)) page.mpReqs.push(r.url()); });
     await page.route('**/mp-status.json', route => (status ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(status) }) : route.fulfill({ status: 404, body: '' })));
+    if (opts.clockMs) await page.addInitScript(d => { const n = Date.now; Date.now = () => n() + d; }, opts.clockMs); // a phone whose clock is off
     await page.addInitScript(() => {
       window.__ws = 0; const W = window.WebSocket;
       window.WebSocket = function (u, p) { window.__ws++; return new W(u, p); }; window.WebSocket.prototype = W.prototype;
@@ -513,7 +514,11 @@ async function main() {
     await listOpen(lp.page);
     await lp.page.waitForSelector('#live-listbox .live-item', { timeout: 8000 });
     const rows = await lp.page.evaluate(() => [...document.querySelectorAll('#live-listbox .live-sect')].map(sec => ({ h: sec.querySelector('.live-h').textContent, items: [...sec.querySelectorAll('.live-item')].map(b => ({ code: b.getAttribute('data-code'), txt: b.textContent, dis: b.disabled })) })));
-    ok(rows.length === 2 && rows[0].h === 'Åbne løb' && rows[1].h === 'Planlagte løb', 'two sections, the races you can join now first (' + rows.map(r => r.h).join(' / ') + ')');
+    ok(rows.length === 2 && /^Åbne løb \(\d+\)$/.test(rows[0].h) && rows[1].h === 'Planlagte løb (1)', 'two sections with a count each, the races you can join now first (' + rows.map(r => r.h).join(' / ') + ')');
+    // review round 2: every card has the same four rows: title (one line) / status + sailors / class, course, wind / host
+    ok(await lp.page.evaluate(() => [...document.querySelectorAll('#live-listbox .live-item')].every(b => [...b.children].map(c => c.className.split(' ')[0]).join() === 'live-item-name,live-item-top,live-item-bot,live-item-by')),
+      'list cards: title / status + sailors / class, course, wind / host, in that order on every card');
+    ok(await lp.page.evaluate(() => !!document.querySelector('#screen-live .screen-head [data-act="relist"]')), 'Refresh sits in the screen head');
     ok(rows[1] && rows[1].items.some(i => i.code === fri.code && /Fredagsræs/.test(i.txt) && /Planlagt/.test(i.txt) && /Vært: Anton/.test(i.txt) && /Optimist/.test(i.txt) && /Trekant/.test(i.txt) && /Åbner kl\./.test(i.txt)), 'the scheduled race shows title, "Planlagt <when>", host, class, course and its opening time');
     ok(rows[0] && rows[0].items.some(i => i.code === mRoom.code && /^Milles løb/.test(i.txt) && /Vært: Mille/.test(i.txt) && /I lobbyen/.test(i.txt) && /1\/8 sejlere/.test(i.txt) && /m\/s/.test(i.txt)),
       'the open lobby: "Milles løb", "Vært: Mille", "I lobbyen", players 1/8 and wind in the player\'s unit');
@@ -565,12 +570,17 @@ async function main() {
     await pp.page.waitForSelector('.live-card', { timeout: 8000 }); await pp.page.click('.live-card'); await waitView(pp.page, 'entry');
     await clickAct(pp.page, 'host'); await waitView(pp.page, 'setup');
     ok(await pp.page.evaluate(() => document.querySelectorAll('#screen-live [data-act="vis"]').length === 2 && document.querySelector('#screen-live [data-act="vis"][data-v="private"]').classList.contains('on')), 'host setup has the visibility setting, private by default');
+    ok(await pp.page.evaluate(() => { const rows = [...document.querySelectorAll('#screen-live .live-form > .live-row')], vi = rows.findIndex(r => r.querySelector('[data-act="vis"]')), ci = rows.findIndex(r => r.querySelector('[data-k="course"]')); return ci >= 0 && vi === ci + 1; }),
+      'review round 2: "Hvem kan være med" sits right under class and course');
+    await pp.page.click('#screen-live [data-act="vis"][data-v="open"]');
+    ok(await pp.page.evaluate(() => /Alle kan se dit navn og være med/.test(document.querySelector('#screen-live .live-vishint').textContent)), 'open: the hint says everyone can see your name');
+    await pp.page.click('#screen-live [data-act="vis"][data-v="private"]');
     await clickAct(pp.page, 'planview'); await waitView(pp.page, 'plan');
     ok(await pp.page.evaluate(() => [...document.querySelectorAll('#screen-live [data-act="ptitle"]')].map(b => b.textContent).join('|') === 'Træningsløb|Fredagsræs|Klubmesterskab|Juleræs|Weekendræs' &&
       !document.querySelector('#screen-live input[type="text"], #screen-live textarea')), 'five preset race names and no free text field');
     ok(await pp.page.evaluate(() => document.querySelector('#screen-live [data-act="pvis"][data-v="open"]').classList.contains('on')), 'a scheduled race is listed (open) by default');
-    ok(await pp.page.evaluate(() => { const d = document.getElementById('live-plan-day').value, tm = document.getElementById('live-plan-time').value; const at = new Date(d + 'T' + tm).getTime(); return at >= Date.now() + 10 * 60000 && document.getElementById('live-plan-when2').textContent.length > 0; }),
-      'the form opens on a time that can be used (never already too soon), the summary also right above the button');
+    ok(await pp.page.evaluate(() => { const d = document.getElementById('live-plan-day').value, tm = document.getElementById('live-plan-time').value; const at = new Date(d + 'T' + tm).getTime(); return at >= Date.now() + 10 * 60000 && document.getElementById('live-plan-when').textContent.length > 0 && !!document.getElementById('live-plan-when').closest('.live-plan-bar'); }),
+      'the form opens on a time that can be used (never already too soon), the summary in the bar with the button');
     const setWhen = (ms) => pp.page.evaluate(ms => { const d = new Date(ms), p = n => String(n).padStart(2, '0'); const day = document.getElementById('live-plan-day'), tm = document.getElementById('live-plan-time');
       day.value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); tm.value = p(d.getHours()) + ':' + p(d.getMinutes()); tm.dispatchEvent(new Event('change')); }, ms);
     const ws0 = await pp.page.evaluate(() => window.__ws);
@@ -587,7 +597,10 @@ async function main() {
     ok(await pp.page.evaluate(() => /kl\. 17\.30 · Åbner kl\. 17\.15/.test(document.getElementById('live-plan-when').textContent)), 'the form says when it starts and when it opens (' + await pp.page.evaluate(() => document.getElementById('live-plan-when').textContent) + ')');
     await pp.page.click('#screen-live [data-act="ptitle"][data-v="weekend"]');
     await pp.page.click('#screen-live [data-act="pvis"][data-v="private"]');
+    ok(await pp.page.evaluate(() => !document.querySelector('#screen-live [data-k="maxP"]') && !document.querySelector('#screen-live [data-k="windKn"]')), 'wind and the less common options wait behind "Flere valg"');
+    await clickAct(pp.page, 'pmore');
     await pp.page.click('#screen-live [data-act="opt"][data-k="maxP"][data-v="4"]');
+    ok(await pp.page.evaluate(() => !!document.querySelector('#screen-live [data-k="windKn"]') && /Færre valg/.test(document.querySelector('#screen-live [data-act="pmore"]').textContent)), '"Flere valg" shows wind, max sailors, penalties and contact');
     await clickAct(pp.page, 'plan');
     await waitView(pp.page, 'mine', 10000);
     const st = await pp.page.evaluate(() => JSON.parse(localStorage.getItem('kos.liveSched') || 'null'));
@@ -638,6 +651,13 @@ async function main() {
     ok(await wp.page.evaluate(() => !!document.querySelector('#screen-live [data-act="remind"]') && !KOS.Lobby.state.sess), 'the wait card offers "Påmind mig" and holds no connection');
     ok(wp.page.errs.length === 0, 'no errors (' + wp.page.errs.join(' | ') + ')');
     await wp.ctx.close();
+    // review round 2: a phone whose clock is 40 min fast counts down to the server's opensAt (the notopen error carries the server time)
+    const fast = await newPage('live=' + fri.code, 'Frida', { clockMs: 40 * 60000 });
+    await waitView(fast.page, 'join'); await clickAct(fast.page, 'join'); await waitView(fast.page, 'wait');
+    ok(await fast.page.evaluate(() => { const w = KOS.Lobby.state.wait, el = document.querySelector('#screen-live .live-waitleft [data-until]');
+      return Math.abs(w.skew + 40 * 60000) < 5000 && +el.getAttribute('data-until') === Math.round(w.opensAt - w.skew); }),
+      'clock 40 min fast: the countdown and the join tries use opensAt on the phone\'s clock (opensAt - skew)');
+    await fast.ctx.close();
 
     // a race 11 min ahead opens at once (startAt - 15 min) as a lobby without a host
     const maria = await bot('Maria', '10.9.0.5');

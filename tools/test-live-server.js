@@ -902,7 +902,7 @@ async function main() {
     ok(lim.join() === 'ok,ok,ok,schedlimit', 'at most 3 scheduled races per IP per day');
     clock.t += 86400000 + 1000; R.tick();
     ok(!R.schedule(ipc, {}, 'train', clock.t + 60 * MIN).err, 'the per-IP limit resets after a day');
-    const R2 = mkRooms({ limits: { maxRooms: 200, maxPlayers: 24 } });
+    const R2 = mkRooms({ limits: { maxRooms: 200, maxPlayers: 24, schedPerDay: 100 } });
     let n = 0, last = '';
     for (let i = 0; i < 60; i++) { const r = R2.schedule(mkConn('N' + i, '10.0.' + i + '.1'), {}, 'train', clock.t + 60 * MIN); if (!r.err) n++; else last = r.err; }
     ok(n === 50 && last === 'schedfull', 'at most 50 scheduled races in total');
@@ -980,8 +980,37 @@ async function main() {
     for (let d = 0; d < 3; d++) { for (let i = 0; i < 3; i++) pend.push(RW.schedule(mkConn('Uge', '9.9.2.1'), {}, 'train', clock.t + 5 * 86400000 + (d * 3 + i) * MIN).err || 'ok'); clock.t += 86400000 + 1000; }
     ok(pend.filter(x => x === 'ok').length === 5 && pend.slice(5).every(x => x === 'schedlimit'), 'at most 5 pending races per IP, whatever the day (' + pend.join() + ')');
 
+    // review round 2: one IPv6 client controls a /64: rotating the rest of the address does not get round the per-IP limits
+    const R6 = mkRooms(); const v6 = [];
+    for (let i = 0; i < 4; i++) v6.push(R6.schedule(mkConn('Rot', '2001:db8:aa:bb:' + (i + 1).toString(16) + '::' + (i + 7)), {}, 'train', clock.t + 60 * MIN + i * MIN).err || 'ok');
+    ok(v6.join() === 'ok,ok,ok,schedlimit', 'IPv6: the per-IP day limit counts the /64 (' + v6.join() + ')');
+    ok(!R6.schedule(mkConn('Nabo', '2001:db8:aa:bc::1'), {}, 'train', clock.t + 60 * MIN).err, 'IPv6: another /64 is another client');
+    const R7 = mkRooms(); const v4 = [];
+    for (let i = 0; i < 4; i++) v4.push(R7.schedule(mkConn('Map', i % 2 ? '::ffff:4.4.4.4' : '4.4.4.4'), {}, 'train', clock.t + 60 * MIN + i * MIN).err || 'ok');
+    ok(v4.join() === 'ok,ok,ok,schedlimit', 'an IPv4-mapped address counts as the IPv4 address (' + v4.join() + ')');
+    const { ipKey } = require(path.join(ROOT, 'server', 'lib', 'limits.js'));
+    ok(ipKey('2001:DB8:0001:0002:aaaa::1') === ipKey('2001:db8:1:2:ffff:1:2:3') && ipKey('::ffff:10.0.0.1') === '10.0.0.1' && ipKey('10.0.0.1') === '10.0.0.1', 'ipKey: /64 for IPv6, plain IPv4 for mapped addresses');
+    // review round 2: a global cap on new schedules per day, so the 50 cannot be filled in one burst
+    const R8 = mkRooms(); let n8 = 0, e8 = '';
+    for (let i = 0; i < 30; i++) { const r = R8.schedule(mkConn('D' + i, '11.0.' + i + '.1'), {}, 'train', clock.t + 60 * MIN); if (!r.err) n8++; else e8 = r.err; }
+    ok(n8 === 20 && e8 === 'schedfull', 'at most 20 new scheduled races per day on the server (' + n8 + ')');
+    clock.t += 86400000 + 1000; R8.tick();
+    ok(!R8.schedule(mkConn('Dag2', '11.1.0.1'), {}, 'train', clock.t + 60 * MIN).err, 'the day cap resets after a day');
+    // review round 2: settings the claimed host changes in an opened scheduled lobby survive a restart (private stays private)
+    const svc = [];
+    const RC = mkRooms({ onSchedChange: (l) => { svc.length = 0; svc.push(...JSON.parse(JSON.stringify(l))); } });
+    const sC = RC.schedule(mkConn('Privat', '8.8.7.1'), { boat: 'zest' }, 'friday', clock.t + 30 * MIN);
+    clock.t = sC.entry.startAt - 10 * MIN; RC.tick();
+    const rc = RC.rooms.get(sC.entry.code), hc = RC.join(mkConn('Privat'), sC.entry.code, sC.secret);
+    ok(rc && hc.player && rc.hostId === hc.player.id && RC.listRooms().some(x => x.code === sC.entry.code), 'claimed host, the room is listed');
+    ok(RC.setCfg(rc, hc.player.id, Object.assign({}, rc.cfg, { vis: 'private', windKn: 14 })) && !RC.listRooms().some(x => x.code === sC.entry.code), 'host makes it private');
+    const ec = svc.find(e => e.code === sC.entry.code);
+    ok(ec && ec.cfg.vis === 'private' && ec.cfg.windKn === 14 && !ec.cfg.seed, 'the file holds the new settings (no seed)');
+    const RD = mkRooms(); RD.restore(JSON.parse(JSON.stringify(svc))); RD.tick();
+    ok(RD.rooms.has(sC.entry.code) && RD.rooms.get(sC.entry.code).cfg.vis === 'private' && !RD.listRooms().some(x => x.code === sC.entry.code), 'after a restart the room reopens private, not listed');
+
     // review round 1: pending scheduled races never push the joinable lobbies out of the list
-    const RL = mkRooms({ limits: { maxRooms: 200, maxPlayers: 24 } });
+    const RL = mkRooms({ limits: { maxRooms: 200, maxPlayers: 24, schedPerDay: 100 } });
     for (let i = 0; i < 50; i++) RL.schedule(mkConn('P' + i, '10.1.' + i + '.1'), {}, 'train', clock.t + 120 * MIN + i * MIN);
     for (let i = 0; i < 25; i++) RL.create(mkConn('L' + i), { vis: 'open' }, 'sail');
     const ll = RL.listRooms();
@@ -1032,6 +1061,26 @@ async function main() {
     ok(fs.existsSync(schedPath + '.bad') && fs.readFileSync(schedPath + '.bad', 'utf8') === '{broken', 'the broken file is kept as .bad, not silently overwritten');
     const sfm = require(path.join(ROOT, 'server', 'lib', 'schedfile.js'));
     ok(sfm.save(path.join(tmp, 'no-such-dir', 'x.json'), []) === false, 'schedfile.save reports a failed write (counted in /health)');
+    // review round 2: a read error other than "no file" must not let the server overwrite the real file with an empty list
+    const ld = sfm.load(tmp); // a directory: EISDIR
+    ok(ld.bad && ld.noWrite && ld.races.length === 0, 'schedfile.load: a read error (not ENOENT) is bad + noWrite');
+    ok(!sfm.load(path.join(tmp, 'none.json')).noWrite, 'schedfile.load: a missing file is simply empty');
+    {
+      await ws1.close();
+      const keep = JSON.stringify({ v: 1, salt: 'abc', races: [{ code: 'KEEP', title: 'train', cfg: {}, startAt: Date.now() + 5 * 86400000, hostName: 'X', hash: 'a'.repeat(64), created: Date.now() }] });
+      fs.writeFileSync(schedPath, keep);
+      const rfs = fs.readFileSync;
+      fs.readFileSync = function (f) { if (String(f) === schedPath) { const e = new Error('EIO'); e.code = 'EIO'; throw e; } return rfs.apply(fs, arguments); };
+      ws1 = mkS(); wp = await ws1.listen();
+      fs.readFileSync = rfs;
+      const Ce = await mkW('Laeser');
+      Ce.send({ t: 'sched', cfg: {}, title: 'train', startAt: Date.now() + 2 * 86400000 });
+      await Ce.wait('scheduled');
+      ok(fs.readFileSync(schedPath, 'utf8') === keep, 'a schedule file that could not be read is never overwritten');
+      Ce.close(); await ws1.close();
+      fs.unlinkSync(schedPath);
+      ws1 = mkS(); wp = await ws1.listen();
+    }
     // a race 10 min ahead opens at once (opens at -15 min); creator reclaims host with the secret over the wire
     const Cr3 = await mkW('Traener');
     Cr3.send({ t: 'sched', cfg: { countdownS: 8 }, title: 'train', startAt: Date.now() + 10 * 60000 + 5000 });

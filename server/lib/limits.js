@@ -88,4 +88,26 @@ function createDropTracker({ limit = 1, windowMs = 60000, now = Date.now } = {})
   };
 }
 
-module.exports = { createBucket, createConnCounter, createDropTracker };
+/**
+ * The key for per-client limits (scheduling, GET /rooms). One IPv6 client controls a whole /64 and can rotate the rest of the
+ * address, so an IPv6 address counts as its /64 prefix; an IPv4-mapped address (::ffff:1.2.3.4) counts as the IPv4 address.
+ * @param {string} ip
+ * @returns {string}
+ */
+function ipKey(ip) {
+  let s = String(ip || '').trim().toLowerCase();
+  const m = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(s);
+  if (m) return m[1];
+  if (s.indexOf(':') < 0) return s;
+  s = s.split('%')[0]; // zone id
+  const halves = s.split('::');
+  const head = halves[0] ? halves[0].split(':') : [];
+  let parts = head;
+  if (halves.length > 1) {
+    const tail = halves[1] ? halves[1].split(':') : [];
+    parts = head.concat(new Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), tail);
+  }
+  return parts.slice(0, 4).map(x => (parseInt(x, 16) || 0).toString(16)).join(':') + '::/64';
+}
+
+module.exports = { createBucket, createConnCounter, createDropTracker, ipKey };

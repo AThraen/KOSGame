@@ -867,7 +867,8 @@ test('rules: no zone memory between opposite tacks on a beat, and it ends when t
   const g = KOS.Rules.hullGap(Pb, S), push = U.vec(R(45), g + 0.02);
   S.x += push.x; S.y += push.y; S.vx = push.x; S.vy = push.y;
   const f = mon.update([Pb, S], 0, [mk], DT).filter(x => x.type === 'foul');
-  ok(f.length === 1 && f[0].rule === 'R18' && f[0].offender.name === 'P', 'P gives room: ' + f.map(x => x.rule + ' ' + x.offender.name));
+  // P tacked in the zone (RRS 18.3): 18.2 does not apply between them, P to windward keeps clear (R11; 18.3(b) says the same)
+  ok(f.length === 1 && f[0].rule === 'R11' && f[0].offender.name === 'P', 'P keeps clear: ' + f.map(x => x.rule + ' ' + x.offender.name));
   // a memory fixed on the same tack ends when the entitled boat passes head to wind in the zone
   const mon2 = KOS.Rules.monitor({ mode: 'race', cooldown: 1, nextMark: nm });
   const A = lb('A', -6, 3.0, 90, { id: 'a', tack: 'port', _init: true }), Bb = lb('B', -12, 1.2, 90, { id: 'b', tack: 'port', _init: true });
@@ -882,6 +883,61 @@ test('rules: no zone memory between opposite tacks on a beat, and it ends when t
   A3.r13 = false; Object.assign(A3, { x: -2.0, y: 3.0 }); Object.assign(B3, { x: -3.2, y: 1.2, vx: 0, vy: 1 });
   r = mon3.update([A3, B3], 0, [mk], 1.3).filter(x => x.type === 'foul');
   ok(r.length === 1 && r[0].offender === A3 && r[0].reasonKey === 'rules.reason.R18', 'after A tacked in the zone: the inside boat B has room ' + r.map(x => x.reasonKey + ' ' + x.offender.name));
+});
+test('rules: a boat that tacks in the zone gets no mark-room from it (RRS 18.3)', () => {
+  // review round 2 (tools/tmp/rowreview/review3.js 1): windward mark to port. P on port tacks in the zone onto starboard clear ahead of S,
+  // who is fetching on starboard. The zone memory must not fix P's room on the frame P starts its tack (beam-on, "inside"): S then
+  // overlaps to leeward and inside, P bears down onto S: P keeps clear (R11 / 18.3(b)), never S under R18
+  const mk = { x: 0, y: 0, id: 'm1' }, nm = () => 'm1', DT = 1 / 60;
+  const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true, nextMark: nm });
+  const S = lb('S', 7.0, 4.6, -45, { id: 's', tack: 'starboard', _init: true, rc: { leg: 1 } }), Pb = lb('P', 4.0, 0.2, 45, { id: 'p', tack: 'port', _init: true, rc: { leg: 1 } });
+  const setV = (b, v) => { const f = U.vec(b.heading, v); b.vx = f.x; b.vy = f.y; b.speed = v; };
+  let f = null;
+  for (let i = 0; i * DT < 8 && !f; i++) {
+    const t = i * DT;
+    if (t < 0.3) { Pb.tack = 'port'; Pb.r13 = false; Pb.heading = R(45); setV(Pb, 0.8); }
+    else if (t < 1.0) { Pb.r13 = true; Pb.tack = 'starboard'; Pb.heading = R(45 - 90 * (t - 0.3) / 0.7); setV(Pb, 0.5); }
+    else { Pb.r13 = false; Pb.heading = R(-52); setV(Pb, 1.0); }
+    S.heading = R(-45); setV(S, 1.9);
+    for (const b of [Pb, S]) { b.x += b.vx * DT; b.y += b.vy * DT; }
+    f = mon.update([Pb, S], 0, [mk], DT).find(x => x.type === 'foul' && x.contact) || null;
+  }
+  ok(f && !f.excused && f.offender === Pb && f.rule !== 'R18', 'P keeps clear: ' + (f ? f.rule + ' ' + f.offender.name : 'no contact'));
+});
+test('rules: the boat entitled to mark-room is not excused by R16 while it rounds (RRS 21)', () => {
+  // review round 2 (tools/tmp/rowreview/review3.js 2 + 4): the right-of-way boat's turn round the mark must not excuse the boat that owed it room
+  const DT = 1 / 60, setV = (b, v) => { const f = U.vec(b.heading, v); b.vx = f.x; b.vy = f.y; b.speed = v; };
+  const run = (boats, mk, step, secs) => {
+    const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true, nextMark: () => mk.id });
+    for (let i = 0; i * DT < secs; i++) {
+      step(i * DT);
+      for (const b of boats) { b.x += b.vx * DT; b.y += b.vy * DT; }
+      const f = mon.update(boats, 0, [mk], DT).find(x => x.type === 'foul' && x.contact);
+      if (f) return f;
+    }
+    return null;
+  };
+  for (const lat of [1.1, 1.2]) { // leeward mark, run south: inside I rounds (its stern swings out), outside O holds its course
+    const mk = { x: 0, y: 0, id: 'm2' };
+    const I = lb('I', -1.6, -9, 180, { id: 'i', tack: 'starboard', _init: true, rc: { leg: 1 } }), O = lb('O', -1.6 - lat, -9, 180, { id: 'o', tack: 'starboard', _init: true, rc: { leg: 1 } });
+    let turned = false;
+    const f = run([I, O], mk, () => {
+      if (!turned && I.y >= -0.3) turned = true;
+      if (turned) I.heading = U.wrapPi(I.heading - R(80) * DT);
+      if (U.angDiff(I.heading, R(60)) > 0) I.heading = R(60);
+      setV(I, 1.6); O.heading = R(180); setV(O, 1.6);
+    }, 10);
+    ok(f && !f.excused && f.offender === O && f.rule === 'R18', 'lateral ' + lat + ' m: outside O penalised: ' + (f ? (f.excused ? 'excused ' : '') + f.rule + ' ' + f.offender.name : 'no contact'));
+  }
+  { // A clear ahead at zone entry rounds across Bn, which got an inside overlap from astern later
+    const mk = { x: 0, y: 0, id: 'm4' };
+    const A = lb('A', -9, 2.6, 90, { id: 'a', tack: 'port', _init: true, rc: { leg: 1 } }), Bn = lb('Bn', -15, 1.2, 90, { id: 'bn', tack: 'port', _init: true, rc: { leg: 1 } });
+    const f = run([A, Bn], mk, () => {
+      if (A.x > -2.5) A.heading = U.wrapPi(A.heading - R(60) * DT);
+      setV(A, 1.2); Bn.heading = R(90); setV(Bn, 2.2);
+    }, 8);
+    ok(f && !f.excused && f.offender === Bn && f.rule === 'R18', 'clear ahead at entry: Bn penalised: ' + (f ? (f.excused ? 'excused ' : '') + f.rule + ' ' + f.offender.name : 'no contact'));
+  }
 });
 test('rules: inside boat when the headings differ a lot (already rounding) is the one nearer the mark', () => {
   const mk = { x: 0, y: 0, id: 'm1' }; // review round 1 (attack.js 6, case 4)

@@ -3,6 +3,7 @@
 // Time is injected (now() in ms) and advanced through tick().
 const crypto = require('crypto');
 const P = require('./protocol');
+const { ipKey } = require('./limits');
 
 const LOST_GRACE_MS = 45000; // (kept for the export; a racing seat no longer expires, it waits for a rejoin until the race ends)
 const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and a rematch
@@ -26,6 +27,7 @@ const SCHED_WAIT_MS = 10 * 60000; // after startAt the server waits this long fo
 const SCHED_MIN_LEAD_MS = 10 * 60000, SCHED_LEAD_SLACK_MS = 60000; // a new schedule must be this far ahead (minus slack for a slow request)
 const SCHED_MAX_LEAD_MS = 14 * 86400000;
 const SCHED_PER_IP = 3, SCHED_IP_WINDOW_MS = 86400000, SCHED_TOTAL = 50;
+const SCHED_PER_DAY = 20; // new schedules per day on the whole server (lim.schedPerDay): rotating addresses cannot fill the 50 in one burst
 const SCHED_PENDING_PER_IP = 5; // races not yet run per IP (counted from the salted IP hash in the entries, so it survives a restart)
 const SCHED_REGUN_MS = 60000; // a scheduled room that lost its host after its first race: the server's next gun at the earliest this far ahead
 const LIST_MAX = 30, LIST_SCHED_MAX = 15; // pending scheduled races never take more than half the list from the lobbies you can join now
@@ -35,12 +37,13 @@ function createRooms(opts) {
   const o = opts || {};
   const now = o.now || Date.now;
   const randInt = o.randInt || ((n) => crypto.randomInt(n));
-  const lim = Object.assign({ maxRooms: 40, maxPlayers: 24 }, o.limits || {});
+  const lim = Object.assign({ maxRooms: 40, maxPlayers: 24, schedPerDay: SCHED_PER_DAY }, o.limits || {});
   const lobbyGrace = o.lobbyGraceMs || LOBBY_GRACE_MS;
   const rooms = new Map();
   const sched = new Map(); // code -> pending scheduled race {code, title, cfg, startAt, hostName, hash, created, iph}; becomes a room at startAt - 15 min
   const opened = new Map(); // code -> the entry of an opened scheduled room whose race has not begun: still persisted (a restart opens it again)
-  const schedIp = new Map(); // ip -> creation times (memory only, never persisted)
+  const schedIp = new Map(); // ipKey -> creation times (memory only, never persisted)
+  let schedDay = []; // creation times of every schedule on this server in the last day (memory; the entries' created times cover a restart)
   const onSched = o.onSchedChange || (() => {});
   const sha = (x) => crypto.createHash('sha256').update(String(x)).digest('hex');
   const ipSalt = o.ipSalt || crypto.randomBytes(16).toString('hex');
@@ -114,7 +117,7 @@ function createRooms(opts) {
     if (!r || r.phase === 'closing') {
       const e = code && sched.get(code);
       if (e && now() >= e.startAt - SCHED_OPEN_MS) return { err: 'busy' }; // due, but the server is full: it opens as soon as a room is free
-      return e ? { err: 'notopen', extra: { opensAt: e.startAt - SCHED_OPEN_MS, startAt: e.startAt, title: e.title } } : { err: 'nocode' };
+      return e ? { err: 'notopen', extra: { opensAt: e.startAt - SCHED_OPEN_MS, startAt: e.startAt, title: e.title, now: now() } } : { err: 'nocode' };
     }
     if (r.phase !== 'lobby') return { err: 'started' };
     // the creator of a scheduled race takes the host seat with the secret (also from a dropped host seat)
@@ -195,6 +198,10 @@ function createRooms(opts) {
   function setCfg(r, hostId, cfg) {
     if (r.hostId !== hostId || r.phase !== 'lobby') return false;
     r.cfg = P.sanitizeCfg(cfg, r.cfg, lim.maxPlayers);
+    // an opened scheduled lobby is still in the file: a restart must reopen it with these settings (a host who made it private
+    // must not find it listed again)
+    const e = r.sched && opened.get(r.code);
+    if (e) { e.cfg = Object.assign({}, r.cfg, { seed: 0 }); schedSave(); }
     pushRoom(r);
     return true;
   }
@@ -422,14 +429,18 @@ function createRooms(opts) {
     if (P.SCHED_TITLES.indexOf(title) < 0 || !Number.isFinite(startAt)) return { err: 'bad' };
     if (startAt < t + SCHED_MIN_LEAD_MS - SCHED_LEAD_SLACK_MS || startAt > t + SCHED_MAX_LEAD_MS) return { err: 'badtime' };
     if (schedCount() >= SCHED_TOTAL) return { err: 'schedfull' };
-    const mine = (schedIp.get(conn.ip) || []).filter(x => t - x < SCHED_IP_WINDOW_MS);
+    const all = [...sched.values(), ...opened.values()];
+    schedDay = schedDay.filter(x => t - x < SCHED_IP_WINDOW_MS);
+    if (Math.max(schedDay.length, all.filter(e => t - e.created < SCHED_IP_WINDOW_MS).length) >= lim.schedPerDay) return { err: 'schedfull' };
+    const key = ipKey(conn.ip); // an IPv6 /64 is one client
+    const mine = (schedIp.get(key) || []).filter(x => t - x < SCHED_IP_WINDOW_MS);
     // the same limits from the stored entries (salted IP hash): a restart does not reset them
-    const iph = ipHash(conn.ip), kept = [...sched.values(), ...opened.values()].filter(e => e.iph === iph);
+    const iph = ipHash(key), kept = all.filter(e => e.iph === iph);
     if (kept.length >= SCHED_PENDING_PER_IP) return { err: 'schedlimit' };
-    if (Math.max(mine.length, kept.filter(e => t - e.created < SCHED_IP_WINDOW_MS).length) >= SCHED_PER_IP) { schedIp.set(conn.ip, mine); return { err: 'schedlimit' }; }
+    if (Math.max(mine.length, kept.filter(e => t - e.created < SCHED_IP_WINDOW_MS).length) >= SCHED_PER_IP) { schedIp.set(key, mine); return { err: 'schedlimit' }; }
     const code = newCode();
     if (!code) return { err: 'busy' };
-    mine.push(t); schedIp.set(conn.ip, mine);
+    mine.push(t); schedIp.set(key, mine); schedDay.push(t);
     if (schedIp.size > 500) for (const [k, v] of schedIp) if (!v.some(x => t - x < SCHED_IP_WINDOW_MS)) schedIp.delete(k);
     const secret = crypto.randomBytes(16).toString('hex');
     const base = Object.assign({}, P.CFG_DEFAULTS, { vis: 'open' }); // scheduled races are listed unless the creator says private
@@ -498,15 +509,16 @@ function createRooms(opts) {
     return join.slice(0, nj).concat(pend.slice(0, LIST_MAX - nj));
   }
 
-  // The stand-on phone says "this boat fouled me". Relayed to the offender only, with the sender's id. Returns true when relayed.
-  function foul(r, id, offender, rule) {
+  // The stand-on phone says "this boat fouled me" (or, self, "I fouled this boat"). Relayed to that boat only, with the sender's id.
+  // Returns true when relayed.
+  function foul(r, id, offender, rule, self) {
     if (!(r.phase === 'racing' || r.phase === 'countdown') || id === offender) return false;
     const a = r.players.get(id), b = r.players.get(offender);
     if (!a || !b || !a.boat || !b.boat || b.lost || !b.send || a.final) return false;
     const t = now(), key = 'f' + offender;
     if (a.foulAt && t - (a.foulAt[key] || 0) < FOUL_PAIR_MS) return false;
     (a.foulAt = a.foulAt || {})[key] = t;
-    send(b, { t: 'foul', from: id, r: rule });
+    send(b, self ? { t: 'foul', from: id, r: rule, s: 1 } : { t: 'foul', from: id, r: rule });
     return true;
   }
 

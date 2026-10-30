@@ -4,7 +4,7 @@
 //   Session: id, code, room, phase, role ('host'|'player'), rtt, offset, state ('ok'|'reconnecting'|'offline'|'closed'),
 //            status {mode,msg}, T0, cfg, grid, serverNow()
 //     create(cfg, hostRole) -> Promise<room>   rejects {code:'closed'|'busy'|'bad'|'timeout'}
-//     join(code, secret?)   -> Promise<room>   rejects {code:'nocode'|'full'|'started'|'closed'|'timeout'} or {code:'notopen', opensAt, startAt, title}
+//     join(code, secret?)   -> Promise<room>   rejects {code:'nocode'|'full'|'started'|'closed'|'timeout'} or {code:'notopen', opensAt, startAt, title, now}
 //     list()                -> Promise<rows>   the open race list over the socket (KOS.MP.fetchRooms needs none)
 //     schedule(cfg, title, startAt) -> Promise<{code, secret, title, startAt, opensAt, cfg}>   rejects {code:'badtime'|'schedlimit'|'schedfull'|'closed'|'busy'|'bad'}
 //     schedCancel(code, secret)     -> Promise<{code, why}>   rejects {code:'nocode'|'bad'}
@@ -109,11 +109,12 @@
     };
   }
 
-  // a server 'err' as a plain rejection: {code} plus the extras some codes carry ('old': min; 'notopen': opensAt, startAt, title)
+  // a server 'err' as a plain rejection: {code} plus the extras some codes carry ('old': min; 'notopen': opensAt, startAt, title, now =
+  // the server's clock, so a phone whose clock is off can count down to the server's opensAt)
   function errOf(m) {
     const e = { code: m.code || 'bad' };
     if (m.min) e.min = m.min;
-    if (m.code === 'notopen') ['opensAt', 'startAt'].forEach(k => { if (typeof m[k] === 'number') e[k] = m[k]; });
+    if (m.code === 'notopen') ['opensAt', 'startAt', 'now'].forEach(k => { if (typeof m[k] === 'number') e[k] = m[k]; });
     if (m.code === 'notopen' && typeof m.title === 'string') e.title = m.title;
     return e;
   }
@@ -258,7 +259,7 @@
         case 's': S.lastStates = now(); emit('states', Array.isArray(m.a) ? m.a : []); break;
         case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, fin: typeof m.fin === 'number' ? m.fin : null, T0: m.T0, now: m.now }; emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
-        case 'foul': if (typeof m.from === 'number') emit('foul', { from: m.from, r: String(m.r || '') }); break; // another phone says our boat fouled theirs
+        case 'foul': if (typeof m.from === 'number') emit('foul', { from: m.from, r: String(m.r || ''), self: m.s === 1 }); break; // another phone says our boat fouled theirs (self: its own boat fouled ours)
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
         case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; clearToken(); emit('res', m.rows); break;
         case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token

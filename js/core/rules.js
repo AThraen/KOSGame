@@ -2,7 +2,8 @@
 // KOS.Rules: simplified Racing Rules of Sailing Part 2 + the basic COLREG collision rules.
 //   KOS.Rules.rightOfWay(a, b, ctx) -> {standOn, giveWay, rule, reasonKey, reasonVars, both?}
 //       ctx = {wind (wind object | dir radians), marks: [{x, y, id?, start?}], zone: 3 (lengths), mode: 'race'|'colreg',
-//              nextMark?: boat -> mark id | [ids] (gate: both ids) | null, room?: mark -> {boat, astern} (zone-entry memory)}
+//              nextMark?: boat -> mark id | [ids] (gate: both ids) | null, room?: mark -> {boat, astern} | {off: true} (zone-entry memory;
+//              off: RRS 18.3, rule 18.2 does not apply between the two at that mark)}
 //       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'R22' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
 //       R18 only between boats both heading for that mark (ctx.nextMark, else boat.nextMark; unknown = yes) and never at a
 //       start mark (mark.start) until both have started (boat.rc.leg >= 1, light objects: boat.started).
@@ -13,10 +14,12 @@
 //   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
 //       offender, victim, rule, reasonKey, contact, excused?}], reset()}
 //       The monitor remembers per pair who had mark-room when the first of the two reached the zone (RRS 18.2(b); not between
-//       opposite tacks on a beat, ended when the entitled boat passes head to wind or leaves the zone), and when a boat gained
+//       opposite tacks on a beat, ended when the entitled boat passes head to wind or leaves the zone; none at all when one of them
+//       was tacking when the first reached the zone: RRS 18.3, simplified), and when a boat gained
 //       right of way. Within 1.2 s of a gain: gained by its own action (a finished tack or penalty, an overlap from clear astern)
 //       -> the gainer broke R15 (offender, rule 'R15', reason R15-gain); otherwise -> excused. excused: nobody is penalised
-//       (R15: the other boat had only just gained right of way; R16: the right-of-way boat turned so the hulls came closer).
+//       (R15: the other boat had only just gained right of way; R16: the right-of-way boat turned so the hulls came closer, except
+//       a boat entitled to mark-room, sailing within it: RRS 21).
 // Boats may be physics boats or light scenario objects {x, y, heading, length?, tack?, r13?, isPower?, speed?, name?}.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -291,6 +294,7 @@
             const zr = zoneL * (da < db ? lengthOf(a) : lengthOf(b));
             if (da > zr || db > zr) continue;
             const memo = ctx.room && ctx.room(m); // RRS 18.2(b): the state when the first of the two reached the zone
+            if (memo && memo.off) continue; // RRS 18.3: a boat tacked in the zone, 18.2 does not apply between them (R10/R11 do)
             if (memo && (memo.boat === a || memo.boat === b)) {
               const k = memo.astern ? 'rules.reason.R18-astern' : null;
               return memo.boat === a ? result(a, b, 'R18', k) : result(b, a, 'R18', k);
@@ -416,7 +420,10 @@
                 }
                 if ((goneA && goneB) || !r18At(a, b, m, rctx)) continue;
                 if (oppBeat(a, b, wind, wd)) continue; // RRS 18.1(a): no mark-room between opposite tacks on a beat, nothing to fix
-                // the first of the two has just reached the zone: an overlap gives the inside boat room, else the boat clear ahead
+                // the first of the two has just reached the zone: an overlap gives the inside boat room, else the boat clear ahead.
+                // A boat tacking right then (RRS 18.3, simplified: passing head to wind in the zone) fixes nothing: 18.2 does not
+                // apply between these two at this mark until both have left the zone
+                if (htw[i] || htw[j] || seen[ids[i]].r13 || seen[ids[j]].r13) { pair().room[mk] = { id: null, astern: false, off: true }; continue; }
                 pair().room[mk] = overlapped(a, b) ? { id: insideOf(a, b, m) === a ? ids[i] : ids[j], astern: false }
                   : { id: clearAstern(a, b) ? ids[j] : ids[i], astern: true };
               }
@@ -427,7 +434,7 @@
             pair();
             const row = rightOfWay(a, b, {
               wind, marks, mode: opts.mode, nextMark: opts.nextMark,
-              room: m => { const r = P.room[markKey(m)]; return r && r.id !== null ? { boat: r.id === ids[i] ? a : b, astern: r.astern } : null; },
+              room: m => { const r = P.room[markKey(m)]; return r && r.off ? { off: true } : r && r.id !== null ? { boat: r.id === ids[i] ? a : b, astern: r.astern } : null; },
             });
             const si = row.standOn === a ? i : row.standOn === b ? j : -1;
             const soId = si >= 0 ? ids[si] : null;
@@ -459,7 +466,8 @@
                   reasonVars: { give: nameOf(boats[si]), stand: nameOf(boats[gi]) } });
               } else {
                 // gained without its own action (mark-room at the zone), or it turned into the give-way boat: nobody is penalised
-                const ex = t - P.gainT <= REACT && P.gainer === soId ? 'R15' : turnedTowards(si, gi) ? 'R16' : null;
+                // R16 never excuses against the boat entitled to mark-room: it is sailing within its room as it rounds (RRS 21)
+                const ex = t - P.gainT <= REACT && P.gainer === soId ? 'R15' : row.rule !== 'R18' && turnedTowards(si, gi) ? 'R16' : null;
                 if (ex) Object.assign(f, { rule: ex, baseRule: row.rule, reasonKey: 'rules.reason.' + ex, excused: true });
               }
             }

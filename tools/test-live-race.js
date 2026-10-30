@@ -259,8 +259,12 @@ async function main() {
     ok(sb.minGap < 0.3 && pt.minGap < 0.3, 'the hulls touched on both clients (' + sb.minGap.toFixed(2) + ', ' + pt.minGap.toFixed(2) + ' m)');
     ok(pt.fouls >= 1 && pt.pen === true, 'the port boat is penalised on its own client (fouls ' + pt.fouls + ', penalty turn owed)');
     ok(sb.fouls === 0 && sb.pen === false, 'the starboard boat is not penalised');
-    const fl = r.keep.sail[0].sent.map(x => { try { return JSON.parse(x); } catch (e) { return {}; } }).filter(m => m.t === 'foul');
-    ok(fl.length >= 1 && /^R1[03]$/.test(fl[0].r) && fl.length <= 2, 'the starboard phone told the port boat: ' + JSON.stringify(fl[0] || null) + ' (' + fl.length + ' sent)');
+    // the two phones tell each other about the contact (spec A10, review round 2): the starboard phone says "you fouled me", or the port
+    // phone says "I take it" (s: 1) first and the starboard phone then has nothing to add; one message for the incident, R10/R13 either way
+    const fouls = i => r.keep.sail[i].sent.map(x => { try { return JSON.parse(x); } catch (e) { return {}; } }).filter(m => m.t === 'foul');
+    const fl = fouls(0).concat(fouls(1));
+    ok(fl.length >= 1 && fl.length <= 2 && fl.every(m => /^R1[03]$/.test(m.r)) && fouls(1).every(m => m.s === 1) && fouls(0).every(m => !m.s),
+      'the phones told each other: ' + JSON.stringify(fl) + ' (starboard: you fouled me, port: s 1 = I take it)');
     ok(pt.fouls === 1, 'the port boat turns once, not once per phone (fouls ' + pt.fouls + ')');
     ok(r.board.penN.find(x => x.name === 'Bagbord').n >= 1 && r.board.penN.find(x => x.name === 'Styrbord').n === 0, 'the big screen sees the penalty for the port boat only (' + JSON.stringify(r.board.penN) + ')');
     ok(/↻/.test(r.board.html), 'the big screen board shows the penalty mark');

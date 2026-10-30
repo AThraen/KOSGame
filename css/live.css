@@ -215,3 +215,25 @@
 @media (min-width: 560px) { .live-mbtns { display: flex; flex-wrap: wrap; } }
 /* the plan form: the summary and any error repeated right above the button */
 .live-plan-foot { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }
+
+/* review round 2: list cards share one layout (title / status + sailors / class, course, wind / host); the list head is the screen head */
+.live-item-name { display: block; width: 100%; }
+.live-item-top { flex-wrap: nowrap; justify-content: space-between; }
+.live-item-top .live-st { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.live-item-top .live-n { flex: none; }
+.live-item-by { margin-top: 0; }
+.live-hn { font-weight: 700; letter-spacing: 0; }
+.live-more { margin-top: 10px; justify-content: center; }
+.live-listintro { margin: 0 0 12px; }
+@media (max-height: 500px) { .live-listintro { display: none; } } /* landscape phone: the cards themselves say "tap to join" */
+/* who can join: the hint for a listed race says plainly that strangers see the nickname */
+.live-vishint.is-open { color: var(--text); font-weight: 700; padding: 6px 10px; border-left: 3px solid var(--primary, #ffb547); border-radius: 6px; background: rgba(255,181,71,.12); }
+/* the schedule form: summary + button stick to the bottom of the screen; the summary in the normal text colour, 15 px+ */
+.live-plan-bar {
+  position: sticky; bottom: 0; z-index: 2; margin-top: 12px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 8px; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: rgba(8, 24, 44, .92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid var(--glass-border);
+}
+.live-plan-bar .live-actions { margin: 0; }
+.live-plan-when { color: var(--text); font-size: max(15px, .95rem); font-weight: 800; }
+.live-pmore { align-self: flex-start; }

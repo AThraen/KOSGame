@@ -99,16 +99,16 @@
     titles: { train: 'Træningsløb', friday: 'Fredagsræs', club: 'Klubmesterskab', xmas: 'Juleræs', weekend: 'Weekendræs' },
     when: { today: 'i dag kl. {time}', tomorrow: 'i morgen kl. {time}', day: '{day} kl. {time}', dToday: 'I dag', dTomorrow: 'I morgen', at: 'kl. {time}' },
     dur: { h: '{h} t {m} min', d: '{d} dage' },
-    vis: { label: 'Hvem kan være med', private: 'Kun med kode', open: 'Alle (på listen)', privateHint: 'Kun dem, der får koden, linket eller QR-koden.', openHint: 'Løbet står under “Find et løb”, så alle kan være med.' },
+    vis: { label: 'Hvem kan være med', private: 'Kun med kode', open: 'Alle (på listen)', privateHint: 'Kun dem, der får koden, linket eller QR-koden.', openHint: 'Alle kan se dit navn og være med – løbet står under “Find et løb”.' },
     list: { title: 'Find et løb', intro: 'Tryk på et løb for at være med.', sched: 'Planlagte løb', open: 'Åbne løb', loading: 'Henter løb…', refresh: 'Opdater',
       empty: 'Ingen åbne løb lige nu – start dit eget eller planlæg et.', err: 'Jeg kan ikke hente listen lige nu. Prøv igen om lidt.',
       lobby: 'I lobbyen', startsIn: 'Starter om {t}', now: 'Starter nu', planned: 'Planlagt {when}', full: 'Fuldt', by: 'Vært: {name}', sailors: '{n}/{max} sejlere',
-      hostRace: '{name}s løb', hostRaceS: '{name}’ løb' },
+      hostRace: '{name}s løb', hostRaceS: '{name}’ løb', more: 'Vis flere ({n})' },
     plan: { btn: 'Planlæg til senere', title: 'Planlæg et løb', intro: 'Vælg navn, dag og tidspunkt. Løbet åbner 15 minutter før start, og serveren starter det selv, når mindst 2 sejlere er med.',
       name: 'Navn', day: 'Dag', time: 'Tidspunkt', go: 'Planlæg løbet', opens: 'Åbner kl. {time}',
       noTime: 'Vælg både dag og tidspunkt.', tooSoon: 'Vælg et tidspunkt mindst 10 minutter fra nu.', tooLate: 'Du kan højst planlægge 14 dage frem.',
       badtime: 'Det tidspunkt kan ikke bruges – vælg et andet.', limit: 'Du har planlagt 3 løb i dag. Det er max.', full: 'Der er planlagt rigtig mange løb lige nu – prøv igen senere.',
-      done: '{title} er planlagt {when}.' },
+      done: '{title} er planlagt {when}.', more: 'Flere valg', less: 'Færre valg' },
     mine: { btn: 'Mine planlagte løb', btnN: 'Mine planlagte løb ({n})', title: 'Mine planlagte løb', intro: 'Del koden, linket eller QR-koden med dine sejlere. Når løbet er åbnet, kan du gå ind og starte det.',
       empty: 'Du har ingen planlagte løb lige nu.', opens: 'Åbner {when}', isOpen: 'Løbet er åbent nu!', go: 'Gå til løbet', qr: 'QR-kode', cancel: 'Aflys',
       cancelAsk: 'Aflys {title} {when}?', cancelled: 'Løbet er aflyst.', cantCancel: 'Løbet er i gang og kan ikke aflyses nu.' },
@@ -122,16 +122,16 @@
     titles: { train: 'Training race', friday: 'Friday race', club: 'Club championship', xmas: 'Christmas race', weekend: 'Weekend race' },
     when: { today: 'today at {time}', tomorrow: 'tomorrow at {time}', day: '{day} at {time}', dToday: 'Today', dTomorrow: 'Tomorrow', at: 'at {time}' },
     dur: { h: '{h} h {m} min', d: '{d} days' },
-    vis: { label: 'Who can join', private: 'Code only', open: 'Everyone (listed)', privateHint: 'Only those who get the code, the link or the QR code.', openHint: 'The race is shown under “Find a race”, so anyone can join.' },
+    vis: { label: 'Who can join', private: 'Code only', open: 'Everyone (listed)', privateHint: 'Only those who get the code, the link or the QR code.', openHint: 'Everyone can see your name and join – the race is shown under “Find a race”.' },
     list: { title: 'Find a race', intro: 'Tap a race to join it.', sched: 'Scheduled races', open: 'Open races', loading: 'Getting races…', refresh: 'Refresh',
       empty: 'No open races right now – start your own or schedule one.', err: 'I cannot get the list right now. Try again in a little while.',
       lobby: 'In the lobby', startsIn: 'Starting in {t}', now: 'Starting now', planned: 'Scheduled {when}', full: 'Full', by: 'Host: {name}', sailors: '{n}/{max} sailors',
-      hostRace: '{name}’s race', hostRaceS: '{name}’ race' },
+      hostRace: '{name}’s race', hostRaceS: '{name}’ race', more: 'Show more ({n})' },
     plan: { btn: 'Schedule for later', title: 'Schedule a race', intro: 'Pick a name, a day and a time. The race opens 15 minutes before the start, and the server starts it by itself when at least 2 sailors are in.',
       name: 'Name', day: 'Day', time: 'Time', go: 'Schedule the race', opens: 'Opens at {time}',
       noTime: 'Pick both a day and a time.', tooSoon: 'Pick a time at least 10 minutes from now.', tooLate: 'You can schedule at most 14 days ahead.',
       badtime: 'That time cannot be used – pick another one.', limit: 'You have scheduled 3 races today. That is the maximum.', full: 'A lot of races are scheduled right now – try again later.',
-      done: '{title} is scheduled {when}.' },
+      done: '{title} is scheduled {when}.', more: 'More options', less: 'Fewer options' },
     mine: { btn: 'My scheduled races', btnN: 'My scheduled races ({n})', title: 'My scheduled races', intro: 'Share the code, the link or the QR code with your sailors. When the race has opened you can go in and start it.',
       empty: 'You have no scheduled races right now.', opens: 'Opens {when}', isOpen: 'The race is open now!', go: 'Go to the race', qr: 'QR code', cancel: 'Cancel',
       cancelAsk: 'Cancel {title} {when}?', cancelled: 'The race is cancelled.', cantCancel: 'The race is on and cannot be cancelled now.' },
@@ -426,6 +426,7 @@
       row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
       row(t('live.cfg.venue'), ['sound', 'bay'].map(v => chip('opt', 'venue', v, t('live.cfg.' + v), c.venue === v)).join('')) +
       row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
+      visRow(c.vis, 'vis', true) + // who can see the race (and the host's nickname): high up, not below a dozen other settings
       row(t('live.cfg.laps'), [1, 2, 3].map(v => chip('opt', 'laps', v, String(v), c.laps === v)).join('')) +
       windRow(c, winds) +
       (note ? '<div class="live-hint live-windnote" role="note">' + esc(note) + '</div>' : '') +
@@ -439,7 +440,6 @@
       row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
       row(t('live.cfg.help'), ['locked', 'free'].map(v => chip('opt', 'help', v, t('live.cfg.' + v), c.help === v)).join('')) +
       row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
-      visRow(c.vis, 'vis') +
       '</div>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="create"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('play') + '<span>' + esc(L.busy || t('live.cfg.create')) + '</span></button>' +
       (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="planview"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(t('live.plan.btn')) + '</span></button>' : '') + '</div>');
@@ -529,7 +529,7 @@
     v = v === 'open' ? 'open' : 'private';
     const chips = ['private', 'open'].map(x => chip(act, 'vis', x, t('live.vis.' + x), v === x, kit().ico(x === 'open' ? 'eye' : 'lock'))).join('');
     return (stacked ? '<div class="live-row live-vis"><div class="live-label">' + esc(t('live.vis.label')) + '</div><div class="live-chips">' + chips + '</div></div>' : row(t('live.vis.label'), chips)) +
-      '<div class="live-hint">' + esc(t('live.vis.' + v + 'Hint')) + '</div>';
+      '<div class="live-hint live-vishint' + (v === 'open' ? ' is-open' : '') + '">' + esc(t('live.vis.' + v + 'Hint')) + '</div>';
   }
 
   // ------------------------------------------------------------------ open list + scheduled races (live-rules spec B/C)
@@ -574,9 +574,9 @@
     });
     // the list refreshes every 10 s while it is on screen (never in the background)
     if (L.view === 'list' && L.list && !L.list.loading && !(doc && doc.hidden) && now - L.list.tried >= LIST_MS) loadList();
-    // the wait card joins by itself once the room has opened (a few tries, in case the phone's clock is ahead of the server's)
+    // the wait card joins by itself once the room has opened (a few tries; opensAt is server time, w.skew puts it on our clock)
     const w = L.wait;
-    if (L.view === 'wait' && w && !L.busy && w.tries < 4 && now >= w.opensAt + 1500 + w.tries * 10000) { w.tries++; doJoin(w.code); }
+    if (L.view === 'wait' && w && !L.busy && w.tries < 4 && now >= w.opensAt - (w.skew || 0) + 1500 + w.tries * 10000) { w.tries++; doJoin(w.code); }
   }
 
   // my scheduled races (the secret is only here: it makes me the host and lets me cancel)
@@ -628,10 +628,20 @@
     else status = '<span class="live-st is-lobby">' + esc(t('live.list.lobby')) + '</span>';
     const count = pending ? '<span class="live-n">' + esc(t('live.plan.opens', { time: clock(r.sched.opens) })) + '</span>' :
       '<span class="live-n' + (full ? ' is-full' : '') + '">' + kit().ico('user') + esc(full ? t('live.list.full') : t('live.list.sailors', { n: r.n, max: r.max })) + '</span>';
+    // every card has the same four rows, whatever the name's length: title (one line) / status + sailors / class, course, wind / host
     return '<li><button type="button" class="live-item glass" data-act="pick" data-code="' + esc(r.code) + '"' + (shut ? ' disabled' : '') + '>' +
-      '<span class="live-item-top"><b class="live-item-name">' + esc(head) + '</b>' + status + '</span>' +
-      '<span class="live-item-by">' + esc(t('live.list.by', { name: r.host })) + '</span>' +
-      '<span class="live-item-bot">' + metaHtml(r.cls, r.course, r.wind) + count + '</span></button></li>';
+      '<b class="live-item-name">' + esc(head) + '</b>' +
+      '<span class="live-item-top">' + status + count + '</span>' +
+      '<span class="live-item-bot">' + metaHtml(r.cls, r.course, r.wind) + '</span>' +
+      '<span class="live-item-by">' + esc(t('live.list.by', { name: r.host })) + '</span></button></li>';
+  }
+  // races you can join first: an opened scheduled race by its start (soonest first), then the lobbies with the most sailors;
+  // full rooms and countdowns (shown, nobody can join them) last
+  const LIST_FIRST = 6; // open races shown before "Vis flere"
+  function openOrder(rows) {
+    const shut = r => (r.n >= r.max || r.phase === 'countdown' ? 1 : 0);
+    const at = r => (r.sched ? +r.startsIn || 0 : Infinity);
+    return rows.slice().sort((a, b) => shut(a) - shut(b) || (at(a) === at(b) ? 0 : at(a) < at(b) ? -1 : 1) || b.n - a.n);
   }
   function listBody() {
     const st = L.list || {};
@@ -643,15 +653,18 @@
         '<button type="button" class="btn btn-glass" data-act="planview">' + kit().ico('calendar') + '<span>' + esc(t('live.plan.btn')) + '</span></button></div></div>';
     }
     // races you can join now first (an opened scheduled race is one of them), then the scheduled races that are not open yet
-    const open = st.rows.filter(r => r.phase !== 'sched'), sch = st.rows.filter(r => r.phase === 'sched');
-    const sect = (k, rows) => rows.length ? '<section class="live-sect"><h2 class="live-h">' + esc(t(k)) + '</h2><ul class="live-list">' + rows.map(rowHtml).join('') + '</ul></section>' : '';
-    return sect('live.list.open', open) + sect('live.list.sched', sch);
+    // (each header counts its races, so the scheduled ones further down are not missed; long lists show the first few open races)
+    const open = openOrder(st.rows.filter(r => r.phase !== 'sched')), sch = st.rows.filter(r => r.phase === 'sched');
+    const shown = st.more ? open : open.slice(0, LIST_FIRST), rest = open.length - shown.length;
+    const sect = (k, rows, n, extra) => rows.length ? '<section class="live-sect"><h2 class="live-h">' + esc(t(k)) + ' <span class="live-hn">(' + n + ')</span></h2><ul class="live-list">' + rows.map(rowHtml).join('') + '</ul>' + (extra || '') + '</section>' : '';
+    const more = rest > 0 ? '<div class="live-actions live-more"><button type="button" class="btn btn-glass" data-act="listmore">' + kit().ico('plus') + '<span>' + esc(t('live.list.more', { n: rest })) + '</span></button></div>' : '';
+    return sect('live.list.open', shown, open.length, more) + sect('live.list.sched', sch, sch.length);
   }
-  function viewList() {
-    return shell(t('live.list.title'),
-      '<div class="live-listhead"><p class="live-intro">' + esc(t('live.list.intro')) + '</p>' +
-      '<button type="button" class="btn btn-glass btn-sm live-refresh" data-act="relist" aria-label="' + esc(t('live.list.refresh')) + '">' + kit().ico('retry') + '<span>' + esc(t('live.list.refresh')) + '</span></button></div>' +
-      '<div id="live-listbox" aria-live="polite">' + listBody() + '</div>');
+  function viewList() { // Refresh sits in the screen head beside the title: one row less (in landscape that row was a third of the screen)
+    const refresh = '<button type="button" class="btn btn-glass btn-sm live-refresh" data-act="relist" aria-label="' + esc(t('live.list.refresh')) + '">' + kit().ico('retry') + '<span>' + esc(t('live.list.refresh')) + '</span></button>';
+    return kit().header(t('live.list.title'), '', refresh) + '<div class="scroll"><div class="live-wrap">' +
+      '<p class="live-intro live-listintro">' + esc(t('live.list.intro')) + '</p>' +
+      '<div id="live-listbox" aria-live="polite">' + listBody() + '</div></div></div>';
   }
 
   // ---- "Planlæg til senere": preset title, local day + time (now + 10 min .. 14 days), the race settings and who can see it
@@ -682,7 +695,8 @@
     const at = planStart(p), now = Date.now();
     return !isFinite(at) ? 'noTime' : at < now + MIN_LEAD ? 'tooSoon' : at > now + MAX_LEAD ? 'tooLate' : '';
   }
-  const planWhen = p => { const at = planStart(p); return isFinite(at) && !planCheck(p) ? whenTxt(at) + ' · ' + t('live.plan.opens', { time: clock(at - OPEN_BEFORE) }) : ''; };
+  const cap = x => (x ? x.charAt(0).toUpperCase() + x.slice(1) : x);
+  const planWhen = p => { const at = planStart(p); return isFinite(at) && !planCheck(p) ? cap(whenTxt(at)) + ' · ' + t('live.plan.opens', { time: clock(at - OPEN_BEFORE) }) : ''; };
   function viewPlan() {
     const p = L.plan, c = L.cfg, boats = boatsList(), G = kit().boatGet, now = new Date();
     const bn = id => (G(id) && G(id).name) || id;
@@ -694,20 +708,21 @@
       '<input id="live-plan-day" class="live-input" type="date" min="' + ymd(now) + '" max="' + ymd(new Date(Date.now() + MAX_LEAD)) + '" value="' + esc(p.day) + '" required></div></div>' +
       '<div class="live-row"><label class="live-label" for="live-plan-time">' + esc(t('live.plan.time')) + '</label><div class="live-chips">' +
       '<input id="live-plan-time" class="live-input" type="time" step="300" value="' + esc(p.time) + '" required></div></div>' +
-      '<div class="live-hint live-plan-when" id="live-plan-when">' + esc(planWhen(p)) + '</div>' +
       '<div id="live-plan-err" class="live-err" role="alert">' + esc(p.err || '') + '</div>' +
       row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
       row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
-      windRow(c) +
-      row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
-      row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
-      row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
-      visRow(p.vis, 'pvis') +
+      visRow(p.vis, 'pvis', true) +
+      // wind and the less common settings wait behind "Flere valg" (the defaults are fine for a club race)
+      '<button type="button" class="btn btn-glass btn-sm live-pmore" data-act="pmore" aria-expanded="' + (L.planMore ? 'true' : 'false') + '">' + kit().ico(L.planMore ? 'minus' : 'plus') + '<span>' + esc(t(L.planMore ? 'live.plan.less' : 'live.plan.more')) + '</span></button>' +
+      (L.planMore ? windRow(c) +
+        row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
+        row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
+        row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) : '') +
       '</div>' +
-      // the same summary and error right above the button (the pickers are far up on a phone)
-      '<div class="live-plan-foot"><div class="live-hint live-plan-when" id="live-plan-when2">' + esc(planWhen(p)) + '</div>' +
+      // the summary, any error and the button stay at the bottom of the screen while the form scrolls
+      '<div class="live-plan-bar"><div class="live-plan-foot"><div class="live-plan-when" id="live-plan-when">' + esc(planWhen(p)) + '</div>' +
       '<div id="live-plan-err2" class="live-err" aria-hidden="true">' + esc(p.err || '') + '</div></div>' +
-      '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="plan"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(L.busy || t('live.plan.go')) + '</span></button></div>');
+      '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="plan"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(L.busy || t('live.plan.go')) + '</span></button></div></div>');
   }
   // the pickers write into L.plan as they change (no repaint: the native picker keeps its focus)
   function bindPlanInputs(sec) {
@@ -790,7 +805,9 @@
   // ---- a scheduled race that has not opened yet (from the list, a code or a #live=/#join= link)
   function showWait(code, e) {
     const prev = L.wait && L.wait.code === code ? L.wait.tries : 0;
-    L.wait = { code, opensAt: +e.opensAt || Date.now(), startAt: +e.startAt || Date.now(), title: e.title, tries: prev };
+    // skew: the server's clock minus ours (kids' tablets are often minutes off): the countdown and the join tries use the server's time
+    const skew = Number.isFinite(e.now) && e.now > 0 ? e.now - Date.now() : 0;
+    L.wait = { code, opensAt: +e.opensAt || Date.now(), startAt: +e.startAt || Date.now(), title: e.title, tries: prev, skew };
     L.busy = ''; L.joinErr = '';
     setView('wait');
   }
@@ -799,7 +816,7 @@
     return shell(titleTxt(w.title),
       trainerHtml(t('live.wait.msg', { title: titleTxt(w.title), day: dayTxt(w.startAt), opens: t('live.when.at', { time: clock(w.opensAt) }), start: t('live.when.at', { time: clock(w.startAt) }) })) +
       '<div class="live-waitbox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code">' + esc(w.code) + '</div>' +
-      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt, 'live.wait.left', 'live.wait.soon') + '</div>' +
+      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt - (w.skew || 0), 'live.wait.left', 'live.wait.soon') + '</div>' +
       '<div class="live-hint">' + esc(t('live.wait.auto')) + '</div></div>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="remind">' + kit().ico('calendar') + '<span>' + esc(t('live.wait.remind')) + '</span></button>' +
       '<button type="button" class="btn btn-glass" data-act="waitjoin"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('retry') + '<span>' + esc(L.busy || t('live.wait.check')) + '</span></button></div>');
@@ -878,12 +895,14 @@
       // live-rules spec B/C: the open list, scheduling, my scheduled races, the wait card
       listview: () => recheckThen(() => openList()),
       relist: () => loadList(),
+      listmore: () => { if (!L.list) return; L.list.more = true; const box = secEl() && secEl().querySelector('#live-listbox'); if (box) { box.innerHTML = listBody(); onTick(); } },
       pick: b => { L.via = 'list'; L.waitFrom = 'list'; kit().sfx('click'); doJoin(b.getAttribute('data-code')); },
       vis: b => { L.cfg.vis = b.getAttribute('data-v') === 'open' ? 'open' : 'private'; paint(); },
       visroom: b => { if (L.sess) L.sess.setCfg({ vis: b.getAttribute('data-v') === 'open' ? 'open' : 'private' }); },
       planview: () => { const from = L.view; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => openPlan(from)); },
       ptitle: b => { L.plan.title = b.getAttribute('data-v'); paint(); },
       pvis: b => { L.plan.vis = b.getAttribute('data-v') === 'private' ? 'private' : 'open'; paint(); },
+      pmore: () => { L.planMore = !L.planMore; paint(); },
       plan: () => { if (!L.busy) doPlan(); },
       mineview: () => { L.mineQr = ''; setView('mine'); },
       mqr: b => { const c = b.getAttribute('data-code'); L.mineQr = L.mineQr === c ? '' : c; paint(); },

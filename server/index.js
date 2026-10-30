@@ -8,7 +8,7 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const P = require('./lib/protocol');
 const { createRooms } = require('./lib/rooms');
-const { createBucket, createConnCounter, createDropTracker } = require('./lib/limits');
+const { createBucket, createConnCounter, createDropTracker, ipKey } = require('./lib/limits');
 const { createStatus } = require('./lib/status');
 const schedFile = require('./lib/schedfile');
 
@@ -26,8 +26,9 @@ function createServer(env) {
   const saved = schedFile.load(env.KOS_SCHEDULE_FILE);
   const ipSalt = saved.salt || require('crypto').randomBytes(16).toString('hex'); // kept in the schedule file: per-IP limits survive a restart
   const schedHealth = { saveFails: 0, badFile: !!saved.bad }; // /health: a schedule file that cannot be written must not go unnoticed
+  // saved.noWrite: the file could not be read (not missing, not broken): never replace it, schedules live in memory only until a restart
   const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000), ipSalt,
-    onSchedChange: (list) => { if (!schedFile.save(env.KOS_SCHEDULE_FILE, list, ipSalt)) schedHealth.saveFails++; } });
+    onSchedChange: (list) => { if (saved.noWrite || !schedFile.save(env.KOS_SCHEDULE_FILE, list, ipSalt)) schedHealth.saveFails++; } });
   rooms.restore(saved.races);
   const listIp = new Map(); // ip -> bucket for GET /rooms
   let listCache = null, listAt = 0; // GET /rooms: one list per second for everybody (a club Wi-Fi is many phones behind one IP)
@@ -94,7 +95,7 @@ function createServer(env) {
       head['access-control-allow-methods'] = 'GET';
     }
     if (req.method === 'OPTIONS') { res.writeHead(204, head); res.end(); return; }
-    const ip = clientIp(req);
+    const ip = ipKey(clientIp(req)); // an IPv6 /64 is one client
     let b = listIp.get(ip);
     if (!b) {
       if (listIp.size > 2000) listIp.clear();
@@ -229,7 +230,7 @@ function createServer(env) {
           if (res === 'ok') send({ t: 'schedcancelled', code: m.code, why: 'host' }); else err(res === 'nocode' ? 'nocode' : 'bad');
           break;
         }
-        case 'foul': if (r) rooms.foul(r, c.id, m.o, m.r); break;
+        case 'foul': if (r) rooms.foul(r, c.id, m.o, m.r, m.s === 1); break;
         case 'cfgset': if (r) rooms.setCfg(r, c.id, m.cfg); break;
         case 'kick': {
           if (!r) return;

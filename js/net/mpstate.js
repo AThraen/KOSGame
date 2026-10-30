@@ -276,28 +276,44 @@
   function stamp(serverMs, prevSeq) { return Math.max(Math.round(serverMs), (prevSeq || 0) + 1); }
 
   // Both phones judge a contact (docs/superpowers/specs/2026-10-30-live-rules-and-race-list-design.md A10). Per other boat it remembers
-  // when this phone last took a penalty for that pair and when it last told that boat "you fouled me".
-  //   own(otherId, iFouled, nowMs) -> 'pen' (take the penalty) | 'send' (send {t:'foul'}) | null (the same incident, already handled)
+  // when this phone took a penalty for that pair, told that boat "you fouled me", holds a penalty it gave itself, or heard that the
+  // other phone gave its own boat the penalty.
+  //   own(otherId, iFouled, nowMs) -> 'self' (hold our own penalty and send {t:'foul', s:1}; take it with settle()) | 'send' (send
+  //                                   {t:'foul'}) | null (this pair already has a verdict for this incident, whichever way this one goes)
+  //   settle(otherId, nowMs)       -> true: the hold is over and no message from the other phone resolved it: take the penalty now
   //   recv(fromId, nowMs)          -> true: take the penalty the other phone says we owe
+  //   recvSelf(fromId, nowMs)      the other phone gave its own boat the penalty for this incident
   //   excuse(otherId, nowMs)       our own monitor excused this contact (R15/R16: nobody is penalised): recv() refuses it within DEDUPE
-  // Within DEDUPE ms one incident counts once. When both phones said "the other one fouled me" (each sent, each received), the
-  // lower player id's verdict wins on both phones, so exactly one boat turns.
+  // Within DEDUPE ms one incident counts once per pair (a contact re-judged after the monitor's cool-down, e.g. R15 and then R11, adds
+  // nothing). When the two phones disagree, the lower player id's verdict wins on both: both said "the other one fouled me" (each sent,
+  // each received), or both blamed their own boat (each held, each heard the other's 's' message), so exactly one boat turns.
   class FoulLog {
-    constructor(myId, dedupeMs) { this.myId = myId; this.ms = dedupeMs || 2000; this.pen = {}; this.sent = {}; this.ex = {}; }
+    constructor(myId, dedupeMs) { this.myId = myId; this.ms = dedupeMs || 2000; this.pen = {}; this.sent = {}; this.ex = {}; this.held = {}; this.told = {}; }
     _recent(map, id, nowMs) { return map[id] !== undefined && nowMs - map[id] < this.ms; }
     own(otherId, iFouled, nowMs) {
-      if (this._recent(this.pen, otherId, nowMs)) return null;
-      if (iFouled) { this.pen[otherId] = nowMs; return 'pen'; }
-      if (this._recent(this.sent, otherId, nowMs)) return null;
+      if (this._recent(this.pen, otherId, nowMs) || this._recent(this.sent, otherId, nowMs) || this._recent(this.held, otherId, nowMs) ||
+        this._recent(this.told, otherId, nowMs)) return null;
+      if (iFouled) { this.held[otherId] = nowMs; return 'self'; }
       this.sent[otherId] = nowMs;
       return 'send';
+    }
+    settle(otherId, nowMs) {
+      if (this.held[otherId] === undefined) return false; // taken already (recv) or given up for the lower id (recvSelf)
+      delete this.held[otherId];
+      this.pen[otherId] = nowMs;
+      return true;
     }
     excuse(otherId, nowMs) { this.ex[otherId] = nowMs; }
     recv(fromId, nowMs) {
       if (this._recent(this.pen, fromId, nowMs) || this._recent(this.ex, fromId, nowMs)) return false; // handled, or excused here
+      if (this._recent(this.held, fromId, nowMs)) { delete this.held[fromId]; this.pen[fromId] = nowMs; return true; } // both blame us: once, now
       if (this._recent(this.sent, fromId, nowMs) && !(fromId < this.myId)) return false; // we both blamed the other: the lower id decides
       this.pen[fromId] = nowMs;
       return true;
+    }
+    recvSelf(fromId, nowMs) {
+      this.told[fromId] = nowMs; // our own later verdict on this incident adds nothing
+      if (this._recent(this.held, fromId, nowMs) && fromId < this.myId) delete this.held[fromId]; // we both blamed ourselves: the lower id turns
     }
   }
 

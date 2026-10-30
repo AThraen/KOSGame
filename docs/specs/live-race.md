@@ -76,7 +76,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 2` (see 3.
 | `hend` | none | host only, `racing`: end now (section 14) |
 | `habort` | none | host only, `countdown`/`racing`: abort back to the lobby (section 14) |
 | `hlobby` | `on:bool` | host only: after the results go back to the lobby automatically (section 14) |
-| `foul` | `o` (offender id), `r` (rule label, one of R10 R11 R12 R13 R15 R18 R22) | player, racing/countdown: the stand-on phone says the offender fouled it; relayed to the offender only (3.4) |
+| `foul` | `o` (offender id), `r` (rule label, one of R10 R11 R12 R13 R15 R18 R22), optional `s: 1` | player, racing/countdown: the stand-on phone says the offender fouled it; with `s: 1` the sender says its OWN boat fouled boat `o` and takes the penalty; relayed to `o` only (3.4) |
 | `list` | none | any time after hello: the open race list, reply `rooms`; at most 1 per 2 s (burst 3), else `err code:'rate'` |
 | `sched` | `cfg, title, startAt` | schedule a race (3.4); reply `scheduled` or `err` |
 | `schedcancel` | `code, secret` | cancel a pending race, or an opened scheduled lobby, with the creator's secret |
@@ -100,7 +100,7 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 2` (see 3.
 | `hostleft` | none |
 | `err` | `code, msg?` |
 | `status` | `mode, msg` pushed on status-file change (informational) |
-| `foul` | `from` (sender id), `r`: only to the offender (3.4) |
+| `foul` | `from` (sender id), `r`, `s` (1 = the sender's own boat takes the penalty): only to boat `o` (3.4) |
 | `rooms` | `rooms:[{code, host, cls, course, wind, n, max, phase, startsIn, sched}]` (3.4) |
 | `scheduled` | `code, secret, title, startAt, opensAt, cfg` (the secret is sent once) |
 | `schedcancelled` | `code, why:'host'\|'few'` (also to the players of an opened scheduled room) |
@@ -293,7 +293,7 @@ Host setting `cfg.contact` ("Kontakt mellem både" / "Contact between boats", de
   - Rules and contact use the dead-reckoned position (`Buffer.view().rx/ry`); the visual easing is added only while drawing.
   - A `frozen` remote boat (gap shorter than 2 s) stays in the rules and contact lists; only `lost` makes it a ghost.
   - The contact threshold (0.35 m/s, live and AI alike) uses the closing speed before `collide`/`bumpRemotes`.
-  - **Both phones judge.** The stand-on phone sends `{t:'foul', o, r}`; the offender's phone takes the penalty on its own verdict OR the received one (`KOS.MPState.FoulLog`: one penalty per pair within 2 s; when both phones blamed the other, the lower player id's verdict wins on both). Stand-on boats are still never penalised by their own verdict. A received foul counts only for a boat this phone saw close by in the last 2 s, waits 0.3 s for the own verdict, and is vetoed when the own monitor excused the contact (R15/R16).
+  - **Both phones judge.** The stand-on phone sends `{t:'foul', o, r}`; the offender's phone takes the penalty on its own verdict OR the received one (`KOS.MPState.FoulLog`: one penalty per pair within 2 s; when both phones blamed the other, the lower player id's verdict wins on both). Stand-on boats are still never penalised by their own verdict. A phone that blames its own boat sends `{t:'foul', o, r, s:1}` and holds its penalty for 0.5 s + RTT: if the other phone also blamed its own boat (the edge of a time-to-react window), the lower player id turns; once either phone has a verdict, a later re-judge of the same contact by either phone adds nothing (2 s, and a 12 s cool-down per unordered pair). A received foul counts only for a boat this phone saw close by in the last 2 s, waits 0.3 s for the own verdict, and is vetoed when the own monitor excused the contact (R15/R16).
 
 ## 14. Finishing, host controls, harder conditions (v1.2)
 - **Finish window.** The first accepted `fin` opens a window of `cfg.finishS` seconds (0 = none): the server broadcasts `{t:'fwin', endAt}`. When every boat is final or `endAt` passes, the room goes to `results`; unfinished boats are `dnf` (`lost` when disconnected). `maxS` still caps the race. The client shows its own place and time at once, the standings with "Venter på N sejlere…" and a countdown to `endAt` (`serverNow()`).

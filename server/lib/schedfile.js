@@ -4,11 +4,16 @@
 // host secret and a salted sha256 of the creator's IP (the per-IP limits; the salt lives in the same file, the IP itself never does).
 const fs = require('fs');
 
-// -> {races: [], salt: string|''}. A missing file starts empty; a broken one is kept aside as <file>.bad (never silently overwritten).
+// -> {races: [], salt: string|'', bad?, noWrite?}. A missing file starts empty; a broken one is kept aside as <file>.bad (never silently
+// overwritten). Any other read error (EACCES, EISDIR, EIO, ...) may hide a good file: start empty, but noWrite tells the server not to
+// save over it (the pending races and the per-IP hashes stay on disk for the next start).
 function load(file) {
   if (!file) return { races: [], salt: '' };
   let txt;
-  try { txt = fs.readFileSync(file, 'utf8'); } catch (e) { return { races: [], salt: '' }; }
+  try { txt = fs.readFileSync(file, 'utf8'); } catch (e) {
+    if (e && e.code === 'ENOENT') return { races: [], salt: '' };
+    return { races: [], salt: '', bad: true, noWrite: true };
+  }
   try {
     const j = JSON.parse(txt);
     return { races: j && Array.isArray(j.races) ? j.races : [], salt: j && typeof j.salt === 'string' ? j.salt : '' };
