@@ -1236,6 +1236,7 @@
     const fromXmas = a && (run.from === 'xmas' || a.season === 'xmas');
     if (fromXmas && KOS.XmasCal && KOS.XmasCal.live()) App.show('xmas', {}, { replace: true });
     else if (fromXmas) App.show('hub', {}, { replace: true }); // the season closed mid-play (6 -> 7 Jan): not the empty 'event' area
+    else if (a && a.liveRace && KOS.MP && KOS.MP.seat && KOS.MP.seat()) App.show('hub', {}, { replace: true }); // "Til kortet" from a live race: the hub, where "Fortsæt live-løbet" waits
     else if (a) App.show('area', { area: a.area }, { replace: true });
     else App.show('hub', {}, { replace: true });
   }
@@ -1256,8 +1257,10 @@
     run.running = false;
     cancelAnimationFrame(run.raf); run.raf = 0;
     setTimeout(() => {
+      const away = App.cur !== 'play'; // left meanwhile (a live rematch took the sailors to the lobby): do not pull them back to a results card
       stopRun();
       run.lastResult = { result, rec, activity: a, newBadges, capsized: run.capsized, from: run.from };
+      if (away) return;
       App.show('results', { id: a.id }, { replace: true });
     }, 650);
     emit('play:finish', { id: a.id, result, rec });

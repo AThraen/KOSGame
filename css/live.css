@@ -61,14 +61,20 @@
 .live-ver i { font-style: normal; }
 
 /* reconnecting banner */
-.live-banner {
-  position: fixed; top: calc(var(--safe-t) + 8px); left: 50%; transform: translateX(-50%); z-index: 60;
+.live-banner { /* at the bottom: the screen title and the code field stay readable; under dialogs (z 70) */
+  position: fixed; bottom: calc(var(--safe-b) + 12px); left: 50%; transform: translateX(-50%); z-index: 30;
   background: #7a4a00; color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 800;
   display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px); text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.35);
 }
 .live-banner.is-away { padding: 6px 6px 6px 16px; }
-.live-banner .btn { flex: none; min-height: 40px; }
+.live-banner .btn { flex: none; min-height: 44px; }
 .live-banner[hidden] { display: none; }
+.live-banner .nb-short { display: none; }
+@media (max-width: 480px) { .live-banner .nb-long { display: none; } .live-banner .nb-short { display: inline; } }
+/* the way back into a race this phone still holds: first on the entry view */
+.live-seatgo span { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+.live-seatgo small { font-size: .85rem; font-weight: 700; opacity: .85; }
+.live-big-btns .live-seatgo { grid-column: 1 / -1; }
 
 /* countdown */
 .live-start { padding: 24px; text-align: center; display: flex; flex-direction: column; gap: 16px; align-items: center; border-radius: var(--radius-lg); }

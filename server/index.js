@@ -4,6 +4,8 @@
 //      KOS_SCHEDULE_FILE (pending scheduled races, JSON, survives a restart; unset = memory only),
 //      KOS_MAX_ROOMS, KOS_MAX_PLAYERS, KOS_MAX_CONNS, KOS_MAX_PER_IP, KOS_MIN_CLIENT (e.g. 0.8.5), KOS_MIN_PROTO (e.g. 2),
 //      KOS_PING_MS (10000) / KOS_DEAD_MS (25000): ws heartbeat; a socket silent (no pong, no frame) this long is terminated.
+//      KOS_LOBBY_SEAT_MS (300000): a dropped sailor's lobby seat waits this long; KOS_HOST_GRACE_MS (180000): a dropped host closes the lobby after this;
+//      KOS_SCHED_PER_DAY (20): new scheduled races per day on the whole server.
 // The status file may carry minClient / minProto too (watched like mode, no restart); the stricter of file and env wins.
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -31,7 +33,8 @@ function createServer(env) {
   const ipSalt = saved.salt || require('crypto').randomBytes(16).toString('hex'); // kept in the schedule file: per-IP limits survive a restart
   const schedHealth = { saveFails: 0, badFile: !!saved.bad }; // /health: a schedule file that cannot be written must not go unnoticed
   // saved.noWrite: the file could not be read (not missing, not broken): never replace it, schedules live in memory only until a restart
-  const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000), ipSalt,
+  const rooms = createRooms({ limits: Object.assign({}, HARD, { schedPerDay: num(env.KOS_SCHED_PER_DAY, 20) }), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000),
+    lobbySeatMs: num(env.KOS_LOBBY_SEAT_MS, 300000), hostGraceMs: num(env.KOS_HOST_GRACE_MS, 180000), ipSalt,
     onSchedChange: (list) => { if (saved.noWrite || !schedFile.save(env.KOS_SCHEDULE_FILE, list, ipSalt)) schedHealth.saveFails++; } });
   rooms.restore(saved.races);
   const listIp = new Map(); // ip -> bucket for GET /rooms
@@ -214,7 +217,7 @@ function createServer(env) {
           if (r) return err('bad');
           const res = rooms.resume({ send, ip, ver: c.ver }, m.code, m.id, m.key);
           // the race is over and its room gone: nocode carries the official rows when this seat was in it (spec E4, late resume)
-          if (res.err) return err(res.err, undefined, res.rows ? { rows: res.rows } : undefined);
+          if (res.err) return err(res.err, undefined, res.rows || res.alive ? Object.assign(res.rows ? { rows: res.rows } : {}, res.alive ? { alive: res.alive } : {}) : undefined);
           // the seat had another live socket (a second window, or a half-open one): that one is closed with 4409 'replaced' and the
           // client there must not reconnect-steal the seat back
           for (const sock of wss.clients) {

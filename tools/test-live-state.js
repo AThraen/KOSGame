@@ -175,6 +175,8 @@ function ok(cond, msg) {
   ok(M.unpackState(M.packState({ tack: 'port', r13: true }, 1, 1)).fl === 192, 'tack and R13 travel as fl bits 64 + 128');
   const u0 = M.unpackState(M.packState({ tack: 'starboard', r13: false, penalty: true }, 1, 1));
   ok(u0.port === false && u0.r13 === false && u0.penalty === true, 'starboard / no R13 leave the bits clear');
+  const u1 = M.unpackState(M.packState({ penalty: true, turning: true }, 1, 1)), u2 = M.unpackState(M.packState({ penalty: true }, 1, 1));
+  ok(u1.fl === 4 + 256 && u1.turning === true && u2.turning === false && u2.penalty === true, 'taking the penalty turn now travels as bit 256, owing one as 4 alone (RRS 22.2, review round 7)');
   const KOS = require('./harness').load();
   const R = d => d * Math.PI / 180, DT = 1 / 60, T0 = 2e12;
   const env = { wind: { dir: 0, speed: 8 }, t: 0, assist: 'normal' };

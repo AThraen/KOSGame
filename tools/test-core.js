@@ -968,7 +968,7 @@ test('rules: R22 - an OCS boat going back or a boat doing penalty turns keeps cl
   ok(r.rule === 'R10', 'both: the normal rules between them');
   // physics boats carry it in rc (race.js), and the monitor makes the penalised boat the offender in a contact
   const a = sb({ x: 0, y: 0, h: -45, name: 'S' }), b = sb({ x: -1.3, y: -0.2, h: 45, name: 'P' });
-  a.rc = { leg: 1, ocs: false, pen: { need: 6.28, acc: 1 } }; b.rc = { leg: 1, ocs: false, pen: null };
+  a.rc = { leg: 1, ocs: false, pen: { need: 6.28, acc: 1, turning: true } }; b.rc = { leg: 1, ocs: false, pen: null };
   const f = KOS.Rules.monitor({ mode: 'race', cooldown: 1 }).update([a, b], 0, null, 0.05).filter(x => x.type === 'foul');
   ok(f.length === 1 && f[0].offender === a && f[0].rule === 'R22', 'monitor: ' + f.map(x => x.rule + ' ' + x.offender.name));
   ok(KOS.Rules.rightOfWay(a, b, { wind: 0, mode: 'colreg' }).rule !== 'R22', 'racing rules only');
@@ -1114,6 +1114,150 @@ test('rules: time to react (R15 / R16) is off with react: false, as in Søslag -
   const src = f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
   ok(/Rules\.monitor\(\{[^}]*react: false/.test(src('js/modes/soslag.js')), 'Søslag builds its monitor with react: false');
   ok(/Rules\.monitor\(\{[^}]*react: true/.test(src('js/modes/race.js')), 'races build theirs with react: true');
+});
+// review round 7 (tools/tmp/rowreview/review7*.js)
+const r7 = { DT: 1 / 60 };
+r7.B = (name, x, y, hd, o) => lb(name, x, y, hd, Object.assign({ id: name, speed: 0, vx: 0, vy: 0, _init: true, rc: { leg: 1 } }, o || {}));
+r7.setV = (b, v) => { const d = U.vec(b.heading, v); b.vx = d.x; b.vy = d.y; b.speed = v; };
+r7.mv = b => { b.x += b.vx * r7.DT; b.y += b.vy * r7.DT; };
+r7.run = (boats, marks, nextMark, step, secs) => {
+  const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true, nextMark });
+  for (let i = 0; i * r7.DT < secs; i++) {
+    step(i * r7.DT);
+    const f = mon.update(boats, 0, marks, r7.DT).find(x => x.type === 'foul' && x.contact);
+    if (f) return f;
+  }
+  return null;
+};
+r7.say = f => (f ? (f.excused ? 'excused ' : '') + f.rule + ' ' + f.offender.name : 'no contact');
+test('rules: R22 only while the penalty turn is being taken - a boat that owes one but sails on keeps its rights (RRS 22.2)', () => {
+  const TAU = 2 * Math.PI;
+  const S = r7.B('S', 0, 0, -45, { tack: 'starboard', rc: { leg: 1, pen: { need: TAU, acc: 0, auto: false, dir: 0, T: 6 } } });
+  const Pb = r7.B('P', -4.2, 0.2, 45, { tack: 'port' });
+  ok(KOS.Rules.rightOfWay(S, Pb, { wind: 0 }).rule === 'R10', 'owes a turn, not turning: R10 on P');
+  const f = r7.run([S, Pb], [], null, () => { r7.setV(S, 1.2); r7.setV(Pb, 1.2); r7.mv(S); r7.mv(Pb); }, 6);
+  ok(f && !f.excused && f.offender === Pb && f.rule === 'R10', 'monitor: P (R10), got ' + r7.say(f));
+  S.rc.pen.turning = true;
+  ok(KOS.Rules.rightOfWay(S, Pb, { wind: 0 }).rule === 'R22', 'taking the turn now: R22 on S');
+  // penTurning: the game steering the turn (ctl) counts at once; a hand-steered turn once past PEN_RUN (120 deg) one way;
+  // tacking (90 deg) or sailing straight with small corrections does not; sailing straight for 1.5 s ends it
+  const pt = KOS.Rules.penTurning, dt = 1 / 60;
+  let pen = { ctl: true };
+  ok(pt(pen, 0, dt) === true && pen.ctl === false, 'ctl: turning');
+  pen = {}; let h = 0;
+  for (let i = 0; i < 60; i++) { const dh = R(90) / 60; h += dh; pt(pen, dh, dt); }
+  ok(!pen.turning, 'a tack (90 deg one way) is not a penalty turn');
+  for (let i = 0; i < 60; i++) pt(pen, R(60) / 60, dt);
+  ok(pen.turning, '150 deg one way: turning');
+  for (let i = 0; i < 100; i++) pt(pen, 0, dt);
+  ok(!pen.turning, 'sailed straight for 1.6 s: no longer turning');
+  pen = {};
+  for (let i = 0; i < 600; i++) pt(pen, (i % 40 < 20 ? 1 : -1) * R(8) * dt, dt);
+  ok(!pen.turning, 'small corrections either way: not turning');
+  // race.js and soslag.js run it in their penalty step, mark the steered turn, and only skip a victim that is turning
+  const src = f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
+  for (const f of ['js/modes/race.js', 'js/modes/soslag.js']) {
+    ok(/Rules\.penTurning\(p, dh, dt\)/.test(src(f)) && /p\.ctl = true/.test(src(f)), f + ': penTurning + ctl');
+  }
+  ok(!/if \(v\.rc\.pen\) return/.test(src('js/modes/race.js')) && /turningPen\(v\)/.test(src('js/modes/race.js')), 'race onFoul: only a turning victim');
+  ok(/if \(v\.pen && v\.pen\.turning\) return/.test(src('js/modes/soslag.js')), 'Søslag onFoul: only a turning victim');
+});
+test('rules: a boat tacking OUTSIDE the zone does not switch off the clear-ahead boat\'s mark-room (RRS 18.3 needs a tack in the zone)', () => {
+  const fw = U.vec(R(-45)), sd = U.vec(R(45)), L = 2.31, zr = 3 * L, vS = 1.0, vP = 1.6;
+  const mk = { x: 0, y: 0, id: 'm1', round: 'port' };
+  for (const late of [-0.3, 0.2, 0.4, 0.8]) { // P finishes its tack this long after S reaches the zone (t = 2), about 12 m from the mark
+    const tTack = 2 + late, d0 = Math.sqrt(zr * zr - 9) + vS * 2;
+    const S = r7.B('S', -fw.x * d0 + sd.x * 3, -fw.y * d0 + sd.y * 3, -45, { tack: 'starboard' });
+    const sx = S.x + fw.x * vS * tTack, sy = S.y + fw.y * vS * tTack;
+    const Pb = r7.B('P', sx - sd.x * 1.3 - fw.x * L * 2.5, sy - sd.y * 1.3 - fw.y * L * 2.5, 45, { tack: 'port' });
+    let ovT = null;
+    const f = r7.run([S, Pb], [mk], () => 'm1', t => {
+      if (t < tTack - 0.5) { Pb.heading = R(45); Pb.tack = 'port'; Pb.r13 = false; r7.setV(Pb, 0); }
+      else if (t < tTack) { Pb.r13 = true; Pb.tack = 'starboard'; Pb.heading = R(45 - 90 * (t - tTack + 0.5) / 0.5); r7.setV(Pb, 0); }
+      else {
+        Pb.r13 = false;
+        if (ovT === null && KOS.Rules.overlapped(S, Pb)) ovT = t;
+        Pb.heading = ovT !== null && t > ovT + 1.6 ? Math.min(R(-30), Pb.heading + R(15) * r7.DT) : R(-45); r7.setV(Pb, vP);
+      }
+      r7.setV(S, vS); r7.mv(S); r7.mv(Pb);
+    }, 30);
+    ok(f && !f.excused && f.offender === Pb && f.rule === 'R18', 'tack ' + late + ' s after S reached the zone: P (R18), got ' + r7.say(f));
+  }
+});
+test('rules: tacking under a starboard boat in the zone - the tacker must not make it sail above close-hauled (RRS 18.3(a))', () => {
+  const mk = { x: 0, y: 0, id: 'm1', round: 'port', upwind: true }, fw = U.vec(R(-45)), side = U.vec(R(45));
+  const tally = { P: 0, other: [] };
+  for (const pinch of [6, 10, 15]) for (const lw of [1.8, 2.0, 2.4]) {
+    const S = r7.B('S', 5 * -fw.x + 3.2 * side.x, 5 * -fw.y + 3.2 * side.y, -45, { tack: 'starboard' });
+    const Pb = r7.B('P', S.x - side.x * lw - fw.x * 0.3, S.y - side.y * lw - fw.y * 0.3, 45, { tack: 'port' });
+    const f = r7.run([S, Pb], [mk], () => 'm1', t => {
+      if (t < 0.1) { Pb.heading = R(45); Pb.tack = 'port'; Pb.r13 = false; }
+      else if (t < 0.6) { Pb.r13 = true; Pb.tack = 'starboard'; Pb.heading = R(45 - 90 * (t - 0.1) / 0.5); }
+      else { Pb.r13 = false; Pb.heading = t > 0.8 ? Math.min(R(-45 + pinch), Pb.heading + R(20) * r7.DT) : R(-45); }
+      S.heading = R(-45); r7.setV(Pb, 1.0); r7.setV(S, 1.1); r7.mv(Pb); r7.mv(S);
+    }, 6);
+    if (!f) continue;
+    if (!f.excused && f.offender === Pb) tally.P++; else tally.other.push(pinch + '/' + lw + ': ' + r7.say(f));
+  }
+  ok(tally.P >= 5 && tally.other.length === 0, 'P penalised in every contact: ' + JSON.stringify(tally));
+  // the rule needs S at close-hauled: S reaching (it could luff to avoid P) is judged by R11 as before
+  const S = r7.B('S', 0, 0, -80, { tack: 'starboard' }), Pb = r7.B('P', -0.6, 1.2, -45, { tack: 'starboard' });
+  const r = KOS.Rules.rightOfWay(S, Pb, { wind: 0, marks: [mk], room: () => ({ off: true, tacker: Pb }) });
+  ok(r.rule === 'R11', 'S below close-hauled: no 18.3(a), got ' + r.rule + ' ' + r.giveWay.name);
+  const r2 = KOS.Rules.rightOfWay(Object.assign(S, { heading: R(-45) }), Pb, { wind: 0, marks: [mk], room: () => ({ off: true, tacker: Pb }) });
+  ok(r2.rule === 'R18' && r2.giveWay === Pb && r2.reasonKey === 'rules.reason.R18-tack', 'S close-hauled: P gives way (18.3(a)), got ' + r2.rule + ' ' + r2.giveWay.name);
+  ok(KOS.Rules.strings.da['rules.reason.R18-tack'] && KOS.Rules.strings.en['rules.reason.R18-tack'], 'da + en reason');
+});
+test('rules: R16 excuses only a fresh turn - a steady luff that has run for ~3 s gave the windward boat time (RRS 16.1)', () => {
+  const side = U.vec(R(45)), res = {};
+  for (const [rate, gap] of [[10, 2.4], [12, 2.4], [15, 2.4], [15, 1.6], [30, 1.6]]) {
+    const Wb = r7.B('W', 0, 0, -45, { tack: 'starboard' }), Lb = r7.B('L', -side.x * gap, -side.y * gap, -45, { tack: 'starboard' });
+    let t0 = null;
+    const f = r7.run([Wb, Lb], [], null, t => {
+      if (t > 0.3) { if (t0 === null) t0 = t; Lb.heading = Math.min(R(-10), Lb.heading + R(rate) * r7.DT); }
+      r7.setV(Lb, 1.0); r7.setV(Wb, 1.0); r7.mv(Lb); r7.mv(Wb);
+    }, 10);
+    res[rate + '/' + gap] = { since: f ? f.t - t0 : null, v: r7.say(f), f };
+  }
+  for (const k of ['10/2.4', '12/2.4', '15/2.4']) {
+    const r = res[k];
+    ok(r.f && r.since > 2.5 && !r.f.excused && r.f.offender.name === 'W' && r.f.rule === 'R11', 'luff ' + k + ' begun ' + (r.since || 0).toFixed(1) + ' s before: W (R11), got ' + r.v);
+  }
+  for (const k of ['15/1.6', '30/1.6']) { // a quick luff from close by is still a turn W had no time to answer
+    const r = res[k];
+    ok(r.f && r.since < 1.6 && r.f.excused && r.f.rule === 'R16', 'luff ' + k + ' begun ' + (r.since || 0).toFixed(1) + ' s before: excused (R16), got ' + r.v);
+  }
+});
+test('rules: mark-room lasts to the end of the rounding, not only until the leg changes (RRS 18.2(c))', () => {
+  const mk = { x: 0, y: 0, id: 'm2', round: 'port' };
+  for (const touchAt of [120, 133, 140]) { // the leg changes at 2.2 rad (126 deg) of winding, as in race.js
+    const rI = 2.4, rO0 = 4.4, rT = rI + 1.0, v = 1.4, w = v / rI;
+    const I = r7.B('I', -rI, -10, 180, { tack: 'port' }), O = r7.B('O', -rO0, -10, 180, { tack: 'port' });
+    const leg = { I: 0, O: 0 };
+    let phi = 0;
+    const f = r7.run([I, O], [mk], b => (leg[b.id] ? 'm3' : 'm2'), () => {
+      if (I.y < 0) { for (const b of [I, O]) { b.y += v * r7.DT; b.heading = R(180); b.vx = 0; b.vy = v; b.speed = v; } return; }
+      phi += w * r7.DT;
+      for (const b of [I, O]) {
+        const pe = R(touchAt), r = b === I ? rI : (phi < pe ? rO0 - (rO0 - rT) * (phi / pe) : rT);
+        const END = R(135), q = Math.min(phi, END);
+        if (phi < END) { b.x = -r * Math.cos(q); b.y = r * Math.sin(q); b.heading = U.wrapPi(Math.PI - q); }
+        else { b.heading = R(45); const e = U.vec(R(45), (phi - END) * rI); b.x = -r * Math.cos(END) + e.x; b.y = r * Math.sin(END) + e.y; }
+        const fv = U.vec(b.heading, v * r / rI); b.vx = fv.x; b.vy = fv.y; b.speed = v * r / rI; b.tack = 'port';
+        if (phi > 2.2) leg[b.id] = 1;
+      }
+    }, 16);
+    ok(f && !f.excused && f.offender === O && f.rule === 'R18', 'O squeezes in, touch at ' + touchAt + ' deg: O (R18), got ' + r7.say(f));
+  }
+});
+test('rules: a finishing line end (committee boat) gives mark-room to the boat on its side (RRS 18 at a finishing mark)', () => {
+  // race.js passes the committee boats to the rules too (start: true for the start line's, which stays off before the start)
+  const fcom = { x: 0, y: 0, id: 'fcommittee', line: true, r: 3.4 };
+  const A = r7.B('A', -1.5, 4.5, 0, { tack: 'starboard' }), Bb = r7.B('Bb', -3.0, 4.6, 0, { tack: 'starboard' }); // sailing north, the boat at the line end is A
+  const ctx = { wind: R(30), marks: [fcom], nextMark: () => ['fpin', 'fcommittee'] };
+  for (const r of [KOS.Rules.rightOfWay(A, Bb, ctx), KOS.Rules.rightOfWay(Bb, A, ctx)]) ok(r.rule === 'R18' && r.giveWay === Bb, 'the boat nearer the committee end has room, got ' + r.rule + ' ' + r.giveWay.name);
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/modes/race.js'), 'utf8');
+  ok(!/collMarks\.filter\(m => m\.id !== 'committee'/.test(src), 'race.js passes the committee boats to the rules monitor');
 });
 test('rules: the verdict does not depend on which boat is passed first, also when each is clear astern of the other', () => {
   // review round 3 (tools/tmp/rowreview/review6sym.js): each phone runs the monitor with its own boat first. Two boats with their

@@ -84,16 +84,20 @@
       none: 'Jeg kan ikke finde en nyere version lige nu. Luk spillet helt og åbn det igen – så prøver vi en gang til.' },
     ver: 'Version', verDiff: 'Anden version end din – det kan give problemer', verUnknown: 'ukendt',
     rejoinGone: 'Løbet er slut – vi kunne ikke hente resultatet.',
+    rejoinClosed: 'Løbet blev lukket, mens du var væk.', rejoinDropped: 'Du var væk for længe, så løbet er startet uden dig. Næste gang er du med!',
+    resOver: 'Løbet er slut. Sådan gik det:', seatHere: 'Du er stadig med i løbet {code}',
   } });
   // reconnect and resume (live-rules spec E): never lose a racer
   KOS.I18n.add('da', { live: {
     stillTrying: 'Forbindelsen er væk – vi prøver stadig', tryNow: 'Prøv nu', replaced: 'Løbet er åbent i et andet vindue.',
-    resTitle: 'Resultatet af løbet {code}', detachNote: 'Løbet fortsætter. Du kan komme tilbage fra forsiden.',
+    stillTryingShort: 'Ingen forbindelse – prøver igen', reconnectingShort: 'Forbinder igen…', replacedShort: 'Åbent i et andet vindue', rejoinGoneShort: 'Løbet er slut',
+    resTitle: 'Resultatet af løbet {code}', detachNote: 'Løbet fortsætter. Du kan komme tilbage fra forsiden eller Live-kapsejlads.',
     retire: { btn: 'Udgå af løbet', title: 'Udgå af løbet?', body: 'Så er du ude af løbet og får ikke en placering. Det kan ikke fortrydes.', stay: 'Bliv i løbet', yes: 'Udgå' },
   } });
   KOS.I18n.add('en', { live: {
     stillTrying: 'Connection lost – still trying', tryNow: 'Try now', replaced: 'The race is open in another window.',
-    resTitle: 'Result of race {code}', detachNote: 'The race goes on. You can come back from the start screen.',
+    stillTryingShort: 'No connection – retrying', reconnectingShort: 'Reconnecting…', replacedShort: 'Open in another window', rejoinGoneShort: 'The race is over',
+    resTitle: 'Result of race {code}', detachNote: 'The race goes on. You can come back from the start screen or Live race.',
     retire: { btn: 'Retire from the race', title: 'Retire from the race?', body: 'You leave the race and get no place. This cannot be undone.', stay: 'Stay in the race', yes: 'Retire' },
   } });
   KOS.I18n.add('en', { live: {
@@ -101,6 +105,8 @@
       none: 'I cannot find a newer version right now. Close the game completely and open it again – then we try once more.' },
     ver: 'Version', verDiff: 'A different version than yours – this can cause trouble', verUnknown: 'unknown',
     rejoinGone: 'The race is over – we could not get the result.',
+    rejoinClosed: 'The race was closed while you were away.', rejoinDropped: 'You were away too long, so the race started without you. Next time you are in!',
+    resOver: 'The race is over. This is how it went:', seatHere: 'You are still in race {code}',
   } });
 
   // the open race list and scheduled races (live-rules spec B/C). Titles are fixed presets: no free text anywhere.
@@ -180,7 +186,7 @@
     L.offs = [];
     L.timers.forEach(clearInterval); L.timers = [];
     if (L.sess && (!L.handoff || L.sess.phase === 'results')) { try { L.sess.leave(); } catch (e) { /* ignore */ } }
-    L.sess = null; L.room = null; L.busy = ''; L.results = null; L.resCode = ''; L.handoff = false;
+    L.sess = null; L.room = null; L.busy = ''; L.results = null; L.resCode = ''; L.resLate = false; L.handoff = false;
     L.rj = null; clearTimeout(L.rjT);
     stopTick();
   }
@@ -268,12 +274,12 @@
       launchRace(sess);
     });
     on('res', rows => {
-      L.results = rows;
+      L.results = rows; L.resCode = sess.code || L.resCode || '';
       if (app().cur === 'live') setView('results'); // while racing, race.js shows the result itself
       else { const me = sess; L.timers.push(setTimeout(() => { if (L.sess === me && me.phase === 'results') { reset(); } }, 190000)); } // the server drops the room after 3 min: do not keep a socket on a dead room
     });
     on('rematch', (room, aborted) => { // the host went again with the same people: everybody lands in the lobby of the same room
-      L.room = room; L.results = null; L.handoff = false; L.view = 'room';
+      L.room = room; L.results = null; L.resLate = false; L.handoff = false; L.view = 'room';
       if (aborted) { try { KOS.UI.toast(t('live.aborted'), { kind: 'info' }); } catch (e) { /* optional */ } }
       const cur = app().cur;
       if (cur === 'live') paint(); else if (cur === 'play' || cur === 'results') app().show('live', {}, { replace: true }); else reset();
@@ -284,7 +290,7 @@
     on('offline', () => { if (L.view === 'room' || L.view === 'starting') { if (!L.handoff) lt('unavailable', 'offline'); trainerMsg(t('live.unavailable'), ['retry', 'ai']); } });
     // spec E1: a lost seat is retried for as long as it exists; after 15 s the banner says so and offers "Prøv nu"
     on('reconnecting', syncBanner); on('away', syncBanner); on('reconnected', syncBanner);
-    on('gone', e => { const s = L.sess; L.sess = null; try { s.close(); } catch (x) { /* ignore */ } if (app().cur === 'live') showGone(s && s.code, e && e.rows); });
+    on('gone', e => { const s = L.sess; L.sess = null; try { s.close(); } catch (x) { /* ignore */ } if (app().cur === 'live') showGone(s && s.code, e && e.rows, e && e.why); });
     on('replaced', () => { L.sess = null; if (app().cur === 'live') trainerMsg(t('live.replaced'), ['back']); });
     on('detached', () => { if (L.sess === sess) { L.sess = null; reset(); } }); // the race screen was left: the seat stays, the title/hub banner leads back
     on('error', e => { if (e && e.code === 'few') KOS.UI.toast(t('live.few'), { kind: 'warn' }); });
@@ -292,7 +298,8 @@
   // the reconnect banner over the lobby: "Forbinder igen…", after 15 s "Forbindelsen er væk – vi prøver stadig" + "Prøv nu"
   function bannerHtml() {
     const s = L.sess, on = !!(s && s.state === 'reconnecting');
-    return '<div class="live-banner' + (on && s.away ? ' is-away' : '') + '" role="status"' + (on ? '' : ' hidden') + '><span>' + esc(t(on && s.away ? 'live.stillTrying' : 'live.reconnecting')) + '</span>' +
+    const k = on && s.away ? 'live.stillTrying' : 'live.reconnecting';
+    return '<div class="live-banner' + (on && s.away ? ' is-away' : '') + '" role="status"' + (on ? '' : ' hidden') + '><span class="nb-long">' + esc(t(k)) + '</span><span class="nb-short">' + esc(t(k + 'Short')) + '</span>' +
       (on && s.away ? '<button type="button" class="btn btn-sm btn-primary" data-act="trynow">' + esc(t('live.tryNow')) + '</button>' : '') + '</div>';
   }
   function syncBanner() {
@@ -300,13 +307,19 @@
     if (!el) return;
     el.outerHTML = bannerHtml(); // its "Prøv nu" is a data-act button: the screen's click delegation handles it
   }
-  // the race ended while this phone was away (spec E4): the official table if the server or this phone still has it, else a kind word
-  function showGone(code, rows) {
+  // the seat is gone (spec E4): the race ended while this phone was away (the official table if the server or this phone still has it,
+  // else a kind word), the lobby was closed meanwhile, or the race started without this seat. Never "the race is over" when it is not.
+  function showGone(code, rows, why) {
     try { KOS.MP.clearSeat(); } catch (x) { /* ignore */ }
+    if (why === 'closed' || why === 'dropped' || why === 'full') { trainerMsg(t(why === 'full' ? 'live.full' : why === 'closed' ? 'live.rejoinClosed' : 'live.rejoinDropped'), ['back']); return; }
     const lr = !rows && code && KOS.MP.lastResult ? KOS.MP.lastResult(code) : null;
     rows = rows || (lr && lr.rows) || null;
-    if (rows && rows.length) { L.results = rows; L.resCode = code || ''; setView('results'); return; }
+    if (rows && rows.length) { L.results = rows; L.resCode = code || ''; L.resLate = true; setView('results'); return; }
     trainerMsg(t('live.rejoinGone'), ['back']);
+  }
+  // the seat this phone holds (kos.mp.seat / this tab's token), if any: the entry view offers it, and its code is resumed, not joined
+  function heldSeat() {
+    try { const s = KOS.MP.seat && KOS.MP.seat(); if (s) return s; const tk = KOS.MP.savedToken && KOS.MP.savedToken(); return tk && tk.code ? { code: tk.code, phase: '' } : null; } catch (e) { return null; }
   }
   // role: re-read the status first (spec 7), then connect with a 4 s timeout
   function guard() {
@@ -337,6 +350,8 @@
   function doJoin(raw, secret) {
     const code = KOS.MP.normCode(raw);
     if (!code) { L.joinErr = t('live.noCode'); paint(); return; }
+    const held = heldSeat();
+    if (held && held.code === code && !L.sess) { L.rejoin = true; autoRejoin(code); return; } // our own seat (typed again, or tapped in the list): resume it
     if (secret === undefined) { const mine = mySched().find(e => e.code === code); secret = mine ? mine.secret : ''; } // my own scheduled race: I take the host seat
     L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.intent = { join: code }; paint();
     guard().then(ok => {
@@ -371,13 +386,19 @@
           L.room = room; L.busy = ''; L.rejoin = false; L.rj = null;
           if ((sess.phase === 'countdown' || sess.phase === 'racing') && sess.grid) launchRace(sess); // else the 'start' that follows launches it
           else if (sess.phase !== 'results') setView('room'); // results: the 'res' that follows shows the official table
+          else L.resLate = true;
         };
         if (!mine) return sess.join(code).then(joined);
-        // nocode + rows: the race ended while we were away, here is its table. A bare nocode: the room may still be there (a rematch
-        // dropped the seat), so try a plain join; if that fails too, the race is over
+        // nocode + rows: the race ended while we were away, here is its table. A bare nocode, or the room's lobby still alive (a rematch
+        // or a long drop left the seat behind, a restart): try a plain join; if that fails too, say why (over / closed / started without us)
+        const wasLobby = (((KOS.MP.seat && KOS.MP.seat()) || {}).phase || 'lobby') === 'lobby';
         return sess.resume(tok).then(joined, e => {
-          if (e && e.code === 'nocode' && e.rows) throw e;
-          return sess.join(code).then(joined, e2 => { throw e2 && (e2.code === 'nocode' || e2.code === 'started') ? { code: e2.code, gone: true } : e2; });
+          if (e && e.code === 'nocode' && e.rows && e.alive !== 'lobby') throw e;
+          if (e && e.code === 'nocode' && (e.alive === 'countdown' || e.alive === 'racing')) throw { code: 'nocode', gone: true, why: 'dropped' };
+          return sess.join(code).then(joined, e2 => {
+            if (e && e.rows) throw e;
+            throw e2 && (e2.code === 'nocode' || e2.code === 'started') ? { code: e2.code, gone: true, why: e2.code === 'started' ? 'dropped' : wasLobby ? 'closed' : 'over' } : e2;
+          });
         });
       });
     }).catch(e => {
@@ -388,7 +409,7 @@
       if (c2 === 'notopen') { L.rj = null; showWait(code, e); return; }
       if (mine && (c2 === 'unreachable' || c2 === 'timeout' || c2 === 'closed' || c2 === 'busy' || c2 === 'bad')) { rejoinWait(code); return; }
       L.rj = null;
-      if (mine && e && (e.rows || e.gone)) { L.rejoin = false; showGone(code, e.rows); return; }
+      if (mine && e && (e.rows || e.gone)) { L.rejoin = false; showGone(code, e.rows, e.rows ? 'over' : e.why); return; }
       if (L.rejoin && (c2 === 'nocode' || c2 === 'started' || c2 === 'full')) { L.rejoin = false; showGone(code); return; }
       if (c2 === 'nocode' || c2 === 'full' || c2 === 'started' || c2 === 'closed' || c2 === 'busy') { L.joinErr = errText(c2); setView('join'); return; }
       unavailable(false);
@@ -461,11 +482,14 @@
   }
 
   function viewEntry() {
-    const closed = L.status && L.status.mode === 'closed', mineN = mySched().length;
+    const closed = L.status && L.status.mode === 'closed', mineN = mySched().length, held = heldSeat();
+    // a seat this phone still holds (e.g. after "Til kortet"): the way back comes first, before host / join / find
+    const back = held ? '<button type="button" class="btn btn-primary btn-big live-seatgo" data-act="resumeseat" data-code="' + esc(held.code) + '">' + kit().ico('play') +
+      '<span>' + esc(t('live.seat.go')) + '<small>' + esc(t('live.seatHere', { code: held.code })) + '</small></span></button>' : '';
     return shell(t('live.title'),
       (closed ? trainerHtml(L.status.message || t('live.closed')) : '<p class="live-intro">' + esc(t('live.intro')) + '</p>') +
-      '<div class="live-big-btns">' +
-      '<button type="button" class="btn btn-primary btn-big" data-act="host"' + (closed ? ' disabled' : '') + '>' + kit().ico('flag') + '<span>' + esc(t('live.host')) + '</span></button>' +
+      '<div class="live-big-btns">' + back +
+      '<button type="button" class="btn ' + (held ? 'btn-glass' : 'btn-primary') + ' btn-big" data-act="host"' + (closed ? ' disabled' : '') + '>' + kit().ico('flag') + '<span>' + esc(t('live.host')) + '</span></button>' +
       '<button type="button" class="btn btn-glass btn-big" data-act="joinview"' + (closed ? ' disabled' : '') + '>' + kit().ico('user') + '<span>' + esc(t('live.join')) + '</span></button>' +
       (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="listview">' + kit().ico('map') + '<span>' + esc(t('live.list.title')) + '</span></button>' : '') +
       '</div>' + (closed ? '<button type="button" class="btn btn-glass" data-act="recheck">' + esc(t('live.retry')) + '</button>' : '') +
@@ -560,7 +584,7 @@
     const codebox = '<div class="live-codebox glass' + (waiting ? ' is-small' : '') + '"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
       '<div class="live-link"><small>' + esc(t('live.joinLink')) + ':</small> <code id="live-link">' + esc(link) + '</code></div>' +
       (qrOn ? '<div class="live-qr" id="live-qr" aria-label="' + esc(t('live.scan')) + '">' + qr + '</div><small>' + esc(t('live.scan')) + '</small>' : '') +
-      '<div class="live-codebtns">' + (waiting ? '<button type="button" class="btn btn-glass btn-sm" data-act="roomqr" aria-pressed="' + qrOn + '">' + kit().ico('eye') + '<span>' + esc(t('live.mine.qr')) + '</span></button>' : '') +
+      '<div class="live-codebtns">' + (waiting ? '<button type="button" class="btn btn-glass btn-sm" data-act="roomqr" aria-pressed="' + qrOn + '">' + kit().ico('qr') + '<span>' + esc(t('live.mine.qr')) + '</span></button>' : '') +
       '<button type="button" class="btn btn-glass btn-sm" data-act="share">' + kit().ico('share') + '<span>' + esc(t('live.share')) + '</span></button></div></div>';
     const side = '<div class="live-side glass"><h2>' + esc(t('live.players')) + ' (' + room.players.length + '/' + (cf.maxP || '') + ')</h2>' + playersHtml(room) +
       '<div class="live-sum">' + esc(bn) + ' · ' + esc(t('live.cfg.' + cf.course)) + ' · ' + esc(String(cf.laps)) + ' ' + esc(t('live.cfg.laps').toLowerCase()) + (room.sched ? '' : ' · ' + esc(role(room))) + '</div>' +
@@ -581,7 +605,7 @@
   function fmt(ms) { const s = ms / 1000, m = Math.floor(s / 60); return m + ':' + (s - m * 60 < 10 ? '0' : '') + (s - m * 60).toFixed(1); }
   function viewResults() {
     const rows = (L.results || []).slice().sort((a, b) => a.place - b.place);
-    return shell(L.resCode ? t('live.resTitle', { code: L.resCode }) : t('live.res.title'), '<ol class="live-results glass">' + rows.map(r => '<li><b>' + r.place + '.</b> <span>' + esc(r.name) + '</span> <em>' +
+    return shell(L.resCode ? t('live.resTitle', { code: L.resCode }) : t('live.res.title'), (L.resLate ? '<p class="live-intro">' + esc(t('live.resOver')) + '</p>' : '') + '<ol class="live-results glass">' + rows.map(r => '<li><b>' + r.place + '.</b> <span>' + esc(r.name) + '</span> <em>' +
       (r.ms != null ? fmt(r.ms) : esc(t('live.res.dnf'))) + '</em></li>').join('') + '</ol>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="entry">' + esc(t('common.ok')) + '</button></div>');
   }
@@ -840,8 +864,8 @@
       '<div class="live-mmeta">' + metaHtml(e.boat, e.course, e.wind) + '<span class="live-n">' + kit().ico(e.vis === 'private' ? 'lock' : 'eye') + esc(t('live.vis.' + (e.vis === 'private' ? 'private' : 'open'))) + '</span></div>' +
       '<div class="live-hint' + (open ? ' is-open' : '') + '">' + esc(open ? t('live.mine.isOpen') : t('live.mine.opens', { when: whenTxt(e.opensAt) })) + '</div>' +
       (qrOn ? '<div class="live-mqr"><div class="live-qr">' + qr + '</div><div class="live-link"><code>' + esc(link) + '</code></div></div>' : '') +
-      '<div class="live-mbtns">' + (open ? btn('mgo', 'play', 'live.mine.go', 'btn-primary live-mgo') : '') + btn('mshare', 'share', 'live.share') + btn('mqr', 'eye', 'live.mine.qr', qrOn ? 'btn-glass is-on' : '') +
-      btn('mremind', 'calendar', 'live.wait.remind') + '</div>' +
+      '<div class="live-mbtns">' + (open ? btn('mgo', 'play', 'live.mine.go', 'btn-primary live-mgo') : '') + btn('mshare', 'share', 'live.share') + btn('mqr', 'qr', 'live.mine.qr', qrOn ? 'btn-glass is-on' : '') +
+      (open ? '' : btn('mremind', 'calendar', 'live.wait.remind')) + '</div>' +
       '<div class="live-mcancel">' + btn('mcancel', 'trash', 'live.mine.cancel', 'live-cancel') + '</div></li>'; // destructive: on its own line, away from the others
   }
   function viewMine() {
@@ -955,6 +979,7 @@
       },
       host: () => { L.hostRole = L.hostRole || 'sail'; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => setView('setup')); },
       joinview: () => recheckThen(() => { L.joinErr = ''; L.via = 'code'; setView('join'); }),
+      resumeseat: b => { const c = b.getAttribute('data-code'); lt('rejoin', 'entry'); L.rejoin = true; autoRejoin(c); },
       recheck: () => recheckThen(() => setView('entry')),
       role: b => { L.hostRole = b.getAttribute('data-v'); paint(); },
       opt: b => {

@@ -17,7 +17,9 @@ const LOST_WINDOW_MS = 60000; // once every boat that is still here has finished
 const SAFE_FACTOR = 3; // safety net: the race ends at 3x the first finisher's time (at least 5 minutes after it), whatever the finish window says
 const SAFE_MIN_EXTRA_MS = 5 * 60000;
 const HARD_RACE_MS = 45 * 60000; // absolute cap on a race, whatever maxS is
-const LOBBY_GRACE_MS = 20000; // a lobby/countdown seat whose socket dropped (phone locked, tunnel) keeps its place this long; the host too
+const LOBBY_GRACE_MS = 20000; // a lobby/countdown seat whose socket dropped (phone locked, tunnel) is "lost" this long before the rules below apply
+const LOBBY_SEAT_MS = 5 * 60000; // a dropped sailor's seat in a (not scheduled) lobby waits this long (the kid only waits for the host); a scheduled one until the gun
+const HOST_GRACE_MS = 3 * 60000; // a dropped host closes its lobby only after this long (kids are often still joining; LOBBY_MAX_MS still bounds it)
 const LOBBY_AFTER_MS = 12000; // the podium stays this long when the host chose "back to the lobby after the race"
 const LOBBY_MAX_MS = 30 * 60000;
 const HARD_MAX_MS = 2 * 3600000;
@@ -42,6 +44,7 @@ function createRooms(opts) {
   const randInt = o.randInt || ((n) => crypto.randomInt(n));
   const lim = Object.assign({ maxRooms: 40, maxPlayers: 24, schedPerDay: SCHED_PER_DAY }, o.limits || {});
   const lobbyGrace = o.lobbyGraceMs || LOBBY_GRACE_MS;
+  const lobbySeat = o.lobbySeatMs || LOBBY_SEAT_MS, hostGrace = o.hostGraceMs || HOST_GRACE_MS;
   const rooms = new Map();
   const sched = new Map(); // code -> pending scheduled race {code, title, cfg, startAt, hostName, hash, created, iph}; becomes a room at startAt - 15 min
   const opened = new Map(); // code -> the entry of an opened scheduled room whose race has not begun: still persisted (a restart opens it again)
@@ -54,6 +57,11 @@ function createRooms(opts) {
   const hashOk = (secret, hash) => {
     if (typeof secret !== 'string' || !secret || typeof hash !== 'string') return false;
     const a = Buffer.from(sha(secret)), b = Buffer.from(hash);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+  const keyOk = (key, want) => { // a seat key, compared in constant time like the secrets
+    if (typeof key !== 'string' || typeof want !== 'string') return false;
+    const a = Buffer.from(key), b = Buffer.from(want);
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   };
 
@@ -134,7 +142,7 @@ function createRooms(opts) {
       if (old) r.players.delete(old.id);
       for (const q of [...r.players.values()]) if (q.wasHost && q.lost) r.players.delete(q.id); // the creator's old seat, demoted while it was away
     }
-    if (r.players.size >= effMaxPlayers(r) && r.sched) { // a scheduled lobby keeps dropped seats until the gun; a full one gives the oldest up for a new sailor
+    if (r.players.size >= effMaxPlayers(r)) { // a lobby keeps dropped seats (to the gun, or LOBBY_SEAT_MS); a full one gives the oldest up for a new sailor
       const old = [...r.players.values()].filter(q => q.lost && !q.host && now() - q.lostAt >= lobbyGrace).sort((a, b) => a.lostAt - b.lostAt)[0];
       if (old) r.players.delete(old.id);
     }
@@ -149,10 +157,16 @@ function createRooms(opts) {
     const r = rooms.get(code);
     const p = r && r.players.get(id);
     // the seat belongs to the key for the whole room: lobby, countdown, racing and results (only a kick or an explicit leave ends it)
-    if (!p || p.key !== key || p.kicked || p.left || r.phase === 'closing') {
-      // the race is over and the room gone (or this seat was dropped by a rematch): the official result instead of a bare nocode
+    if (!p || !keyOk(key, p.key) || p.kicked || p.left || r.phase === 'closing') {
+      // the race is over and the room gone (or this seat was dropped by a rematch): the official result instead of a bare nocode.
+      // alive: the room is still there but the seat is not (dropped from the lobby, a rematch, a restart): its phase, so the client
+      // can join the lobby again or say what happened, instead of "the race is over"
       const rows = !(p && (p.kicked || p.left)) && pastResult(code, id, key);
-      return rows ? { err: 'nocode', rows } : { err: 'nocode' };
+      const alive = r && r.phase !== 'closing' && !(p && (p.kicked || p.left)) ? r.phase : '';
+      const e = { err: 'nocode' };
+      if (rows) e.rows = rows;
+      if (alive) e.alive = alive;
+      return e;
     }
     p.send = conn.send; p.ip = conn.ip; if (conn.ver) p.ver = P.clean(conn.ver, 16); p.lost = false; p.lostAt = 0; p.seenAt = now(); r.emptyAt = 0;
     pushRoom(r);
@@ -257,8 +271,11 @@ function createRooms(opts) {
     const host = r.players.get(hostId);
     if (!host || host.lost) return 'denied';
     archive(r); // the seats dropped here can still fetch this result
+    const t = now();
     for (const p of [...r.players.values()]) {
-      if (p.lost) { r.players.delete(p.id); continue; }
+      // a seat that dropped only moments ago (a phone that locked on the podium) comes along as a dropped lobby seat; older ones are gone
+      if (p.lost && (p.left || p.kicked || t - p.lostAt >= lobbyGrace)) { r.players.delete(p.id); continue; }
+      if (p.lost) p.lostAt = t;
       p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
     }
     r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
@@ -297,7 +314,7 @@ function createRooms(opts) {
     const p = r.players.get(id);
     if (!p || !p.boat || p.final || !(r.phase === 'racing' || r.phase === 'countdown')) return false;
     // out-of-range values (a buggy or hostile client) are dropped: positions within 100 km, speed under 60 m/s, sane flags and leg
-    if (Math.abs(arr[2]) > 1e5 || Math.abs(arr[3]) > 1e5 || Math.abs(arr[5]) > 60 || Math.abs(arr[6]) > 10 || !(arr[7] >= 0 && arr[7] < 256) || !(arr[8] >= -1 && arr[8] < 500)) return false;
+    if (Math.abs(arr[2]) > 1e5 || Math.abs(arr[3]) > 1e5 || Math.abs(arr[5]) > 60 || Math.abs(arr[6]) > 10 || !(arr[7] >= 0 && arr[7] < 512) || !(arr[8] >= -1 && arr[8] < 500)) return false;
     const t = now();
     // seq must grow; but a seat that has been silent for 1.5 s may restart its sequence (a reload, a stamp that ran ahead of the real clock)
     if (p.state && arr[1] <= p.state[1] && t - (p.stAt || 0) < 1500) return false;
@@ -398,7 +415,7 @@ function createRooms(opts) {
   }
   function pastResult(code, id, key) {
     const list = past.get(code) || [], t = now();
-    for (let i = list.length - 1; i >= 0; i--) if (t - list[i].at < PAST_KEEP_MS && list[i].seats.get(id) === key) return list[i].rows;
+    for (let i = list.length - 1; i >= 0; i--) if (t - list[i].at < PAST_KEEP_MS && keyOk(key, list[i].seats.get(id))) return list[i].rows;
     return null;
   }
 
@@ -415,6 +432,7 @@ function createRooms(opts) {
       if (r.phase === 'lobby' || r.phase === 'countdown') {
         for (const p of [...r.players.values()]) {
           if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;
+          if (p.host && !r.sched && r.phase === 'lobby' && t - p.lostAt < hostGrace) continue; // the trainer's phone locked: the lobby waits
           if (p.host && r.sched) { // server-run from now on; the seat stays as a player's (to the gun in a lobby, on the grid in a countdown)
             serverRun(r);
             p.host = false; p.wasHost = true;
@@ -424,7 +442,7 @@ function createRooms(opts) {
             if (r.phase !== 'lobby') continue;
             broadcast(r, { t: 'hostleft' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; break;
           }
-          if (r.phase === 'lobby' && !r.sched) { r.players.delete(p.id); pushRoom(r); } // a scheduled lobby seat waits until the gun (spec E6)
+          if (r.phase === 'lobby' && !r.sched && t - p.lostAt >= lobbySeat) { r.players.delete(p.id); pushRoom(r); } // a scheduled lobby seat waits until the gun (spec E6)
         }
         if (r.phase === 'closing') continue;
       }

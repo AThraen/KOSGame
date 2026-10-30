@@ -451,6 +451,8 @@ async function main() {
     await r.page.waitForSelector('#screen-title .seatbar', { timeout: 8000 });
     ok(await r.page.evaluate(c => { const t = document.querySelector('#screen-title .seatbar').textContent; return /Fortsæt live-løbet/.test(t) && t.indexOf('Du venter på starten i løbet ' + c) >= 0 && window.__ws === 0; }, code), 'the title banner says "Fortsæt live-løbet · Du venter på starten i løbet ' + code + '" and nothing has touched the network yet');
     ok(await r.page.evaluate(() => [...document.querySelectorAll('.seatbar .seatbar-small')].map(b => b.textContent.trim()).join('|') === 'Ikke nu|Udgå' && !document.querySelector('.dialog')), 'two small buttons (Ikke nu / Udgå), no dialog in the way');
+    ok(await r.page.evaluate(() => { const [a, b] = document.querySelectorAll('.seatbar .seatbar-small'), ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      return ra.height >= 44 && rb.height >= 44 && rb.left - ra.right >= 12 && getComputedStyle(a).backgroundColor !== getComputedStyle(b).backgroundColor; }), '"Ikke nu" and "Udgå" are 44 px tall, 12 px apart, and "Udgå" looks different (review round 1)');
     if (process.env.SHOTS) await r.page.screenshot({ path: process.env.SHOTS + 'live6-rejoin-banner.png' });
     await r.page.click('#screen-title .seatbar [data-seat="go"]');
     await waitView(r.page, 'room', 15000);
@@ -633,6 +635,7 @@ async function main() {
     ok(await pp.page.evaluate(c => { const it = document.querySelector('.live-mitem[data-code="' + c + '"]'); return !!it && /Weekendræs/.test(it.textContent) && /Kun med kode/.test(it.textContent) && !it.querySelector('.live-qr svg'); }, mine.code), 'my scheduled races: title, code, "Kun med kode"; the QR waits behind its button');
     await pp.page.click('#screen-live [data-act="mqr"][data-code="' + mine.code + '"]');
     ok(await pp.page.evaluate(c => !!document.querySelector('.live-mitem[data-code="' + c + '"] .live-qr svg'), mine.code), '"QR-kode" shows the QR code');
+    ok(await pp.page.evaluate(c => { const b = document.querySelector('#screen-live [data-act="mqr"][data-code="' + c + '"]'); return !!b && /rect x="3.5" y="3.5"/.test(b.innerHTML) && !/M2\.5 12S6/.test(b.innerHTML); }, mine.code), 'the QR button has a QR icon, not the eye of "Alle (på listen)" (review round 1)');
     ok(await pp.page.evaluate(c => { const it = document.querySelector('.live-mitem[data-code="' + c + '"]'); const b = it.querySelector('[data-act="mcancel"]'); return !!b && !b.closest('.live-mbtns') && b.getBoundingClientRect().height >= 44; }, mine.code), '"Aflys" sits on its own line, away from the other buttons, 44 px tall');
     ok(await pp.page.evaluate(() => !document.querySelector('#screen-live [data-act="mgo"]')), 'not open yet: no "Gå til løbet" button');
     const listed = await (await fetch(web.url.replace(/\/$/, '').replace(/:\d+$/, '') + ':' + port + '/rooms')).json();
@@ -645,9 +648,11 @@ async function main() {
       '"Påmind mig" downloads an .ics with the start (UTC), the title, the code and a 15 min alarm');
     ok(ics.split('\r\n').every(l => Buffer.byteLength(l, 'utf8') <= 75) && /\r\n /.test(ics), 'the .ics lines are folded at 75 UTF-8 octets (RFC 5545), æ/ø/å and the dash included');
     // the entry shows the button with a count
+    await pp.page.evaluate(() => { const l = JSON.parse(localStorage.getItem('kos.liveSched')); l[0].opensAt = Date.now() - 1000; localStorage.setItem('kos.liveSched', JSON.stringify(l)); }); // as if the room were open now
     await pp.page.click('#screen-live .screen-head [data-act="back"]'); await waitView(pp.page, 'entry');
     ok(await pp.page.evaluate(() => { const b = document.querySelector('#screen-live [data-act="mineview"]'); return !!b && b.textContent === 'Mine planlagte løb (1)'; }), 'the entry shows "Mine planlagte løb (1)"');
     await clickAct(pp.page, 'mineview'); await waitView(pp.page, 'mine');
+    ok(await pp.page.evaluate(c => !!document.querySelector('#screen-live [data-act="mgo"][data-code="' + c + '"]') && !document.querySelector('#screen-live [data-act="mremind"][data-code="' + c + '"]'), mine.code), 'an open race: "Gå til løbet", and no "Påmind mig" any more (review round 1)');
     // cancel
     await pp.page.click('#screen-live [data-act="mcancel"][data-code="' + mine.code + '"]');
     await pp.page.waitForSelector('.dialog .btn-danger', { timeout: 5000 });

@@ -364,7 +364,7 @@ async function main() {
 
   console.log('-- lobby grace: a dropped socket keeps its seat (host too), then the room closes');
   {
-    const srv4 = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile, KOS_STATUS_POLL_MS: '200', KOS_LOBBY_GRACE_MS: '1500' });
+    const srv4 = createServer({ PORT: '0', KOS_STATUS_FILE: statusFile, KOS_STATUS_POLL_MS: '200', KOS_LOBBY_GRACE_MS: '1500', KOS_HOST_GRACE_MS: '3500' });
     const p4 = await srv4.listen();
     const mk4 = async (name) => { const c = new Client(p4, name); await c.hello(); return c; };
     const H = await mk4('Hanne'), J = await mk4('Jonas');
@@ -401,10 +401,78 @@ async function main() {
     srv4.rooms.abort(room4, crH.id);
     await J2.wait('rematch');
     H2.ws.terminate();
+    const goneAt = Date.now();
+    await sleep(2200); // past the 1.5 s lobby grace: a trainer whose phone locked does not close the lobby for everybody yet
+    ok(srv4.rooms.rooms.get(crH.code) && srv4.rooms.rooms.get(crH.code).phase === 'lobby', 'lobby: a dropped host keeps the lobby open past the seat grace (KOS_HOST_GRACE_MS)');
     await J2.wait('hostleft', 6000);
-    ok(true, 'lobby: a host that never comes back closes the room after the grace');
+    ok(Date.now() - goneAt >= 3300, 'lobby: a host that never comes back closes the room after the host grace (' + (Date.now() - goneAt) + ' ms)');
     J2.close();
     await srv4.close();
+  }
+
+  console.log('-- review round 1 (spec E): lobby seats wait, a resume whose seat is gone says the room is alive, a rematch takes a fresh drop along');
+  {
+    const { createRooms } = require(path.join(ROOT, 'server', 'lib', 'rooms.js'));
+    let T = 1e6;
+    const R = createRooms({ now: () => T, randInt: () => 7, lobbyGraceMs: 20000, lobbySeatMs: 300000, hostGraceMs: 180000 });
+    const sink = () => {};
+    const host = R.create({ name: 'Vaert', send: sink, ip: '1' }, {}, 'sail');
+    const code = host.room.code, room = host.room;
+    const kid = R.join({ name: 'Dorte', send: sink, ip: '2' }, code);
+    const kid2 = R.join({ name: 'Erik', send: sink, ip: '3' }, code);
+    R.disconnect(room, kid.player.id, false); // Dorte's phone locks in the lobby
+    T += 40000; R.tick();
+    ok(room.players.has(kid.player.id), 'lobby: a dropped sailor keeps the seat after 40 s (was 20 s)');
+    let r = R.resume({ send: sink, ip: '2' }, code, kid.player.id, kid.player.key);
+    ok(!r.err && r.player.id === kid.player.id, 'lobby: and resumes it');
+    R.disconnect(room, kid.player.id, false);
+    T += 300000; R.tick();
+    ok(!room.players.has(kid.player.id) && room.phase === 'lobby', 'lobby: after 5 min the seat is given up, the lobby is still open');
+    r = R.resume({ send: sink, ip: '2' }, code, kid.player.id, kid.player.key);
+    ok(r.err === 'nocode' && r.alive === 'lobby' && !r.rows, 'resume of a seat that is gone while the room lives: nocode + alive "lobby" (' + JSON.stringify(r) + ')');
+    const back = R.join({ name: 'Dorte', send: sink, ip: '2' }, code);
+    ok(back.player && room.players.has(back.player.id), 'and a plain join gets the sailor back into the same lobby');
+    ok(R.resume({ send: sink, ip: '2' }, code, back.player.id, 'x' + back.player.key.slice(1)).err === 'nocode', 'a wrong key is still refused (constant-time compare)');
+    // the host's phone locks: the lobby waits 3 min, not 20 s
+    R.disconnect(room, host.player.id, false);
+    T += 60000; R.tick();
+    ok(room.phase === 'lobby', 'lobby: a dropped host keeps the lobby open after 1 min');
+    ok(!R.resume({ send: sink, ip: '1' }, code, host.player.id, host.player.key).err, 'and the host resumes it');
+    // the race: Erik drops on the podium 3 s before the host's rematch -> he is taken along as a dropped lobby seat
+    ok(R.start(room, host.player.id) === 'ok', 'start');
+    T = room.T0 + 1; R.tick();
+    for (const q of [host.player, back.player, kid2.player]) R.finish(room, q.id, 60000);
+    R.tick();
+    ok(room.phase === 'results', 'results');
+    R.disconnect(room, kid2.player.id, false);
+    T += 3000;
+    ok(R.rematch(room, host.player.id) === 'ok', 'rematch');
+    ok(room.players.has(kid2.player.id) && room.players.get(kid2.player.id).lost, 'rematch: a seat that dropped 3 s ago comes along (lost)');
+    r = R.resume({ send: sink, ip: '3' }, code, kid2.player.id, kid2.player.key);
+    ok(!r.err && room.phase === 'lobby', 'and its resume lands in the new lobby');
+    // a seat that has been gone for long is not taken along; its resume says the room is alive in the lobby (plus the old result)
+    ok(R.start(room, host.player.id) === 'ok', 'start 2');
+    T = room.T0 + 1; R.tick();
+    for (const q of [host.player, back.player, kid2.player]) R.finish(room, q.id, 61000);
+    R.tick();
+    R.disconnect(room, kid2.player.id, false);
+    T += 30000;
+    ok(R.rematch(room, host.player.id) === 'ok' && !room.players.has(kid2.player.id), 'rematch: a seat gone for 30 s is left behind');
+    r = R.resume({ send: sink, ip: '3' }, code, kid2.player.id, kid2.player.key);
+    ok(r.err === 'nocode' && r.alive === 'lobby' && Array.isArray(r.rows), 'its resume: nocode, alive "lobby" and the result it missed');
+    // a race that started without the seat: alive 'racing'
+    const R2 = createRooms({ now: () => T, randInt: () => 9 });
+    const h2 = R2.create({ name: 'H', send: sink, ip: '1' }, {}, 'sail'), k2 = R2.join({ name: 'K', send: sink, ip: '2' }, h2.room.code), k3 = R2.join({ name: 'L', send: sink, ip: '3' }, h2.room.code);
+    R2.disconnect(h2.room, k3.player.id, true); // left for good
+    R2.disconnect(h2.room, k2.player.id, false); T += 400000; R2.tick(); // gone from the lobby
+    R2.join({ name: 'M', send: sink, ip: '4' }, h2.room.code);
+    ok(R2.start(h2.room, h2.player.id) === 'ok', 'start without the dropped seat');
+    r = R2.resume({ send: sink, ip: '2' }, h2.room.code, k2.player.id, k2.player.key);
+    ok(r.err === 'nocode' && r.alive === 'countdown', 'a seat dropped from the lobby before the gun: nocode + alive "countdown" (' + JSON.stringify(r) + ')');
+    // the penalty-turn flag (256 = taking the turn now) is accepted in a state frame
+    T = h2.room.T0 + 1; R2.tick();
+    ok(R2.state(h2.room, h2.player.id, [h2.player.id, 1, 1, 2, 0, 1, 0, 4 | 256, 1]), 'state: fl 256 (turning) is accepted');
+    ok(!R2.state(h2.room, h2.player.id, [h2.player.id, 2, 1, 2, 0, 1, 0, 512, 1]), 'state: fl 512 is not');
   }
 
   console.log('-- version gate: old and unversioned builds are refused, a new minimum needs no restart');
@@ -1223,9 +1291,10 @@ async function main() {
     R.start(c6.room, c6.player.id); clock.t = c6.room.T0 + 1; R.tick();
     R.finish(c6.room, l6.player.id, 59000); R.disconnect(c6.room, l6.player.id, false);
     R.finish(c6.room, c6.player.id, 60000); R.finish(c6.room, p6.player.id, 61000);
+    clock.t += 21000; // away for longer than the lobby grace (a seat that dropped only seconds ago comes along, see 'review round 1' above)
     ok(R.rematch(c6.room, c6.player.id) === 'ok' && !c6.room.players.has(l6.player.id), 'rematch: the seat that is away is not taken into the new lobby');
     const lr = R.resume(mkConn('L6'), c6.room.code, l6.player.id, l6.player.key);
-    ok(lr.err === 'nocode' && lr.rows && lr.rows[0].id === l6.player.id && lr.rows[0].place === 1, 'its resume gets the result of the race it won');
+    ok(lr.err === 'nocode' && lr.rows && lr.rows[0].id === l6.player.id && lr.rows[0].place === 1 && lr.alive === 'lobby', 'its resume gets the result of the race it won (and alive: the new lobby)');
   }
   {
     // E5 heartbeat and E7 one owner per seat, over the wire (fast heartbeat: ping every 200 ms, dead after 900 ms)

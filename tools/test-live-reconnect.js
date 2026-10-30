@@ -16,6 +16,10 @@
 //   ended    the race ended while away: off the network (the official table on the race screen), after "Til kortet" (late resume), the
 //            room gone (the stored result, or "Løbet er slut")
 //   banner   the banner shows offline without a WebSocket, "Ikke nu", a #join for another race, "Udgå"; on screen at phone + laptop size
+//   finfail  the network drops right at the finish (a clean cut and a black hole): the finish still reaches the server (review round 1)
+//   lobbyseat the lobby seat is gone while the phone is away (dropped, restart): the resume joins the open lobby again, never "Løbet er slut"
+//   rescut   a drop on the podium, the host's rematch meanwhile: the sailor lands in the new lobby
+//   entry    "Til kortet" lands on the hub; the Live entry view offers "Fortsæt live-løbet", and typing the same code resumes the seat
 // Only some: node tools/test-live-reconnect.js matrix,kill. Screenshots of the banner: SHOTS=dir/ node tools/test-live-reconnect.js banner
 const fs = require('fs');
 const os = require('os');
@@ -261,6 +265,15 @@ async function main() {
     const b = await R.dst();
     ok(b.st === 'reconnecting' && b.away && b.unoff === true && /vi prøver stadig/.test(b.banner) && b.tryBtn, '+17 s: "Forbindelsen er væk – vi prøver stadig" + "Prøv nu", unofficial (' + b.banner + ')');
     ok(b.seatLS && !R.seat().left, 'the seat stays (localStorage and server)');
+    // review round 1: one line, inside the screen, under the pause card and dialogs; on a small phone the short text, under the HUD
+    const geo = () => R.d.evaluate(() => { const e = document.querySelector('.race-live-banner'), r = e.getBoundingClientRect(), h = document.querySelector('.hud'), hr = h && h.getBoundingClientRect(), sh = e.querySelector('.nb-short');
+      return { h: Math.round(r.height), top: Math.round(r.top), hudB: hr ? Math.round(hr.bottom) : null, z: +getComputedStyle(e).zIndex, short: !!sh && getComputedStyle(sh).display !== 'none', inside: r.left >= 0 && r.right <= innerWidth }; });
+    let g = await geo();
+    ok(g.h <= 52 && g.z < 40 && g.inside, 'the banner is one line, inside the screen, below the pause card (' + JSON.stringify(g) + ')');
+    await R.d.setViewportSize({ width: 320, height: 568 }); await sleep(500);
+    g = await geo();
+    ok(g.h <= 52 && g.short && g.inside && (g.hudB === null || g.top >= g.hudB), '320x568: the short text on one line, under the HUD (' + JSON.stringify(g) + ')');
+    await R.d.setViewportSize({ width: 900, height: 700 });
     await sleep(3000);
     R.px.up();
     const t0 = Date.now();
@@ -447,6 +460,88 @@ async function main() {
     await R.d.click('#screen-title .seatbar [data-seat="go"]');
     await waitView(R.d, 'results', 12000).catch(() => {});
     ok(await R.d.evaluate(() => /Dorte/.test(document.querySelector('.live-results').textContent)), 'with a stored result for that race, the stored table is shown');
+    await R.done();
+  });
+
+  // ---------------------------------------------------------------- review round 1: the finish, the lobby, the podium, the way back
+  const srvUntil = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await sleep(200); } return !!fn(); };
+  scen('finfail', 'the network drops 200 ms before the finish (clean cut and black hole); back after 5 s', async (ok) => {
+    const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    await R.d.waitForFunction(() => KOS.App.run.inst.state.clock > 6, null, { timeout: 20000 });
+    const D = R.by('Dorte'), E = R.by('Erik');
+    D.px.cut(); E.px.black();
+    await sleep(200);
+    for (const x of [D, E]) await x.p.evaluate(() => KOS.App.run.inst.debug.finishNow());
+    await sleep(5000);
+    D.px.up(); E.px.up(true); // Erik's dead socket stays dead: only the watchdog notices
+    ok(await srvUntil(() => R.seat('Dorte').status === 'fin', 15000), 'clean cut at the finish: the server has Dorte as finished (' + JSON.stringify(R.seat('Dorte')) + ')');
+    ok(await srvUntil(() => R.seat('Erik').status === 'fin', 15000), 'black hole at the finish: the server has Erik as finished (' + JSON.stringify(R.seat('Erik')) + ')');
+    await R.h.evaluate(() => KOS.App.run.host.live.hostEnd());
+    ok(await srvUntil(() => R.r() && R.r().phase === 'results' && R.r().results.filter(x => x.status === 'fin').length >= 2, 8000), 'the official table has both as finished, not DNF');
+    await R.done();
+  });
+  scen('lobbyseat', 'the lobby seat is gone while the phone is away; the lobby is still open', async (ok) => {
+    const R = await room(false);
+    R.px.cut();
+    await sleep(1500);
+    R.r().players.delete(R.S[0].id); // as after a long drop or a server restart: the room lives, the seat does not
+    await sleep(1500);
+    R.px.up();
+    ok(await until(R.d, () => { const L = KOS.Lobby.state; return L.view === 'room' && L.sess && L.sess.state === 'ok'; }, null, 15000), 'the resume joined the open lobby again (view: room)');
+    ok(await R.d.evaluate(() => !/Løbet er slut/.test(document.getElementById('screen-live').textContent) && !!localStorage.getItem('kos.mp.seat')), 'no "Løbet er slut", the seat record is back');
+    ok([...R.r().players.values()].some(p => p.name === 'Dorte' && !p.lost), 'the server has Dorte in the lobby');
+    await act(R.h, 'start');
+    ok(await until(R.d, () => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, 20000), 'the host starts: Dorte is in the race');
+    // the race started without the seat: a true message, not "Løbet er slut"
+    const R2 = await room(false, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    const D2 = R2.by('Dorte');
+    D2.px.cut(); await sleep(1000);
+    R2.r().players.delete(D2.id);
+    await act(R2.h, 'start'); await inRace(R2.h);
+    await sleep(1000); D2.px.up();
+    ok(await until(D2.p, () => { const e = document.getElementById('screen-live'); return e && !e.hidden && /startet uden dig/.test(e.textContent); }, null, 15000), 'dropped from the lobby, the race started: "… løbet er startet uden dig"');
+    await R2.done();
+    await R.done();
+  });
+  scen('rescut', 'a 3 s drop on the podium while the host starts a rematch', async (ok) => {
+    const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    await R.h.evaluate(() => KOS.App.run.host.live.hostEnd());
+    ok(await until(R.d, () => { const i = KOS.App.run.inst; return !!(i && i.state.liveRes); }, null, 10000), 'Dorte sees the result');
+    const E = R.by('Erik'); // a reload on the podium: the official table again (the tab's token lives through the results)
+    await until(E.p, () => { const i = KOS.App.run.inst; return !!(i && i.state.liveRes); }, null, 10000);
+    await E.p.reload(); await E.p.waitForFunction(() => window.KOS && KOS.modesReady, null, { timeout: 30000 });
+    ok(await until(E.p, () => { const e = document.getElementById('screen-live'); return e && !e.hidden && e.getAttribute('data-live-view') === 'results' && document.querySelectorAll('.live-results li').length === 3; }, null, 15000), 'a reload on the podium shows the official table again');
+    ok(await E.p.evaluate(() => !localStorage.getItem('kos.mp.seat') && !document.querySelector('.seatbar')), 'and no "Fortsæt live-løbet" for a race whose result is in');
+    R.px.cut();
+    await sleep(800);
+    await R.h.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 10000 }).catch(() => {});
+    await R.h.evaluate(() => KOS.Lobby.rematch()); // the host's "Ny kapsejlads med samme deltagere" on the results card
+    await sleep(2200);
+    R.px.up();
+    ok(await until(R.d, () => { const L = KOS.Lobby.state; return KOS.App.cur === 'live' && L.view === 'room' && L.sess && L.sess.state === 'ok'; }, null, 15000), 'Dorte lands in the new lobby');
+    ok(R.r().phase === 'lobby' && ['Vaert', 'Dorte', 'Erik'].every(n => [...R.r().players.values()].some(p => p.name === n && !p.lost)), 'the server lobby has Dorte (and the host and Erik)');
+    ok(await R.d.evaluate(() => !document.querySelector('.seatbar')), 'no stale banner');
+    await R.done();
+  });
+  scen('entry', '"Til kortet" -> hub; the Live entry view and the same code lead back into the race', async (ok) => {
+    const R = await room(true);
+    const quit = async () => { await R.d.evaluate(() => KOS.App.setPaused(true)); await R.d.waitForSelector('.pause-overlay [data-p="quit"]'); await R.d.click('.pause-overlay [data-p="quit"]'); };
+    await quit();
+    ok(await until(R.d, () => KOS.App.cur === 'hub' && !!document.querySelector('#screen-hub .seatbar [data-seat="go"]'), null, 6000), '"Til kortet" from a live race lands on the hub with "Fortsæt live-løbet"');
+    await R.d.evaluate(() => KOS.App.show('area', { area: 'race' }));
+    await R.d.waitForSelector('.live-card'); await R.d.click('.live-card'); await waitView(R.d, 'entry');
+    ok(await R.d.evaluate(c => { const b = document.querySelector('#screen-live [data-act="resumeseat"]'); return !!b && b === document.querySelector('#screen-live .live-big-btns > button') && b.textContent.indexOf(c) > 0; }, R.code), 'the Live entry view offers "Fortsæt live-løbet" first');
+    await act(R.d, 'resumeseat');
+    ok(await until(R.d, () => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, 15000), 'tapping it: back in the race');
+    await sleep(1500);
+    await quit();
+    await R.d.waitForFunction(() => KOS.App.cur === 'hub');
+    await R.d.evaluate(() => KOS.App.show('area', { area: 'race' }));
+    await R.d.waitForSelector('.live-card'); await R.d.click('.live-card'); await waitView(R.d, 'entry');
+    await act(R.d, 'joinview'); await waitView(R.d, 'join');
+    await R.d.fill('#live-code', R.code); await act(R.d, 'join');
+    ok(await until(R.d, () => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, 15000), 'typing the same code resumes the seat (not "Løbet er allerede startet")');
+    ok(!R.seat().left && R.seat().phase === 'racing', 'the same seat on the server');
     await R.done();
   });
 

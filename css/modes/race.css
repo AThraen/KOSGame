@@ -226,14 +226,28 @@
 /* live race (docs/specs/live-race.md 5.5, 5.6): big-screen leader board and the reconnecting banner */
 .race-board.rb-watch { left: auto; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t) + 12px); transform: none; width: min(300px, 40vw); animation: none; max-height: calc(100% - var(--safe-t) - var(--safe-b) - 24px); }
 .rb-row.lost { opacity: .5; }
+/* one thin line under the HUD, below the pause card and dialogs (z 40 / 70); the short text on narrow screens */
 .race-live-banner {
-  position: absolute; top: calc(var(--safe-t) + 76px); left: 50%; transform: translateX(-50%); z-index: 60; pointer-events: none;
+  position: absolute; top: calc(var(--safe-t) + 76px); left: 50%; transform: translateX(-50%); z-index: 30; pointer-events: none;
   background: #7a4a00; color: #fff; padding: 8px 16px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.35); border-radius: 999px; font-weight: 800;
 }
 .race-live-banner[hidden] { display: none; }
-.race-live-banner { display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); white-space: normal; text-align: center; }
-.race-live-banner.is-away { padding: 6px 6px 6px 16px; }
-.race-live-banner .btn { flex: none; min-height: 40px; pointer-events: auto; }
+.race-live-banner { display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); white-space: nowrap; text-align: center; font-size: .9rem; padding: 4px 14px; }
+.race-live-banner > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.race-live-banner.is-away { padding: 3px 3px 3px 14px; }
+.race-live-banner .btn { flex: none; min-height: 44px; pointer-events: auto; }
+.race-live-banner .nb-short { display: none; }
+@media (max-width: 480px), (max-height: 520px) {
+  .race-live-banner .nb-long { display: none; }
+  .race-live-banner .nb-short { display: inline; }
+}
+/* portrait phones: under the HUD (two rows when narrow) and the leg chip, clear of time and place */
+@media (orientation: portrait) and (max-width: 520px) {
+  .race-live-banner { top: calc(var(--safe-t) + 124px); }
+}
+@media (orientation: portrait) and (max-width: 359px) {
+  body.phone-ui .race-live-banner { top: calc(var(--safe-t) + 170px); }
+}
 
 /* "Kun vært" big-screen view (docs/specs/live-race.md 5.5): leader board with gap / mark / penalties, start countdown,
    follow-the-leader toggle, podium. Sizes follow the viewport so a 1920x1080 projector reads from the back of the room. */

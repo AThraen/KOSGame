@@ -48,7 +48,7 @@
 
   // boat: numbers x, y, heading, speed, heel; optional booleans spinnaker, capsized, penalty, hiking, r13 (tacking: RRS 13);
   // optional tack ('port' | 'starboard'); optional rc { finT (finite number = finished), ocs (bool), leg (int) }.
-  // fl bits: 1 spinnaker, 2 capsized, 4 penalty, 8 finished, 16 ocs, 32 hiking, 64 port tack, 128 r13 (protocol 2).
+  // fl bits: 1 spinnaker, 2 capsized, 4 penalty, 8 finished, 16 ocs, 32 hiking, 64 port tack, 128 r13 (protocol 2), 256 turning (taking the penalty turn now; 4 alone = owes one).
   // Returns [id, seq, x, y, hd, sp, hl, fl, lg].
   function packState(boat, id, seq) {
     const b = boat || {};
@@ -62,6 +62,7 @@
     if (b.hiking) fl |= 32;
     if (b.tack === 'port') fl |= 64; // the sender's own tack and R13 state: the receiver must not guess them from a delayed heading
     if (b.r13) fl |= 128;
+    if (b.turning) fl |= 256; // taking the penalty turn now (RRS 22.2); 4 alone = owes one
     const lg = Number.isFinite(rc.leg) ? Math.round(rc.leg) : 0;
     return [
       id,
@@ -101,7 +102,8 @@
       ocs: !!(fl & 16),
       hiking: !!(fl & 32),
       port: !!(fl & 64),
-      r13: !!(fl & 128)
+      r13: !!(fl & 128),
+      turning: !!(fl & 256)
     };
   }
 
@@ -125,6 +127,7 @@
       hiking: s.hiking,
       port: s.port,
       r13: s.r13,
+      turning: s.turning,
       extrapolated: extrapolated,
       frozen: frozen
     };

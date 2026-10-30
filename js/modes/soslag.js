@@ -288,7 +288,7 @@
       if (S.phase !== 'duel') return;
       const a = f.offender, v = f.victim;
       if (!a || !v || a.pen) return;
-      if (v.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
+      if (v.pen && v.pen.turning) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat); owing one is not taking it
       if (f.excused) { // no time to react (R15 / R16): nobody is penalised; the player only hears why
         if (f.contact && (a === me || v === me)) say(t(f.reasonKey, f.reasonVars || {}), 5000);
         return;
@@ -345,6 +345,7 @@
       const dh = U.wrapPi(b.heading - p.prevH); p.prevH = b.heading;
       if (!p.dir && Math.abs(p.acc + dh) > 0.4) p.dir = Math.sign(p.acc + dh);
       p.acc += dh;
+      KOS.Rules.penTurning(p, dh, dt); // RRS 22.2: no right of way only while the turn is being taken
       if (Math.abs(p.acc) >= p.need - 0.05) {
         b.pen = null;
         if (b === me) {
@@ -359,6 +360,7 @@
     function penControls(b, c) {
       const p = b.pen;
       if (!p) return c;
+      p.ctl = true; // the game steers the turn: it is being taken (rules.js penTurning)
       const twa = U.wrapPi(wind.dir - b.heading), sg = twa >= 0 ? 1 : -1;
       if (!p.dir) p.dir = -sg; // first bear away
       const back = b.speed < -0.05 && assist !== 'easy' ? -1 : 1;

@@ -104,6 +104,7 @@
     gull: '<path d="M2.5 11c2.5-2.5 5.5-2.5 9.5 1.5 4-4 7-4 9.5-1.5"/>',
     motion: '<path d="M4 12h3l2-5 3 10 2-6 1.5 1H20"/>',
     calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    qr: '<rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1"/><path d="M14 14h2.5v2.5M20.5 14v6.5H17M14 19v1.5"/>',
     share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>',
     drop: '<path d="M12 3.2c3.4 4.3 6 7.4 6 10.6a6 6 0 0 1-12 0c0-3.2 2.6-6.3 6-10.6z"/><path d="M9.2 14.2a3 3 0 0 0 2.4 2.6"/>',
   };

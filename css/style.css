@@ -178,10 +178,18 @@ html[data-mobile] .mbg-photo, html:not([data-tier="3"]) .mbg-photo { animation: 
 .seatbar-txt b { font-size: 1.25rem; font-weight: 900; line-height: 1.15; }
 .seatbar-txt small { font-size: .9rem; font-weight: 700; opacity: .85; }
 .seatbar-arrow { flex: none; display: grid; place-items: center; }
-.seatbar-more { display: flex; justify-content: center; gap: 6px; }
-.seatbar-small { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(13, 19, 33, .55); color: #fff; font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer;
+.seatbar-more { display: flex; justify-content: center; gap: 14px; }
+.seatbar-small { min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(13, 19, 33, .55); color: #fff; font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer;
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .seatbar-small:hover { background: rgba(13, 19, 33, .75); }
+.seatbar-small[data-seat="retire"] { background: rgba(110, 18, 30, .62); box-shadow: inset 0 0 0 1.5px rgba(255, 120, 130, .55); } /* destructive: looks different from "Ikke nu" */
+/* small phones: a slimmer banner (one line of text, a smaller badge) so the hub map and its buttons keep their room */
+@media (max-width: 360px) {
+  .seatbar-go { min-height: 54px; padding: 6px 12px 6px 8px; gap: 8px; border-radius: 16px; }
+  .seatbar-ico { width: 36px; height: 36px; border-radius: 11px; }
+  .seatbar-txt b { font-size: 1.05rem; }
+  .seatbar-txt small { display: none; }
+}
 @keyframes seatPulse { 0%, 100% { box-shadow: 0 5px 0 #138a55, 0 10px 26px rgba(30, 200, 120, .45), inset 0 2px 0 rgba(255, 255, 255, .5); } 50% { box-shadow: 0 5px 0 #138a55, 0 10px 40px rgba(60, 240, 150, .8), inset 0 2px 0 rgba(255, 255, 255, .5); } }
 .mb-txt { display: flex; flex-direction: column; min-width: 0; }
 .mb-txt b { font-size: 1.25rem; font-weight: 800; }

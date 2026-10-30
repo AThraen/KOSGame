@@ -400,8 +400,8 @@
     const at = (u, r) => ({ x: O.x + up.x * u + right.x * r, y: O.y + up.y * u + right.y * r });
 
     const bias = U.rad(P.bias || 0), h = lineLen / 2;
-    const pin = Object.assign(at(h * Math.sin(bias), -h * Math.cos(bias)), { kind: 'pin', r: 0.9, id: 'pin', start: true }); // start: no mark-room here before the start (RRS 18.1)
-    const com = Object.assign(at(-h * Math.sin(bias), h * Math.cos(bias)), { kind: 'committee', r: 3.4, id: 'committee', heading: wd, start: true });
+    const pin = Object.assign(at(h * Math.sin(bias), -h * Math.cos(bias)), { kind: 'pin', r: 0.9, id: 'pin', start: true, line: true }); // start: no mark-room here before the start (RRS 18.1)
+    const com = Object.assign(at(-h * Math.sin(bias), h * Math.cos(bias)), { kind: 'committee', r: 3.4, id: 'committee', heading: wd, start: true, line: true }); // line: a line's end, the inside boat is the one on its side
     const line = { a: pin, b: com };
     let nrm = U.vec(U.bearing(pin, com) + Math.PI / 2);
     if (nrm.x * up.x + nrm.y * up.y < 0) nrm = { x: -nrm.x, y: -nrm.y };
@@ -418,8 +418,8 @@
       if (P.course === 'tri') {
         m2 = mk(D.m2, { round: 'port', label: '2', id: 'm2' }); m3 = gateM;
         marks.push(m2, gs, gb);
-        fpin = Object.assign(at(D.fin[0], D.fin[1] - h), { kind: 'finish', r: 0.9, id: 'fpin' });
-        fcom = Object.assign(at(D.fin[0], D.fin[1] + h), { kind: 'committee', r: 3.4, id: 'fcommittee', heading: wd });
+        fpin = Object.assign(at(D.fin[0], D.fin[1] - h), { kind: 'finish', r: 0.9, id: 'fpin', line: true });
+        fcom = Object.assign(at(D.fin[0], D.fin[1] + h), { kind: 'committee', r: 3.4, id: 'fcommittee', heading: wd, line: true });
       } else {
         marks.push(mk(D.m1a, { kind: 'yellow', round: 'port', label: '1a', id: 'm1a' }));
         if (P.laps > 1) { m2 = gateM; marks.push(gs, gb); }
@@ -778,7 +778,7 @@
       if (LIVE && b === me) { // the official time carries +20 s per penalty turn still owed (spec 5.2 no. 6)
         const owed = S.pen ? Math.ceil((S.pen.need - Math.abs(S.pen.acc)) / TAU - 0.01) : 0;
         rc.finT += Math.max(0, owed) * 20;
-        if (!S.unofficial) S.finSent = LIVE.send({ t: 'fin', ms: Math.round(rc.finT * 1000) }) !== false; // not sent (the socket is away): sent once we are back
+        sendFin(); // not delivered (the socket is away or half-open): sent again until the server confirms it (finRetry)
       }
       S.fin.push(b);
       const place = S.fin.length;
@@ -823,7 +823,7 @@
       if (!a || !v || a.rc.finT != null || v.rc.finT != null) return;
       const other = a === me ? v : a;
       if (S.flog && other.remote) S.near[other.rid] = now; // a close call or contact with this boat: its phone's verdict may count (onFoulMsg)
-      if (v.rc.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
+      if (turningPen(v)) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
       if (f.excused) { // RRS 15/16: the give-way boat had no time to keep clear: no penalty for anyone, the reason says why
         if (S.flog && other.remote && f.contact) S.flog.excuse(other.rid, LIVE.serverNow()); // and the other phone's "you fouled me" does not count
         const k = 'ex|' + a.id + '|' + v.id;
@@ -857,6 +857,8 @@
       penalize(a, 2, f.rule, f);
     }
     const pairKey = (a, b) => (String(a.id) < String(b.id) ? a.id + '|' + b.id : b.id + '|' + a.id);
+    // taking its penalty turn right now (rules.js penTurning); a boat that only owes one and sails on keeps its rights
+    const turningPen = b => !!(b.rc.pen && b.rc.pen.turning);
     // the hold is over: take the penalty our own monitor gave us, unless the other phone's message settled the incident meanwhile
     function settleSelf(q) {
       if (!S.flog.settle(q.rid, LIVE.serverNow()) || me.rc.finT != null || S.unofficial) return;
@@ -879,7 +881,7 @@
       // a buggy or modified client must not be able to send "foul" to everyone on the course
       const seen = S.near[b.rid] !== undefined && now - S.near[b.rid] <= 2;
       if (!seen && !(KOS.Rules.hullGap(me, b) < 0.5 * L)) return;
-      if (me.rc.finT != null || b.rc.finT != null || b.rc.pen) return; // as onFoul: a boat taking a penalty has no right of way (RRS 22.2)
+      if (me.rc.finT != null || b.rc.finT != null || turningPen(b)) return; // as onFoul: a boat taking a penalty has no right of way (RRS 22.2)
       if (now < (S.myFoulT || 0)) return;
       if (!S.flog.recv(b.rid, LIVE.serverNow())) return;
       S.cool[pairKey(me, b)] = now + 12;
@@ -930,6 +932,7 @@
       const dh = U.wrapPi(b.heading - p.prevH); p.prevH = b.heading;
       if (!p.dir && Math.abs(p.acc + dh) > 0.4) p.dir = Math.sign(p.acc + dh);
       p.acc += dh;
+      KOS.Rules.penTurning(p, dh, dt); // RRS 22.2: no right of way only while the turn is being taken
       if (Math.abs(p.acc) >= p.need - 0.05) {
         b.rc.pen = null;
         if (b === me) {
@@ -944,6 +947,7 @@
     function penControls(b, c) {
       const p = b.rc.pen;
       if (!p) return c;
+      p.ctl = true; // the game steers the turn: it is being taken (rules.js penTurning)
       const twa = U.wrapPi(wind.dir - b.heading), sg = twa >= 0 ? 1 : -1;
       if (!p.dir) p.dir = -sg; // first bear away
       const back = b.speed < -0.05 && assist !== 'easy' ? -1 : 1;
@@ -1024,8 +1028,8 @@
 
     // ==================================================================== live race (docs/specs/live-race.md 5)
     const REMOTE_CTL = KOS.Physics.controls();
-    const REMOTE_PEN = { need: TAU, acc: 0 }; // only shown (tag arrow, standings); never stepped
-    const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, tack: 'starboard', r13: false, rc: null };
+    const REMOTE_PEN = { need: TAU, acc: 0 }, REMOTE_TURN = { need: TAU, acc: 0, turning: true }; // only shown (tag arrow, standings) and the rules (R22 while turning); never stepped
+    const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, turning: false, hiking: false, tack: 'starboard', r13: false, rc: null };
     S.flog = LIVE && !WATCH ? new MPS.FoulLog(LIVE.myId, 2000) : null;
     S.near = {}; S.foulQ = []; S.selfQ = []; // per remote rid: env.t of our last contact / close call with it; foul messages held for TOLD_HOLD
     // the connection banner (spec E1): 'retry' "Forbinder igen…"; 'away' (15 s) "Forbindelsen er væk – vi prøver stadig" + "Prøv nu";
@@ -1037,7 +1041,7 @@
       S.netMode = mode || '';
       banner.hidden = !mode;
       banner.classList.toggle('is-away', mode === 'away');
-      banner.innerHTML = mode ? '<span>' + KOS.UI.esc(t(BANNER_KEYS[mode])) + '</span>' + (mode === 'away' ? '<button type="button" class="btn btn-sm btn-primary" data-net="try">' + KOS.UI.esc(t('live.tryNow')) + '</button>' : '') : '';
+      banner.innerHTML = mode ? '<span class="nb-long">' + KOS.UI.esc(t(BANNER_KEYS[mode])) + '</span><span class="nb-short">' + KOS.UI.esc(t(BANNER_KEYS[mode] + 'Short')) + '</span>' + (mode === 'away' ? '<button type="button" class="btn btn-sm btn-primary" data-net="try">' + KOS.UI.esc(t('live.tryNow')) + '</button>' : '') : '';
     }
     if (banner) {
       banner.className = 'race-live-banner'; banner.setAttribute('role', 'status'); paintBanner('');
@@ -1119,6 +1123,7 @@
     const SNAP_KEY = 'kos.mp.snap';
     function saveSnap() {
       if (!LIVE || WATCH || S.holdSend || (S.rest && !S.rest.done) || S.gone) return; // never before the restore landed (the start line would overwrite it)
+      if (LIVE.state === 'closed') return; // retired (leave) or the session is over: the seat and its snapshot are gone, write none back
       if (!(Number.isFinite(me.x) && Number.isFinite(me.y))) return;
       const p = me.rc.pen;
       try {
@@ -1215,7 +1220,7 @@
           rc.ocs = s.ocs;
           if (rc.finT == null && s.lg !== rc.leg && s.lg >= 0 && s.lg < seq.length) setLeg(b, s.lg);
           if (s.penalty && !rc.pen) rc.penN = (rc.penN || 0) + 1; // penalty turns taken, for the big-screen board
-          rc.pen = s.penalty ? REMOTE_PEN : null;
+          rc.pen = s.penalty ? (s.turning ? REMOTE_TURN : REMOTE_PEN) : null; // owes a turn / is taking it now (R22, rules.js keepsClear)
           b.lost = !S.unofficial && rc.finT == null && b.buf.isLost(nowS, LOST_MS); // a boat that has finished stops sending: that is not a lost connection
           b.ghost = b.lost; // a short gap (frozen, newest state < 2 s old) keeps the boat in the rules and contact lists (spec A9)
         }
@@ -1252,7 +1257,7 @@
       if (WATCH || S.unofficial) return; // from the first second of the countdown (older servers drop it until 2 s before the gun)
       if (S.holdSend) return; // a reloaded page waits for the server's copy of the last state before it says anything (else the start line would overwrite it)
       S.sendT = (S.sendT || 0) + dt;
-      const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0) | (me.tack === 'port' ? 8 : 0) | (me.r13 ? 16 : 0); // a tack goes out at once
+      const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0) | (me.tack === 'port' ? 8 : 0) | (me.r13 ? 16 : 0) | (S.pen && S.pen.turning ? 32 : 0); // a tack goes out at once
       const changed = key !== S.sendKey;
       if (S.sendT < 0.1 - 1e-6 && !changed && !S.sendNow) return;
       // never send NaN / a broken pose: the server would drop the frame (and used to count it as a strike); put the boat back where it was last fine
@@ -1265,7 +1270,7 @@
       S.sentOnce = true; S.sendNow = false;
       S.sendT = 0; S.sendKey = key;
       PK.x = me.x; PK.y = me.y; PK.heading = me.heading; PK.speed = me.speed; PK.heel = me.heel; PK.spinnaker = me.spinnaker; PK.capsized = me.capsized;
-      PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.tack = me.tack; PK.r13 = !!me.r13; PK.rc = me.rc;
+      PK.penalty = !!S.pen; PK.turning = !!(S.pen && S.pen.turning); PK.hiking = me.hike > 0.5; PK.tack = me.tack; PK.r13 = !!me.r13; PK.rc = me.rc;
       LIVE.send({ t: 'st', s: MPS.packState(PK, LIVE.myId, S.seq = MPS.stamp(LIVE.T0 + S.clock * 1000, S.seq)) });
     }
     // the connection has been away for 15 s: carry on on our own clock, the result shows as unofficial (spec 5.6). This is a display state
@@ -1277,11 +1282,21 @@
       if (!WATCH) { try { say(t('live.offlineNote'), 9000); } catch (e) { /* optional */ } }
     }
     function backOnline() {
+      if (me.rc.finT != null && !S.finAck && !WATCH && !S.gone) sendFin(); // finished while away (also within the 15 s, and a fin lost in a half-open socket)
       if (!S.unofficial || S.gone) return;
       S.unofficial = false; S.sendNow = true; S.backOnline = (S.backOnline || 0) + 1;
       for (const b of remotes) { b.hidden = false; b.ghost = false; } // applyRemotes hides the finished ones again from their own times
-      if (me.rc.finT != null && !S.finSent && !WATCH) S.finSent = LIVE.send({ t: 'fin', ms: Math.round(me.rc.finT * 1000) }) !== false; // finished while away
       if (!WATCH) { try { say(t('live.backOnline'), 4000); } catch (e) { /* optional */ } }
+    }
+    // our finish is only delivered once the server says so: its 'fin' for our id comes back, or a resume's 'me' carries it (finAck).
+    // Until then it goes out again on every reconnect and every 3 s (the server ignores a second fin from the same seat)
+    function sendFin() {
+      if (WATCH || me.rc.finT == null || S.finAck) return;
+      S.finSentAt = env.t;
+      S.finSent = LIVE.send({ t: 'fin', ms: Math.round(me.rc.finT * 1000) }) !== false;
+    }
+    function finRetry() {
+      if (me.rc.finT != null && !S.finAck && !S.gone && LIVE.state === 'ok' && env.t - (S.finSentAt || 0) > 3) sendFin();
     }
     // the official table arrived ('res', or the rows of a late resume after the room was gone)
     function onRes(rows) {
@@ -1588,7 +1603,7 @@
       liveOffs.push(LIVE.on('fwin', () => { paintFwin(); }));
       liveOffs.push(LIVE.on('states', onStates));
       if (S.flog) liveOffs.push(LIVE.on('foul', onFoulMsg));
-      liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
+      liveOffs.push(LIVE.on('fin', m => { if (m && m.id === LIVE.myId) S.finAck = true; const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
       liveOffs.push(LIVE.on('res', onRes));
       // spec E1: never a final offline while the seat lives. 15 s away = unofficial (reversible) + "vi prøver stadig"; back = official again
       liveOffs.push(LIVE.on('reconnecting', () => { if (!S.gone) paintBanner(S.unofficial ? 'away' : 'retry'); }));
@@ -1599,7 +1614,8 @@
         if (e && Array.isArray(e.rows) && e.rows.length) { S.unofficial = false; paintBanner(''); onRes(e.rows); } else { goOffline(); paintBanner('gone'); }
       }));
       liveOffs.push(LIVE.on('replaced', () => { S.gone = true; goOffline(); paintBanner('replaced'); })); // 4409: the race is open in another window
-      liveOffs.push(LIVE.on('restore', onRestore));
+      liveOffs.push(LIVE.on('restore', m => { if (m && Number.isFinite(m.fin)) S.finAck = true; onRestore(m); })); // the server has our finish
+      if (LIVE.restore && Number.isFinite(LIVE.restore.fin)) S.finAck = true;
       if (LIVE.resumed && !WATCH) { // a reloaded page: wait (max 1.5 s) for the restore message before the first state goes out
         S.holdSend = true;
         setTimeout(() => { S.holdSend = false; }, 1500);
@@ -1661,7 +1677,9 @@
       boats.forEach((b, i) => { if (b.remote) return; track(b, pre[i].x, pre[i].y); if (b.rc.pen) penStep(b, dt); });
       // RRS 22.1: an OCS boat keeps clear only while it sails back towards the pre-start side (rules.js keepsClear reads rc.ret)
       for (const b of ruled) if (b.rc.ocs) { const vn = b.vx * nrm.x + b.vy * nrm.y; b.rc.ret = vn < -0.05 || (vn <= 0.05 && U.vec(b.heading).x * nrm.x + U.vec(b.heading).y * nrm.y < 0); }
-      const fouls = monitor.update(ruled, wind, collMarks.filter(m => m.id !== 'committee' && m.id !== 'fcommittee'), dt) || [];
+      // the committee boats are marks too (mark-room at the finish, RRS 18); start: true keeps the start line's off before the start,
+      // nextMarkIds gives them only to boats that are finishing, and onFoul ignores touching them
+      const fouls = monitor.update(ruled, wind, collMarks, dt) || [];
       for (const f of fouls) onFoul(f);
       while (S.foulQ && S.foulQ.length && S.foulQ[0].at <= env.t) applyFoulMsg(S.foulQ.shift().m);
       while (S.selfQ && S.selfQ.length && S.selfQ[0].at <= env.t) settleSelf(S.selfQ.shift());
@@ -1676,7 +1694,7 @@
       if (S.introT > 3.2 && S.introT - dt <= 3.2) { scene.fixedZoom = null; scene.follow(me); applyZoom(); }
       const n = LIVE && !S.unofficial ? liveSteps(dt) : S.ff ? 5 : S.phase === 'finish' ? 4 : 1; // live: the shared clock decides how many steps are due
       for (let i = 0; i < n; i++) simStep(dt);
-      if (LIVE) { applyRemotes(dt); sendState(dt); }
+      if (LIVE) { applyRemotes(dt); sendState(dt); finRetry(); }
       if (controls.autoTrim) ctrl.setSheet(me.sheet);
       aids.tick(dt * n, S.phase === 'race');
       if (assist === 'easy') scene.showNoGo = Math.abs(me.twa) < cls.noGo + 0.12 || me.inIrons;

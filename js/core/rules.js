@@ -3,27 +3,31 @@
 //   KOS.Rules.rightOfWay(a, b, ctx) -> {standOn, giveWay, rule, reasonKey, reasonVars, both?}
 //       ctx = {wind (wind object | dir radians), marks: [{x, y, id?, start?}], zone: 3 (lengths), mode: 'race'|'colreg',
 //              nextMark?: boat -> mark id | [ids] (gate: both ids) | null, room?: mark -> {boat, astern} | {off: true} (zone-entry memory;
-//              off: RRS 18.3, rule 18.2 does not apply between the two at that mark)}
+//              off: RRS 18.3, rule 18.2 does not apply between the two at that mark; tacker: the boat that tacked in the zone,
+//              which must not make a starboard boat at close-hauled sail above it (18.3(a)); hold: the entitled boat is still turning
+//              round the mark it has just passed, its room lasts until it is on its new course)}
 //       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'R22' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
 //       R18 once at least one of the two is in the zone (RRS 18.1); the inside boat by the mark's rounding side (mark.round,
 //       default 'port'). R18 only between boats both heading for that mark (ctx.nextMark, else boat.nextMark; unknown = yes) and never at a
 //       start mark (mark.start) until both have started (boat.rc.leg >= 1, light objects: boat.started).
-//       R22: a boat that is OCS (rc.ocs / ocs) or doing penalty turns (rc.pen / pen) keeps clear of boats sailing normally.
+//       R22: a boat that is OCS (rc.ocs / ocs) or taking a penalty turn right now (pen === true, or a penalty record with
+//       pen.turning, see penTurning) keeps clear of boats sailing normally. Owing a turn while sailing on is not taking it (RRS 22.2).
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
 //   KOS.Rules.overlapped(a, b), isWindward(a, b, wind), clearAstern(a, b), tackOf(boat, windDir?)
+//   KOS.Rules.penTurning(pen, dh, dt) -> is the boat taking its penalty turn now (sets pen.turning; call once per step)
 //   KOS.Rules.explain(result) -> localized reason text;  KOS.Rules.ruleName(rule) -> short localized title
 //   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?, react?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
 //       offender, victim, rule, reasonKey, contact, excused?}], reset()}
 //       react: false turns the time-to-react part below off (Søslag: every contact is judged by the base rule alone).
 //       The monitor remembers per pair who had mark-room when the first of the two reached the zone (RRS 18.2(b); not between
 //       opposite tacks on a beat, ended when the entitled boat passes head to wind or leaves the zone; none at all when one of them
-//       was tacking when the first reached the zone: RRS 18.3, simplified), and when a boat gained
+//       was tacking inside the zone when the first reached it: RRS 18.3, simplified), and when a boat gained
 //       right of way. Within 1.2 s of a gain: gained by its own action (a finished tack or penalty, an overlap from clear astern)
 //       -> the gainer broke R15 (offender, rule 'R15', reason R15-gain); otherwise -> excused. Neither when the give-way boat could
 //       have kept clear by holding the course it had at the gain (it steered into a boat that left room): its base rule stands.
 //       excused: nobody is penalised
-//       (R15: the other boat had only just gained right of way; R16: the right-of-way boat turned so the hulls came closer, except
-//       a boat entitled to mark-room, sailing within it: RRS 21).
+//       (R15: the other boat had only just gained right of way; R16: the right-of-way boat turned so the hulls came closer, at most
+//       REACT after its turn became noticeable (TURN), except a boat entitled to mark-room, sailing within it: RRS 21).
 // Boats may be physics boats or light scenario objects {x, y, heading, length?, tack?, r13?, isPower?, speed?, name?}.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -53,7 +57,8 @@
       'rules.reason.R13': 'Den der slår, viger! {give} er midt i en vending og skal holde af vejen, til den er på bidevind igen.',
       'rules.reason.R18': 'Mærkeplads! {stand} ligger inderst ved mærket inden for zonen på 3 bådlængder – {give} skal give plads.',
       'rules.reason.R18-astern': 'Mærkeplads! {stand} kom først ind i zonen klar foran – {give} bagved skal give plads ved mærket.',
-      'rules.reason.R22': 'Den der vender tilbage eller tager straf, viger! {give} er på vej tilbage over startlinjen eller sejler en strafrunde og skal holde af vejen for {stand}.',
+      'rules.reason.R18-tack': 'Vending i zonen! {give} vendte inden for zonen og må ikke tvinge {stand} op over bidevind.',
+      'rules.reason.R22': 'Den der vender tilbage eller tager straf, viger! {give} er på vej tilbage over startlinjen eller er midt i en strafrunde og skal holde af vejen for {stand}.',
       'rules.reason.R15': 'Ingen straf: {give} nåede ikke at holde fri – {stand} havde lige fået retten.',
       'rules.reason.R16': 'Ingen straf: {give} nåede ikke at holde fri – {stand} drejede hen imod {give}.',
       'rules.reason.R15-gain': 'Tid til at holde fri! {give} fik lige retten (efter en vending eller bagfra) og gav ikke {stand} tid til at holde fri.',
@@ -92,7 +97,8 @@
       'rules.reason.R13': 'Tacking boat keeps clear! {give} is in the middle of a tack and must stay out of the way until close-hauled again.',
       'rules.reason.R18': 'Mark-room! {stand} is on the inside at the mark, inside the 3-length zone – {give} must give room.',
       'rules.reason.R18-astern': 'Mark-room! {stand} reached the zone clear ahead – {give} behind must give room at the mark.',
-      'rules.reason.R22': 'Returning or penalised boat keeps clear! {give} is going back over the start line or doing a penalty turn and must keep clear of {stand}.',
+      'rules.reason.R18-tack': 'Tacking in the zone! {give} tacked inside the zone and must not make {stand} sail above close-hauled.',
+      'rules.reason.R22': 'Returning or penalised boat keeps clear! {give} is going back over the start line or in the middle of a penalty turn and must keep clear of {stand}.',
       'rules.reason.R15': 'No penalty: {give} had no time to keep clear – {stand} had only just got right of way.',
       'rules.reason.R16': 'No penalty: {give} had no time to keep clear – {stand} turned towards {give}.',
       'rules.reason.R15-gain': 'Time to keep clear! {give} had only just got right of way (after a tack or from behind) and gave {stand} no time to keep clear.',
@@ -228,6 +234,7 @@
     const lat = p => -p.x * hy + p.y * hx; // across the course, + = starboard
     const la = lat(a), lb = lat(b);
     if (Math.abs(la - lb) < 0.05) return U.dist(a, m) < U.dist(b, m) ? a : b; // in line: the nearer boat
+    if (m.line && !m.round) { const lm = lat(m); return Math.abs(la - lm) <= Math.abs(lb - lm) ? a : b; } // a line's end (finish): the boat on the mark's side
     const stbd = (m.round || m.side) === 'starboard';
     return (stbd ? la > lb : la < lb) ? a : b;
   }
@@ -244,9 +251,27 @@
     if (m.start && !(startedOf(a) && startedOf(b))) return false; // no mark-room at a starting mark before the start
     return headsFor(a, m, ctx) && headsFor(b, m, ctx);
   }
-  /** RRS 22: an OCS boat sailing back towards the pre-start side and a boat doing penalty turns keep clear of everyone else.
-   *  ret === false (rc.ret / ret): OCS but sailing on up the course, not returning - then the normal rules apply (RRS 22.1). */
-  function keepsClear(b) { const o = b.rc || b; return !!((o.ocs && o.ret !== false) || o.pen); }
+  /** RRS 22: an OCS boat sailing back towards the pre-start side and a boat taking a penalty turn keep clear of everyone else.
+   *  ret === false (rc.ret / ret): OCS but sailing on up the course, not returning - then the normal rules apply (RRS 22.1).
+   *  pen: true (light objects) or a penalty record whose .turning is set (penTurning): a boat that owes a turn but sails on has
+   *  its normal rights (RRS 22.2 only applies while it is taking the penalty). */
+  function penOn(p) { return p === true || !!(p && p.turning); }
+  function keepsClear(b) { const o = b.rc || b; return !!((o.ocs && o.ret !== false) || penOn(o.pen)); }
+  const PEN_RUN = R(120); // turned one way by more than a tack (with overshoot): the turn is under way
+  /** Is a boat that owes a penalty turn taking it now? p = its penalty record, dh = its heading change this step. Yes while the
+   *  game steers the turn for it (p.ctl, set by the steering helper this step: the turn button, the autopilot, an AI helm) or once
+   *  it has turned one way by more than PEN_RUN, until it sails straight (under 4 deg/s) for 1.5 s or turns back by 15 deg.
+   *  Sets p.turning, clears p.ctl, returns p.turning. */
+  function penTurning(p, dh, dt) {
+    if (!p) return false;
+    dt = dt || KOS.DT;
+    if (Math.abs(dh) < R(4) * dt) { p.calm = (p.calm || 0) + dt; if (p.calm >= 1.5) p.run = 0; } else p.calm = 0;
+    if (!p.run || Math.sign(dh) === Math.sign(p.run)) { p.run = (p.run || 0) + dh; p.back = 0; }
+    else { p.back = (p.back || 0) + dh; if (Math.abs(p.back) > R(15)) { p.run = p.back; p.back = 0; } }
+    p.turning = !!(p.ctl || Math.abs(p.run) >= PEN_RUN);
+    p.ctl = false;
+    return p.turning;
+  }
 
   function isBeating(b, wd) { return Math.abs(U.wrapPi(wd - (b.heading || 0))) < R(80); }
   /** RRS 18.1(a): no mark-room between boats on opposite tacks on a beat. */
@@ -300,12 +325,20 @@
         const zoneL = ctx.zone || 3;
         if (!oppBeat(a, b, ctx.wind, wd)) {
           for (const m of ctx.marks) {
-            if (!r18At(a, b, m, ctx)) continue;
+            const memo = ctx.room && ctx.room(m); // RRS 18.2(b): the state when the first of the two reached the zone
+            if (!r18At(a, b, m, ctx) && !(memo && memo.hold)) continue; // hold: the entitled boat is still rounding the mark it just passed
             const da = U.dist(a, m), db = U.dist(b, m);
             const zr = zoneL * (da < db ? lengthOf(a) : lengthOf(b));
             if (Math.min(da, db) > zr) continue; // RRS 18.1: rule 18 applies once at least one of the two is in the zone
-            const memo = ctx.room && ctx.room(m); // RRS 18.2(b): the state when the first of the two reached the zone
-            if (memo && memo.off) continue; // RRS 18.3: a boat tacked in the zone, 18.2 does not apply between them (R10/R11 do)
+            if (memo && memo.off) { // RRS 18.3: a boat tacked in the zone, 18.2 does not apply between them (R10/R11 do), but
+              // 18.3(a): the tacker must not make a boat on starboard sail above close-hauled to avoid it (the classic tack under)
+              const tk = memo.tacker === a ? a : memo.tacker === b ? b : null, o = tk === a ? b : a, w = ctx.wind !== undefined ? wd : undefined;
+              if (tk && tackOf(o, w) === 'starboard' && tackOf(tk, w) === 'starboard' && !isWindward(tk, o, wd, 'starboard') &&
+                Math.abs(U.wrapPi(wd - (o.heading || 0))) <= (o.cls && o.cls.noGo ? o.cls.noGo : R(45)) + R(10)) {
+                return result(o, tk, 'R18', 'rules.reason.R18-tack');
+              }
+              continue;
+            }
             if (memo && (memo.boat === a || memo.boat === b)) {
               const k = memo.astern ? 'rules.reason.R18-astern' : null;
               return memo.boat === a ? result(a, b, 'R18', k) : result(b, a, 'R18', k);
@@ -391,10 +424,25 @@
           const st = { r13: !!(b.r13 || b.tacking), tack: tackOf(b, b.tack ? undefined : windDirOf(wind, b)), kc: keepsClear(b) };
           const p = seen[ids[i]];
           const hs = p ? p.hs : [];
-          const v = velOf(b); // heading, position and velocity: R16 and the held-course check below
-          hs.push({ t, h: b.heading || 0, x: b.x, y: b.y, vx: v.x, vy: v.y });
+          const h = b.heading || 0, v = velOf(b), hPrev = hs.length ? hs[hs.length - 1].h : h; // heading, position and velocity: R16 and the held-course check below
+          hs.push({ t, h, x: b.x, y: b.y, vx: v.x, vy: v.y });
           while (hs.length > 2 && hs[1].t <= t - REACT) hs.shift();
-          seen[ids[i]] = Object.assign(st, { hs });
+          // the course change under way (R16): the heading before it (h0), its direction, and when it first reached TURN (tn);
+          // prev = the last finished one. Steady (under 3 deg/s) or turning back starts a new one. calmT = when it last turned.
+          const tc = p ? p.tc : { h0: h, dir: 0, tn: null, prev: null, calmT: t };
+          if (p) {
+            const dh = U.angDiff(hPrev, h), turning = Math.abs(dh) >= R(3) * (dt || KOS.DT);
+            if (!turning || (tc.dir && Math.sign(dh) !== tc.dir)) {
+              if (tc.tn !== null) tc.prev = { h0: tc.h0, tn: tc.tn };
+              tc.h0 = turning ? hPrev : h; tc.dir = 0; tc.tn = null;
+            }
+            if (turning) {
+              tc.calmT = t;
+              if (!tc.dir) tc.dir = Math.sign(dh);
+              if (tc.tn === null && Math.abs(U.angDiff(tc.h0, h)) >= TURN) tc.tn = t;
+            }
+          }
+          seen[ids[i]] = Object.assign(st, { hs, tc });
           act[i] = !!p && ((!st.r13 && p.r13) || st.tack !== p.tack || (!st.kc && p.kc));
           htw[i] = !!p && ((st.r13 && !p.r13) || (st.tack !== p.tack && isBeating(b, windDirOf(wind, b))));
           return !!p && ((st.r13 && !p.r13) || st.tack !== p.tack || (st.kc && !p.kc));
@@ -402,8 +450,12 @@
         // R16, judged by its effect: the right-of-way boat at i changed course within the last REACT seconds, and its new course
         // brings the hulls closer than the old one would have (turning into the other boat's way). A turn that opens the
         // approach (ducking, bearing away from it) takes no room away and excuses nobody.
+        // The turn must be a fresh one: it became noticeable (TURN) at most REACT ago. A steady luff that has run for longer gave
+        // the give-way boat its time to respond, however fast it still is (RRS 16.1: room to keep clear).
         const turnedTowards = (i, j) => {
-          const so = boats[i], h0 = seen[ids[i]].hs[0].h, h1 = so.heading || 0;
+          const tc = seen[ids[i]].tc, tr = tc.tn !== null ? tc : tc.prev;
+          if (!tr || tr.tn === null || t - tr.tn > REACT + 1e-6) return false;
+          const so = boats[i], h0 = tr.h0, h1 = so.heading || 0;
           if (Math.abs(U.angDiff(h0, h1)) < TURN) return false;
           const was = approach(so, boats[j], h0), now = approach(so, boats[j], h1);
           return now.min < was.min - 0.05 || (now.min <= was.min + 0.05 && now.mean < was.mean - 0.05);
@@ -436,7 +488,10 @@
               for (const m of marks) {
                 const mk = markKey(m), da = U.dist(a, m), db = U.dist(b, m);
                 const zr = 3 * (da < db ? lengthOf(a) : lengthOf(b));
-                const goneA = da > zr || !headsFor(a, m, rctx), goneB = db > zr || !headsFor(b, m, rctx);
+                // a boat has passed the mark once its next mark changed (race.js: the leg) and it has finished turning round it (on
+                // its new course for 0.8 s): the leg changes some way into a rounding, and the mark-room lasts to the end of it
+                const passed = (bb, k) => !headsFor(bb, m, rctx) && t - seen[ids[k]].tc.calmT >= 0.8;
+                const goneA = da > zr || passed(a, i), goneB = db > zr || passed(b, j);
                 const memo = P && P.room[mk];
                 if (memo) {
                   if (goneA && goneB) { delete P.room[mk]; continue; } // both left the zone / passed the mark
@@ -444,14 +499,16 @@
                   const e = memo.id === ids[i] ? i : j;
                   if (htw[e]) { memo.id = null; continue; } // the entitled boat passed head to wind in the zone (RRS 18.2(c)(1), 18.3)
                   if (e === i ? goneA : goneB) delete P.room[mk]; // the entitled boat left the zone or passed the mark (18.2(c)(2))
-                  else continue;
+                  else { memo.hold = !headsFor(a, m, rctx) || !headsFor(b, m, rctx); continue; }
                 }
                 if ((goneA && goneB) || !r18At(a, b, m, rctx)) continue;
                 if (oppBeat(a, b, wind, wd)) continue; // RRS 18.1(a): no mark-room between opposite tacks on a beat, nothing to fix
                 // the first of the two has just reached the zone: an overlap gives the inside boat room, else the boat clear ahead.
-                // A boat tacking right then (RRS 18.3, simplified: passing head to wind in the zone) fixes nothing: 18.2 does not
-                // apply between these two at this mark until both have left the zone
-                if (htw[i] || htw[j] || seen[ids[i]].r13 || seen[ids[j]].r13) { pair().room[mk] = { id: null, astern: false, off: true }; continue; }
+                // A boat tacking right then inside the zone itself (RRS 18.3, simplified: a boat in the zone passes head to wind)
+                // fixes nothing: 18.2 does not apply between these two at this mark until both have left the zone. A boat tacking
+                // outside the zone does not take the other boat's entitlement away.
+                const tackZ = k => (htw[k] || seen[ids[k]].r13) && U.dist(boats[k], m) <= 3 * lengthOf(boats[k]);
+                if (tackZ(i) || tackZ(j)) { pair().room[mk] = { id: null, astern: false, off: true, tacker: tackZ(i) ? ids[i] : ids[j] }; continue; }
                 pair().room[mk] = noneAhead(a, b) ? { id: insideOf(a, b, m) === a ? ids[i] : ids[j], astern: false }
                   : { id: clearAstern(a, b) ? ids[j] : ids[i], astern: true };
               }
@@ -462,7 +519,11 @@
             pair();
             const row = rightOfWay(a, b, {
               wind, marks, mode: opts.mode, nextMark: opts.nextMark,
-              room: m => { const r = P.room[markKey(m)]; return r && r.off ? { off: true } : r && r.id !== null ? { boat: r.id === ids[i] ? a : b, astern: r.astern } : null; },
+              room: m => {
+                const r = P.room[markKey(m)];
+                if (r && r.off) return { off: true, tacker: r.tacker === ids[i] ? a : r.tacker === ids[j] ? b : null };
+                return r && r.id !== null ? { boat: r.id === ids[i] ? a : b, astern: r.astern, hold: !!r.hold } : null;
+              },
             });
             const si = row.standOn === a ? i : row.standOn === b ? j : -1;
             const soId = si >= 0 ? ids[si] : null;
@@ -528,6 +589,6 @@
 
   KOS.Rules = {
     rightOfWay, overlapped, isWindward, clearAstern, tackOf, overtaking, explain, ruleName, monitor, hullGap,
-    isPower, insideOf, keepsClear, oppBeat, strings: STR, register,
+    isPower, insideOf, keepsClear, penTurning, oppBeat, strings: STR, register,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

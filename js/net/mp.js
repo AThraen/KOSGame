@@ -12,13 +12,16 @@
 //     retryNow()            the "Prøv nu" button / back online: an immediate resume attempt (still one retry chain)
 //     detach()              the race screen was left ("Til kortet", back, quit): the socket is closed, the seat is KEPT (no leave)
 //     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, schedcancelled, reconnecting, reconnected,
-//                            away (15 s reconnecting: "still trying"), gone ({rows}: the race ended while away, nocode), replaced (4409:
+//                            away (15 s reconnecting: "still trying"), gone ({rows, why}: the seat is gone, nocode; why 'over' = the race
+//                            ended while away, 'closed' = the lobby was closed, 'dropped' = it started without this seat, 'full'), replaced (4409:
 //                            the seat is open in another window), detached, offline (lost with no seat), status, error
 //   KOS.MP.parseJoin(hash) -> 'ABCD'|null     KOS.MP.normCode(str) -> 'ABCD'|null
 //   KOS.MP.fetchRooms(wsUrl, {timeoutMs}) -> Promise<rows>   GET /rooms next to the socket URL (no socket); rejects {code:'unreachable'|'rate'}
 //   KOS.MP.roomsUrl(wsUrl) -> 'https://host/mp/rooms'
 //   KOS.MP.seat() -> {code,id,key,url,exp,phase,startedAt}|null   the rejoin entry in localStorage (spec E4): exp = last contact + 2 h,
-//                         refreshed on contact and every 60 s; cleared on retire (leave), kick, hostleft, results and expiry
+//                         refreshed on contact and every 60 s; cleared on retire (leave), kick, hostleft, results and expiry. The session
+//                         keeps its token (and this tab's sessionStorage copy) through the results: a drop on the podium is resumed, so
+//                         a rematch still takes the sailor along, and a reload there shows the result again
 //   KOS.MP.lastResult(code?) -> {code, rows, myId, at}|null   the official table of the last race (30 min, localStorage)
 //   KOS.MP.retire(seat, {url, name}) -> Promise   "Udgå" from the title/hub banner: resume + leave, then the seat is forgotten (always resolves)
 //   KOS.MP.clearSeat()    KOS.MP.LEVEL   client protocol level sent in hello (cp); the server can refuse builds below it ('old')
@@ -193,7 +196,7 @@
       return () => { const l = subs[evt] || []; const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); };
     };
     const racing = () => S.phase === 'countdown' || S.phase === 'racing';
-    const seated = () => !!S.token && (S.phase === 'lobby' || racing()); // a seat the server keeps for us: a lost socket is resumed, never given up
+    const seated = () => !!S.token && (S.phase === 'lobby' || S.phase === 'results' || racing()); // a seat the server keeps for us: a lost socket is resumed, never given up
     // a send that fails, or a socket that is not OPEN while racing, starts the reconnect (the watchdog below does the same on silence)
     const raw = (msg) => {
       try {
@@ -277,7 +280,7 @@
     // the seat record (spec E4): exp = last contact + 2 h, rewritten at most once a minute (and at once when the phase changes)
     const seatX = () => ({ phase: S.phase, startedAt: S.T0 || 0, at: lastContact });
     function touchSeat(force) {
-      if (!S.token || final) return;
+      if (!S.token || final || S.phase === 'results') return; // the banner never offers a race whose result is in
       const t = Date.now();
       if (!force && t - seatAt < 60000) return;
       seatAt = t; storeSeat(S.token, opts.url, seatX());
@@ -288,11 +291,14 @@
     function handle(m) {
       switch (m.t) {
         case 'pong': onPong(m); break;
-        case 'created': case 'joined':
+        case 'created': case 'joined': {
+          const was = S.phase;
           setToken(m); setRoom(m.room);
           if (pending && pending.t === m.t) { const p = pending; pending = null; clearTimeout(p.timer); p.res(m.room); }
+          else if (was === 'results' && S.phase === 'lobby') { S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; emit('rematch', m.room, false); } // back after a drop on the podium: the rematch happened meanwhile
           else emit('room', m.room);
           break;
+        }
         case 'rooms': if (pending && pending.t === 'rooms') { const p = pending; pending = null; clearTimeout(p.timer); p.res(Array.isArray(m.rooms) ? m.rooms : []); } break;
         case 'scheduled': if (pending && pending.t === 'scheduled') { const p = pending; pending = null; clearTimeout(p.timer); p.res(m); } break;
         case 'schedcancelled': // our own cancel request, or the scheduled room we sit in was called off (why 'host' | 'few')
@@ -312,7 +318,8 @@
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
         case 'foul': if (typeof m.from === 'number') emit('foul', { from: m.from, r: String(m.r || ''), self: m.s === 1 }); break; // another phone says our boat fouled theirs (self: its own boat fouled ours)
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
-        case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; saveResult(S.code, m.rows, S.id); clearToken(); emit('res', m.rows); break;
+        case 'res': // the result is in: the banner's seat record goes (it must not offer a finished race), the token stays for a rematch
+          S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; saveResult(S.code, m.rows, S.id); storeSeat(null, null, { code: S.code }); emit('res', m.rows); break;
         case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token
           if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token, opts.url, seatX()); } S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; setRoom(m.room); emit('rematch', m.room, !!m.aborted); }
           break;
@@ -410,7 +417,7 @@
       openSocket(opts, (sk) => {
         if (over || S.state !== 'reconnecting') { try { sk.close(); } catch (e) { /* ignore */ } return; }
         s2 = sk;
-        let resumed = false;
+        let resumed = false, rejoin = null; // rejoin: the resume found the seat gone but the lobby alive, a join is on its way
         sk.onmessage = (ev) => {
           let m; try { m = JSON.parse(String(ev.data)); } catch (e) { return; }
           if (resumed) return;
@@ -420,12 +427,23 @@
             clearTimeout(awayTimer); clearTimeout(retryTimer);
             sock = sk; attach(sk); lastRx = now(); lastContact = Date.now(); grace = now() + 2000;
             S.state = 'ok'; S.away = false; S.reconnects++; handle(m); touchSeat(true); startSync(); emit('reconnected');
-          } else if (m.t === 'err' && m.code === 'nocode') { // the race is over and its room gone (or the seat was dropped): stop for good
+          } else if (m.t === 'err' && (m.code === 'nocode' || rejoin)) {
+            // the seat is gone. alive = the room is still there: in its lobby, simply join it again on this socket (the seat was dropped
+            // while the phone was away, a rematch left it behind, the server restarted). Otherwise stop for good and say why
+            if (m.code === 'nocode' && m.alive === 'lobby' && !rejoin) {
+              rejoin = { rows: Array.isArray(m.rows) ? m.rows : null };
+              const msg = { t: 'join', code: S.token.code };
+              if (S.secret) msg.secret = S.secret;
+              try { sk.send(JSON.stringify(msg)); } catch (e) { next(); }
+              return;
+            }
             over = true; clearTimeout(guard); trying = false;
             try { sk.close(); } catch (e) { /* ignore */ }
-            const rows = Array.isArray(m.rows) ? m.rows : null;
+            const rows = Array.isArray(m.rows) ? m.rows : rejoin && rejoin.rows;
             if (rows) saveResult(S.code, rows, S.id);
-            clearToken(); shut(); emit('gone', { rows: rows || (lastResult(S.code) || {}).rows || null });
+            const why = rejoin ? (m.code === 'started' ? 'dropped' : m.code === 'full' ? 'full' : 'closed')
+              : rows ? 'over' : m.alive === 'countdown' || m.alive === 'racing' ? 'dropped' : S.phase === 'lobby' ? 'closed' : 'over';
+            clearToken(); shut(); emit('gone', { rows: rows || (lastResult(S.code) || {}).rows || null, why });
           } else if (m.t === 'err') next();
         };
         sk.onclose = () => { if (!resumed) next(); };
@@ -453,7 +471,7 @@
     S.join = (code, secret) => {
       const c = normCode(code);
       const msg = { t: 'join', code: c };
-      if (typeof secret === 'string' && /^[0-9a-f]{32}$/.test(secret)) msg.secret = secret; // the creator of a scheduled race takes the host seat
+      if (typeof secret === 'string' && /^[0-9a-f]{32}$/.test(secret)) { msg.secret = secret; S.secret = secret; } // the creator of a scheduled race takes the host seat (again, after a drop)
       return c ? request('joined', msg) : Promise.reject({ code: 'nocode' });
     };
     S.list = () => request('rooms', { t: 'list' });
