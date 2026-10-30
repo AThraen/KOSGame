@@ -1,6 +1,8 @@
 'use strict';
 // Message validation for the live race server. Pure, no sockets.
-const PROTOCOL_VERSION = 1;
+// 2: st flags carry 64 (port tack) and 128 (R13 tacking/luffing); new messages foul, list, sched, schedcancel; join may carry a host secret.
+// A hello with a lower v is answered with err 'old' (the friendly "update the game" path), not 'proto'.
+const PROTOCOL_VERSION = 2;
 // Client protocol level: 0/absent = a build from before the version gate (v0.8.4 and older). Raised when the wire behaviour a client needs changes.
 const CLIENT_LEVEL_NOW = 2;
 const MAX_FRAME = 2048;
@@ -22,7 +24,8 @@ function normCode(s) {
 const fin = n => typeof n === 'number' && Number.isFinite(n);
 const int = n => fin(n) && Math.floor(n) === n;
 
-const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, contact: true, help: 'free', rain: 0, finishS: 180 };
+const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, contact: true, help: 'free', rain: 0, finishS: 180, vis: 'private' };
+const SCHED_TITLES = ['train', 'friday', 'club', 'xmas', 'weekend']; // fixed preset names (no free text); the client translates the id
 function clampNum(v, lo, hi, def) {
   if (!fin(v)) return def;
   return Math.min(hi, Math.max(lo, v));
@@ -45,6 +48,7 @@ function sanitizeCfg(cfg, base, hardMaxP) {
   if (c.countdownS !== undefined) out.countdownS = Math.round(clampNum(c.countdownS, 8, 180, b.countdownS));
   if (c.rain !== undefined) out.rain = Math.round(clampNum(c.rain, 0, 2, b.rain));
   if (c.finishS !== undefined) out.finishS = c.finishS === 0 ? 0 : Math.round(clampNum(c.finishS, 5, 1800, b.finishS)); // 0 = no limit
+  if (c.vis === 'private' || c.vis === 'open') out.vis = c.vis;
   if (typeof c.pen === 'boolean') out.pen = c.pen;
   if (typeof c.contact === 'boolean') out.contact = c.contact;
   if (c.help === 'locked' || c.help === 'free') out.help = c.help;
@@ -73,7 +77,24 @@ function validate(raw) {
     case 'join': {
       const code = normCode(m.code);
       if (!code) return { ok: true, msg: { t: 'join', code: null } };
-      return { ok: true, msg: { t: 'join', code } };
+      // secret: the creator of a scheduled race takes the host seat back with it
+      return { ok: true, msg: { t: 'join', code, secret: typeof m.secret === 'string' && /^[0-9a-f]{32}$/.test(m.secret) ? m.secret : '' } };
+    }
+    case 'list': // open race list; answered with {t:'rooms'}
+      return { ok: true, msg: { t: 'list' } };
+    case 'foul': { // the stand-on phone tells the offender's phone: o = offender id, r = rule label ("10", "11", "18.2" ...)
+      const r = clean(m.r, 12);
+      if (!int(m.o) || m.o < 1 || !r) return bad;
+      return { ok: true, msg: { t: 'foul', o: m.o, r } };
+    }
+    case 'sched': { // schedule a race: fixed title id, UTC start, cfg
+      if (!m.cfg || typeof m.cfg !== 'object' || SCHED_TITLES.indexOf(m.title) < 0 || !int(m.startAt)) return bad;
+      return { ok: true, msg: { t: 'sched', cfg: m.cfg, title: m.title, startAt: m.startAt } };
+    }
+    case 'schedcancel': {
+      const code = normCode(m.code);
+      if (!code || typeof m.secret !== 'string' || !/^[0-9a-f]{32}$/.test(m.secret)) return bad;
+      return { ok: true, msg: { t: 'schedcancel', code, secret: m.secret } };
     }
     case 'cfgset':
       if (!m.cfg || typeof m.cfg !== 'object') return bad;
@@ -111,4 +132,4 @@ function parseVer(s) {
 }
 function cmpVer(a, b) { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1; return 0; }
 
-module.exports = { CLIENT_LEVEL_NOW, parseVer, cmpVer, PROTOCOL_VERSION, MAX_FRAME, MAX_ST, ALPHABET, COLORS, CFG_DEFAULTS, validate, normCode, sanitizeCfg, clean };
+module.exports = { SCHED_TITLES, CLIENT_LEVEL_NOW, parseVer, cmpVer, PROTOCOL_VERSION, MAX_FRAME, MAX_ST, ALPHABET, COLORS, CFG_DEFAULTS, validate, normCode, sanitizeCfg, clean };

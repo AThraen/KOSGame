@@ -1,6 +1,7 @@
 'use strict';
 // KOS race server: relays states and keeps the clock. Only dependency: ws.
 // Env: PORT (default 8787), HOST (127.0.0.1), KOS_STATUS_FILE, KOS_ORIGINS (comma list of hostnames),
+//      KOS_SCHEDULE_FILE (pending scheduled races, JSON, survives a restart; unset = memory only),
 //      KOS_MAX_ROOMS, KOS_MAX_PLAYERS, KOS_MAX_CONNS, KOS_MAX_PER_IP, KOS_MIN_CLIENT (e.g. 0.8.5), KOS_MIN_PROTO (e.g. 2).
 // The status file may carry minClient / minProto too (watched like mode, no restart); the stricter of file and env wins.
 const http = require('http');
@@ -9,6 +10,7 @@ const P = require('./lib/protocol');
 const { createRooms } = require('./lib/rooms');
 const { createBucket, createConnCounter, createDropTracker } = require('./lib/limits');
 const { createStatus } = require('./lib/status');
+const schedFile = require('./lib/schedfile');
 
 const num = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n : d; };
 
@@ -21,7 +23,10 @@ function createServer(env) {
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const IDLE_MS = num(env.KOS_IDLE_MS, 60000);
 
-  const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000) });
+  const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000),
+    onSchedChange: (list) => schedFile.save(env.KOS_SCHEDULE_FILE, list) });
+  rooms.restore(schedFile.load(env.KOS_SCHEDULE_FILE));
+  const listIp = new Map(); // ip -> bucket for GET /rooms
   const conns = createConnCounter({ maxTotal: num(env.KOS_MAX_CONNS, 300), maxPerIp: num(env.KOS_MAX_PER_IP, 20) });
   const started = Date.now();
 
@@ -68,8 +73,35 @@ function createServer(env) {
         rssMb: Math.round(m.rss / 1048576), uptimeS: Math.round((Date.now() - started) / 1000) }));
       return;
     }
+    if (req.method === 'GET' && (req.url === '/rooms' || req.url.startsWith('/rooms?'))) return roomsHttp(req, res);
+    if (req.method === 'OPTIONS' && req.url === '/rooms') return roomsHttp(req, res);
     res.writeHead(404); res.end();
   });
+
+  // The open race list over plain HTTP (no socket needed to show it). CORS like the websocket origins; per-IP rate limit.
+  function roomsHttp(req, res) {
+    const o = req.headers.origin;
+    const head = { 'content-type': 'application/json', 'cache-control': 'no-store', vary: 'Origin' };
+    if (o) {
+      let okOrigin = false;
+      try { okOrigin = origins.includes(new URL(o).hostname.toLowerCase()); } catch (e) { /* bad origin */ }
+      if (!okOrigin) { res.writeHead(403); res.end(); return; }
+      head['access-control-allow-origin'] = o;
+      head['access-control-allow-methods'] = 'GET';
+    }
+    if (req.method === 'OPTIONS') { res.writeHead(204, head); res.end(); return; }
+    const ip = clientIp(req);
+    let b = listIp.get(ip);
+    if (!b) {
+      if (listIp.size > 2000) listIp.clear();
+      b = createBucket({ rate: 0.5, burst: 6 }); listIp.set(ip, b);
+    }
+    if (!b.take()) { res.writeHead(429, Object.assign({ 'retry-after': '2' }, head)); res.end('{"rooms":[]}'); return; }
+    res.writeHead(200, head);
+    res.end(JSON.stringify({ rooms: roomList() }));
+  }
+  // hidden/closed (the status-file kill switch) shows an empty list
+  const roomList = () => (status.current().mode === 'on' ? rooms.listRooms() : []);
 
   const wss = new WebSocketServer({
     server, maxPayload: 4096,
@@ -97,7 +129,7 @@ function createServer(env) {
     const racing = () => !!(c.room && (c.room.phase === 'racing' || c.room.phase === 'countdown'));
     const send = (m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
     c.send = send;
-    const err = (code, msg) => send(msg ? { t: 'err', code, msg } : { t: 'err', code });
+    const err = (code, msg, extra) => send(Object.assign({ t: 'err', code }, msg ? { msg } : null, extra));
     const strike = () => { err('bad'); if (++c.strikes >= 3) ws.close(4400, 'bad'); };
     const bind = (res, t) => {
       c.room = res.room; c.id = res.player.id;
@@ -123,6 +155,8 @@ function createServer(env) {
       }
       if (!c.hello) {
         if (m.t !== 'hello') return strike();
+        // an older protocol gets the friendly 'old' (update the game) answer; a newer one than ours is 'proto'
+        if (m.v < P.PROTOCOL_VERSION) { send({ t: 'err', code: 'old', min: minText(), proto: minimum().proto || 0 }); setTimeout(() => ws.close(4426, 'old'), 50); return; }
         if (m.v !== P.PROTOCOL_VERSION) { err('proto'); ws.close(4400, 'proto'); return; }
         c.name = m.name; c.ver = m.ver; c.cp = m.cp;
         if (tooOld(c)) { send({ t: 'err', code: 'old', min: minText(), proto: minimum().proto || 0 }); setTimeout(() => ws.close(4426, 'old'), 50); return; }
@@ -149,8 +183,8 @@ function createServer(env) {
           if (tooOld(c)) return err('old');
           const s = status.current();
           if (s.mode === 'hidden') return err('closed', s.message);
-          const res = rooms.join({ name: c.name, send, ip, ver: c.ver }, m.code);
-          if (res.err) return err(res.err);
+          const res = rooms.join({ name: c.name, send, ip, ver: c.ver }, m.code, m.secret);
+          if (res.err) return err(res.err, undefined, res.extra);
           bind(res, 'joined');
           break;
         }
@@ -168,6 +202,28 @@ function createServer(env) {
           if (res.room.phase === 'results') send({ t: 'res', rows: res.room.results });
           break;
         }
+        case 'list': { // the open race list; at most one answer per 2 s (a burst of 3), then err 'rate'
+          if (!c.listB) c.listB = createBucket({ rate: 0.5, burst: 3 });
+          if (!c.listB.take()) return err('rate');
+          send({ t: 'rooms', rooms: roomList() });
+          break;
+        }
+        case 'sched': {
+          if (r) return err('bad');
+          if (tooOld(c)) return err('old');
+          const s = status.current();
+          if (s.mode !== 'on') return err('closed', s.message); // the kill switch blocks new schedules; existing ones are kept
+          const res = rooms.schedule({ name: c.name, ip }, m.cfg, m.title, m.startAt);
+          if (res.err) return err(res.err);
+          send({ t: 'scheduled', code: res.entry.code, secret: res.secret, title: res.entry.title, startAt: res.entry.startAt, opensAt: res.entry.startAt - 15 * 60000, cfg: res.entry.cfg });
+          break;
+        }
+        case 'schedcancel': {
+          const res = rooms.scheduleCancel(m.code, m.secret);
+          if (res === 'ok') send({ t: 'schedcancelled', code: m.code, why: 'host' }); else err(res === 'nocode' ? 'nocode' : 'bad');
+          break;
+        }
+        case 'foul': if (r) rooms.foul(r, c.id, m.o, m.r); break;
         case 'cfgset': if (r) rooms.setCfg(r, c.id, m.cfg); break;
         case 'kick': {
           if (!r) return;

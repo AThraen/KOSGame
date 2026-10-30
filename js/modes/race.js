@@ -398,8 +398,8 @@
     const at = (u, r) => ({ x: O.x + up.x * u + right.x * r, y: O.y + up.y * u + right.y * r });
 
     const bias = U.rad(P.bias || 0), h = lineLen / 2;
-    const pin = Object.assign(at(h * Math.sin(bias), -h * Math.cos(bias)), { kind: 'pin', r: 0.9, id: 'pin' });
-    const com = Object.assign(at(-h * Math.sin(bias), h * Math.cos(bias)), { kind: 'committee', r: 3.4, id: 'committee', heading: wd });
+    const pin = Object.assign(at(h * Math.sin(bias), -h * Math.cos(bias)), { kind: 'pin', r: 0.9, id: 'pin', start: true }); // start: no mark-room here before the start (RRS 18.1)
+    const com = Object.assign(at(-h * Math.sin(bias), h * Math.cos(bias)), { kind: 'committee', r: 3.4, id: 'committee', heading: wd, start: true });
     const line = { a: pin, b: com };
     let nrm = U.vec(U.bearing(pin, com) + Math.PI / 2);
     if (nrm.x * up.x + nrm.y * up.y < 0) nrm = { x: -nrm.x, y: -nrm.y };
@@ -539,7 +539,14 @@
     let controls = KOS.Physics.controls();
     controls.autoTrim = assist !== 'pro';
     controls.autoHike = assist === 'easy';
-    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: !!LIVE });
+    // the marks a boat is bound for next (RRS 18.1: mark-room only between boats heading for the same mark; a gate = both its marks)
+    const nextMarkIds = b => {
+      const it = b.rc && seq[b.rc.leg];
+      if (!it) return null;
+      if (it.type === 'mark') return it.m.gate ? it.m.gate.map(g => g.id) : [it.m.id];
+      return it.type === 'finish' ? [FL.a.id, FL.b.id] : [pin.id, com.id];
+    };
+    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: !!LIVE, nextMark: nextMarkIds });
 
     // ---------------------------------------------------------------- scene, input, HUD
     const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: WATCH ? null : me, marks: marks.concat([pin], fpin ? [fpin] : []), lines: [{ a: pin, b: com, kind: 'start' }].concat(fpin ? [{ a: fpin, b: fcom, kind: 'finish' }] : []),
@@ -809,6 +816,11 @@
       if (LIVE && a !== me && v !== me) return; // two other players: their business
       if (!a || !v || a.rc.finT != null || v.rc.finT != null) return;
       if (v.rc.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
+      if (f.excused) { // RRS 15/16: the give-way boat had no time to keep clear: no penalty for anyone, the reason says why
+        const k = 'ex|' + a.id + '|' + v.id;
+        if (f.contact && (a === me || v === me) && !(S.cool[k] > now)) { S.cool[k] = now + 12; say(t(f.reasonKey, f.reasonVars || {}), 5000); }
+        return;
+      }
       const gap = KOS.Rules.hullGap ? KOS.Rules.hullGap(a, v) : 0;
       if (!f.contact) { // close call, no contact: the coach warns the player once in a while, no penalty
         if (a === me && gap < 0.4 * L && now > (S.closeT || 0)) { S.closeT = now + 25; say(t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); sfx('whistle', { vol: 0.4 }); }

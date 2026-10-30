@@ -20,6 +20,14 @@ const LOBBY_GRACE_MS = 20000; // a lobby/countdown seat whose socket dropped (ph
 const LOBBY_AFTER_MS = 12000; // the podium stays this long when the host chose "back to the lobby after the race"
 const LOBBY_MAX_MS = 30 * 60000;
 const HARD_MAX_MS = 2 * 3600000;
+// scheduled races (part C of the live-rules spec)
+const SCHED_OPEN_MS = 15 * 60000; // the room opens this long before startAt
+const SCHED_WAIT_MS = 10 * 60000; // after startAt the server waits this long for a second player, then cancels
+const SCHED_MIN_LEAD_MS = 10 * 60000, SCHED_LEAD_SLACK_MS = 60000; // a new schedule must be this far ahead (minus slack for a slow request)
+const SCHED_MAX_LEAD_MS = 14 * 86400000;
+const SCHED_PER_IP = 3, SCHED_IP_WINDOW_MS = 86400000, SCHED_TOTAL = 50;
+const LIST_MAX = 30;
+const FOUL_PAIR_MS = 500; // the same sender may report the same offender at most this often
 
 function createRooms(opts) {
   const o = opts || {};
@@ -28,12 +36,21 @@ function createRooms(opts) {
   const lim = Object.assign({ maxRooms: 40, maxPlayers: 24 }, o.limits || {});
   const lobbyGrace = o.lobbyGraceMs || LOBBY_GRACE_MS;
   const rooms = new Map();
+  const sched = new Map(); // code -> pending scheduled race {code, title, cfg, startAt, hostName, hash, created}; becomes a room at startAt - 15 min
+  const schedIp = new Map(); // ip -> creation times (memory only, never persisted)
+  const onSched = o.onSchedChange || (() => {});
+  const sha = (x) => crypto.createHash('sha256').update(String(x)).digest('hex');
+  const hashOk = (secret, hash) => {
+    if (typeof secret !== 'string' || !secret || typeof hash !== 'string') return false;
+    const a = Buffer.from(sha(secret)), b = Buffer.from(hash);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
 
   function newCode() {
     for (let i = 0; i < 200; i++) {
       let c = '';
       for (let k = 0; k < 4; k++) c += P.ALPHABET[randInt(P.ALPHABET.length)];
-      if (!rooms.has(c)) return c;
+      if (!rooms.has(c) && !sched.has(c)) return c; // a scheduled code is reserved from the moment it is made
     }
     return null;
   }
@@ -45,6 +62,7 @@ function createRooms(opts) {
   function info(r) {
     return {
       code: r.code, phase: r.phase, cfg: r.cfg, hostRole: r.hostRole, hostId: r.hostId,
+      ...(r.sched ? { sched: { at: r.sched.startAt, title: r.sched.title } } : {}),
       players: [...r.players.values()].map(p => ({ id: p.id, name: p.name, color: p.color, host: p.host, lost: !!p.lost, v: p.ver || '' })),
     };
   }
@@ -86,12 +104,23 @@ function createRooms(opts) {
     return { room: r, player: host };
   }
 
-  function join(conn, code) {
+  function join(conn, code, secret) {
     const r = code && rooms.get(code);
-    if (!r || r.phase === 'closing') return { err: 'nocode' };
+    if (!r || r.phase === 'closing') {
+      const e = code && sched.get(code);
+      return e ? { err: 'notopen', extra: { opensAt: e.startAt - SCHED_OPEN_MS, startAt: e.startAt, title: e.title } } : { err: 'nocode' };
+    }
     if (r.phase !== 'lobby') return { err: 'started' };
+    // the creator of a scheduled race takes the host seat with the secret (also from a dropped host seat)
+    const claim = !!(r.sched && secret && hashOk(secret, r.sched.hash));
+    if (claim) {
+      const old = r.players.get(r.hostId);
+      if (old && !old.lost) return { err: 'bad' }; // the creator is already in
+      if (old) r.players.delete(old.id);
+    }
     if (r.players.size >= effMaxPlayers(r)) return { err: 'full' };
-    const p = addPlayer(r, conn, false, true);
+    const p = addPlayer(r, conn, claim, true);
+    if (claim) { r.hostId = p.id; r.emptyAt = 0; }
     pushRoom(r);
     return { room: r, player: p };
   }
@@ -116,6 +145,7 @@ function createRooms(opts) {
         pushRoom(r); checkEmpty(r);
         return;
       }
+      if (p.host && r.sched) { r.players.delete(id); r.hostId = 0; pushRoom(r); return; } // the room is server-run: it goes on without a host
       if (p.host) {
         broadcast(r, { t: 'hostleft' });
         r.phase = 'closing'; r.deleteAt = now() + HOSTLEFT_KEEP_MS;
@@ -155,7 +185,10 @@ function createRooms(opts) {
   }
 
   function start(r, hostId) {
-    if (r.hostId !== hostId || r.phase !== 'lobby') return 'denied';
+    if (!hostId || r.hostId !== hostId || r.phase !== 'lobby') return 'denied';
+    return begin(r);
+  }
+  function begin(r) {
     for (const p of [...r.players.values()]) if (p.lost && !p.host) r.players.delete(p.id); // a seat that is still dropped when the host starts is gone
     const boats = [...r.players.values()].filter(hasBoat).length;
     if (r.hostRole === 'sail' ? boats < 2 : boats < 1) { pushRoom(r); return 'few'; }
@@ -170,7 +203,8 @@ function createRooms(opts) {
   // "Ny kapsejlads med samme deltagere": host only, from the results phase. The room goes back to the lobby with the players
   // who are still connected, a fresh seed and the same cfg; everybody gets {t:'rematch', room}.
   function rematch(r, hostId) {
-    if (r.hostId !== hostId || r.phase !== 'results') return 'denied';
+    const serverRun = !!(r.sched && !r.hostId); // a server-run room has no host: any seated player may ask, and the server starts the next race itself
+    if ((r.hostId !== hostId && !(serverRun && r.players.has(hostId))) || r.phase !== 'results') return 'denied';
     const host = r.players.get(hostId);
     if (!host || host.lost) return 'denied';
     for (const p of [...r.players.values()]) {
@@ -179,6 +213,7 @@ function createRooms(opts) {
     }
     r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
     r.cfg = Object.assign({}, r.cfg, { seed: randInt(2147483647) });
+    if (serverRun) r.sched.startAt = now() + 60000; // next gun in a minute, with >= 2 players
     broadcast(r, { t: 'rematch', room: info(r) });
     return 'ok';
   }
@@ -302,14 +337,17 @@ function createRooms(opts) {
 
   function tick() {
     const t = now();
+    openDue(t);
     for (const r of [...rooms.values()]) {
       if (r.phase === 'closing') { if (t >= r.deleteAt) remove(r); continue; }
       if (t - r.created > HARD_MAX_MS) { broadcast(r, { t: 'err', code: 'closed' }); remove(r); continue; }
       if (r.phase === 'lobby' && t - r.created > LOBBY_MAX_MS) { broadcast(r, { t: 'hostleft' }); remove(r); continue; }
+      if (r.sched && r.phase === 'lobby') r.emptyAt = 0; // a scheduled lobby waits for its time even when nobody is in it
       if (r.emptyAt && t - r.emptyAt >= (r.phase === 'lobby' ? EMPTY_KEEP_MS : EMPTY_RACE_KEEP_MS) && ![...r.players.values()].some(p => !p.lost)) { remove(r); continue; }
       if (r.phase === 'lobby' || r.phase === 'countdown') {
         for (const p of [...r.players.values()]) {
           if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;
+          if (p.host && r.sched) { r.players.delete(p.id); r.hostId = 0; pushRoom(r); continue; }
           if (p.host) { // a host that never comes back closes a LOBBY; a countdown/race goes on without them (their seat waits for a rejoin like any other)
             if (r.phase !== 'lobby') continue;
             broadcast(r, { t: 'hostleft' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; break;
@@ -318,14 +356,126 @@ function createRooms(opts) {
         }
         if (r.phase === 'closing') continue;
       }
+      if (r.sched && r.phase === 'lobby' && t >= r.sched.startAt) {
+        // the server's own gun: >= 2 players start the countdown, otherwise wait SCHED_WAIT_MS more, then call it off
+        if ([...r.players.values()].filter(p => p.boat && !p.lost).length >= 2) begin(r);
+        else if (t >= r.sched.startAt + SCHED_WAIT_MS) {
+          broadcast(r, { t: 'schedcancelled', code: r.code, why: 'few' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; continue;
+        }
+      }
       if (r.phase === 'countdown' && t >= r.T0) r.phase = 'racing';
       if (r.phase === 'racing') {
         // (no timeout on a lost seat here any more: it stays until it returns or the race ends; see maybeFinish)
         if (t >= r.T0 + Math.min(r.cfg.maxS * 1000, HARD_RACE_MS) || (r.finishAt && t >= r.finishAt)) endRace(r); else maybeFinish(r);
       }
-      if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { r.lobbyAt = 0; if (rematch(r, r.hostId) !== 'ok') r.lobbyAfter = false; }
+      if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { r.lobbyAt = 0; if (!r.hostId || rematch(r, r.hostId) !== 'ok') r.lobbyAfter = false; }
       if (r.phase === 'results' && t >= r.deleteAt) remove(r);
     }
+  }
+
+  // ---- scheduled races ----
+  const schedList = () => [...sched.values()].map(e => ({ code: e.code, title: e.title, cfg: e.cfg, startAt: e.startAt, hostName: e.hostName, hash: e.hash, created: e.created }));
+  const schedSave = () => { try { onSched(schedList()); } catch (e) { /* a full disk must not stop the game */ } };
+  const schedCount = () => sched.size + [...rooms.values()].filter(r => r.sched).length;
+
+  // Loads the persisted entries (called once by the server); drops what is invalid or long over.
+  function restore(list) {
+    const t = now();
+    if (!Array.isArray(list)) return;
+    for (const e of list) {
+      if (!e || typeof e !== 'object' || sched.size >= SCHED_TOTAL) continue;
+      const code = P.normCode(e.code);
+      if (!code || sched.has(code) || rooms.has(code) || P.SCHED_TITLES.indexOf(e.title) < 0 || !Number.isFinite(e.startAt) || e.startAt + SCHED_WAIT_MS < t) continue;
+      if (typeof e.hash !== 'string' || !/^[0-9a-f]{64}$/.test(e.hash)) continue;
+      const base = Object.assign({}, P.CFG_DEFAULTS, { vis: 'open' });
+      sched.set(code, { code, title: e.title, cfg: P.sanitizeCfg(e.cfg, base, lim.maxPlayers), startAt: Math.round(e.startAt), hostName: P.clean(e.hostName, 16) || 'Sejler', hash: e.hash, created: Number.isFinite(e.created) ? e.created : t });
+    }
+  }
+
+  // conn: {name, ip}. Returns {entry, secret} (the secret is not kept, only its sha256) or {err}.
+  function schedule(conn, cfg, title, startAt) {
+    const t = now();
+    if (P.SCHED_TITLES.indexOf(title) < 0 || !Number.isFinite(startAt)) return { err: 'bad' };
+    if (startAt < t + SCHED_MIN_LEAD_MS - SCHED_LEAD_SLACK_MS || startAt > t + SCHED_MAX_LEAD_MS) return { err: 'badtime' };
+    if (schedCount() >= SCHED_TOTAL) return { err: 'schedfull' };
+    const mine = (schedIp.get(conn.ip) || []).filter(x => t - x < SCHED_IP_WINDOW_MS);
+    if (mine.length >= SCHED_PER_IP) { schedIp.set(conn.ip, mine); return { err: 'schedlimit' }; }
+    const code = newCode();
+    if (!code) return { err: 'busy' };
+    mine.push(t); schedIp.set(conn.ip, mine);
+    if (schedIp.size > 500) for (const [k, v] of schedIp) if (!v.some(x => t - x < SCHED_IP_WINDOW_MS)) schedIp.delete(k);
+    const secret = crypto.randomBytes(16).toString('hex');
+    const base = Object.assign({}, P.CFG_DEFAULTS, { vis: 'open' }); // scheduled races are listed unless the creator says private
+    const entry = { code, title, cfg: P.sanitizeCfg(cfg, base, lim.maxPlayers), startAt: Math.round(startAt), hostName: P.clean(conn.name, 16) || 'Sejler', hash: sha(secret), created: t };
+    sched.set(code, entry);
+    schedSave();
+    return { entry, secret };
+  }
+
+  // Cancels a pending race, or an opened scheduled lobby, with the creator's secret.
+  function scheduleCancel(code, secret) {
+    const e = sched.get(code);
+    if (e) {
+      if (!hashOk(secret, e.hash)) return 'denied';
+      sched.delete(code); schedSave();
+      return 'ok';
+    }
+    const r = rooms.get(code);
+    if (!r || !r.sched) return 'nocode';
+    if (!hashOk(secret, r.sched.hash) || r.phase !== 'lobby') return 'denied';
+    broadcast(r, { t: 'schedcancelled', code, why: 'host' });
+    r.phase = 'closing'; r.deleteAt = now() + HOSTLEFT_KEEP_MS;
+    return 'ok';
+  }
+
+  // At startAt - 15 min a pending race becomes a server-run lobby (no host needed). When the server is full it retries every tick until the race is over.
+  function openDue(t) {
+    let changed = false;
+    for (const e of [...sched.values()]) {
+      if (t + SCHED_OPEN_MS < e.startAt) continue;
+      if (t > e.startAt + SCHED_WAIT_MS) { sched.delete(e.code); changed = true; continue; }
+      if (rooms.size >= lim.maxRooms) continue;
+      const cfg = Object.assign({}, e.cfg, { seed: randInt(2147483647) });
+      rooms.set(e.code, {
+        code: e.code, phase: 'lobby', cfg, hostRole: 'sail', hostId: 0, players: new Map(), nextId: 1,
+        T0: 0, created: t, deleteAt: 0, emptyAt: 0, results: null, finishAt: 0, lobbyAfter: false, lobbyAt: 0,
+        sched: { startAt: e.startAt, title: e.title, hostName: e.hostName, hash: e.hash },
+      });
+      sched.delete(e.code); changed = true; // a restart loses an open room like any other; only pending races are persisted
+    }
+    if (changed) schedSave();
+  }
+
+  // The open race list: listed (cfg.vis 'open') lobbies and countdowns plus pending scheduled races, scheduled first. Never names beyond the host nickname.
+  function listRooms() {
+    const t = now(), out = [];
+    const row = (code, host, cfg, n, max, phase, startsIn, sc) => ({ code, host, cls: cfg.boat, course: cfg.course, wind: cfg.windKn, n, max, phase, startsIn, sched: sc });
+    for (const e of sched.values()) {
+      if (e.cfg.vis !== 'open') continue;
+      out.push(row(e.code, e.hostName, e.cfg, 0, Math.min(e.cfg.maxP, lim.maxPlayers), 'sched', Math.max(0, e.startAt - t), { at: e.startAt, title: e.title, opens: e.startAt - SCHED_OPEN_MS }));
+    }
+    for (const r of rooms.values()) {
+      if (r.cfg.vis !== 'open' || (r.phase !== 'lobby' && r.phase !== 'countdown')) continue;
+      const host = r.players.get(r.hostId);
+      const startsIn = r.phase === 'countdown' ? Math.max(0, r.T0 - t) : r.sched ? Math.max(0, r.sched.startAt - t) : null;
+      out.push(row(r.code, host ? host.name : r.sched ? r.sched.hostName : '', r.cfg, [...r.players.values()].filter(p => !p.lost).length, effMaxPlayers(r), r.phase, startsIn,
+        r.sched ? { at: r.sched.startAt, title: r.sched.title, opens: r.sched.startAt - SCHED_OPEN_MS } : null));
+    }
+    const rank = (x) => (x.sched && x.phase === 'sched' ? 0 : x.sched ? 1 : x.phase === 'countdown' ? 2 : 3);
+    out.sort((a, b) => rank(a) - rank(b) || (a.sched && b.sched ? a.sched.at - b.sched.at : b.n - a.n));
+    return out.slice(0, LIST_MAX);
+  }
+
+  // The stand-on phone says "this boat fouled me". Relayed to the offender only, with the sender's id. Returns true when relayed.
+  function foul(r, id, offender, rule) {
+    if (!(r.phase === 'racing' || r.phase === 'countdown') || id === offender) return false;
+    const a = r.players.get(id), b = r.players.get(offender);
+    if (!a || !b || !a.boat || !b.boat || b.lost || !b.send || a.final) return false;
+    const t = now(), key = 'f' + offender;
+    if (a.foulAt && t - (a.foulAt[key] || 0) < FOUL_PAIR_MS) return false;
+    (a.foulAt = a.foulAt || {})[key] = t;
+    send(b, { t: 'foul', from: id, r: rule });
+    return true;
   }
 
   function stats() {
@@ -335,7 +485,7 @@ function createRooms(opts) {
   }
   function setLimits(l) { Object.assign(lim, l); }
 
-  return { rooms, create, join, resume, disconnect, kick, setCfg, start, rematch, endNow, abort, lobbyAfter, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
+  return { rooms, sched, restore, schedule, scheduleCancel, listRooms, foul, create, join, resume, disconnect, kick, setCfg, start, rematch, endNow, abort, lobbyAfter, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
 }
 
 module.exports = { createRooms, LOST_GRACE_MS, RESULTS_KEEP_MS };

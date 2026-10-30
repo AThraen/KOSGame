@@ -1,10 +1,10 @@
 # KOS race server (Live-kapsejlads)
 
-A small Node.js process (Node 20+, only dependency `ws`) that relays boat states between players and keeps the shared start clock. Everything lives in memory: no database, no logs of names. It listens on `127.0.0.1` and runs behind your existing nginx. The game works fully without it.
+A small Node.js process (Node 20+, only dependency `ws`) that relays boat states between players and keeps the shared start clock. Everything lives in memory (the one exception: pending scheduled races, see below): no database, no logs of names. It listens on `127.0.0.1` and runs behind your existing nginx. The game works fully without it.
 
 Two instances run side by side: **prod** (port 8787, `/mp/`, status `/mp-status.json`) and **test** (port 8788, `/mp-test/`, status `/mp-test-status.json`).
 
-Layout: `index.js` (http + ws), `lib/` (rooms, protocol, limits, status), `bin/kos-race` (on/off switch), `deploy/` (systemd unit, nginx snippet, example status file). Protocol: `docs/specs/live-race.md`.
+Layout: `index.js` (http + ws), `lib/` (rooms, protocol, limits, status, schedfile), `bin/kos-race` (on/off switch), `deploy/` (systemd unit, nginx snippet, example status file). Protocol: `docs/specs/live-race.md`.
 
 ## Install on Ubuntu
 
@@ -27,7 +27,7 @@ Layout: `index.js` (http + ws), `lib/` (rooms, protocol, limits, status), `bin/k
    echo 'KOS_STATUS_FILE=/var/www/html/mp-status.json'      | sudo tee /etc/kos-race/8787.env
    echo 'KOS_STATUS_FILE=/var/www/html/mp-test-status.json' | sudo tee /etc/kos-race/8788.env
    ```
-   Optional: `KOS_ORIGINS` (comma-separated hostnames allowed as browser Origin; default `spil.kossejlsport.dk,athraen.github.io,localhost,127.0.0.1`), `KOS_MAX_ROOMS` (40), `KOS_MAX_PLAYERS` (24), `KOS_MAX_CONNS` (300), `KOS_MAX_PER_IP` (20).
+   Scheduled races: add `KOS_SCHEDULE_FILE=/var/lib/kos-race/8787-schedule.json` (test: `8788-schedule.json`) to each env file, one file per instance (the systemd unit creates `/var/lib/kos-race` through `StateDirectory`). Without it schedules live in memory only and are lost on a restart. Optional: `KOS_ORIGINS` (comma-separated hostnames allowed as browser Origin; default `spil.kossejlsport.dk,athraen.github.io,localhost,127.0.0.1`), `KOS_MAX_ROOMS` (40), `KOS_MAX_PLAYERS` (24), `KOS_MAX_CONNS` (300), `KOS_MAX_PER_IP` (20).
 5. systemd (one template unit, the instance name is the port):
    ```
    sudo cp /opt/kos-race/server/deploy/kos-race@.service /etc/systemd/system/
@@ -65,6 +65,14 @@ kos-race min                  # show it;  kos-race status shows mode, message, m
 The same thing by hand in the status file (`/var/www/html/mp-status.json`): `{"mode":"on","message":"","maxRooms":40,"maxPlayers":24,"minClient":"0.8.5","minProto":2}`; the server watches the file like `mode`, so no restart is needed. Environment alternatives: `KOS_MIN_CLIENT=0.8.5`, `KOS_MIN_PROTO=2` (the stricter of file and env wins). A missing minimum, or one that cannot be parsed, means no gate. Dev builds (version `dev`) are only held to `minProto`.
 
 A refused client gets `err code:'old'` on `hello`, `create` or `join` and the new game shows "A new version of the game is out - update to join" with an update button that reloads the game and continues into the same join. Old clients never crash the server: they are simply closed. The public status file is also read by the game, so a phone that is below the minimum is told before it even connects. Raise the minimum between races: a refused build cannot reconnect, so do not do it while people are racing on it.
+
+## Open race list and scheduled races
+
+Hosts can make a room `open` (listed). The list is `{t:'list'}` over the socket and `GET /rooms` over HTTP (`https://<host>/mp/rooms`, already covered by the `/mp/` nginx location; CORS only for the `KOS_ORIGINS` hostnames, per-IP rate limit). It holds the host nickname, class, course, wind and player counts only, at most 30 rooms. Status `hidden`/`closed` makes it empty.
+
+Trainers can schedule a race up to 14 days ahead. Pending races are the one thing the server writes to disk: `KOS_SCHEDULE_FILE` (JSON, atomic tmp + rename, host nickname and a sha256 of the creator's secret only, nothing else; a missing or broken file means empty). 15 minutes before the start the race opens as a host-less lobby; at the start time the server starts the countdown itself with at least 2 players, otherwise it waits 10 minutes and cancels. Limits: 3 per IP per day, 50 in total. A restart keeps pending races but not open lobbies. Setting the status to `closed` or `hidden` blocks new schedules; existing ones still open.
+
+**Deploying (protocol 2).** The game and the server must go out together: the server now speaks protocol 2 and answers an older game with the "update the game" message. Deploy the test instance (`kos-race@8788`, with its own schedule file) first, test there, then prod. Add the `KOS_SCHEDULE_FILE` line to both `/etc/kos-race/*.env` files and re-copy `deploy/kos-race@.service` (it now has `StateDirectory=kos-race`), then `daemon-reload` and restart.
 
 ## Rejoining
 

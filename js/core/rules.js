@@ -1,13 +1,20 @@
 // KØS SEJL — js/core/rules.js
 // KOS.Rules: simplified Racing Rules of Sailing Part 2 + the basic COLREG collision rules.
 //   KOS.Rules.rightOfWay(a, b, ctx) -> {standOn, giveWay, rule, reasonKey, reasonVars, both?}
-//       ctx = {wind (wind object | dir radians), marks: [{x, y}], zone: 3 (lengths), mode: 'race'|'colreg'}
-//       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
+//       ctx = {wind (wind object | dir radians), marks: [{x, y, id?, start?}], zone: 3 (lengths), mode: 'race'|'colreg',
+//              nextMark?: boat -> mark id | [ids] (gate: both ids) | null, room?: mark -> {boat, astern} (zone-entry memory)}
+//       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'R22' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
+//       R18 only between boats both heading for that mark (ctx.nextMark, else boat.nextMark; unknown = yes) and never at a
+//       start mark (mark.start) until both have started (boat.rc.leg >= 1, light objects: boat.started).
+//       R22: a boat that is OCS (rc.ocs / ocs) or doing penalty turns (rc.pen / pen) keeps clear of boats sailing normally.
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
 //   KOS.Rules.overlapped(a, b), isWindward(a, b, wind), clearAstern(a, b), tackOf(boat, windDir?)
 //   KOS.Rules.explain(result) -> localized reason text;  KOS.Rules.ruleName(rule) -> short localized title
-//   KOS.Rules.monitor({mode}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark', offender, victim, rule,
-//       reasonKey, contact}], reset()}
+//   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
+//       offender, victim, rule, reasonKey, contact, excused?}], reset()}
+//       The monitor remembers per pair who had mark-room when the first of the two reached the zone (RRS 18.2(b)), and
+//       when a boat gained right of way. excused: the give-way boat had no time to react (R15: < 1.2 s after the other
+//       boat gained right of way, or R16: the right-of-way boat turned towards it) -> nobody is penalised.
 // Boats may be physics boats or light scenario objects {x, y, heading, length?, tack?, r13?, isPower?, speed?, name?}.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -22,6 +29,9 @@
       'rules.name.R12': 'Klar agter viger',
       'rules.name.R13': 'Den der slår, viger',
       'rules.name.R18': 'Mærkeplads',
+      'rules.name.R22': 'Den der vender tilbage eller tager straf, viger',
+      'rules.name.R15': 'Tid til at holde fri',
+      'rules.name.R16': 'Kursændring',
       'rules.name.C-power-sail': 'Motor viger for sejl',
       'rules.name.C-overtaking': 'Den der overhaler, viger',
       'rules.name.C-sail-tack': 'Vinden fra bagbord viger',
@@ -34,6 +44,9 @@
       'rules.reason.R13': 'Den der slår, viger! {give} er midt i en vending og skal holde af vejen, til den er på bidevind igen.',
       'rules.reason.R18': 'Mærkeplads! {stand} ligger inderst ved mærket inden for zonen på 3 bådlængder – {give} skal give plads.',
       'rules.reason.R18-astern': 'Mærkeplads! {stand} kom først ind i zonen klar foran – {give} bagved skal give plads ved mærket.',
+      'rules.reason.R22': 'Den der vender tilbage eller tager straf, viger! {give} er på vej tilbage over startlinjen eller sejler en strafrunde og skal holde af vejen for {stand}.',
+      'rules.reason.R15': 'Ingen straf: {give} nåede ikke at holde fri – {stand} havde lige fået retten.',
+      'rules.reason.R16': 'Ingen straf: {give} nåede ikke at holde fri – {stand} drejede hen imod {give}.',
       'rules.reason.C-power-sail': 'Motor viger for sejl! {give} sejler for motor og skal holde af vejen for sejlbåden {stand}.',
       'rules.reason.C-overtaking': 'Den der overhaler, viger! {give} kommer bagfra og skal holde sig klar af {stand} hele vejen forbi.',
       'rules.reason.C-sail-tack': 'Søvejsregel 12: Har to sejlbåde vinden fra hver sin side, viger den med vinden fra bagbord. {give} har vinden ind fra venstre og skal holde af vejen for {stand}.',
@@ -54,6 +67,9 @@
       'rules.name.R12': 'Clear astern keeps clear',
       'rules.name.R13': 'While tacking, keep clear',
       'rules.name.R18': 'Mark-room',
+      'rules.name.R22': 'Returning or penalised boat keeps clear',
+      'rules.name.R15': 'Time to keep clear',
+      'rules.name.R16': 'Changing course',
       'rules.name.C-power-sail': 'Power gives way to sail',
       'rules.name.C-overtaking': 'Overtaking boat keeps clear',
       'rules.name.C-sail-tack': 'Wind from port gives way',
@@ -66,6 +82,9 @@
       'rules.reason.R13': 'Tacking boat keeps clear! {give} is in the middle of a tack and must stay out of the way until close-hauled again.',
       'rules.reason.R18': 'Mark-room! {stand} is on the inside at the mark, inside the 3-length zone – {give} must give room.',
       'rules.reason.R18-astern': 'Mark-room! {stand} reached the zone clear ahead – {give} behind must give room at the mark.',
+      'rules.reason.R22': 'Returning or penalised boat keeps clear! {give} is going back over the start line or doing a penalty turn and must keep clear of {stand}.',
+      'rules.reason.R15': 'No penalty: {give} had no time to keep clear – {stand} had only just got right of way.',
+      'rules.reason.R16': 'No penalty: {give} had no time to keep clear – {stand} turned towards {give}.',
       'rules.reason.C-power-sail': 'Power gives way to sail! {give} is under motor and must keep clear of the sailing boat {stand}.',
       'rules.reason.C-overtaking': 'Overtaking boat keeps clear! {give} is coming from behind and must stay clear of {stand} all the way past.',
       'rules.reason.C-sail-tack': 'Rule 12: When two sailing boats have the wind on different sides, the one with the wind on its port side gives way. {give} has the wind over its left side and must keep clear of {stand}.',
@@ -99,6 +118,8 @@
 
   // ---------------------------------------------------------------- geometry
   function lengthOf(b) { return b.cls ? b.cls.length : b.length || 4; }
+  function beamOf(b) { return b.cls ? b.cls.beam : b.beam || lengthOf(b) * 0.33; }
+  const BY_THE_LEE = R(9); // the physics boats keep their tack up to 9 degrees by the lee (physics.js)
   function isPower(b) { return !!(b.isPower || b.motoring || (b.cls && b.cls.isMotor)); }
   function nameOf(b) {
     if (b.isPlayer) return tr('rules.you');
@@ -125,16 +146,17 @@
     if (boat.tack && (windDir === undefined || boat._init)) return boat.tack;
     const wd = windDir !== undefined ? windDir : boat.windDir || 0;
     const twa = U.wrapPi(wd - (boat.heading || 0));
-    if (Math.abs(twa) > R(170) && boat.boom) return boat.boom < 0 ? 'starboard' : 'port'; // dead run: boom decides
+    if (Math.abs(twa) > Math.PI - BY_THE_LEE && boat.boom) return boat.boom < 0 ? 'starboard' : 'port'; // dead run: boom decides
     return twa >= 0 ? 'starboard' : 'port';
   }
 
-  /** a is clear astern of b: a's bow is behind a line abeam of b's stern. */
+  /** a is clear astern of b: all of a's hull is behind a line abeam of b's stern. The hull's most forward point along b's
+   *  heading is half a's length along its own centreline plus half its beam across it (a beam-on hull reaches past its bow). */
   function clearAstern(a, b) {
     const fb = U.vec(b.heading || 0), fa = U.vec(a.heading || 0);
     const sx = b.x - fb.x * lengthOf(b) / 2, sy = b.y - fb.y * lengthOf(b) / 2;
-    const bx = a.x + fa.x * lengthOf(a) / 2, by = a.y + fa.y * lengthOf(a) / 2;
-    return (bx - sx) * fb.x + (by - sy) * fb.y < 0;
+    const along = Math.abs(fa.x * fb.x + fa.y * fb.y), across = Math.abs(fa.x * fb.y - fa.y * fb.x);
+    return (a.x - sx) * fb.x + (a.y - sy) * fb.y + along * lengthOf(a) / 2 + across * beamOf(a) / 2 < 0;
   }
   function overlapped(a, b) { return !clearAstern(a, b) && !clearAstern(b, a); }
 
@@ -166,6 +188,33 @@
     return va.x * fb.x + va.y * fb.y > vb.x * fb.x + vb.y * fb.y + 0.05;
   }
 
+  /** The inside boat of an overlapped pair: the one on the mark's side of the other (across their mean course). */
+  function insideOf(a, b, m) {
+    const fa = U.vec(a.heading || 0), fb = U.vec(b.heading || 0);
+    let hx = fa.x + fb.x, hy = fa.y + fb.y;
+    const hl = Math.hypot(hx, hy);
+    if (hl < 1e-6) { hx = fa.x; hy = fa.y; } else { hx /= hl; hy /= hl; }
+    const lat = p => -p.x * hy + p.y * hx; // across the course, + = starboard
+    const la = lat(a), lb = lat(b), lm = lat(m);
+    if (Math.abs(la - lb) < 0.05) return U.dist(a, m) < U.dist(b, m) ? a : b; // in line: the nearer boat
+    return Math.abs(lm - la) < Math.abs(lm - lb) ? a : b;
+  }
+  /** Is the boat heading for mark m next? Unknown (no ctx.nextMark / boat.nextMark, or a mark without id) counts as yes. */
+  function headsFor(b, m, ctx) {
+    const n = ctx.nextMark ? ctx.nextMark(b) : b.nextMark;
+    if (n === undefined || m.id === undefined) return true;
+    if (n === null) return false;
+    return Array.isArray(n) ? n.indexOf(m.id) >= 0 : n === m.id;
+  }
+  function startedOf(b) { return b.rc ? b.rc.leg >= 1 : !!b.started; }
+  /** RRS 18.1: does mark-room at m apply between a and b at all (the zone aside)? */
+  function r18At(a, b, m, ctx) {
+    if (m.start && !(startedOf(a) && startedOf(b))) return false; // no mark-room at a starting mark before the start
+    return headsFor(a, m, ctx) && headsFor(b, m, ctx);
+  }
+  /** RRS 22: an OCS boat sailing back and a boat doing penalty turns keep clear of everyone else. */
+  function keepsClear(b) { return b.rc ? !!(b.rc.ocs || b.rc.pen) : !!(b.ocs || b.pen); }
+
   function isBeating(b, wd) { return Math.abs(U.wrapPi(wd - (b.heading || 0))) < R(80); }
 
   function rightOfWay(a, b, ctx) {
@@ -194,6 +243,10 @@
       }
       // sail vs sail outside racing: same structure as RRS 10/11 (COLREG rule 12)
     } else {
+      // R22: returning OCS / taking a penalty -> keep clear of boats sailing normally (both: the normal rules between them)
+      const ka = keepsClear(a), kb = keepsClear(b);
+      if (ka && !kb) return result(b, a, 'R22');
+      if (kb && !ka) return result(a, b, 'R22');
       // R13: a boat tacking keeps clear
       const ta = !!(a.r13 || a.tacking), tb = !!(b.r13 || b.tacking);
       if (ta && !tb) return result(b, a, 'R13');
@@ -206,10 +259,16 @@
         const oppBeat = tackOf(a, ctx.wind !== undefined ? wd : undefined) !== tackOf(b, ctx.wind !== undefined ? wd : undefined) && isBeating(a, wd) && isBeating(b, wd);
         if (!oppBeat) {
           for (const m of ctx.marks) {
+            if (!r18At(a, b, m, ctx)) continue;
             const da = U.dist(a, m), db = U.dist(b, m);
             const zr = zoneL * (da < db ? lengthOf(a) : lengthOf(b));
             if (da > zr || db > zr) continue;
-            if (overlapped(a, b)) return da < db ? result(a, b, 'R18') : result(b, a, 'R18');
+            const memo = ctx.room && ctx.room(m); // RRS 18.2(b): the state when the first of the two reached the zone
+            if (memo && (memo.boat === a || memo.boat === b)) {
+              const k = memo.astern ? 'rules.reason.R18-astern' : null;
+              return memo.boat === a ? result(a, b, 'R18', k) : result(b, a, 'R18', k);
+            }
+            if (overlapped(a, b)) return insideOf(a, b, m) === a ? result(a, b, 'R18') : result(b, a, 'R18');
             if (clearAstern(a, b)) return result(b, a, 'R18', 'rules.reason.R18-astern');
             if (clearAstern(b, a)) return result(a, b, 'R18', 'rules.reason.R18-astern');
           }
@@ -243,25 +302,75 @@
     return U.segSeg(ca.ax, ca.ay, ca.bx, ca.by, cb.ax, cb.ay, cb.bx, cb.by).d - ca.r - cb.r;
   }
 
+  const REACT = 1.2; // s: time to react after the other boat gains right of way (R15) or turns towards you (R16)
+  const TURN = R(10); // a change of course of at least this much within REACT counts for R16
+
   function monitor(opts) {
     opts = opts || {};
     let t = 0;
     const cd = {};
+    // per pair: so = the right-of-way boat's id last frame, gainT/gainer = when and who last gained right of way,
+    // room = {markKey: {id, astern}}: who has mark-room, fixed when the first of the two reached the zone (RRS 18.2(b))
+    const pairs = {};
+    const seen = {}; // per boat: r13 / tack / R22 state last frame and its recent headings (R16)
+    const markKey = m => (m.id !== undefined ? m.id : m.x + ',' + m.y);
     const mon = {
       fouls: [],
-      reset() { t = 0; for (const k in cd) delete cd[k]; mon.fouls.length = 0; },
+      reset() { t = 0; for (const o of [cd, pairs, seen]) for (const k in o) delete o[k]; mon.fouls.length = 0; },
       update(boats, wind, marks, dt) {
         t += dt || KOS.DT;
         const out = [];
+        const ids = boats.map((b, i) => (b.id !== undefined && b.id !== null ? b.id : '#' + i));
+        // did the boat itself just change its state (start a tack, change tack, start returning / a penalty)? Then the
+        // other boat gaining right of way is its own doing, and it gets no time to react (RRS 15).
+        const own = boats.map((b, i) => {
+          const st = { r13: !!(b.r13 || b.tacking), tack: tackOf(b, b.tack ? undefined : windDirOf(wind, b)), kc: keepsClear(b) };
+          const p = seen[ids[i]];
+          const hs = p ? p.hs : [];
+          hs.push({ t, h: b.heading || 0 });
+          while (hs.length > 2 && hs[1].t <= t - REACT) hs.shift();
+          seen[ids[i]] = Object.assign(st, { hs });
+          return !!p && ((st.r13 && !p.r13) || st.tack !== p.tack || (st.kc && !p.kc));
+        });
+        // R16: the boat at i changed course towards the boat at j within the last REACT seconds
+        const turnedTowards = (i, j) => {
+          const so = boats[i], h0 = seen[ids[i]].hs[0].h;
+          const dh = U.angDiff(h0, so.heading || 0);
+          return Math.abs(dh) >= TURN && dh * U.angDiff(h0, U.bearing(so, boats[j])) > 0;
+        };
+        const rctx = { nextMark: opts.nextMark };
         for (let i = 0; i < boats.length; i++) {
           for (let j = i + 1; j < boats.length; j++) {
             const a = boats[i], b = boats[j];
+            const pk = String(ids[i]) < String(ids[j]) ? ids[i] + '|' + ids[j] : ids[j] + '|' + ids[i]; // the same pair in any order
+            let P = pairs[pk];
+            const pair = () => P || (P = pairs[pk] = { so: null, gainT: -1e9, gainer: null, room: {} });
+            if (marks && marks.length && opts.mode !== 'colreg') {
+              for (const m of marks) {
+                const mk = markKey(m), da = U.dist(a, m), db = U.dist(b, m);
+                const zr = 3 * (da < db ? lengthOf(a) : lengthOf(b));
+                const goneA = da > zr || !headsFor(a, m, rctx), goneB = db > zr || !headsFor(b, m, rctx);
+                if (P && P.room[mk]) { if (goneA && goneB) delete P.room[mk]; continue; } // both left the zone / passed the mark
+                if ((goneA && goneB) || !r18At(a, b, m, rctx)) continue;
+                // the first of the two has just reached the zone: an overlap gives the inside boat room, else the boat clear ahead
+                pair().room[mk] = overlapped(a, b) ? { id: insideOf(a, b, m) === a ? ids[i] : ids[j], astern: false }
+                  : { id: clearAstern(a, b) ? ids[j] : ids[i], astern: true };
+              }
+            }
             if (a.capsized && b.capsized) continue;
             const L = Math.max(lengthOf(a), lengthOf(b));
-            if (Math.abs(a.x - b.x) > 3 * L || Math.abs(a.y - b.y) > 3 * L) continue;
+            if (Math.abs(a.x - b.x) > 3 * L || Math.abs(a.y - b.y) > 3 * L) { if (P) P.so = null; continue; }
+            pair();
+            const row = rightOfWay(a, b, {
+              wind, marks, mode: opts.mode, nextMark: opts.nextMark,
+              room: m => { const r = P.room[markKey(m)]; return r ? { boat: r.id === ids[i] ? a : b, astern: r.astern } : null; },
+            });
+            const si = row.standOn === a ? i : row.standOn === b ? j : -1;
+            const soId = si >= 0 ? ids[si] : null;
+            if (soId !== null && P.so !== null && soId !== P.so && !own[si === i ? j : i]) { P.gainT = t; P.gainer = soId; }
+            P.so = soId;
             const gap = hullGap(a, b);
             if (gap > L) continue;
-            const row = rightOfWay(a, b, { wind, marks, mode: opts.mode });
             const va = velOf(a), vb = velOf(b);
             const dx = a.x - b.x, dy = a.y - b.y, dd = Math.hypot(dx, dy) || 1;
             const closing = ((va.x - vb.x) * dx + (va.y - vb.y) * dy) / dd < -0.1;
@@ -273,6 +382,10 @@
             cd[key] = t + (opts.cooldown || 8);
             const offender = row.giveWay, victim = row.standOn || (row.giveWay === a ? b : a);
             const f = { type: 'foul', offender, victim, rule: row.rule, reasonKey: row.reasonKey, reasonVars: row.reasonVars, contact, t };
+            if (si >= 0) { // no time to react: nobody is penalised, the reason says why
+              const ex = t - P.gainT <= REACT && P.gainer === soId ? 'R15' : turnedTowards(si, si === i ? j : i) ? 'R16' : null;
+              if (ex) Object.assign(f, { rule: ex, baseRule: row.rule, reasonKey: 'rules.reason.' + ex, excused: true });
+            }
             out.push(f);
             mon.fouls.push(f);
           }
@@ -300,6 +413,6 @@
 
   KOS.Rules = {
     rightOfWay, overlapped, isWindward, clearAstern, tackOf, overtaking, explain, ruleName, monitor, hullGap,
-    isPower, strings: STR, register,
+    isPower, insideOf, keepsClear, strings: STR, register,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

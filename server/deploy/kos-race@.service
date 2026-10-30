@@ -36,6 +36,8 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadOnlyPaths=/var/www/html
+# /var/lib/kos-race is writable: KOS_SCHEDULE_FILE=/var/lib/kos-race/%i-schedule.json (pending scheduled races)
+StateDirectory=kos-race
 
 [Install]
 WantedBy=multi-user.target

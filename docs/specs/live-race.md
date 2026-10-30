@@ -56,15 +56,15 @@ lobby --start(host)--> countdown --T0--> racing --all done / maxS--> results --1
 - Player disconnect: in `lobby` kept lost for 20 s, then removed; in `countdown`/`racing` kept `lost:true` for 45 s (resume possible), then `dnf`; in `lobby`/`countdown` a dropped seat (the host too) keeps its place for 20 s. Empty room deleted after 10 s.
 
 ## 3. JSON protocol
-WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every message `{ "t": "<type>", ... }`. Max frame 2048 B (`st` <= 512 B). Bad JSON, unknown `t`, wrong types, oversize: reply `{t:'err',code:'bad'}` and count a strike (3 strikes: close 4400). Numbers must be finite; strings are length-capped and stripped of control characters.
+WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 2` (see 3.4), every message `{ "t": "<type>", ... }`. Max frame 2048 B (`st` <= 512 B). Bad JSON, unknown `t`, wrong types, oversize: reply `{t:'err',code:'bad'}` and count a strike (3 strikes: close 4400). Numbers must be finite; strings are length-capped and stripped of control characters.
 
 ### 3.1 Client to server
 | t | fields | notes |
 |---|---|---|
-| `hello` | `v:1, name, build` | first frame; no other frame accepted before it; reply `welcome` |
+| `hello` | `v:2, name, build` | first frame; no other frame accepted before it; reply `welcome` |
 | `ping` | `c` (client `performance.now()`) | clock sync (4.1) |
 | `create` | `cfg:Cfg, hostRole:'sail'\|'watch'` | rejected `err code:'closed'\|'busy'` (7) |
-| `join` | `code` | reply `joined` or `err code:'nocode'\|'full'\|'started'\|'closed'` |
+| `join` | `code, secret?` | `secret` (32 hex): the creator of a scheduled race takes the host seat back (3.4); reply `joined` or `err code:'nocode'\|'full'\|'started'\|'closed'` |
 | `cfgset` | `cfg:Partial<Cfg>` | host, lobby only; server re-broadcasts `room` |
 | `kick` | `id` | host only; in `lobby` the player is removed, in `countdown`/`racing` the boat becomes DNF |
 | `start` | none | host only; needs >= 2 boats (host-sail) or >= 1 player (host-watch), else `err code:'few'` |
@@ -76,6 +76,10 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `hend` | none | host only, `racing`: end now (section 14) |
 | `habort` | none | host only, `countdown`/`racing`: abort back to the lobby (section 14) |
 | `hlobby` | `on:bool` | host only: after the results go back to the lobby automatically (section 14) |
+| `foul` | `o` (offender id), `r` (rule label, <= 12 chars) | player, racing/countdown: the stand-on phone says the offender fouled it; relayed to the offender only (3.4) |
+| `list` | none | any time after hello: the open race list, reply `rooms`; at most 1 per 2 s (burst 3), else `err code:'rate'` |
+| `sched` | `cfg, title, startAt` | schedule a race (3.4); reply `scheduled` or `err` |
+| `schedcancel` | `code, secret` | cancel a pending race, or an opened scheduled lobby, with the creator's secret |
 
 `Cfg` (server fills defaults and clamps): `{ boat, venue:'sound'|'bay', course:'wl'|'tri', laps:1..3, windDeg:0..359, windKn:4..28 (knots; 28 kn = 14 m/s, the client shows the player's wind unit), gust:0..1, shift:0..1, seed:int, maxP:2..24, maxS:60..1800, countdownS:8..180, pen:bool (penalty turns), contact:bool (default true: boats collide and the rules apply between players, see 13), help:'locked'|'free', rain:0..2 (none/light/heavy, visual only and identical for everybody), finishS:0|5..1800 (finish window in seconds after the first finish, default 180, 0 = no limit) }`. `seed` is chosen by the server on create. `boat` must match `/^[a-z0-9_-]{1,24}$/` server-side; the client validates it against `KOS.Boats` sailing classes.
 
@@ -96,6 +100,10 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | `hostleft` | none |
 | `err` | `code, msg?` |
 | `status` | `mode, msg` pushed on status-file change (informational) |
+| `foul` | `from` (sender id), `r`: only to the offender (3.4) |
+| `rooms` | `rooms:[{code, host, cls, course, wind, n, max, phase, startsIn, sched}]` (3.4) |
+| `scheduled` | `code, secret, title, startAt, opensAt, cfg` (the secret is sent once) |
+| `schedcancelled` | `code, why:'host'\|'few'` (also to the players of an opened scheduled room) |
 
 `RoomInfo = {code, phase, cfg, hostRole, hostId, players:[{id,name,color,host,lost}]}`. Colours come from a fixed 12-colour palette by join order. Duplicate names get " 2", " 3" suffixes.
 
@@ -109,9 +117,20 @@ WebSocket text frames, one JSON object per frame, `PROTOCOL_VERSION = 1`, every 
 | 4 | `hd` | heading rad in (-pi,pi], 0.001 |
 | 5 | `sp` | speed m/s, 0.01 |
 | 6 | `hl` | heel rad, 0.01 (visual) |
-| 7 | `fl` | bit flags: 1 spinnaker, 2 capsized, 4 penalty turn, 8 finished, 16 OCS, 32 hiking |
+| 7 | `fl` | bit flags: 1 spinnaker, 2 capsized, 4 penalty turn, 8 finished, 16 OCS, 32 hiking, 64 port tack, 128 R13 (tacking/luffing). The server accepts any `0..255` and relays it untouched |
 | 8 | `lg` | `rc.leg` index (leader board) |
 `mpstate.js` exports `packState(boat,id,seq)`, `unpackState(arr)` (null if malformed) and `Buffer`. Server validates length 9 and numeric entries before relaying.
+
+### 3.4 Protocol 2: live rules, open list, scheduled races
+- **Version.** `PROTOCOL_VERSION = 2`: the `st` flags gained bits 64/128 and the messages above were added. A `hello` with `v < 2` is answered `{t:'err', code:'old', min, proto}` and closed with 4426, the same friendly "update the game" path as the version gate; `v > 2` is `err 'proto'`. The client must send `v:2` (`js/net/mp.js`). Server and game are deployed together.
+- **`cfg.vis`**: `'private'` (default) or `'open'`; a bad value is ignored.
+- **`foul`.** Validated (`o` an integer id, `r` a non-empty label), only in `racing`/`countdown`, sender and offender both boats, offender connected, never to oneself. Server limits: the normal 10 msg/s bucket, and at most one relay per sender and offender per 500 ms. The sender never gets an echo; no other player sees it.
+- **`rooms` list.** Rooms with `cfg.vis:'open'` in `lobby`/`countdown`, plus pending scheduled races, at most 30 (scheduled first, then countdowns, then by players). Row: `code`, `host` (sanitised nickname), `cls` (cfg.boat), `course`, `wind` (knots), `n` (connected players), `max`, `phase` (`'lobby'`, `'countdown'` or `'sched'` = pending, not open yet), `startsIn` (ms until the gun, `null` for a plain lobby), `sched` (`null` or `{at, title, opens}`: UTC ms, title id, opening time). The same JSON as `{rooms:[...]}` is at `GET /rooms` (CORS limited to the WS origins; a foreign Origin gets 403; per IP 0.5/s, burst 6, then 429; behind nginx it is `/mp/rooms`). Status `hidden` or `closed` gives an empty list.
+- **Scheduled races** (`sched`). `title` is one of `train`, `friday`, `club`, `xmas`, `weekend` (the client translates; no free text). `startAt` UTC ms, from now + 10 min (60 s slack) up to 14 days; `cfg` as for `create` (vis defaults to `open`). Errors: `bad`, `badtime`, `schedlimit` (3 per IP per 24 h), `schedfull` (50 pending or open in total), `busy`, `closed` (status not `on`; existing schedules are kept). The code is reserved from then on. The server keeps the entry in `KOS_SCHEDULE_FILE` (atomic write) with code, title, cfg, startAt, host nickname and sha256 of the secret; the 32-hex secret is returned once in `scheduled`.
+  - **Open.** At `startAt - 15 min` the server opens a host-less lobby (`hostId:0`, `room.sched = {at, title}`) with that code; the entry leaves the file. Before that, `join` answers `err code:'notopen'` with `opensAt, startAt, title`.
+  - **Host.** `join` with the `secret` makes the creator host (also replacing a dropped host seat); they may start early, `cfgset` or cancel. If the host leaves, the room is server-run again and stays open.
+  - **Gun.** At `startAt` with >= 2 connected boats the server runs `start` itself; otherwise it waits 10 more minutes, then sends `schedcancelled why:'few'` and closes. Results and `rematch` need no host: in a host-less room any seated player may send `rematch`, and the server starts the next race 60 s later (same rules).
+  - **Cancel.** `schedcancel` with the secret: a pending entry is deleted, an open lobby gets `schedcancelled why:'host'` and closes.
 
 ## 4. Algorithms
 ### 4.1 Clock sync (ping/pong offset)

@@ -92,7 +92,7 @@
     onSock && onSock(sock);
     let welcomed = false;
     sock.onopen = () => {
-      try { sock.send(JSON.stringify({ t: 'hello', v: 1, name: String(opts.name || ''), build: String(opts.build || 'web'), ver: String(opts.ver || opts.build || '').slice(0, 16), sha: String(opts.sha || '').slice(0, 12), cp: LEVEL })); } catch (e) { bad('unreachable'); }
+      try { sock.send(JSON.stringify({ t: 'hello', v: 2, name: String(opts.name || ''), build: String(opts.build || 'web'), ver: String(opts.ver || opts.build || '').slice(0, 16), sha: String(opts.sha || '').slice(0, 12), cp: LEVEL })); } catch (e) { bad('unreachable'); }
     };
     sock.onerror = () => { if (!welcomed) bad('unreachable'); };
     sock.onclose = () => { if (!welcomed) bad('unreachable'); };
