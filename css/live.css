@@ -98,7 +98,6 @@
 .live-windnote { padding: 8px 12px; border-left: 3px solid var(--primary, #ffb547); border-radius: 6px; background: rgba(255,181,71,.12); color: var(--text, #fff); font-size: .92rem; font-weight: 600; }
 
 /* ---- open race list, scheduled races (live-rules spec B/C) */
-.live-badge { min-width: 1.6em; height: 1.6em; padding: 0 .4em; border-radius: 999px; background: var(--primary); color: #1a0f05; font-size: .8rem; display: inline-grid; place-items: center; }
 .live-chips .chip .ico { width: 1.1em; height: 1.1em; vertical-align: -.2em; margin-right: .3em; }
 .live-listhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .live-listhead .live-intro { margin: 0; }
@@ -169,8 +168,8 @@
 
 @media (min-width: 760px) {
   .live-big-btns:has(> :nth-child(3)) { grid-template-columns: 1fr 1fr 1fr; }
-  .live-list:not(.live-mine) { grid-template-columns: 1fr 1fr; }
 }
+@media (min-width: 900px) { .live-list:not(.live-mine) { grid-template-columns: 1fr 1fr; } } /* one column below 900 px: no staggered rows in landscape */
 @media (prefers-reduced-motion: reduce) {
   .live-item { transition: none; }
 }
@@ -180,3 +179,39 @@
   .live-plan .live-row { flex-direction: column; align-items: stretch; gap: 6px; }
   .live-plan .live-label { min-width: 0; }
 }
+
+/* review round 1: nothing in the room may push past a 320 px screen; the visibility chips share their row */
+.live-room > *, .live-side, .live-codebox { min-width: 0; }
+.live-link code { overflow-wrap: anywhere; }
+.live-vis { flex-direction: column; align-items: stretch; gap: 6px; }
+.live-vis .live-label { min-width: 0; }
+.live-vis .live-chips { flex-wrap: nowrap; }
+.live-vis .chip { flex: 1 1 0; min-width: 0; justify-content: center; text-align: center; white-space: normal; }
+.live-codebtns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+/* a sailor waiting in a scheduled room: the schedule on top, then the players, then a smaller code box */
+.live-schedtop { padding: 12px 14px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 10px; }
+.live-schedtop .live-schedbox { background: none; border: 0; padding: 0; }
+.live-schedtop .live-schedin { font-size: 1.3rem; }
+.live-schedtop > .btn { align-self: flex-start; }
+.live-codebox.is-small .live-code { font-size: clamp(2rem, 8vw, 3rem); }
+@media (min-width: 700px) { .live-room.is-waiting { grid-template-columns: 1.2fr minmax(260px, 1fr); } }
+/* the list: the refresh button sits beside the intro; on a narrow phone it is an icon-only 44 px button */
+.live-listhead { flex-wrap: nowrap; }
+.live-listhead .live-intro { flex: 1 1 auto; min-width: 0; }
+.live-refresh { flex: none; }
+@media (max-width: 419px) {
+  .live-refresh { width: 44px; height: 44px; min-width: 44px; padding: 0; justify-content: center; }
+  .live-refresh span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-height: 500px) { .live-listhead .live-intro { font-size: .9rem; } }
+.live-list { align-items: start; }
+/* my scheduled races: two buttons per row on a phone; "Aflys" alone below, quieter, still a 44 px target */
+.live-mitem, .live-mine { min-width: 0; }
+.live-mbtns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.live-mbtns .btn { justify-content: center; min-height: 44px; min-width: 0; white-space: normal; padding-left: 8px; padding-right: 8px; }
+.live-mbtns .live-mgo { grid-column: 1 / -1; }
+.live-mcancel { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--glass-border); }
+.live-mcancel .live-cancel { background: none; border: 0; box-shadow: none; min-height: 44px; padding: 0 8px; }
+@media (min-width: 560px) { .live-mbtns { display: flex; flex-wrap: wrap; } }
+/* the plan form: the summary and any error repeated right above the button */
+.live-plan-foot { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }

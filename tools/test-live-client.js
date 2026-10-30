@@ -513,9 +513,10 @@ async function main() {
     await listOpen(lp.page);
     await lp.page.waitForSelector('#live-listbox .live-item', { timeout: 8000 });
     const rows = await lp.page.evaluate(() => [...document.querySelectorAll('#live-listbox .live-sect')].map(sec => ({ h: sec.querySelector('.live-h').textContent, items: [...sec.querySelectorAll('.live-item')].map(b => ({ code: b.getAttribute('data-code'), txt: b.textContent, dis: b.disabled })) })));
-    ok(rows.length === 2 && rows[0].h === 'Planlagte løb' && rows[1].h === 'Åbne løb', 'two sections, scheduled races above open lobbies (' + rows.map(r => r.h).join(' / ') + ')');
-    ok(rows[0] && rows[0].items.some(i => i.code === fri.code && /Fredagsræs/.test(i.txt) && /Planlagt/.test(i.txt) && /Vært: Anton/.test(i.txt) && /Optimist/.test(i.txt) && /Trekant/.test(i.txt) && /Åbner kl\./.test(i.txt)), 'the scheduled race shows title, "Planlagt <when>", host, class, course and its opening time');
-    ok(rows[1] && rows[1].items.some(i => i.code === mRoom.code && /Mille/.test(i.txt) && /I lobbyen/.test(i.txt) && /1\/8 sejlere/.test(i.txt) && /m\/s/.test(i.txt)), 'the open lobby shows host, "I lobbyen", players 1/8 and wind in the player\'s unit');
+    ok(rows.length === 2 && rows[0].h === 'Åbne løb' && rows[1].h === 'Planlagte løb', 'two sections, the races you can join now first (' + rows.map(r => r.h).join(' / ') + ')');
+    ok(rows[1] && rows[1].items.some(i => i.code === fri.code && /Fredagsræs/.test(i.txt) && /Planlagt/.test(i.txt) && /Vært: Anton/.test(i.txt) && /Optimist/.test(i.txt) && /Trekant/.test(i.txt) && /Åbner kl\./.test(i.txt)), 'the scheduled race shows title, "Planlagt <when>", host, class, course and its opening time');
+    ok(rows[0] && rows[0].items.some(i => i.code === mRoom.code && /^Milles løb/.test(i.txt) && /Vært: Mille/.test(i.txt) && /I lobbyen/.test(i.txt) && /1\/8 sejlere/.test(i.txt) && /m\/s/.test(i.txt)),
+      'the open lobby: "Milles løb", "Vært: Mille", "I lobbyen", players 1/8 and wind in the player\'s unit');
     ok(!rows.some(r => r.items.some(i => i.code === pRoom.code)), 'a private lobby is not listed');
     ok(await lp.page.evaluate(() => window.__ws) === 0 && roomsReq.length >= 1, 'the list comes over GET /rooms: no WebSocket is opened to show it');
     // the 10 s refresh while the list is open
@@ -542,6 +543,23 @@ async function main() {
     ok(lp.page.errs.length === 0, 'no errors in the list flow (' + lp.page.errs.join(' | ') + ')');
     await lp.ctx.close();
 
+    console.log('-- host room at 320 px (review round 1): nothing wider than the screen');
+    for (const lang of ['en', 'da']) {
+      const hp = await newPage('area=race', 'Frederikke');
+      await hp.page.setViewportSize({ width: 320, height: 568 });
+      await hp.page.evaluate(l => KOS.I18n.setLang(l), lang);
+      await hp.page.waitForSelector('.live-card', { timeout: 8000 }); await hp.page.click('.live-card'); await waitView(hp.page, 'entry');
+      await clickAct(hp.page, 'host'); await waitView(hp.page, 'setup');
+      await clickAct(hp.page, 'create'); await waitView(hp.page, 'room', 10000);
+      await hp.page.waitForSelector('#screen-live [data-act="visroom"]');
+      const over = await hp.page.evaluate(() => { const W = innerWidth, r = []; document.querySelectorAll('#screen-live *').forEach(e => { const b = e.getBoundingClientRect(); if (b.width && b.right > W + 0.5) r.push(e.tagName + '.' + e.className + ' ' + Math.round(b.right)); }); return r; });
+      ok(over.length === 0, lang + ' 320x568 host room: no element past the right edge (' + over.slice(0, 4).join(', ') + ')');
+      const chips = await hp.page.evaluate(() => [...document.querySelectorAll('#screen-live [data-act="visroom"]')].map(b => { const r = b.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.width)]; }));
+      ok(chips.length === 2 && chips[0][0] === chips[1][0] && Math.abs(chips[0][1] - chips[1][1]) <= 1, lang + ': the two visibility chips share one row at equal width (' + JSON.stringify(chips) + ')');
+      ok(hp.page.errs.length === 0, lang + ': no errors (' + hp.page.errs.join(' | ') + ')');
+      await hp.ctx.close();
+    }
+
     console.log('-- schedule a race: validation, private, my scheduled races (QR, reminder, cancel)');
     const pp = await newPage('area=race', 'Trine');
     await pp.page.waitForSelector('.live-card', { timeout: 8000 }); await pp.page.click('.live-card'); await waitView(pp.page, 'entry');
@@ -551,11 +569,13 @@ async function main() {
     ok(await pp.page.evaluate(() => [...document.querySelectorAll('#screen-live [data-act="ptitle"]')].map(b => b.textContent).join('|') === 'Træningsløb|Fredagsræs|Klubmesterskab|Juleræs|Weekendræs' &&
       !document.querySelector('#screen-live input[type="text"], #screen-live textarea')), 'five preset race names and no free text field');
     ok(await pp.page.evaluate(() => document.querySelector('#screen-live [data-act="pvis"][data-v="open"]').classList.contains('on')), 'a scheduled race is listed (open) by default');
+    ok(await pp.page.evaluate(() => { const d = document.getElementById('live-plan-day').value, tm = document.getElementById('live-plan-time').value; const at = new Date(d + 'T' + tm).getTime(); return at >= Date.now() + 10 * 60000 && document.getElementById('live-plan-when2').textContent.length > 0; }),
+      'the form opens on a time that can be used (never already too soon), the summary also right above the button');
     const setWhen = (ms) => pp.page.evaluate(ms => { const d = new Date(ms), p = n => String(n).padStart(2, '0'); const day = document.getElementById('live-plan-day'), tm = document.getElementById('live-plan-time');
       day.value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); tm.value = p(d.getHours()) + ':' + p(d.getMinutes()); tm.dispatchEvent(new Event('change')); }, ms);
     const ws0 = await pp.page.evaluate(() => window.__ws);
     await setWhen(Date.now() + 3 * 60000); await clickAct(pp.page, 'plan');
-    ok(await pp.page.evaluate(() => /mindst 10 minutter/.test(document.getElementById('live-plan-err').textContent)), 'a time 3 min ahead: "mindst 10 minutter fra nu"');
+    ok(await pp.page.evaluate(() => /mindst 10 minutter/.test(document.getElementById('live-plan-err').textContent) && /mindst 10 minutter/.test(document.getElementById('live-plan-err2').textContent)), 'a time 3 min ahead: "mindst 10 minutter fra nu" (at the pickers and above the button)');
     await setWhen(Date.now() + 15 * 86400000); await clickAct(pp.page, 'plan');
     ok(await pp.page.evaluate(() => /højst planlægge 14 dage/.test(document.getElementById('live-plan-err').textContent)), '15 days ahead: "højst planlægge 14 dage frem"');
     await pp.page.evaluate(() => { document.getElementById('live-plan-time').value = ''; document.getElementById('live-plan-time').dispatchEvent(new Event('change')); });
@@ -576,7 +596,10 @@ async function main() {
       'KOS.Storage liveSched keeps {code, secret, title, startAt, opensAt} (' + (mine && mine.code) + ')');
     const e = mine && srv.rooms.sched.get(mine.code);
     ok(!!e && e.title === 'weekend' && e.startAt === at && e.cfg.vis === 'private' && e.cfg.maxP === 4 && e.hostName === 'Trine', 'the server stores the race: title id, start, private, max 4, host nickname');
-    ok(await pp.page.evaluate(c => { const it = document.querySelector('.live-mitem[data-code="' + c + '"]'); return !!it && /Weekendræs/.test(it.textContent) && /Kun med kode/.test(it.textContent) && !!it.querySelector('.live-qr svg'); }, mine.code), 'my scheduled races: title, code, "Kun med kode" and the QR code right after scheduling');
+    ok(await pp.page.evaluate(c => { const it = document.querySelector('.live-mitem[data-code="' + c + '"]'); return !!it && /Weekendræs/.test(it.textContent) && /Kun med kode/.test(it.textContent) && !it.querySelector('.live-qr svg'); }, mine.code), 'my scheduled races: title, code, "Kun med kode"; the QR waits behind its button');
+    await pp.page.click('#screen-live [data-act="mqr"][data-code="' + mine.code + '"]');
+    ok(await pp.page.evaluate(c => !!document.querySelector('.live-mitem[data-code="' + c + '"] .live-qr svg'), mine.code), '"QR-kode" shows the QR code');
+    ok(await pp.page.evaluate(c => { const it = document.querySelector('.live-mitem[data-code="' + c + '"]'); const b = it.querySelector('[data-act="mcancel"]'); return !!b && !b.closest('.live-mbtns') && b.getBoundingClientRect().height >= 44; }, mine.code), '"Aflys" sits on its own line, away from the other buttons, 44 px tall');
     ok(await pp.page.evaluate(() => !document.querySelector('#screen-live [data-act="mgo"]')), 'not open yet: no "Gå til løbet" button');
     const listed = await (await fetch(web.url.replace(/\/$/, '').replace(/:\d+$/, '') + ':' + port + '/rooms')).json();
     ok(!listed.rooms.some(r => r.code === mine.code), 'a private scheduled race is not in the open list');
@@ -586,9 +609,10 @@ async function main() {
     const z = new Date(at).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     ok(/\.ics$/.test(dl.suggestedFilename()) && /^BEGIN:VCALENDAR\r\n/.test(ics) && ics.indexOf('DTSTART:' + z) > 0 && /SUMMARY:Weekendræs/.test(ics) && ics.indexOf(mine.code) > 0 && /TRIGGER:-PT15M/.test(ics) && /END:VCALENDAR\r\n$/.test(ics),
       '"Påmind mig" downloads an .ics with the start (UTC), the title, the code and a 15 min alarm');
+    ok(ics.split('\r\n').every(l => Buffer.byteLength(l, 'utf8') <= 75) && /\r\n /.test(ics), 'the .ics lines are folded at 75 UTF-8 octets (RFC 5545), æ/ø/å and the dash included');
     // the entry shows the button with a count
     await pp.page.click('#screen-live .screen-head [data-act="back"]'); await waitView(pp.page, 'entry');
-    ok(await pp.page.evaluate(() => { const b = document.querySelector('#screen-live [data-act="mineview"]'); return !!b && b.querySelector('.live-badge').textContent === '1'; }), 'the entry shows "Mine planlagte løb" with 1');
+    ok(await pp.page.evaluate(() => { const b = document.querySelector('#screen-live [data-act="mineview"]'); return !!b && b.textContent === 'Mine planlagte løb (1)'; }), 'the entry shows "Mine planlagte løb (1)"');
     await clickAct(pp.page, 'mineview'); await waitView(pp.page, 'mine');
     // cancel
     await pp.page.click('#screen-live [data-act="mcancel"][data-code="' + mine.code + '"]');
@@ -608,8 +632,9 @@ async function main() {
     ok(await wp.page.evaluate(c => document.getElementById('live-code').value === c && location.hash.indexOf('live=') < 0, fri.code), '#live=CODE opens the join screen with the code (and leaves the hash)');
     await clickAct(wp.page, 'join');
     await waitView(wp.page, 'wait');
-    ok(await wp.page.evaluate(() => { const x = document.getElementById('screen-live').textContent; return /Fredagsræs åbner .* kl\. 17\.45\. Løbet starter .* kl\. 18\.00\./.test(x) && /Åbner om \d+ (t|dage)/.test(x); }),
-      'not open yet: "Fredagsræs åbner … kl. 17.45. Løbet starter … kl. 18.00." and a countdown');
+    ok(await wp.page.evaluate(() => { const x = document.getElementById('screen-live').textContent; return /Fredagsræs – [^:]+: åbner kl\. 17\.45 · starter kl\. 18\.00\./.test(x) && (x.match(/nov|dec|jan|feb|mar|apr|maj|jun|jul|aug|sep|okt/g) || []).length <= 1 && /Åbner om \d+ (t|dage)/.test(x) && /Siden går selv ind i løbet, når det åbner\./.test(x); }),
+      'not open yet: "Fredagsræs – <day>: åbner kl. 17.45 · starter kl. 18.00." (the date once), a countdown and "Siden går selv ind …"');
+    ok(await wp.page.evaluate(() => /Tjek om løbet er åbent/.test(document.querySelector('#screen-live [data-act="waitjoin"]').textContent)), 'the button says what it does: "Tjek om løbet er åbent"');
     ok(await wp.page.evaluate(() => !!document.querySelector('#screen-live [data-act="remind"]') && !KOS.Lobby.state.sess), 'the wait card offers "Påmind mig" and holds no connection');
     ok(wp.page.errs.length === 0, 'no errors (' + wp.page.errs.join(' | ') + ')');
     await wp.ctx.close();
@@ -627,6 +652,12 @@ async function main() {
     await waitView(rp.page, 'room');
     ok(await rp.page.evaluate(() => { const x = document.getElementById('screen-live'); return x.querySelector('.screen-head h1').textContent === 'Træningsløb' && /starter af sig selv/.test(x.textContent) && /Starter om \d+:\d\d/.test(x.querySelector('.live-schedin').textContent) && !x.querySelector('[data-act="start"]'); }),
       'the server-run room: title, "Løbet starter af sig selv …" with a countdown, no start button');
+    ok(await rp.page.evaluate(() => { const top = document.querySelector('#screen-live .live-schedtop'), room = document.querySelector('#screen-live .live-room');
+      return !!top && !!top.querySelector('.live-schedin') && !!top.querySelector('[data-act="leave"]') && !!(top.compareDocumentPosition(room) & Node.DOCUMENT_POSITION_FOLLOWING) && !document.querySelector('#screen-live .live-qr svg'); }),
+      'a waiting sailor sees the schedule card (countdown + "Forlad") first; the QR is behind a button');
+    await rp.page.setViewportSize({ width: 320, height: 568 }); await rp.page.waitForTimeout(200);
+    ok(await rp.page.evaluate(() => { const r = document.querySelector('#screen-live .live-schedtop').getBoundingClientRect(); return r.bottom <= innerHeight; }), '320x568: the countdown and "Forlad" are visible without scrolling');
+    await rp.page.setViewportSize({ width: 1000, height: 800 });
     // the creator (Maria's phone) joins with the secret from "Mine planlagte løb" and becomes host
     const cp = await newPage('area=race', 'Maria');
     await cp.page.evaluate(x => KOS.Storage.set('liveSched', [x]), { code: soon.code, secret: soon.secret, title: soon.title, startAt: soon.startAt, opensAt: soon.opensAt, boat: 'zest', course: 'wl', wind: 10, maxP: 8, vis: 'open', url: WS });

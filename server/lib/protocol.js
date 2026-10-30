@@ -26,6 +26,7 @@ const int = n => fin(n) && Math.floor(n) === n;
 
 const CFG_DEFAULTS = { boat: 'zest', venue: 'sound', course: 'wl', laps: 2, windDeg: 0, windKn: 10, gust: 0.4, shift: 0.4, seed: 0, maxP: 12, maxS: 900, countdownS: 20, pen: true, contact: true, help: 'free', rain: 0, finishS: 180, vis: 'private' };
 const SCHED_TITLES = ['train', 'friday', 'club', 'xmas', 'weekend']; // fixed preset names (no free text); the client translates the id
+const FOUL_RULES = ['R10', 'R11', 'R12', 'R13', 'R15', 'R18', 'R22']; // the rule labels a {t:'foul'} may carry (js/modes/race.js TOLD_RULES)
 function clampNum(v, lo, hi, def) {
   if (!fin(v)) return def;
   return Math.min(hi, Math.max(lo, v));
@@ -82,10 +83,9 @@ function validate(raw) {
     }
     case 'list': // open race list; answered with {t:'rooms'}
       return { ok: true, msg: { t: 'list' } };
-    case 'foul': { // the stand-on phone tells the offender's phone: o = offender id, r = rule label ("10", "11", "18.2" ...)
-      const r = clean(m.r, 12);
-      if (!int(m.o) || m.o < 1 || !r) return bad;
-      return { ok: true, msg: { t: 'foul', o: m.o, r } };
+    case 'foul': { // the stand-on phone tells the offender's phone: o = offender id, r = the rule (a fixed label, never free text)
+      if (!int(m.o) || m.o < 1 || FOUL_RULES.indexOf(m.r) < 0) return bad;
+      return { ok: true, msg: { t: 'foul', o: m.o, r: m.r } };
     }
     case 'sched': { // schedule a race: fixed title id, UTC start, cfg
       if (!m.cfg || typeof m.cfg !== 'object' || SCHED_TITLES.indexOf(m.title) < 0 || !int(m.startAt)) return bad;
@@ -132,4 +132,4 @@ function parseVer(s) {
 }
 function cmpVer(a, b) { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1; return 0; }
 
-module.exports = { SCHED_TITLES, CLIENT_LEVEL_NOW, parseVer, cmpVer, PROTOCOL_VERSION, MAX_FRAME, MAX_ST, ALPHABET, COLORS, CFG_DEFAULTS, validate, normCode, sanitizeCfg, clean };
+module.exports = { SCHED_TITLES, FOUL_RULES, CLIENT_LEVEL_NOW, parseVer, cmpVer, PROTOCOL_VERSION, MAX_FRAME, MAX_ST, ALPHABET, COLORS, CFG_DEFAULTS, validate, normCode, sanitizeCfg, clean };

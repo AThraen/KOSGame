@@ -692,7 +692,7 @@ async function main() {
     const ca = await A.wait('created');
     const B = await mk5('Bravo'); await B.wait('welcome'); B.send({ t: 'join', code: ca.code }); const jb = await B.wait('joined');
     const C = await mk5('Charlie'); await C.wait('welcome'); C.send({ t: 'join', code: ca.code }); const jcc = await C.wait('joined');
-    A.send({ t: 'foul', o: jb.id, r: '10' });
+    A.send({ t: 'foul', o: jb.id, r: 'R10' });
     await sleep(150);
     ok(!B.q.some(m => m.t === 'foul'), 'a foul in the lobby is ignored');
     A.send({ t: 'start' }); await A.wait('start');
@@ -700,17 +700,20 @@ async function main() {
     A.send({ t: 'st', s: [1, 1, 10, 5, 0.5, 3.2, 0.1, 64 | 128 | 1, 1] });
     const rel = await B.wait('s');
     ok(rel.a[0][7] === 193, 'st flags with port tack (64) and r13 (128) are relayed untouched');
-    A.send({ t: 'foul', o: jb.id, r: '10' });
+    A.send({ t: 'foul', o: jb.id, r: 'R10' });
     const fb = await B.wait('foul');
-    ok(fb.from === 1 && fb.r === '10' && fb.o === undefined, 'foul is relayed to the offender with the sender id');
+    ok(fb.from === 1 && fb.r === 'R10' && fb.o === undefined, 'foul is relayed to the offender with the sender id');
     await sleep(150);
     ok(!C.q.some(m => m.t === 'foul') && !A.q.some(m => m.t === 'foul'), 'foul reaches nobody but the offender');
-    for (let i = 0; i < 15; i++) A.send({ t: 'foul', o: jb.id, r: '11' });
+    for (let i = 0; i < 15; i++) A.send({ t: 'foul', o: jb.id, r: 'R11' });
     await sleep(300);
     ok(B.q.filter(m => m.t === 'foul').length <= 1, 'a foul burst against the same offender is rate-limited');
-    A.send({ t: 'foul', o: 1, r: '10' }); A.send({ t: 'foul', o: 99, r: '10' }); A.send({ t: 'foul', o: 0, r: '10' }); A.send({ t: 'foul', o: jcc.id });
+    A.send({ t: 'foul', o: 1, r: 'R10' }); A.send({ t: 'foul', o: 99, r: 'R10' }); A.send({ t: 'foul', o: 0, r: 'R10' }); A.send({ t: 'foul', o: jcc.id });
     await sleep(200);
     ok(!A.q.some(m => m.t === 'foul') && A.q.filter(m => m.t === 'err').length >= 2, 'foul against oneself / unknown id / without a rule is dropped or refused, never echoed');
+    const e0 = A.q.filter(m => m.t === 'err').length;
+    await sleep(600); A.send({ t: 'foul', o: jb.id, r: 'hej med dig' }); await sleep(200);
+    ok(!B.q.some(m => m.t === 'foul' && m.r === 'hej med dig') && A.q.filter(m => m.t === 'err').length > e0, 'a foul with a rule label that is not on the list is refused (no free text relayed)');
     [A, B, C, old, fut].forEach(x => x.close());
     await fs2.close();
   }
@@ -748,8 +751,8 @@ async function main() {
     ok(hr.status === 200 && JSON.parse(hr.body).rooms[0].code === open.code && hr.headers['access-control-allow-origin'] === 'https://spil.kossejlsport.dk', 'GET /rooms returns the same list with CORS for a game origin');
     ok((await httpGet('/rooms', 'https://evil.example')).status === 403, 'GET /rooms refuses a foreign Origin');
     ok((await httpGet('/rooms')).status === 200, 'GET /rooms without Origin (curl) works');
-    const sts = []; for (let i = 0; i < 12; i++) sts.push((await httpGet('/rooms', 'http://localhost:8080')).status);
-    ok(sts.includes(429) && sts[0] === 200, 'GET /rooms is rate-limited per IP (429)');
+    const sts = []; for (let i = 0; i < 26; i++) sts.push((await httpGet('/rooms', 'http://localhost:8080')).status);
+    ok(sts.includes(429) && sts.slice(0, 15).every(x => x === 200), 'GET /rooms is rate-limited per IP (429), with room for a club Wi-Fi (15 quick requests pass)');
     for (let i = 0; i < 5; i++) V.send({ t: 'list' });
     await sleep(300);
     ok(V.q.some(m => m.t === 'err' && m.code === 'rate'), 'a burst of {t:list} gets err rate');
@@ -818,7 +821,7 @@ async function main() {
     clock.t = T - 15 * MIN; R.tick();
     const room = R.rooms.get(code);
     ok(room && room.phase === 'lobby' && room.hostId === 0 && room.players.size === 0 && !R.sched.has(code), 'opens as a host-less lobby at -15 min');
-    ok(saved.length === 0 || !saved.some(e => e.code === code), 'an opened race leaves the persisted file');
+    ok(saved.some(e => e.code === code), 'an opened race stays in the persisted file until it begins (a restart opens it again)');
     ok(room.cfg.seed > 0 && R.info(room).sched.at === T, 'the opened room has a seed and carries its schedule');
     ok(R.listRooms()[0].phase === 'lobby' && R.listRooms()[0].sched.at === T && R.listRooms()[0].startsIn === 15 * MIN, 'the opened room is listed with startsIn');
 
@@ -829,6 +832,7 @@ async function main() {
     ok(room.phase === 'lobby', 'a player is not the host: cannot start');
     clock.t = T + 12000; R.tick(); // keep alive a little
     ok(room.phase === 'countdown' && a.log.some(m => m.t === 'start') && b.log.some(m => m.t === 'start'), 'at startAt the server starts the countdown with 2 players');
+    ok(!saved.some(e => e.code === code), 'the race has begun: it leaves the persisted file');
     ok(room.T0 === T + 12000 + room.cfg.countdownS * 1000, 'server-started countdown uses cfg.countdownS');
     clock.t = room.T0 + 1; R.tick();
     ok(room.phase === 'racing', 'the server-started race goes to racing');
@@ -911,6 +915,78 @@ async function main() {
     const s7 = R3.schedule(mkConn('Ven', '7.7.7.7'), {}, 'train', clock.t + 10 * MIN);
     R3.tick();
     ok(R3.sched.has(s7.entry.code) && !R3.rooms.has(s7.entry.code), 'a full server keeps the race pending and retries');
+    ok(R3.join(mkConn('Ivrig'), s7.entry.code).err === 'busy', 'joining a race that is due but cannot open (server full) says busy, not notopen');
+
+    // review round 1: a claimed host of a scheduled room keeps control after startAt (abort / rematch / waiting in the lobby)
+    const s8 = R.schedule(mkConn('Vaert', '8.8.8.1'), { countdownS: 8 }, 'train', clock.t + 30 * MIN);
+    const T8 = s8.entry.startAt; clock.t = T8 - 15 * MIN; R.tick();
+    const r8 = R.rooms.get(s8.entry.code);
+    const h8 = R.join(mkConn('Vaert'), s8.entry.code, s8.secret), p8 = R.join(mkConn('Gaest'), s8.entry.code);
+    clock.t = T8 - 10000; R.tick();
+    ok(R.start(r8, h8.player.id) === 'ok' && r8.phase === 'countdown', 'claimed host starts just before startAt');
+    clock.t = T8 + 5000; R.tick();
+    ok(R.abort(r8, h8.player.id) === 'ok' && r8.phase === 'lobby', 'host aborts after startAt');
+    clock.t += 200; R.tick(); clock.t += 30000; R.tick();
+    ok(r8.phase === 'lobby', 'after the abort the room stays in the lobby: no server gun while a host is in');
+    clock.t = T8 + 11 * MIN; R.tick();
+    ok(r8.phase === 'lobby', 'and it is not cancelled for few boats 10 min after startAt');
+    R.start(r8, h8.player.id); clock.t = r8.T0 + 1; R.tick();
+    R.finish(r8, h8.player.id, 60000); R.finish(r8, p8.player.id, 61000);
+    ok(r8.phase === 'results' && R.rematch(r8, h8.player.id) === 'ok' && r8.phase === 'lobby', 'host rematch from the results');
+    clock.t += 200; R.tick(); clock.t += 90000; R.tick();
+    ok(r8.phase === 'lobby', 'after a host rematch the host decides when to start');
+    // ...and when the host goes away, the server runs it again: the next gun is a minute ahead, not at once
+    h8.player.lost = true; h8.player.lostAt = clock.t; clock.t += 21000; R.tick();
+    ok(r8.hostId === 0 && r8.phase === 'lobby' && r8.sched.startAt >= clock.t + 39000, 'host gone: server-run again, next gun in a minute');
+    // review round 1: a claimed host whose phone drops in a countdown keeps the boat on the grid
+    const s9 = R.schedule(mkConn('Vaert2', '8.8.8.2'), { countdownS: 120 }, 'club', clock.t + 30 * MIN);
+    clock.t = s9.entry.startAt - 15 * MIN; R.tick();
+    const r9 = R.rooms.get(s9.entry.code);
+    const h9c = mkConn('Vaert2'), h9 = R.join(h9c, s9.entry.code, s9.secret); R.join(mkConn('Gaest2'), s9.entry.code);
+    R.start(r9, h9.player.id);
+    R.disconnect(r9, h9.player.id, false); clock.t += 25000; R.tick();
+    ok(r9.phase === 'countdown' && r9.players.has(h9.player.id) && r9.hostId === 0 && !h9.player.host, 'host socket gone in a countdown: the seat stays (as a player), the room is server-run');
+    const back = R.resume(mkConn('Vaert2'), s9.entry.code, h9.player.id, h9.player.key);
+    ok(back.player === h9.player, 'and the creator can resume the seat');
+    const s10 = R.schedule(mkConn('Vaert3', '8.8.8.3'), { countdownS: 120 }, 'club', clock.t + 30 * MIN);
+    clock.t = s10.entry.startAt - 15 * MIN; R.tick();
+    const r10 = R.rooms.get(s10.entry.code);
+    const h10 = R.join(mkConn('Vaert3'), s10.entry.code, s10.secret); R.join(mkConn('Gaest3'), s10.entry.code);
+    R.start(r10, h10.player.id); R.disconnect(r10, h10.player.id, true);
+    ok(r10.phase === 'countdown' && r10.players.has(h10.player.id) && r10.players.get(h10.player.id).left && r10.hostId === 0, 'host leaves in a countdown: the boat stays on the grid as a seat that left');
+
+    // review round 1: a restart in the 15 min before the start opens the room again
+    const sv = [];
+    const RA = mkRooms({ onSchedChange: (l) => { sv.length = 0; sv.push(...JSON.parse(JSON.stringify(l))); } });
+    const sA = RA.schedule(mkConn('Genstart', '8.8.9.1'), {}, 'friday', clock.t + 30 * MIN);
+    clock.t = sA.entry.startAt - 10 * MIN; RA.tick();
+    ok(RA.rooms.has(sA.entry.code) && sv.some(e => e.code === sA.entry.code), 'opened, still in the file');
+    const RB = mkRooms(); RB.restore(JSON.parse(JSON.stringify(sv)));
+    ok(RB.join(mkConn('Tidlig'), sA.entry.code).err === 'busy' || RB.sched.has(sA.entry.code), 'after the restart the race is known');
+    RB.tick();
+    const rb = RB.rooms.get(sA.entry.code);
+    ok(rb && rb.phase === 'lobby' && rb.sched.startAt === sA.entry.startAt && RB.join(mkConn('Igen'), sA.entry.code).player, 'restart inside the open window: the room opens again on the first tick and is joinable');
+    ok(RB.scheduleCancel(sA.entry.code, sA.secret) === 'ok', 'and the creator can still cancel it with the secret');
+
+    // review round 1: the per-IP limits survive a restart (salted IP hash in the entries, never the IP)
+    const salt = 'testsalt', svp = [];
+    const RP = mkRooms({ ipSalt: salt, onSchedChange: (l) => { svp.length = 0; svp.push(...JSON.parse(JSON.stringify(l))); } });
+    for (let i = 0; i < 3; i++) RP.schedule(mkConn('Klub', '9.9.1.1'), {}, 'train', clock.t + 60 * MIN + i * MIN);
+    ok(!JSON.stringify(svp).includes('9.9.1.1') && svp.every(e => /^[0-9a-f]{64}$/.test(e.iph)), 'the file holds a salted hash of the IP, not the IP');
+    const RQ = mkRooms({ ipSalt: salt }); RQ.restore(JSON.parse(JSON.stringify(svp)));
+    ok(RQ.schedule(mkConn('Klub', '9.9.1.1'), {}, 'train', clock.t + 70 * MIN).err === 'schedlimit', 'the day limit holds after a restart');
+    ok(!RQ.schedule(mkConn('Andre', '9.9.1.2'), {}, 'train', clock.t + 70 * MIN).err, 'another IP is not affected');
+    const RW = mkRooms({ ipSalt: salt }); const pend = [];
+    for (let d = 0; d < 3; d++) { for (let i = 0; i < 3; i++) pend.push(RW.schedule(mkConn('Uge', '9.9.2.1'), {}, 'train', clock.t + 5 * 86400000 + (d * 3 + i) * MIN).err || 'ok'); clock.t += 86400000 + 1000; }
+    ok(pend.filter(x => x === 'ok').length === 5 && pend.slice(5).every(x => x === 'schedlimit'), 'at most 5 pending races per IP, whatever the day (' + pend.join() + ')');
+
+    // review round 1: pending scheduled races never push the joinable lobbies out of the list
+    const RL = mkRooms({ limits: { maxRooms: 200, maxPlayers: 24 } });
+    for (let i = 0; i < 50; i++) RL.schedule(mkConn('P' + i, '10.1.' + i + '.1'), {}, 'train', clock.t + 120 * MIN + i * MIN);
+    for (let i = 0; i < 25; i++) RL.create(mkConn('L' + i), { vis: 'open' }, 'sail');
+    const ll = RL.listRooms();
+    ok(ll.length === 30 && ll.filter(x => x.phase === 'lobby').length === 15 && ll.filter(x => x.phase === 'sched').length === 15, 'list: 15 lobbies + 15 pending races');
+    ok(ll[0].phase === 'lobby', 'joinable rooms come first in the list');
   }
 
   console.log('-- scheduled races over the wire, persistence across a restart');
@@ -949,10 +1025,13 @@ async function main() {
     Cr2.send({ t: 'schedcancel', code: sd.code, secret: sd.secret });
     ok((await Cr2.wait('schedcancelled')).code === sd.code, 'schedcancel with the secret works after the restart');
     ok(JSON.parse(fs.readFileSync(schedPath, 'utf8')).races.length === 0, 'and the file is updated');
-    // corrupt file: start empty, do not crash
+    // corrupt file: start empty, do not crash, keep the broken file aside
     await ws1.close(); fs.writeFileSync(schedPath, '{broken');
     ws1 = mkS(); wp = await ws1.listen();
     ok(ws1.rooms.sched.size === 0, 'a broken schedule file starts empty');
+    ok(fs.existsSync(schedPath + '.bad') && fs.readFileSync(schedPath + '.bad', 'utf8') === '{broken', 'the broken file is kept as .bad, not silently overwritten');
+    const sfm = require(path.join(ROOT, 'server', 'lib', 'schedfile.js'));
+    ok(sfm.save(path.join(tmp, 'no-such-dir', 'x.json'), []) === false, 'schedfile.save reports a failed write (counted in /health)');
     // a race 10 min ahead opens at once (opens at -15 min); creator reclaims host with the secret over the wire
     const Cr3 = await mkW('Traener');
     Cr3.send({ t: 'sched', cfg: { countdownS: 8 }, title: 'train', startAt: Date.now() + 10 * 60000 + 5000 });

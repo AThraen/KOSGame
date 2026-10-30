@@ -23,10 +23,14 @@ function createServer(env) {
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const IDLE_MS = num(env.KOS_IDLE_MS, 60000);
 
-  const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000),
-    onSchedChange: (list) => schedFile.save(env.KOS_SCHEDULE_FILE, list) });
-  rooms.restore(schedFile.load(env.KOS_SCHEDULE_FILE));
+  const saved = schedFile.load(env.KOS_SCHEDULE_FILE);
+  const ipSalt = saved.salt || require('crypto').randomBytes(16).toString('hex'); // kept in the schedule file: per-IP limits survive a restart
+  const schedHealth = { saveFails: 0, badFile: !!saved.bad }; // /health: a schedule file that cannot be written must not go unnoticed
+  const rooms = createRooms({ limits: Object.assign({}, HARD), lobbyGraceMs: num(env.KOS_LOBBY_GRACE_MS, 20000), ipSalt,
+    onSchedChange: (list) => { if (!schedFile.save(env.KOS_SCHEDULE_FILE, list, ipSalt)) schedHealth.saveFails++; } });
+  rooms.restore(saved.races);
   const listIp = new Map(); // ip -> bucket for GET /rooms
+  let listCache = null, listAt = 0; // GET /rooms: one list per second for everybody (a club Wi-Fi is many phones behind one IP)
   const conns = createConnCounter({ maxTotal: num(env.KOS_MAX_CONNS, 300), maxPerIp: num(env.KOS_MAX_PER_IP, 20) });
   const started = Date.now();
 
@@ -70,7 +74,7 @@ function createServer(env) {
       const m = process.memoryUsage();
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
       res.end(JSON.stringify({ ok: true, mode: status.current().mode, rooms: st.rooms, players: st.players, conns: conns.total(),
-        rssMb: Math.round(m.rss / 1048576), uptimeS: Math.round((Date.now() - started) / 1000) }));
+        rssMb: Math.round(m.rss / 1048576), uptimeS: Math.round((Date.now() - started) / 1000), sched: rooms.sched.size, schedSaveFails: schedHealth.saveFails, schedBadFile: schedHealth.badFile }));
       return;
     }
     if (req.method === 'GET' && (req.url === '/rooms' || req.url.startsWith('/rooms?'))) return roomsHttp(req, res);
@@ -94,11 +98,13 @@ function createServer(env) {
     let b = listIp.get(ip);
     if (!b) {
       if (listIp.size > 2000) listIp.clear();
-      b = createBucket({ rate: 0.5, burst: 6 }); listIp.set(ip, b);
+      b = createBucket({ rate: 3, burst: 20 }); listIp.set(ip, b);
     }
     if (!b.take()) { res.writeHead(429, Object.assign({ 'retry-after': '2' }, head)); res.end('{"rooms":[]}'); return; }
+    const t = Date.now();
+    if (!listCache || t - listAt >= 1000) { listCache = JSON.stringify({ rooms: roomList() }); listAt = t; }
     res.writeHead(200, head);
-    res.end(JSON.stringify({ rooms: roomList() }));
+    res.end(listCache);
   }
   // hidden/closed (the status-file kill switch) shows an empty list
   const roomList = () => (status.current().mode === 'on' ? rooms.listRooms() : []);

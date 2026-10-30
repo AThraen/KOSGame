@@ -233,7 +233,10 @@ async function main() {
       window.__iv = setInterval(() => { const r = i.live.remotes[0]; if (r) window.__minGap = Math.min(window.__minGap, KOS.Rules.hullGap(b, r)); }, 40);
     }, sgn);
     await Promise.all([setup(sail[0], -1), setup(sail[1], 1)]);
+    // a "you fouled me" while the boats are 44 m apart (a buggy or modified client) is dropped: no penalty (review round 1)
+    await sail[1].evaluate(() => { const i = KOS.App.run.inst; i.live.told({ from: i.live.remotes[0].rid, r: 'R10' }); });
     await sleep(500);
+    ok(await sail[1].evaluate(() => KOS.App.run.inst.state.fouls) === 0, label + ': a foul message about a boat far away gives no penalty');
     const tacks = await Promise.all(sail.map(p => p.evaluate(() => KOS.App.run.inst.boat.tack)));
     ok(tacks[0] === 'starboard' && tacks[1] === 'port', label + ': one boat on starboard, one on port tack (' + tacks.join('/') + ')');
     const seen = await Promise.all(sail.map(p => p.evaluate(() => KOS.App.run.inst.live.remotes[0].tack)));

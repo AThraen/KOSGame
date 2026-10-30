@@ -97,42 +97,46 @@
     startEarly: 'Start løbet nu', auto: 'Løbet starter af sig selv {when}, når mindst 2 sejlere er med.', autoIn: 'Starter om {t}', waitMore: 'Venter på flere sejlere…',
     cancelHost: 'Løbet er aflyst.', cancelFew: 'Der kom ikke nok sejlere, så løbet er aflyst. Prøv igen en anden dag!',
     titles: { train: 'Træningsløb', friday: 'Fredagsræs', club: 'Klubmesterskab', xmas: 'Juleræs', weekend: 'Weekendræs' },
-    when: { today: 'i dag kl. {time}', tomorrow: 'i morgen kl. {time}', day: '{day} kl. {time}' },
+    when: { today: 'i dag kl. {time}', tomorrow: 'i morgen kl. {time}', day: '{day} kl. {time}', dToday: 'I dag', dTomorrow: 'I morgen', at: 'kl. {time}' },
     dur: { h: '{h} t {m} min', d: '{d} dage' },
     vis: { label: 'Hvem kan være med', private: 'Kun med kode', open: 'Alle (på listen)', privateHint: 'Kun dem, der får koden, linket eller QR-koden.', openHint: 'Løbet står under “Find et løb”, så alle kan være med.' },
     list: { title: 'Find et løb', intro: 'Tryk på et løb for at være med.', sched: 'Planlagte løb', open: 'Åbne løb', loading: 'Henter løb…', refresh: 'Opdater',
       empty: 'Ingen åbne løb lige nu – start dit eget eller planlæg et.', err: 'Jeg kan ikke hente listen lige nu. Prøv igen om lidt.',
-      lobby: 'I lobbyen', startsIn: 'Starter om {t}', now: 'Starter nu', planned: 'Planlagt {when}', full: 'Fuldt', by: 'Vært: {name}', sailors: '{n}/{max} sejlere' },
+      lobby: 'I lobbyen', startsIn: 'Starter om {t}', now: 'Starter nu', planned: 'Planlagt {when}', full: 'Fuldt', by: 'Vært: {name}', sailors: '{n}/{max} sejlere',
+      hostRace: '{name}s løb', hostRaceS: '{name}’ løb' },
     plan: { btn: 'Planlæg til senere', title: 'Planlæg et løb', intro: 'Vælg navn, dag og tidspunkt. Løbet åbner 15 minutter før start, og serveren starter det selv, når mindst 2 sejlere er med.',
       name: 'Navn', day: 'Dag', time: 'Tidspunkt', go: 'Planlæg løbet', opens: 'Åbner kl. {time}',
       noTime: 'Vælg både dag og tidspunkt.', tooSoon: 'Vælg et tidspunkt mindst 10 minutter fra nu.', tooLate: 'Du kan højst planlægge 14 dage frem.',
       badtime: 'Det tidspunkt kan ikke bruges – vælg et andet.', limit: 'Du har planlagt 3 løb i dag. Det er max.', full: 'Der er planlagt rigtig mange løb lige nu – prøv igen senere.',
       done: '{title} er planlagt {when}.' },
-    mine: { btn: 'Mine planlagte løb', title: 'Mine planlagte løb', intro: 'Del koden, linket eller QR-koden med dine sejlere. Når løbet er åbnet, kan du gå ind og starte det.',
+    mine: { btn: 'Mine planlagte løb', btnN: 'Mine planlagte løb ({n})', title: 'Mine planlagte løb', intro: 'Del koden, linket eller QR-koden med dine sejlere. Når løbet er åbnet, kan du gå ind og starte det.',
       empty: 'Du har ingen planlagte løb lige nu.', opens: 'Åbner {when}', isOpen: 'Løbet er åbent nu!', go: 'Gå til løbet', qr: 'QR-kode', cancel: 'Aflys',
       cancelAsk: 'Aflys {title} {when}?', cancelled: 'Løbet er aflyst.', cantCancel: 'Løbet er i gang og kan ikke aflyses nu.' },
-    wait: { msg: '{title} åbner {opens}. Løbet starter {start}.', left: 'Åbner om {t}', soon: 'Åbner nu…', remind: 'Påmind mig', check: 'Prøv igen' },
+    wait: { msg: '{title} – {day}: åbner {opens} · starter {start}.', left: 'Åbner om {t}', soon: 'Åbner nu…', remind: 'Påmind mig', check: 'Tjek om løbet er åbent',
+      auto: 'Siden går selv ind i løbet, når det åbner.' },
     ics: { desc: 'Live-kapsejlads i KØS SEJL. Kode: {code}. Løbet åbner 15 minutter før start: {link}' },
   } });
   KOS.I18n.add('en', { live: {
     startEarly: 'Start the race now', auto: 'The race starts by itself {when} when at least 2 sailors are in.', autoIn: 'Starting in {t}', waitMore: 'Waiting for more sailors…',
     cancelHost: 'The race was cancelled.', cancelFew: 'Not enough sailors came, so the race is cancelled. Try again another day!',
     titles: { train: 'Training race', friday: 'Friday race', club: 'Club championship', xmas: 'Christmas race', weekend: 'Weekend race' },
-    when: { today: 'today at {time}', tomorrow: 'tomorrow at {time}', day: '{day} at {time}' },
+    when: { today: 'today at {time}', tomorrow: 'tomorrow at {time}', day: '{day} at {time}', dToday: 'Today', dTomorrow: 'Tomorrow', at: 'at {time}' },
     dur: { h: '{h} h {m} min', d: '{d} days' },
     vis: { label: 'Who can join', private: 'Code only', open: 'Everyone (listed)', privateHint: 'Only those who get the code, the link or the QR code.', openHint: 'The race is shown under “Find a race”, so anyone can join.' },
     list: { title: 'Find a race', intro: 'Tap a race to join it.', sched: 'Scheduled races', open: 'Open races', loading: 'Getting races…', refresh: 'Refresh',
       empty: 'No open races right now – start your own or schedule one.', err: 'I cannot get the list right now. Try again in a little while.',
-      lobby: 'In the lobby', startsIn: 'Starting in {t}', now: 'Starting now', planned: 'Scheduled {when}', full: 'Full', by: 'Host: {name}', sailors: '{n}/{max} sailors' },
+      lobby: 'In the lobby', startsIn: 'Starting in {t}', now: 'Starting now', planned: 'Scheduled {when}', full: 'Full', by: 'Host: {name}', sailors: '{n}/{max} sailors',
+      hostRace: '{name}’s race', hostRaceS: '{name}’ race' },
     plan: { btn: 'Schedule for later', title: 'Schedule a race', intro: 'Pick a name, a day and a time. The race opens 15 minutes before the start, and the server starts it by itself when at least 2 sailors are in.',
       name: 'Name', day: 'Day', time: 'Time', go: 'Schedule the race', opens: 'Opens at {time}',
       noTime: 'Pick both a day and a time.', tooSoon: 'Pick a time at least 10 minutes from now.', tooLate: 'You can schedule at most 14 days ahead.',
       badtime: 'That time cannot be used – pick another one.', limit: 'You have scheduled 3 races today. That is the maximum.', full: 'A lot of races are scheduled right now – try again later.',
       done: '{title} is scheduled {when}.' },
-    mine: { btn: 'My scheduled races', title: 'My scheduled races', intro: 'Share the code, the link or the QR code with your sailors. When the race has opened you can go in and start it.',
+    mine: { btn: 'My scheduled races', btnN: 'My scheduled races ({n})', title: 'My scheduled races', intro: 'Share the code, the link or the QR code with your sailors. When the race has opened you can go in and start it.',
       empty: 'You have no scheduled races right now.', opens: 'Opens {when}', isOpen: 'The race is open now!', go: 'Go to the race', qr: 'QR code', cancel: 'Cancel',
       cancelAsk: 'Cancel {title} {when}?', cancelled: 'The race is cancelled.', cantCancel: 'The race is on and cannot be cancelled now.' },
-    wait: { msg: '{title} opens {opens}. The race starts {start}.', left: 'Opens in {t}', soon: 'Opening now…', remind: 'Remind me', check: 'Try again' },
+    wait: { msg: '{title} – {day}: opens {opens} · starts {start}.', left: 'Opens in {t}', soon: 'Opening now…', remind: 'Remind me', check: 'Check if the race is open',
+      auto: 'This page joins by itself when the race opens.' },
     ics: { desc: 'Live race in KØS SEJL. Code: {code}. The race opens 15 minutes before the start: {link}' },
   } });
 
@@ -398,7 +402,7 @@
       '<button type="button" class="btn btn-glass btn-big" data-act="joinview"' + (closed ? ' disabled' : '') + '>' + kit().ico('user') + '<span>' + esc(t('live.join')) + '</span></button>' +
       (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="listview">' + kit().ico('map') + '<span>' + esc(t('live.list.title')) + '</span></button>' : '') +
       '</div>' + (closed ? '<button type="button" class="btn btn-glass" data-act="recheck">' + esc(t('live.retry')) + '</button>' : '') +
-      (mineN ? '<div class="live-actions"><button type="button" class="btn btn-glass" data-act="mineview">' + kit().ico('calendar') + '<span>' + esc(t('live.mine.btn')) + '</span><b class="live-badge">' + mineN + '</b></button></div>' : ''));
+      (mineN ? '<div class="live-actions"><button type="button" class="btn btn-glass" data-act="mineview">' + kit().ico('calendar') + '<span>' + esc(t('live.mine.btnN', { n: mineN })) + '</span></button></div>' : ''));
   }
   function viewMsg() {
     const btn = { retry: '<button type="button" class="btn btn-primary" data-act="retry">' + esc(t('live.retry')) + '</button>',
@@ -475,27 +479,31 @@
   function boatsCount(room) { return room.players.filter(p => !(p.host && room.hostRole === 'watch')).length; }
   function viewRoom() {
     const room = L.room, s = L.sess, host = s && room.hostId === s.id, code = room.code, link = linkFor(code);
+    // a sailor waiting in a scheduled room: what happens and when comes first; the code and QR (for sharing) go below the players, the QR behind a button
+    const waiting = !!room.sched && !host, qrOn = !waiting || L.roomQr === code;
     let qr = '';
-    try { qr = KOS.QR.svg(link, { size: 200, ecc: 'M' }); } catch (e) { qr = ''; }
+    if (qrOn) { try { qr = KOS.QR.svg(link, { size: waiting ? 160 : 200, ecc: 'M' }); } catch (e) { qr = ''; } }
     const need = room.hostRole === 'watch' ? 1 : 2, have = boatsCount(room);
     const can = host && have >= need;
     const cf = room.cfg || {};
     const bn = (kit().boatGet(cf.boat) || {}).name || cf.boat;
-    return '<div class="live-banner" role="status" hidden>' + esc(t('live.reconnecting')) + '</div>' + shell(room.sched ? titleTxt(room.sched.title) : t('live.title'),
-      '<div class="live-room">' +
-      '<div class="live-codebox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
+    const hint = '<div class="live-hint">' + esc(room.sched && !room.hostId ? t('live.auto', { when: whenTxt(room.sched.at) }) : t('live.waitHost')) + '</div>';
+    const leave = '<button type="button" class="btn btn-glass btn-sm" data-act="leave">' + esc(t('live.leave')) + '</button>';
+    const codebox = '<div class="live-codebox glass' + (waiting ? ' is-small' : '') + '"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
       '<div class="live-link"><small>' + esc(t('live.joinLink')) + ':</small> <code id="live-link">' + esc(link) + '</code></div>' +
-      '<div class="live-qr" id="live-qr" aria-label="' + esc(t('live.scan')) + '">' + qr + '</div><small>' + esc(t('live.scan')) + '</small>' +
-      '<button type="button" class="btn btn-glass btn-sm" data-act="share">' + kit().ico('share') + '<span>' + esc(t('live.share')) + '</span></button></div>' +
-      '<div class="live-side glass"><h2>' + esc(t('live.players')) + ' (' + room.players.length + '/' + (cf.maxP || '') + ')</h2>' + playersHtml(room) +
+      (qrOn ? '<div class="live-qr" id="live-qr" aria-label="' + esc(t('live.scan')) + '">' + qr + '</div><small>' + esc(t('live.scan')) + '</small>' : '') +
+      '<div class="live-codebtns">' + (waiting ? '<button type="button" class="btn btn-glass btn-sm" data-act="roomqr" aria-pressed="' + qrOn + '">' + kit().ico('eye') + '<span>' + esc(t('live.mine.qr')) + '</span></button>' : '') +
+      '<button type="button" class="btn btn-glass btn-sm" data-act="share">' + kit().ico('share') + '<span>' + esc(t('live.share')) + '</span></button></div></div>';
+    const side = '<div class="live-side glass"><h2>' + esc(t('live.players')) + ' (' + room.players.length + '/' + (cf.maxP || '') + ')</h2>' + playersHtml(room) +
       '<div class="live-sum">' + esc(bn) + ' · ' + esc(t('live.cfg.' + cf.course)) + ' · ' + esc(String(cf.laps)) + ' ' + esc(t('live.cfg.laps').toLowerCase()) + (room.sched ? '' : ' · ' + esc(role(room))) + '</div>' +
-      (room.sched ? schedRoomHtml(room) : '') +
-      (host ? visRow(cf.vis, 'visroom') : '') +
+      (room.sched && !waiting ? schedRoomHtml(room) : '') +
+      (host ? visRow(cf.vis, 'visroom', true) : '') +
       (host ? '<button type="button" class="btn btn-primary btn-big" data-act="start"' + (can ? '' : ' disabled') + '>' + kit().ico('play') + '<span>' + esc(t(room.sched ? 'live.startEarly' : 'live.start')) + '</span></button>' +
-        (can ? '' : '<div class="live-hint" id="live-few">' + esc(t('live.few')) + '</div>') :
-        '<div class="live-hint">' + esc(room.sched && !room.hostId ? t('live.auto', { when: whenTxt(room.sched.at) }) : t('live.waitHost')) + '</div>') +
-      '<button type="button" class="btn btn-glass btn-sm" data-act="leave">' + esc(t('live.leave')) + '</button></div>' +
-      '</div>');
+        (can ? '' : '<div class="live-hint" id="live-few">' + esc(t('live.few')) + '</div>') : waiting ? '' : hint) +
+      (waiting ? '' : leave) + '</div>';
+    return '<div class="live-banner" role="status" hidden>' + esc(t('live.reconnecting')) + '</div>' + shell(room.sched ? titleTxt(room.sched.title) : t('live.title'),
+      (waiting ? '<div class="live-schedtop glass">' + schedRoomHtml(room) + hint + leave + '</div>' : '') +
+      '<div class="live-room' + (waiting ? ' is-waiting' : '') + '">' + (waiting ? side + codebox : codebox + side) + '</div>');
   }
   const role = room => t('live.role.' + (room.hostRole === 'watch' ? 'watch' : 'sail'));
   function viewStarting() {
@@ -516,9 +524,11 @@
     return ms ? [3, 4, 5, 6, 7, 8, 9, 10, 12, 14].map(v => ({ kn: Math.round(U.kn(v) * 10) / 10, label: v + ' m/s' })) : [6, 8, 10, 12, 14, 16, 18, 20, 24, 27].map(v => ({ kn: v, label: v + ' kn' }));
   }
   const windRow = (c, winds) => row(t('live.cfg.wind'), (winds || windOpts()).map(w => chip('opt', 'windKn', w.kn, w.label, Math.abs(c.windKn - w.kn) < 0.06)).join(''));
-  function visRow(v, act) {
+  // stacked: the label above two equal chips (the room's narrow side card; the chips share the row instead of pushing it wider)
+  function visRow(v, act, stacked) {
     v = v === 'open' ? 'open' : 'private';
-    return row(t('live.vis.label'), ['private', 'open'].map(x => chip(act, 'vis', x, t('live.vis.' + x), v === x, kit().ico(x === 'open' ? 'eye' : 'lock'))).join('')) +
+    const chips = ['private', 'open'].map(x => chip(act, 'vis', x, t('live.vis.' + x), v === x, kit().ico(x === 'open' ? 'eye' : 'lock'))).join('');
+    return (stacked ? '<div class="live-row live-vis"><div class="live-label">' + esc(t('live.vis.label')) + '</div><div class="live-chips">' + chips + '</div></div>' : row(t('live.vis.label'), chips)) +
       '<div class="live-hint">' + esc(t('live.vis.' + v + 'Hint')) + '</div>';
   }
 
@@ -539,6 +549,11 @@
     if (k === dayKey(now)) return t('live.when.today', { time: tm });
     if (k === dayKey(now + 86400000)) return t('live.when.tomorrow', { time: tm });
     return t('live.when.day', { day: fmtDate(ms, { weekday: 'short', day: 'numeric', month: 'short' }), time: tm });
+  }
+  // the day alone: "I dag" / "I morgen" / "fre. 6. nov."
+  function dayTxt(ms) {
+    const now = Date.now(), k = dayKey(ms);
+    return k === dayKey(now) ? t('live.when.dToday') : k === dayKey(now + 86400000) ? t('live.when.dTomorrow') : fmtDate(ms, { weekday: 'short', day: 'numeric', month: 'short' });
   }
   // a countdown: "0:45", "12:03", "2 t 5 min", "3 dage"
   function durTxt(ms) {
@@ -583,7 +598,8 @@
     if (!st || st.loading) return;
     st.loading = true; st.tried = Date.now();
     const viaWs = () => connectNow().then(sess => sess.list().then(r => { sess.close(); return r; }, e => { sess.close(); throw e; }));
-    KOS.MP.fetchRooms(wsUrl()).catch(e => (e && e.code === 'rate' ? Promise.reject(e) : viaWs())).then(rows => {
+    // rate limited (a club Wi-Fi behind one IP): keep the list on screen, or ask over the socket when there is none yet
+    KOS.MP.fetchRooms(wsUrl()).catch(e => (e && e.code === 'rate' && st.rows ? Promise.reject(e) : viaWs())).then(rows => {
       st.rows = rows; st.at = Date.now(); st.err = '';
     }, e => {
       if (handleOld(e, {})) return;
@@ -600,9 +616,11 @@
     const U = KOS.U, w = U && U.windTxt ? U.windTxt(+wind || 0) : Math.round(+wind || 0) + ' kn';
     return '<span class="live-meta"><span>' + kit().ico('boat') + esc(bn) + '</span><span>' + courseTxt(course) + '</span><span>' + kit().ico('wind') + esc(w) + '</span></span>';
   }
+  // an open lobby has no title: "Milles løb" / "Mille’s race" (Danish genitive: a name ending in s, x or z takes only ’)
+  const hostRace = name => t(/[sxz]$/i.test(String(name || '')) ? 'live.list.hostRaceS' : 'live.list.hostRace', { name: name || '?' });
   function rowHtml(r) {
     const st = L.list, pending = r.phase === 'sched', full = !pending && r.n >= r.max, shut = full || r.phase === 'countdown'; // a countdown is shown, but nobody can join it any more
-    const head = r.sched ? titleTxt(r.sched.title) : r.host;
+    const head = r.sched ? titleTxt(r.sched.title) : hostRace(r.host);
     let status;
     if (pending) status = '<span class="live-st is-sched">' + kit().ico('calendar') + esc(t('live.list.planned', { when: whenTxt(r.sched.at) })) + '</span>';
     else if (r.phase === 'countdown') status = '<span class="live-st is-go">' + kit().ico('timer') + untilHtml('', st.at + (+r.startsIn || 0), 'live.list.startsIn', 'live.list.now') + '</span>';
@@ -612,7 +630,7 @@
       '<span class="live-n' + (full ? ' is-full' : '') + '">' + kit().ico('user') + esc(full ? t('live.list.full') : t('live.list.sailors', { n: r.n, max: r.max })) + '</span>';
     return '<li><button type="button" class="live-item glass" data-act="pick" data-code="' + esc(r.code) + '"' + (shut ? ' disabled' : '') + '>' +
       '<span class="live-item-top"><b class="live-item-name">' + esc(head) + '</b>' + status + '</span>' +
-      (r.sched ? '<span class="live-item-by">' + esc(t('live.list.by', { name: r.host })) + '</span>' : '') +
+      '<span class="live-item-by">' + esc(t('live.list.by', { name: r.host })) + '</span>' +
       '<span class="live-item-bot">' + metaHtml(r.cls, r.course, r.wind) + count + '</span></button></li>';
   }
   function listBody() {
@@ -624,14 +642,15 @@
         '<button type="button" class="btn btn-primary" data-act="host">' + kit().ico('flag') + '<span>' + esc(t('live.host')) + '</span></button>' +
         '<button type="button" class="btn btn-glass" data-act="planview">' + kit().ico('calendar') + '<span>' + esc(t('live.plan.btn')) + '</span></button></div></div>';
     }
-    const sch = st.rows.filter(r => r.sched), open = st.rows.filter(r => !r.sched);
+    // races you can join now first (an opened scheduled race is one of them), then the scheduled races that are not open yet
+    const open = st.rows.filter(r => r.phase !== 'sched'), sch = st.rows.filter(r => r.phase === 'sched');
     const sect = (k, rows) => rows.length ? '<section class="live-sect"><h2 class="live-h">' + esc(t(k)) + '</h2><ul class="live-list">' + rows.map(rowHtml).join('') + '</ul></section>' : '';
-    return sect('live.list.sched', sch) + sect('live.list.open', open);
+    return sect('live.list.open', open) + sect('live.list.sched', sch);
   }
   function viewList() {
     return shell(t('live.list.title'),
       '<div class="live-listhead"><p class="live-intro">' + esc(t('live.list.intro')) + '</p>' +
-      '<button type="button" class="btn btn-glass btn-sm" data-act="relist">' + kit().ico('retry') + '<span>' + esc(t('live.list.refresh')) + '</span></button></div>' +
+      '<button type="button" class="btn btn-glass btn-sm live-refresh" data-act="relist" aria-label="' + esc(t('live.list.refresh')) + '">' + kit().ico('retry') + '<span>' + esc(t('live.list.refresh')) + '</span></button></div>' +
       '<div id="live-listbox" aria-live="polite">' + listBody() + '</div>');
   }
 
@@ -641,13 +660,19 @@
   const hhmm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
   function openPlan(from) {
     L.planFrom = from === 'setup' || from === 'list' ? from : 'entry';
-    if (!L.plan) {
-      const d = new Date(); d.setHours(18, 0, 0, 0); // today at 18.00, or tomorrow when that is too close
-      if (d.getTime() < Date.now() + MIN_LEAD + 5 * 60000) d.setDate(d.getDate() + 1);
-      L.plan = { title: 'train', day: ymd(d), time: hhmm(d), vis: 'open', err: '' };
-    }
+    if (!L.plan) L.plan = { title: 'train', vis: 'open', err: '' };
+    if (!L.plan.day || planCheck(L.plan)) { const d = planDefault(); L.plan.day = ymd(d); L.plan.time = hhmm(d); } // never open on a time that is already too soon
     L.plan.err = '';
     setView('plan');
+  }
+  // today at 18.00; later in the day the next whole hour at least 15 min ahead (until 21.00); after that tomorrow at 18.00
+  function planDefault() {
+    const now = Date.now(), d = new Date(now);
+    d.setHours(18, 0, 0, 0);
+    if (d.getTime() >= now + MIN_LEAD + 5 * 60000) return d;
+    const n = new Date(now + MIN_LEAD + 5 * 60000); n.setMinutes(0, 0, 0); n.setHours(n.getHours() + 1);
+    if (n.getDate() === new Date(now).getDate() && n.getHours() <= 21) return n;
+    d.setDate(d.getDate() + 1); return d;
   }
   function planStart(p) { // local day + time -> UTC ms (NaN when one is missing)
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.day || ''), n = /^(\d{2}):(\d{2})/.exec(p.time || '');
@@ -679,6 +704,9 @@
       row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
       visRow(p.vis, 'pvis') +
       '</div>' +
+      // the same summary and error right above the button (the pickers are far up on a phone)
+      '<div class="live-plan-foot"><div class="live-hint live-plan-when" id="live-plan-when2">' + esc(planWhen(p)) + '</div>' +
+      '<div id="live-plan-err2" class="live-err" aria-hidden="true">' + esc(p.err || '') + '</div></div>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="plan"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(L.busy || t('live.plan.go')) + '</span></button></div>');
   }
   // the pickers write into L.plan as they change (no repaint: the native picker keeps its focus)
@@ -687,15 +715,15 @@
       const d = sec.querySelector('#live-plan-day'), tm = sec.querySelector('#live-plan-time');
       if (!L.plan || !d || !tm) return;
       L.plan.day = d.value; L.plan.time = tm.value; L.plan.err = '';
-      const w = sec.querySelector('#live-plan-when'), er = sec.querySelector('#live-plan-err');
-      if (w) w.textContent = planWhen(L.plan);
-      if (er) er.textContent = '';
+      const w = planWhen(L.plan);
+      sec.querySelectorAll('.live-plan-when').forEach(el => { el.textContent = w; });
+      sec.querySelectorAll('#live-plan-err, #live-plan-err2').forEach(el => { el.textContent = ''; });
     };
     ['#live-plan-day', '#live-plan-time'].forEach(q => { const el = sec.querySelector(q); if (el) { el.addEventListener('input', upd); el.addEventListener('change', upd); } });
   }
   function doPlan() {
     const p = L.plan, bad = planCheck(p);
-    if (bad) { p.err = t('live.plan.' + bad); paint(); const el = secEl() && secEl().querySelector('#live-plan-err'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' }); return; }
+    if (bad) { p.err = t('live.plan.' + bad); paint(); return; } // shown at the pickers and right above the button
     const at = planStart(p), cfg = Object.assign({}, L.cfg, { vis: p.vis });
     L.busy = t('live.connecting'); p.err = ''; paint();
     guard().then(ok => {
@@ -704,7 +732,7 @@
         try { sess.close(); } catch (x) { /* ignore */ }
         const c = r.cfg || cfg;
         addSched({ code: r.code, secret: r.secret, title: r.title, startAt: r.startAt, opensAt: r.opensAt, boat: c.boat, course: c.course, wind: c.windKn, maxP: c.maxP, vis: c.vis, url: wsUrl() });
-        L.busy = ''; L.plan = null; L.mineQr = r.code;
+        L.busy = ''; L.plan = null; L.mineQr = ''; // the QR is one tap away ("QR-kode"): the share buttons stay in view
         lt('schedule', r.title);
         try { KOS.UI.toast(t('live.plan.done', { title: titleTxt(r.title), when: whenTxt(r.startAt) }), { kind: 'good' }); } catch (x) { /* optional */ }
         setView('mine');
@@ -730,8 +758,9 @@
       '<div class="live-mmeta">' + metaHtml(e.boat, e.course, e.wind) + '<span class="live-n">' + kit().ico(e.vis === 'private' ? 'lock' : 'eye') + esc(t('live.vis.' + (e.vis === 'private' ? 'private' : 'open'))) + '</span></div>' +
       '<div class="live-hint' + (open ? ' is-open' : '') + '">' + esc(open ? t('live.mine.isOpen') : t('live.mine.opens', { when: whenTxt(e.opensAt) })) + '</div>' +
       (qrOn ? '<div class="live-mqr"><div class="live-qr">' + qr + '</div><div class="live-link"><code>' + esc(link) + '</code></div></div>' : '') +
-      '<div class="live-mbtns">' + (open ? btn('mgo', 'play', 'live.mine.go', 'btn-primary') : '') + btn('mshare', 'share', 'live.share') + btn('mqr', 'eye', 'live.mine.qr', qrOn ? 'btn-glass is-on' : '') +
-      btn('mremind', 'calendar', 'live.wait.remind') + btn('mcancel', 'trash', 'live.mine.cancel', 'btn-glass live-cancel') + '</div></li>';
+      '<div class="live-mbtns">' + (open ? btn('mgo', 'play', 'live.mine.go', 'btn-primary live-mgo') : '') + btn('mshare', 'share', 'live.share') + btn('mqr', 'eye', 'live.mine.qr', qrOn ? 'btn-glass is-on' : '') +
+      btn('mremind', 'calendar', 'live.wait.remind') + '</div>' +
+      '<div class="live-mcancel">' + btn('mcancel', 'trash', 'live.mine.cancel', 'live-cancel') + '</div></li>'; // destructive: on its own line, away from the others
   }
   function viewMine() {
     const list = mySched();
@@ -768,9 +797,10 @@
   function viewWait() {
     const w = L.wait;
     return shell(titleTxt(w.title),
-      trainerHtml(t('live.wait.msg', { title: titleTxt(w.title), opens: whenTxt(w.opensAt), start: whenTxt(w.startAt) })) +
+      trainerHtml(t('live.wait.msg', { title: titleTxt(w.title), day: dayTxt(w.startAt), opens: t('live.when.at', { time: clock(w.opensAt) }), start: t('live.when.at', { time: clock(w.startAt) }) })) +
       '<div class="live-waitbox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code">' + esc(w.code) + '</div>' +
-      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt, 'live.wait.left', 'live.wait.soon') + '</div></div>' +
+      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt, 'live.wait.left', 'live.wait.soon') + '</div>' +
+      '<div class="live-hint">' + esc(t('live.wait.auto')) + '</div></div>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="remind">' + kit().ico('calendar') + '<span>' + esc(t('live.wait.remind')) + '</span></button>' +
       '<button type="button" class="btn btn-glass" data-act="waitjoin"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('retry') + '<span>' + esc(L.busy || t('live.wait.check')) + '</span></button></div>');
   }
@@ -785,7 +815,13 @@
   function icsText(e) {
     const z = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     const q = x => String(x).replace(/[\\;,]/g, m => '\\' + m).replace(/\n/g, '\\n');
-    const fold = l => { let out = ''; while (l.length > 70) { out += l.slice(0, 70) + '\r\n '; l = l.slice(70); } return out + l; };
+    // RFC 5545: lines of at most 75 octets (UTF-8: æ/ø/å take 2, the en dash 3), folded between characters, never inside one
+    const octets = ch => { const c = ch.codePointAt(0); return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; };
+    const fold = l => {
+      let out = '', n = 0, lim = 75; // a continuation line starts with one space
+      for (const ch of l) { const k = octets(ch); if (n + k > lim) { out += '\r\n '; n = 0; lim = 74; } out += ch; n += k; }
+      return out;
+    };
     const link = linkFor(e.code), title = titleTxt(e.title) + ' – ' + t('live.title');
     return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KOS SEJL//Live race//DA', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
       'UID:' + e.code + '-' + e.startAt + '@kos-sejl', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(e.startAt), 'DTEND:' + z(e.startAt + 30 * 60000),
@@ -833,6 +869,7 @@
       kick: b => { if (L.sess) { lt('kick'); L.sess.kick(Number(b.getAttribute('data-id'))); } },
       start: () => { if (L.sess) L.sess.start(); },
       share: () => share(L.room.code, L.room.sched ? titleTxt(L.room.sched.title) : ''),
+      roomqr: () => { L.roomQr = L.roomQr === L.room.code ? '' : L.room.code; paint(); },
       leave: () => leaveRoom(),
       update: () => doUpdate(),
       retry: () => recheckThen(() => { reset(); setView('entry'); }),

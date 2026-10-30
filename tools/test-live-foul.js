@@ -8,6 +8,8 @@
 //   2. the review incident D (clear astern, leeward, the boat ahead slows hard): never both, never neither (counts are printed)
 //   3. FoulLog: dedupe within 2 s, the lower id decides when both phones blamed the other
 //   4. E: a slow T-bone (0.5 m/s) is penalised in live and AI races (closing speed measured before the bump)
+//   5. T: a port boat tacks too close under a starboard boat (RRS 13/15): the same boat turns at 0, 150 and 300 ms latency
+//   6. a foul message about a boat this phone never saw close by (50 m away) gives no penalty; an excused contact vetoes it
 'use strict';
 
 const KOS = require('./harness').load();
@@ -18,20 +20,26 @@ let fails = 0, checks = 0;
 function ok(cond, msg) { checks++; if (!cond) { fails++; console.log('  FAIL ' + msg); } else console.log('  ok   ' + msg); }
 
 const DT = 1 / 60, T0 = 2e12, LEN = 2.31, BEAM = 1.13;
-const boat = (rid, x, y, hd, vx, vy, tack) => ({ id: rid, rid, name: 'B' + rid, x, y, heading: hd, vx, vy, speed: Math.hypot(vx, vy), length: LEN, beam: BEAM, tack, r13: false, _init: true, rc: { leg: 1 } });
+const boat = (rid, x, y, hd, vx, vy, tack) => ({ id: rid, rid, name: 'B' + rid, x, y, heading: hd, vx, vy, speed: Math.hypot(vx, vy), length: LEN, beam: BEAM, tack, r13: false, _init: true, rc: { leg: 1, pen: null } });
 
-// One phone: what race.js simStep + onFoul + onFoulMsg do for this pair.
+// One phone: what race.js simStep + onFoul + onFoulMsg / applyFoulMsg do for this pair.
 function phone(me, otherRid, wind) {
   const P = { me, buf: new MPS.Buffer(), mon: Ru.monitor({ mode: 'race', cooldown: 1, splitContact: true }), flog: new MPS.FoulLog(me.rid, 2000),
-    remote: null, cool: {}, myFoulT: 0, pen: 0, out: [], contactT: null, t: 0 };
+    remote: null, cool: {}, myFoulT: 0, pen: 0, out: [], contactT: null, t: 0, near: null, q: [], seen: null };
   P.step = (nowMs, t) => {
     P.t = t;
     const s = P.buf.view(nowMs); if (!s) return;
     const r = P.remote || (P.remote = boat(otherRid, 0, 0, 0, 0, 0, 'port'));
     r.x = s.rx; r.y = s.ry; r.heading = s.hd; r.vx = s.vx; r.vy = s.vy; r.speed = s.sp; r.tack = s.port ? 'port' : 'starboard'; r.r13 = s.r13;
+    r.rc.pen = s.penalty ? {} : null; // the sender's penalty flag: a boat taking a penalty keeps clear (R22) and has no right of way
     if (P.buf.isLost(nowMs, 2000)) return;
     for (const f of P.mon.update([me, r], wind, [], DT) || []) {
-      if (f.type !== 'foul' || !f.contact || f.excused) continue;
+      if (f.type !== 'foul') continue;
+      P.near = t; // onFoul: any close call or contact with the other boat
+      if (!f.contact) continue;
+      if (P.seen === null) P.seen = (f.excused ? 'ex-' : '') + f.rule + ':' + f.offender.rid;
+      if (f.victim.rc.pen) continue;
+      if (f.excused) { P.flog.excuse(otherRid, nowMs); continue; }
       if (P.contactT === null) P.contactT = t;
       const a = f.offender, v = f.victim;
       if (Math.hypot(a.vx - v.vx, a.vy - v.vy) < 0.35) continue;
@@ -42,13 +50,18 @@ function phone(me, otherRid, wind) {
       if (!act) continue;
       if (act === 'send') P.out.push({ o: a.rid, r: f.rule });
       P.cool[key] = t + 12;
-      if (a === me) { P.myFoulT = t + 15; P.pen++; }
+      if (a === me) { P.myFoulT = t + 15; P.pen++; me.rc.pen = {}; }
     }
+    while (P.q.length && P.q[0].at <= t) P.apply(P.q.shift().from, nowMs); // applyFoulMsg, TOLD_HOLD after it arrived
   };
-  P.recv = (from, nowMs) => {
+  P.recv = (from, nowMs) => { P.q.push({ from, at: P.t + 0.3 }); }; // onFoulMsg: held so our own verdict (an excuse) comes first
+  P.apply = (from, nowMs) => {
+    const near = (P.near !== null && P.t - P.near <= 2) || (P.remote && Ru.hullGap(me, P.remote) < 0.5 * LEN);
+    if (!near) { P.farDropped = (P.farDropped || 0) + 1; return; }
+    if (P.remote && P.remote.rc.pen) return;
     if (P.t < P.myFoulT) return;
     if (!P.flog.recv(from, nowMs)) return;
-    P.cool[me.id + '|' + from] = P.t + 12; P.myFoulT = P.t + 15; P.pen++;
+    P.cool[me.id + '|' + from] = P.t + 12; P.myFoulT = P.t + 15; P.pen++; me.rc.pen = {};
   };
   return P;
 }
@@ -63,7 +76,7 @@ function incident(A, B, wind, lat, move, secs) {
     move(A, B, t);
     if ((acc += DT) >= 0.1 - 1e-6) {
       acc = 0; sq = MPS.stamp(now, sq);
-      for (const [b, to] of [[A, pb], [B, pa]]) fly.push({ at: now + lat, to, st: MPS.packState({ x: b.x, y: b.y, heading: b.heading, speed: b.speed, heel: 0, tack: b.tack, r13: b.r13, rc: {} }, b.rid, sq) });
+      for (const [b, to] of [[A, pb], [B, pa]]) fly.push({ at: now + lat, to, st: MPS.packState({ x: b.x, y: b.y, heading: b.heading, speed: b.speed, heel: 0, tack: b.tack, r13: b.r13, penalty: !!b.rc.pen, rc: {} }, b.rid, sq) });
     }
     for (let k = 0; k < fly.length; k++) {
       const m = fly[k]; if (m.at > now) continue;
@@ -72,10 +85,10 @@ function incident(A, B, wind, lat, move, secs) {
     }
     pa.step(now, t); pb.step(now, t);
     for (const [p, q] of [[pa, pb], [pb, pa]]) while (p.out.length) { const o = p.out.shift(); fly.push({ at: now + 2 * lat, to: q, from: p.me.rid, r: o.r }); } // phone -> server -> phone
-    if (end === null && (pa.contactT !== null || pb.contactT !== null)) end = t + 1.0; // the bump (not simulated here: the boats would sail through each other) ends the incident; the foul messages land well inside 1 s
+    if (end === null && (pa.seen !== null || pb.seen !== null)) end = t + 1.0; // the bump (not simulated here: the boats would sail through each other) ends the incident; the foul messages land well inside 1 s
     if (end !== null && t > end) break;
   }
-  return { contact: pa.contactT !== null || pb.contactT !== null, penA: pa.pen, penB: pb.pen };
+  return { contact: pa.contactT !== null || pb.contactT !== null, penA: pa.pen, penB: pb.pen, seenA: pa.seen, seenB: pb.seen, pa, pb };
 }
 const kin = (A, B) => { for (const b of [A, B]) { b.x += b.vx * DT; b.y += b.vy * DT; b.speed = Math.hypot(b.vx, b.vy); } };
 function tallyOf(list) {
@@ -182,6 +195,54 @@ function tallyOf(list) {
       ok(Ru.hullGap(me, r) <= 0.05 && before >= 0.35, (live ? 'live' : 'AI') + ' T-bone at ' + v + ' m/s: penalised (closing ' + before.toFixed(2) + ' m/s before the bump, ' + after.toFixed(2) + ' after)');
     }
   }
+}
+
+// ---- 5. T: tack too close (review round 1, tools/tmp/rowreview/phones2.js T). A (rid 1) on starboard sails NW; B (rid 2) on port tacks onto
+// starboard near A's bow (0.8 s tack) and they touch. RRS 13/15: B keeps clear while tacking and must give room after it: B turns, at any latency.
+{
+  const outcome = {}; // geometry -> [penalised boats at 0, 150, 300 ms]
+  let both = 0, neither = 0, aPen = 0;
+  for (const lat of [0, 150, 300]) for (let px = -1.0; px <= 2.0; px += 0.2) for (let py = 0.5; py <= 3.5; py += 0.2) {
+    const hA = R(-45), A = boat(1, 3, 3, hA, 0, 0, 'starboard'), Bb = boat(2, px, py, R(45), 0, 0, 'port');
+    if (Ru.hullGap(A, Bb) < 0.3) continue;
+    const move = (a, b, t) => {
+      if (t >= 0.2 && t < 1.0) { b.r13 = true; b.tack = 'starboard'; b.heading = R(45 - 90 * (t - 0.2) / 0.8); }
+      if (t >= 1.0) { b.r13 = false; b.heading = R(-45); }
+      for (const [x, v] of [[a, 1.8], [b, t >= 0.2 ? 0.9 : 1.6]]) { const f = U.vec(x.heading, v); x.vx = f.x; x.vy = f.y; }
+      kin(a, b);
+    };
+    const r = incident(A, Bb, 0, lat, move, 5);
+    if (!r.contact) continue;
+    const who = (r.penA ? 'A' : '') + (r.penB ? 'B' : '') || 'nobody';
+    if (who === 'AB') both++; else if (who === 'nobody') neither++; else if (who === 'A') aPen++;
+    const k = px.toFixed(1) + ',' + py.toFixed(1);
+    (outcome[k] || (outcome[k] = {}))[lat] = who;
+  }
+  let n = 0, differs = 0, ex = null;
+  for (const k in outcome) {
+    const o = outcome[k];
+    if (!o[0] || !o[150] || !o[300]) continue; // a contact at every latency (dead reckoning can turn a near miss into a touch)
+    n++;
+    if (o[0] !== o[150] || o[0] !== o[300]) { differs++; if (!ex) ex = k + ' ' + JSON.stringify(o); }
+  }
+  console.log('  tack too close: ' + n + ' geometries with a contact at 0/150/300 ms, outcome differs in ' + differs + (ex ? ' (e.g. B at ' + ex + ')' : '') + '; both ' + both + ', neither ' + neither + ', A ' + aPen);
+  ok(n > 100, 'tack too close: the sweep produces contacts at every latency (' + n + ')');
+  ok(differs === 0, 'tack too close: the same boat turns at 0, 150 and 300 ms');
+  ok(both === 0 && neither === 0 && aPen === 0, 'tack too close: always the tacking boat, never both, never neither');
+}
+
+// ---- 6. a "you fouled me" from a boat this phone never saw close by is dropped; an excused contact vetoes it
+{
+  const A = boat(1, 0, 0, R(-45), 0, 0, 'starboard'), Bb = boat(2, 50, 0, R(45), 0, 0, 'port');
+  const pa = phone(A, 2, 0);
+  pa.buf.add(MPS.unpackState(MPS.packState({ x: Bb.x, y: Bb.y, heading: Bb.heading, speed: 0, heel: 0, tack: 'port', rc: {} }, 2, T0)), T0);
+  for (let i = 0; i < 6; i++) pa.step(T0 + i * 100, i * 0.1);
+  pa.recv(2, T0 + 600);
+  for (let i = 6; i < 20; i++) pa.step(T0 + i * 100, i * 0.1);
+  ok(pa.pen === 0 && pa.farDropped === 1, 'a foul message about a boat 50 m away gives no penalty');
+  const f = new MPS.FoulLog(1, 2000);
+  f.excuse(2, 1000);
+  ok(f.recv(2, 1500) === false && f.recv(2, 3200) === true, 'FoulLog: our own excuse vetoes the other phone\'s verdict for 2 s');
 }
 
 console.log('livefoul: ' + checks + ' checks, ' + fails + ' failed');

@@ -279,10 +279,11 @@
   // when this phone last took a penalty for that pair and when it last told that boat "you fouled me".
   //   own(otherId, iFouled, nowMs) -> 'pen' (take the penalty) | 'send' (send {t:'foul'}) | null (the same incident, already handled)
   //   recv(fromId, nowMs)          -> true: take the penalty the other phone says we owe
+  //   excuse(otherId, nowMs)       our own monitor excused this contact (R15/R16: nobody is penalised): recv() refuses it within DEDUPE
   // Within DEDUPE ms one incident counts once. When both phones said "the other one fouled me" (each sent, each received), the
   // lower player id's verdict wins on both phones, so exactly one boat turns.
   class FoulLog {
-    constructor(myId, dedupeMs) { this.myId = myId; this.ms = dedupeMs || 2000; this.pen = {}; this.sent = {}; }
+    constructor(myId, dedupeMs) { this.myId = myId; this.ms = dedupeMs || 2000; this.pen = {}; this.sent = {}; this.ex = {}; }
     _recent(map, id, nowMs) { return map[id] !== undefined && nowMs - map[id] < this.ms; }
     own(otherId, iFouled, nowMs) {
       if (this._recent(this.pen, otherId, nowMs)) return null;
@@ -291,8 +292,9 @@
       this.sent[otherId] = nowMs;
       return 'send';
     }
+    excuse(otherId, nowMs) { this.ex[otherId] = nowMs; }
     recv(fromId, nowMs) {
-      if (this._recent(this.pen, fromId, nowMs)) return false;
+      if (this._recent(this.pen, fromId, nowMs) || this._recent(this.ex, fromId, nowMs)) return false; // handled, or excused here
       if (this._recent(this.sent, fromId, nowMs) && !(fromId < this.myId)) return false; // we both blamed the other: the lower id decides
       this.pen[fromId] = nowMs;
       return true;

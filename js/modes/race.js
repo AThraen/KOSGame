@@ -721,7 +721,11 @@
       if (hl && !rc.ocs && hl.leg > rc.leg && hl.leg < seq.length && (rc.leg >= 1 || s1 > 0)) { if (rc.leg === 0) { rc.started = true; rc.startT = S.raceT; } setLeg(b, hl.leg); return; } // trust the AI helm's own rounding
       if (it.type === 'start') {
         if (rc.ocs) {
-          if (s1 < -0.3) {
+          // our own boat is back only when the whole hull is on the pre-start side (the gun judged its bow; RRS 22.1 / 30.1);
+          // the AI helms (and the autopilot) steer by the centre, so their tracker judges the centre as before
+          let back = s1 < -0.3;
+          if (b === me && !autopilot) { const f = U.vec(b.heading, L / 2); back = Math.max(sOf(b.x + f.x, b.y + f.y), sOf(b.x - f.x, b.y - f.y)) < 0; }
+          if (back) {
             rc.ocs = false;
             if (b === me) { say(t('race.sig.ocsOk'), 4000); sfx('pop'); }
           }
@@ -817,8 +821,11 @@
       const a = f.offender, v = f.victim;
       if (LIVE && a !== me && v !== me) return; // two other players: their business
       if (!a || !v || a.rc.finT != null || v.rc.finT != null) return;
+      const other = a === me ? v : a;
+      if (S.flog && other.remote) S.near[other.rid] = now; // a close call or contact with this boat: its phone's verdict may count (onFoulMsg)
       if (v.rc.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
       if (f.excused) { // RRS 15/16: the give-way boat had no time to keep clear: no penalty for anyone, the reason says why
+        if (S.flog && other.remote && f.contact) S.flog.excuse(other.rid, LIVE.serverNow()); // and the other phone's "you fouled me" does not count
         const k = 'ex|' + a.id + '|' + v.id;
         if (f.contact && (a === me || v === me) && !(S.cool[k] > now)) { S.cool[k] = now + 12; say(t(f.reasonKey, f.reasonVars || {}), 5000); }
         return;
@@ -844,11 +851,20 @@
     }
     const vxOf = b => (b.cvx !== undefined ? b.cvx : b.vx), vyOf = b => (b.cvy !== undefined ? b.cvy : b.vy);
     // another phone says our boat fouled theirs: we take the penalty if our own verdict did not already (de-duplicated per pair, spec A10)
-    const TOLD_RULES = ['R10', 'R11', 'R12', 'R13', 'R18', 'R22'];
+    const TOLD_RULES = ['R10', 'R11', 'R12', 'R13', 'R15', 'R18', 'R22'];
+    const TOLD_HOLD = 0.3; // s: our own monitor judges the same contact first, so its excuse (R15/R16: nobody) can veto the message
     function onFoulMsg(m) {
-      const b = m && byRid[m.from], now = env.t;
-      if (!b || WATCH || S.unofficial || TOLD_RULES.indexOf(m.r) < 0) return;
+      if (!m || !byRid[m.from] || WATCH || S.unofficial || TOLD_RULES.indexOf(m.r) < 0) return;
+      (S.foulQ || (S.foulQ = [])).push({ m, at: env.t + TOLD_HOLD });
+    }
+    function applyFoulMsg(m) {
+      const b = byRid[m.from], now = env.t;
+      if (!b || S.unofficial) return;
       if (S.phase === 'pre' && !S.sig.prep) return;
+      // only a boat we saw close by (a contact or close call in the last 2 s, or touching now) can hand us a penalty:
+      // a buggy or modified client must not be able to send "foul" to everyone on the course
+      const seen = S.near[b.rid] !== undefined && now - S.near[b.rid] <= 2;
+      if (!seen && !(KOS.Rules.hullGap(me, b) < 0.5 * L)) return;
       if (me.rc.finT != null || b.rc.finT != null || b.rc.pen) return; // as onFoul: a boat taking a penalty has no right of way (RRS 22.2)
       if (now < (S.myFoulT || 0)) return;
       if (!S.flog.recv(b.rid, LIVE.serverNow())) return;
@@ -997,6 +1013,7 @@
     const REMOTE_PEN = { need: TAU, acc: 0 }; // only shown (tag arrow, standings); never stepped
     const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, tack: 'starboard', r13: false, rc: null };
     S.flog = LIVE && !WATCH ? new MPS.FoulLog(LIVE.myId, 2000) : null;
+    S.near = {}; S.foulQ = []; // per remote rid: env.t of our last contact / close call with it; foul messages held for TOLD_HOLD
     const banner = LIVE ? document.createElement('div') : null;
     if (banner) { banner.className = 'race-live-banner'; banner.hidden = true; banner.textContent = t('live.reconnecting'); host.layer.appendChild(banner); }
     const liveOffs = [];
@@ -1549,8 +1566,11 @@
       }
       for (const b of ai) if (b.rc.stuckT && b.speed > 0.6) b.rc.stuckT = 0;
       boats.forEach((b, i) => { if (b.remote) return; track(b, pre[i].x, pre[i].y); if (b.rc.pen) penStep(b, dt); });
+      // RRS 22.1: an OCS boat keeps clear only while it sails back towards the pre-start side (rules.js keepsClear reads rc.ret)
+      for (const b of ruled) if (b.rc.ocs) { const vn = b.vx * nrm.x + b.vy * nrm.y; b.rc.ret = vn < -0.05 || (vn <= 0.05 && U.vec(b.heading).x * nrm.x + U.vec(b.heading).y * nrm.y < 0); }
       const fouls = monitor.update(ruled, wind, collMarks.filter(m => m.id !== 'committee' && m.id !== 'fcommittee'), dt) || [];
       for (const f of fouls) onFoul(f);
+      while (S.foulQ && S.foulQ.length && S.foulQ[0].at <= env.t) applyFoulMsg(S.foulQ.shift().m);
       if ((S.rankT -= dt) <= 0) { S.rankT = 0.25; order = rank(); placeFeedback(); }
     }
 
@@ -2036,6 +2056,6 @@
       courseInfo() { return { kinds: seq.map((_, i) => legKind(i)), course: P.course, laps: P.laps, marks: marks.map(m => m.id), seq: seq.map(it => it.type === 'mark' ? it.m.id : it.type + (it.dir ? ':' + it.dir : '')) }; },
     };
 
-    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, predict: b => (b.buf.stamped ? { x: b.x, y: b.y } : predictRemote(b, LIVE.serverNow())), netInfo: () => remotes.map(b => Object.assign({ rid: b.rid, name: b.short, lost: !!b.lost }, b.buf.info(LIVE.serverNow()))), get unofficial() { return !!S.unofficial; } } : null, get controls() { return controls; } };
+    return { start, update, render, destroy, pause, resume, onResize, boat: me, boats, scene, state: S, ctrl, setAutopilot, skipIntro, debug, live: LIVE ? { remotes, goOffline, predict: b => (b.buf.stamped ? { x: b.x, y: b.y } : predictRemote(b, LIVE.serverNow())), netInfo: () => remotes.map(b => Object.assign({ rid: b.rid, name: b.short, lost: !!b.lost }, b.buf.info(LIVE.serverNow()))), get unofficial() { return !!S.unofficial; }, told: m => onFoulMsg(m) } : null, get controls() { return controls; } };
   }
 })(typeof window !== 'undefined' ? window : globalThis);
