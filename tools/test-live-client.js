@@ -137,6 +137,17 @@ async function main() {
   ok(await host.page.evaluate(() => document.getElementById('live-link').textContent.indexOf('#join=') > 0), 'host sees the join link');
   ok(await host.page.evaluate(() => { const s = document.querySelector('#live-qr svg'); return !!s && s.querySelectorAll('path').length === 1 && !!s.getAttribute('viewBox'); }), 'QR code renders (svg)');
   ok(await host.page.evaluate(() => document.querySelector('#screen-live [data-act="start"]').disabled), 'Start is disabled with one sailor');
+  // review round 3: the host's Start (in its sticky bar, with the count and the "need one more" hint) is on screen on a phone, da and en
+  for (const [w, h, lang] of [[390, 844, 'da'], [320, 568, 'da'], [390, 844, 'en'], [320, 568, 'en']]) {
+    await host.page.setViewportSize({ width: w, height: h });
+    await host.page.evaluate(l => { KOS.I18n.setLang(l); KOS.Lobby._render(document.getElementById('screen-live')); }, lang);
+    await host.page.waitForTimeout(150);
+    const r = await host.page.evaluate(() => { const b = document.querySelector('#screen-live .live-startbar [data-act="start"]'), x = b && b.getBoundingClientRect(), few = document.getElementById('live-few');
+      return b ? { top: x.top, bottom: x.bottom, H: innerHeight, few: !!few && few.getBoundingClientRect().bottom <= innerHeight && few.textContent.length > 0, wide: document.documentElement.scrollWidth <= innerWidth } : null; });
+    ok(r && r.top >= 0 && r.bottom <= r.H && r.few && r.wide, w + 'x' + h + ' ' + lang + ': the host sees Start and the hint without scrolling (' + JSON.stringify(r) + ')');
+  }
+  await host.page.evaluate(() => { KOS.I18n.setLang('da'); KOS.Lobby._render(document.getElementById('screen-live')); });
+  await host.page.setViewportSize({ width: 1000, height: 800 });
 
   const link = await host.page.evaluate(() => document.getElementById('live-link').textContent);
   const hash = link.slice(link.indexOf('#') + 1);
@@ -167,6 +178,9 @@ async function main() {
   ok(await host.page.evaluate(() => document.querySelectorAll('.live-player .live-ready').length === 3), 'every player shows ready');
   ok(await host.page.evaluate(() => !document.querySelector('#screen-live [data-act="start"]').disabled), 'Start is enabled with three sailors');
   ok(await c1.page.evaluate(() => !document.querySelector('#screen-live [data-act="start"]') && document.getElementById('screen-live').textContent.indexOf('Venter på værten') >= 0), 'a joiner sees "Venter på værten" and no Start');
+  ok(await c1.page.evaluate(() => { const side = document.querySelector('#screen-live .live-side'), box = document.querySelector('#screen-live .live-codebox');
+    return !document.querySelector('#screen-live .live-qr svg') && !!document.querySelector('#screen-live [data-act="roomqr"]') && !!(side.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING); }),
+    'a joined sailor sees the players first; the QR waits behind its button');
 
   // kick Cille, she gets the message; then she comes back by code
   const cilleId = await host.page.evaluate(() => [...document.querySelectorAll('.live-player')].find(li => li.textContent.indexOf('Cille') >= 0).getAttribute('data-id'));

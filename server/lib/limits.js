@@ -42,9 +42,9 @@ function createConnCounter({ maxTotal = Infinity, maxPerIp = Infinity } = {}) {
   const perIp = new Map();
   let total = 0;
   return {
-    add(ip) {
+    add(ip, force) { // force: over the caps, for a socket that replaces one being terminated (its remove() follows)
       const c = perIp.get(ip) || 0;
-      if (total >= maxTotal || c >= maxPerIp) return false;
+      if (!force && (total >= maxTotal || c >= maxPerIp)) return false;
       perIp.set(ip, c + 1);
       total++;
       return true;

@@ -186,6 +186,9 @@
     L.offs = [];
     L.timers.forEach(clearInterval); L.timers = [];
     if (L.sess && (!L.handoff || L.sess.phase === 'results')) { try { L.sess.leave(); } catch (e) { /* ignore */ } }
+    // a race screen that closed with its finish not yet confirmed (keepFin) left its session running: it keeps retrying and sends the
+    // finish once it is back. Kept here (not left orphaned) so a resume of the same seat can close it first (autoRejoin)
+    else if (L.sess && L.handoff && L.sess.state !== 'closed') L.kept = L.sess;
     L.sess = null; L.room = null; L.busy = ''; L.results = null; L.resCode = ''; L.resLate = false; L.handoff = false;
     L.rj = null; clearTimeout(L.rjT);
     stopTick();
@@ -377,6 +380,9 @@
   // after a reload (update, refresh), or "Fortsæt live-løbet" on the title/hub: resume the same seat (any phase) or join the room again
   // (lobby), no taps needed. A seat of our own is never given up while it may live (spec E1): no network = "vi prøver stadig" + retries.
   function autoRejoin(code) {
+    // the session a race screen left behind (keepFin) must not resume the seat behind our back: it would take the seat from the new
+    // session (4409) and leave the race screen "open in another window". Closed without leave; the restored race sends fin again
+    if (L.kept) { try { L.kept.close(); } catch (e) { /* ignore */ } L.kept = null; }
     L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.view = L.rj ? L.view : 'join'; L.intent = { join: code };
     const tok = KOS.MP.savedToken && KOS.MP.savedToken();
     const mine = !!(tok && tok.code === code);
@@ -573,8 +579,9 @@
   function boatsCount(room) { return room.players.filter(p => !(p.host && room.hostRole === 'watch')).length; }
   function viewRoom() {
     const room = L.room, s = L.sess, host = s && room.hostId === s.id, code = room.code, link = linkFor(code);
-    // a sailor waiting in a scheduled room: what happens and when comes first; the code and QR (for sharing) go below the players, the QR behind a button
-    const waiting = !!room.sched && !host, qrOn = !waiting || L.roomQr === code;
+    // a sailor waiting in a scheduled room: what happens and when comes first; the code and QR (for sharing) go below the players, the QR behind a button.
+    // Any sailor who has joined only waits: the QR (for a friend) is behind the button too, so the players and "Forlad" stay in view
+    const waiting = !!room.sched && !host, qrOn = host || L.roomQr === code;
     let qr = '';
     if (qrOn) { try { qr = KOS.QR.svg(link, { size: waiting ? 160 : 200, ecc: 'M' }); } catch (e) { qr = ''; } }
     const need = room.hostRole === 'watch' ? 1 : 2, have = boatsCount(room);
@@ -583,21 +590,24 @@
     const bn = (kit().boatGet(cf.boat) || {}).name || cf.boat;
     const hint = '<div class="live-hint">' + esc(room.sched && !room.hostId ? t('live.auto', { when: whenTxt(room.sched.at) }) : t('live.waitHost')) + '</div>';
     const leave = '<button type="button" class="btn btn-glass btn-sm" data-act="leave">' + esc(t('live.leave')) + '</button>';
-    const codebox = '<div class="live-codebox glass' + (waiting ? ' is-small' : '') + '"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
+    const codebox = '<div class="live-codebox glass' + (host ? '' : ' is-small') + '"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
       '<div class="live-link"><small>' + esc(t('live.joinLink')) + ':</small> <code id="live-link">' + esc(link) + '</code></div>' +
       (qrOn ? '<div class="live-qr" id="live-qr" aria-label="' + esc(t('live.scan')) + '">' + qr + '</div><small>' + esc(t('live.scan')) + '</small>' : '') +
-      '<div class="live-codebtns">' + (waiting ? '<button type="button" class="btn btn-glass btn-sm" data-act="roomqr" aria-pressed="' + qrOn + '">' + kit().ico('qr') + '<span>' + esc(t('live.mine.qr')) + '</span></button>' : '') +
+      '<div class="live-codebtns">' + (!host ? '<button type="button" class="btn btn-glass btn-sm" data-act="roomqr" aria-pressed="' + qrOn + '">' + kit().ico('qr') + '<span>' + esc(t('live.mine.qr')) + '</span></button>' : '') +
       '<button type="button" class="btn btn-glass btn-sm" data-act="share">' + kit().ico('share') + '<span>' + esc(t('live.share')) + '</span></button></div></div>';
     const side = '<div class="live-side glass"><h2>' + esc(t('live.players')) + ' (' + room.players.length + '/' + (cf.maxP || '') + ')</h2>' + playersHtml(room) +
       '<div class="live-sum">' + esc(bn) + ' · ' + esc(t('live.cfg.' + cf.course)) + ' · ' + esc(String(cf.laps)) + ' ' + esc(t('live.cfg.laps').toLowerCase()) + (room.sched ? '' : ' · ' + esc(role(room))) + '</div>' +
       (room.sched && !waiting ? schedRoomHtml(room) : '') +
       (host ? visRow(cf.vis, 'visroom', true) : '') +
-      (host ? '<button type="button" class="btn btn-primary btn-big" data-act="start"' + (can ? '' : ' disabled') + '>' + kit().ico('play') + '<span>' + esc(t(room.sched ? 'live.startEarly' : 'live.start')) + '</span></button>' +
-        (can ? '' : '<div class="live-hint" id="live-few">' + esc(t('live.few')) + '</div>') : waiting ? '' : hint) +
-      (waiting ? '' : leave) + '</div>';
+      (host || waiting ? '' : hint) + (waiting ? '' : leave) + '</div>';
+    // the host's Start (with the player count and why it is not ready yet) sticks to the bottom of the screen, as the plan form's button
+    // does: below the QR, the players and the visibility row it was off screen on a phone
+    const startBar = host ? '<div class="live-startbar"><div class="live-startinfo"><b>' + esc(t('live.players')) + ' ' + have + '/' + esc(String(cf.maxP || '')) + '</b>' +
+      (can ? '' : '<div class="live-hint" id="live-few">' + esc(t('live.few')) + '</div>') + '</div>' +
+      '<button type="button" class="btn btn-primary btn-big" data-act="start"' + (can ? '' : ' disabled') + '>' + kit().ico('play') + '<span>' + esc(t(room.sched ? 'live.startEarly' : 'live.start')) + '</span></button></div>' : '';
     return bannerHtml() + shell(room.sched ? titleTxt(room.sched.title) : t('live.title'),
       (waiting ? '<div class="live-schedtop glass">' + schedRoomHtml(room) + hint + leave + '</div>' : '') +
-      '<div class="live-room' + (waiting ? ' is-waiting' : '') + '">' + (waiting ? side + codebox : codebox + side) + '</div>');
+      '<div class="live-room' + (waiting ? ' is-waiting' : host ? '' : ' is-sailor') + '">' + (host ? codebox + side : side + codebox) + '</div>' + startBar);
   }
   const role = room => t('live.role.' + (room.hostRole === 'watch' ? 'watch' : 'sail'));
   function viewStarting() {

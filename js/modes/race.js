@@ -836,7 +836,13 @@
         return;
       }
       const rel = Math.hypot(vxOf(a) - vxOf(v), vyOf(a) - vyOf(v)); // measured before the bump took the speed out of it (spec A8)
-      if (rel < 0.35) return; // a gentle rub is not worth a penalty (live and AI races alike)
+      // a gentle rub is not worth a penalty. Review round 3 (deviation from A8's 0.35 m/s): with the player's boat in it 0.15 m/s, so a
+      // windward boat that sags onto a leeward one at 10 degrees (Optimist speed) is penalised; below that the offender still hears
+      // about it. Between two AI boats 0.35 (an AI-only reason: they sail in tight packs, and their avoidance is tuned to that)
+      if (rel < (a === me || v === me ? CONTACT_REL : 0.35)) {
+        if (a === me && now > (S.rubT || 0)) { S.rubT = now + 12; say(t('rules.contact', { offender: t('rules.you'), victim: v.short || v.name }) + ' ' + t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); }
+        return;
+      }
       if (a === me && now < (S.myFoulT || 0)) return;
       const key = S.flog ? pairKey(a, v) : a.id + '|' + v.id; // live: one incident is one incident, whichever boat a later re-judge blames
       if (S.cool[key] > now) return;
@@ -856,6 +862,7 @@
       if (a === me) S.myFoulT = now + 15;
       penalize(a, 2, f.rule, f);
     }
+    const CONTACT_REL = 0.15; // m/s closing speed: a contact with the player's boat at least this hard costs a penalty turn
     const pairKey = (a, b) => (String(a.id) < String(b.id) ? a.id + '|' + b.id : b.id + '|' + a.id);
     // taking its penalty turn right now (rules.js penTurning); a boat that only owes one and sails on keeps its rights
     const turningPen = b => !!(b.rc.pen && b.rc.pen.turning);
@@ -866,7 +873,7 @@
     }
     const vxOf = b => (b.cvx !== undefined ? b.cvx : b.vx), vyOf = b => (b.cvy !== undefined ? b.cvy : b.vy);
     // another phone says our boat fouled theirs: we take the penalty if our own verdict did not already (de-duplicated per pair, spec A10)
-    const TOLD_RULES = ['R10', 'R11', 'R12', 'R13', 'R15', 'R18', 'R22'];
+    const TOLD_RULES = ['R10', 'R11', 'R12', 'R13', 'R15', 'R17', 'R18', 'R22', 'R23'];
     const TOLD_HOLD = 0.3; // s: our own monitor judges the same contact first, so its excuse (R15/R16: nobody) can veto the message
     function onFoulMsg(m) {
       if (!m || !byRid[m.from] || WATCH || S.unofficial || TOLD_RULES.indexOf(m.r) < 0) return;
@@ -935,7 +942,15 @@
       // RRS 22.2: no right of way only while the turn is being taken. A rounding in the zone is not a penalty turn; a boat stuck
       // head to wind half way round (slow or in irons) is still taking it
       const it = seq[b.rc.leg], zm = it && it.type === 'mark' ? (it.m.gate || [it.m]) : [];
-      KOS.Rules.penTurning(p, dh, dt, { twa: U.wrapPi(wind.dir - b.heading), zone: zm.some(m => U.dist(b, m) < 3 * L + 1), sailing: b.speed > 0.5 * cls.uRef && !b.inIrons });
+      // ...but only while the turn can still be a rounding of the nearest of those marks: its rounding direction (port = a left turn),
+      // where it lies off the bow and the next leg's course (a turn that runs well past that is a 360)
+      let zo = {};
+      if (zm.length) {
+        const m = zm.reduce((x, y) => (U.dist(b, y) < U.dist(b, x) ? y : x)), nx = seq[b.rc.leg + 1];
+        zo = { round: (m.round || m.side) === 'starboard' ? 1 : -1, mrb: U.angDiff(b.heading, U.bearing(b, m)), h: b.heading };
+        if (nx) zo.next = U.bearing(m, ptOf(nx));
+      }
+      KOS.Rules.penTurning(p, dh, dt, { twa: U.wrapPi(wind.dir - b.heading), zone: zm.some(m => U.dist(b, m) < 3 * L + 1), sailing: b.speed > 0.5 * cls.uRef && !b.inIrons, ...zo });
       if (Math.abs(p.acc) >= p.need - 0.05) {
         b.rc.pen = null;
         if (b === me) {
@@ -1132,7 +1147,7 @@
       if (!(Number.isFinite(me.x) && Number.isFinite(me.y))) return;
       const p = me.rc.pen;
       try {
-        const js = JSON.stringify({ code: LIVE.code, id: LIVE.myId, T0: LIVE.T0, ts: Math.round(LIVE.T0 + S.clock * 1000),
+        const js = JSON.stringify({ code: LIVE.code, id: LIVE.myId, T0: LIVE.T0, ts: Math.round(Math.min(LIVE.T0 + S.clock * 1000, LIVE.serverNow())),
           x: me.x, y: me.y, hd: me.heading, sp: me.speed, hl: me.heel, vx: me.vx, vy: me.vy, cap: !!me.capsized, lg: me.rc.leg, ocs: !!me.rc.ocs,
           pen: p ? { need: p.need, acc: p.acc, dir: p.dir || 0, auto: !!p.auto } : null, served: S.penServed, fouls: S.fouls,
           fin: me.rc.finT != null ? Math.round(me.rc.finT * 1000) : null });
@@ -1696,7 +1711,9 @@
       if (WATCH) { updateWatch(dt); return; }
       S.introT += dt;
       if (S.introT > 3.2 && S.introT - dt <= 3.2) { scene.fixedZoom = null; scene.follow(me); applyZoom(); }
-      const n = LIVE && !S.unofficial ? liveSteps(dt) : S.ff ? 5 : S.phase === 'finish' ? 4 : 1; // live: the shared clock decides how many steps are due
+      // live: the shared clock decides how many steps are due; offline (unofficial) real time, never the AI race's fast finish (the clock
+      // would run ahead of the shared one: a snapshot from it could never be restored, and with it the finish)
+      const n = LIVE ? (S.unofficial ? 1 : liveSteps(dt)) : S.ff ? 5 : S.phase === 'finish' ? 4 : 1;
       for (let i = 0; i < n; i++) simStep(dt);
       if (LIVE) { applyRemotes(dt); sendState(dt); finRetry(); }
       if (controls.autoTrim) ctrl.setSheet(me.sheet);

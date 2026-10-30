@@ -39,7 +39,7 @@ function createServer(env) {
   rooms.restore(saved.races);
   const listIp = new Map(); // ip -> bucket for GET /rooms
   let listCache = null, listAt = 0; // GET /rooms: one list per second for everybody (a club Wi-Fi is many phones behind one IP)
-  const conns = createConnCounter({ maxTotal: num(env.KOS_MAX_CONNS, 300), maxPerIp: num(env.KOS_MAX_PER_IP, 20) });
+  const conns = createConnCounter({ maxTotal: num(env.KOS_MAX_CONNS, 300), maxPerIp: num(env.KOS_MAX_PER_IP, 60) });
   const started = Date.now();
 
   // Version gate: with a minimum set, clients below it AND clients that send no version (v0.8.4 and older) are refused with err code 'old'.
@@ -139,9 +139,27 @@ function createServer(env) {
     return a;
   }
 
+  // a club Wi-Fi puts every phone behind one address: after a blip each phone's old socket is half-open until the heartbeat ends it
+  // (DEAD_MS), while its new one already wants in. Over the per-IP cap, the new socket takes the place of that address's oldest
+  // socket that has answered nothing (no pong, no frame) for longer than PING_MS: it is terminated (its seat is marked lost and the
+  // new socket resumes it), instead of the new one being refused for up to DEAD_MS (spec E1/E5).
+  function staleOut(ip) {
+    let old = null;
+    const t = Date.now();
+    for (const w of wss.clients) {
+      const k = w._kos;
+      if (!k || k.ip !== ip || k.evicted || t - k.aliveAt <= PING_MS) continue;
+      if (!old || k.aliveAt < old._kos.aliveAt) old = w;
+    }
+    if (!old) return false;
+    old._kos.evicted = true;
+    old.terminate(); // 'close' follows and gives its count back (conns.remove)
+    return true;
+  }
+
   wss.on('connection', (ws, req) => {
     const ip = clientIp(req);
-    if (!conns.add(ip)) { ws.close(1013, 'busy'); return; }
+    if (!conns.add(ip) && !(staleOut(ip) && conns.add(ip, true))) { ws.close(1013, 'busy'); return; }
     const c = { ws, ip, hello: false, name: '', room: null, id: 0, strikes: 0, last: Date.now(), aliveAt: Date.now(),
       // state frames: a phone that was backgrounded flushes a burst of queued frames; the burst is absorbed (burst 60) and any excess is
       // dropped silently. A player in a countdown/race is NEVER closed for state traffic (only a lobby/idle socket can be).

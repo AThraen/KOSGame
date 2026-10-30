@@ -1320,13 +1320,35 @@ async function main() {
     const h2 = R.join(mkConn('Traener2'), s2.entry.code, s2.secret); R.disconnect(r2, h2.player.id, false); clock.t += 30000; R.tick();
     const h2b = R.join(mkConn('Traener2'), s2.entry.code, s2.secret);
     ok(h2b.player.host && r2.hostId === h2b.player.id && !r2.players.has(h2.player.id), 'the creator with the secret takes the host seat back; the demoted seat is removed');
-    // a full scheduled lobby gives the oldest long-dropped seat up for a new sailor (dropped seats cannot fill a public race)
+    // review round 3: a full scheduled lobby keeps a dropped seat until the gun (spec E6), a new sailor gets 'full'
     const q1 = R.join(mkConn('Q1'), s2.entry.code), q2 = R.join(mkConn('Q2'), s2.entry.code);
     R.disconnect(r2, q1.player.id, false); clock.t += 5000;
     ok(R.join(mkConn('Ny'), s2.entry.code).err === 'full', 'a seat dropped for 5 s still holds its place (full)');
-    clock.t += 20000;
-    const nw = R.join(mkConn('Ny'), s2.entry.code);
-    ok(nw.player && !r2.players.has(q1.player.id) && r2.players.has(q2.player.id), 'after the grace a new sailor takes the oldest dropped seat');
+    clock.t += 20000; R.tick();
+    ok(R.join(mkConn('Ny'), s2.entry.code).err === 'full' && r2.players.has(q1.player.id), 'scheduled: a seat dropped for 25 s (phone locked) still holds its place, the new sailor gets full');
+    const q1b = R.resume(mkConn('Q1'), s2.entry.code, q1.player.id, q1.player.key);
+    ok(q1b.player === q1.player && !q1.player.lost && r2.players.has(q2.player.id), 'and the dropped seat resumes');
+    // a full manual lobby gives a seat up only once it has been dropped LOBBY_SEAT_MS (5 min), as tick() would
+    const m3 = R.create(mkConn('V7'), { maxP: 3 }, 'sail'), mq1 = R.join(mkConn('MQ1'), m3.room.code); R.join(mkConn('MQ2'), m3.room.code);
+    R.disconnect(m3.room, mq1.player.id, false); clock.t += 25000;
+    ok(R.join(mkConn('Ny2'), m3.room.code).err === 'full' && m3.room.players.has(mq1.player.id), 'manual lobby: a seat dropped for 25 s is not given away');
+    clock.t += 5 * MIN;
+    const nw = R.join(mkConn('Ny2'), m3.room.code);
+    ok(nw.player && !m3.room.players.has(mq1.player.id), 'manual lobby: after 5 min a new sailor takes the dropped seat');
+    // review round 3: a host who retires in the countdown (manual room) does not close the race for everybody
+    const c8 = R.create(mkConn('V8'), { countdownS: 30, maxS: 600, finishS: 0 }, 'sail'), a8c = mkConn('A8'), a8 = R.join(a8c, c8.room.code), b8 = R.join(mkConn('B8'), c8.room.code);
+    ok(R.start(c8.room, c8.player.id) === 'ok' && c8.room.phase === 'countdown', 'countdown');
+    R.disconnect(c8.room, c8.player.id, true); R.tick();
+    ok(c8.room.phase === 'countdown' && c8.room.players.has(a8.player.id) && c8.room.players.has(b8.player.id) && !a8c.log.some(m => m.t === 'hostleft'), 'host leave in the countdown keeps the phase and the other seats (no hostleft)');
+    ok(c8.player.left && c8.player.final && c8.player.status === 'lost', 'the host boat is retired');
+    clock.t = c8.room.T0 + 1; R.tick();
+    ok(c8.room.phase === 'racing', 'and the race starts without the host');
+    const c9 = R.create(mkConn('V9'), { countdownS: 30 }, 'watch'), a9c = mkConn('A9'), a9 = R.join(a9c, c9.room.code); R.join(mkConn('B9'), c9.room.code);
+    R.start(c9.room, c9.player.id); R.disconnect(c9.room, c9.player.id, true);
+    ok(c9.room.phase === 'countdown' && !a9c.log.some(m => m.t === 'hostleft') && c9.room.players.has(a9.player.id), 'a watching host that leaves in the countdown does not close it either');
+    const c10 = R.create(mkConn('V10'), {}, 'sail'), a10c = mkConn('A10'); R.join(a10c, c10.room.code);
+    R.disconnect(c10.room, c10.player.id, true);
+    ok(c10.room.phase === 'closing' && a10c.log.some(m => m.t === 'hostleft'), 'a host who leaves the lobby still closes it');
 
     // E4 (server): a late resume gets the official result, also after the room is gone; the same 2 h as the client's seat record
     const c5 = R.create(mkConn('V5'), { countdownS: 8, maxS: 600, finishS: 0 }, 'sail'), p5 = R.join(mkConn('P5'), c5.room.code), k5 = R.join(mkConn('K5'), c5.room.code);
@@ -1412,6 +1434,45 @@ async function main() {
     ok(!hs.rooms.rooms.has(crH.code) && e5.code === 'nocode' && Array.isArray(e5.rows) && e5.rows.length === 3, 'wire: a resume after the results room is gone answers err nocode with rows');
     [H, Q, B2, B3, B4, B5].forEach(x => x.close()); [B, B2, B3].forEach(x => x.ws.terminate());
     await hs.close();
+  }
+
+  {
+    // review round 3: a club Wi-Fi blip. Every phone is behind one address; their old sockets are half-open (they answer nothing)
+    // until the heartbeat ends them. Over the per-IP cap a new socket replaces the oldest silent one at once instead of being refused.
+    const pf = path.join(tmp, 'perip.json');
+    fs.writeFileSync(pf, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 }));
+    const ps = createServer({ PORT: '0', KOS_STATUS_FILE: pf, KOS_STATUS_POLL_MS: '200', KOS_MAX_PER_IP: '3', KOS_PING_MS: '300', KOS_DEAD_MS: '20000' });
+    const pp = await ps.listen();
+    const mk = async (n) => { const c = new Client(pp, n); await c.hello(); return c; };
+    const H = await mk('Vaert'), A = await mk('Anna'), Bq = await mk('Bo');
+    H.send({ t: 'create', cfg: { countdownS: 8, maxS: 600, finishS: 0 }, hostRole: 'sail' });
+    const cr = await H.wait('created');
+    A.send({ t: 'join', code: cr.code }); const ja = await A.wait('joined');
+    Bq.send({ t: 'join', code: cr.code }); const jb = await Bq.wait('joined');
+    const room = ps.rooms.rooms.get(cr.code);
+    H.send({ t: 'start' }); await A.wait('start');
+    room.T0 = Date.now() + 10; await sleep(100);
+    // two go half-open (they stop reading: no pong, no frames); the host keeps talking
+    A.ws._socket.pause(); Bq.ws._socket.pause();
+    const hk = setInterval(() => { try { H.send({ t: 'ping', c: 1 }); } catch (e) { /* closed */ } }, 100);
+    await sleep(700); // longer than KOS_PING_MS without an answer
+    const t0 = Date.now();
+    const A2 = new Client(pp, 'Anna'), B2 = new Client(pp, 'Bo');
+    let okA = false, okB = false;
+    try { await A2.hello(); A2.send({ t: 'resume', code: cr.code, id: ja.id, key: ja.key }); okA = (await A2.wait('joined')).id === ja.id; } catch (e) { /* refused */ }
+    try { await B2.hello(); B2.send({ t: 'resume', code: cr.code, id: jb.id, key: jb.key }); okB = (await B2.wait('joined')).id === jb.id; } catch (e) { /* refused */ }
+    const took = Date.now() - t0;
+    ok(okA && okB && took < 1500 && A2.closed === null && B2.closed === null, 'over the per-IP cap, fresh resumes replace the half-open sockets at once (' + took + ' ms)');
+    await sleep(200);
+    ok(H.closed === null && !room.players.get(ja.id).lost && !room.players.get(jb.id).lost, 'the healthy socket from the same address is kept; both seats are back');
+    const C = new Client(pp, 'Cai');
+    let refused = false;
+    try { await C.hello(); } catch (e) { refused = true; }
+    await sleep(100);
+    ok(refused || C.closed === 1013, 'a further socket while every socket of the address answers is still refused (busy)');
+    clearInterval(hk);
+    [H, A2, B2, C].forEach(x => x.close()); [A, Bq].forEach(x => x.ws.terminate());
+    await ps.close();
   }
 
   console.log('-- kos-race script');

@@ -6,15 +6,17 @@
 //              off: RRS 18.3, rule 18.2 does not apply between the two at that mark; tacker: the boat that tacked in the zone,
 //              which must not make a starboard boat at close-hauled sail above it (18.3(a)); hold: the entitled boat is still turning
 //              round the mark it has just passed, its room lasts until it is on its new course)}
-//       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'R22' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
+//       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'R22' 'R23' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
 //       R18 once at least one of the two is in the zone (RRS 18.1); the inside boat by the mark's rounding side (mark.round,
 //       default 'port'). R18 only between boats both heading for that mark (ctx.nextMark, else boat.nextMark; unknown = yes) and never at a
 //       start mark (mark.start) until both have started (boat.rc.leg >= 1, light objects: boat.started).
 //       R22: a boat that is OCS (rc.ocs / ocs) or taking a penalty turn right now (pen === true, or a penalty record with
 //       pen.turning, see penTurning) keeps clear of boats sailing normally. Owing a turn while sailing on is not taking it (RRS 22.2).
+//       R23: in a race a boat that is capsized (boat.capsized) has no obligations; the other boat avoids it (RRS 23.1, Section D preamble).
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
 //   KOS.Rules.overlapped(a, b), isWindward(a, b, wind), clearAstern(a, b), tackOf(boat, windDir?)
-//   KOS.Rules.penTurning(pen, dh, dt, {twa?, zone?, sailing?}) -> is the boat taking its penalty turn now (sets pen.turning; call once per step)
+//   KOS.Rules.penTurning(pen, dh, dt, {twa?, zone?, sailing?, round?, mrb?, h?, next?}) -> is the boat taking its penalty turn now
+//       (sets pen.turning; call once per step)
 //   KOS.Rules.explain(result) -> localized reason text;  KOS.Rules.ruleName(rule) -> short localized title
 //   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?, react?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
 //       offender, victim, rule, reasonKey, contact, excused?}], reset()}
@@ -30,6 +32,9 @@
 //       REACT after its turn became noticeable (TURN), or still turning at the contact while it owes a penalty turn; except a boat
 //       entitled to mark-room, sailing within it: RRS 21). A boat entitled to mark-room that turned into the other boat away from the
 //       mark's rounding side before passing it is not sailing within its room: that contact is judged by the base rule (R10/R11/R12).
+//       R17 (simplified): a boat that got its leeward overlap from clear astern within 2 hull lengths of the other boat and then
+//       luffed more than R17_LUFF above the heading it had then (and above its course to its next mark), while the two stay
+//       overlapped on the same tack, is the offender in a contact it would otherwise win under R11 (rule 'R17').
 // Boats may be physics boats or light scenario objects {x, y, heading, length?, tack?, r13?, isPower?, speed?, name?}.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -45,6 +50,8 @@
       'rules.name.R13': 'Den der slår, viger',
       'rules.name.R18': 'Mærkeplads',
       'rules.name.R22': 'Den der vender tilbage eller tager straf, viger',
+      'rules.name.R17': 'Ikke over din rette kurs',
+      'rules.name.R23': 'Hold fri af en kæntret båd',
       'rules.name.R15': 'Tid til at holde fri',
       'rules.name.R16': 'Kursændring',
       'rules.name.C-power-sail': 'Motor viger for sejl',
@@ -61,6 +68,8 @@
       'rules.reason.R18-astern': 'Mærkeplads! {stand} kom først ind i zonen klar foran – {give} bagved skal give plads ved mærket.',
       'rules.reason.R18-tack': 'Vending i zonen! {give} vendte inden for zonen og må ikke tvinge {stand} op over bidevind.',
       'rules.reason.R22': 'Den der vender tilbage eller tager straf, viger! {give} er på vej tilbage over startlinjen eller er midt i en strafrunde og skal holde af vejen for {stand}.',
+      'rules.reason.R17': 'Ikke over din rette kurs! {give} kom bagfra ind i læ af {stand} og må så ikke luffe op over sin rette kurs ind i {stand}.',
+      'rules.reason.R23': 'Hold fri af en kæntret båd! {stand} er kæntret og kan ikke styre – {give} skal holde fri.',
       'rules.reason.R15': 'Ingen straf: {give} nåede ikke at holde fri – {stand} havde lige fået retten.',
       'rules.reason.R16': 'Ingen straf: {give} nåede ikke at holde fri – {stand} drejede hen imod {give}.',
       'rules.reason.R15-gain': 'Tid til at holde fri! {give} fik lige retten (efter en vending eller bagfra) og gav ikke {stand} tid til at holde fri.',
@@ -85,6 +94,8 @@
       'rules.name.R13': 'While tacking, keep clear',
       'rules.name.R18': 'Mark-room',
       'rules.name.R22': 'Returning or penalised boat keeps clear',
+      'rules.name.R17': 'Not above your proper course',
+      'rules.name.R23': 'Keep clear of a capsized boat',
       'rules.name.R15': 'Time to keep clear',
       'rules.name.R16': 'Changing course',
       'rules.name.C-power-sail': 'Power gives way to sail',
@@ -101,6 +112,8 @@
       'rules.reason.R18-astern': 'Mark-room! {stand} reached the zone clear ahead – {give} behind must give room at the mark.',
       'rules.reason.R18-tack': 'Tacking in the zone! {give} tacked inside the zone and must not make {stand} sail above close-hauled.',
       'rules.reason.R22': 'Returning or penalised boat keeps clear! {give} is going back over the start line or in the middle of a penalty turn and must keep clear of {stand}.',
+      'rules.reason.R17': 'Not above your proper course! {give} came from behind into a leeward overlap with {stand} and may then not luff above its proper course into {stand}.',
+      'rules.reason.R23': 'Keep clear of a capsized boat! {stand} has capsized and cannot steer – {give} must keep clear.',
       'rules.reason.R15': 'No penalty: {give} had no time to keep clear – {stand} had only just got right of way.',
       'rules.reason.R16': 'No penalty: {give} had no time to keep clear – {stand} turned towards {give}.',
       'rules.reason.R15-gain': 'Time to keep clear! {give} had only just got right of way (after a tack or from behind) and gave {stand} no time to keep clear.',
@@ -262,24 +275,35 @@
   const PEN_RUN = R(120); // turned one way by more than a tack (with overshoot): the turn is under way
   const PEN_RUN_ZONE = R(220); // a turn that began in the zone of the next mark: more than any rounding
   const PEN_BEAR = R(45); // a turn that began by bearing away from upwind or a reach (a 360 as the game steers it, penControls)
+  const PEN_PAST = R(45); // a turn in the zone that runs this far past the next leg's course is no rounding any more
   /** Is a boat that owes a penalty turn taking it now? p = its penalty record, dh = its heading change this step. Yes while the
    *  game steers the turn for it (p.ctl, set by the steering helper this step: the turn button, the autopilot, an AI helm) or once
    *  it has turned one way by more than PEN_RUN, until it sails straight (under 4 deg/s) for 1.5 s or turns back by 15 deg.
    *  o (optional): {twa: its signed true wind angle, zone: it is in the zone of its next mark, sailing: false while it is stalled
    *  (slow or in irons)}. A turn that began by bearing away (from |twa| < 100 deg) counts from PEN_BEAR; a turn that began or ran
    *  in the zone needs PEN_RUN_ZONE (a mark rounding is not a penalty turn, RRS 22.2); a stalled boat is not sailing straight.
-   *  Sets p.turning, clears p.ctl, returns p.turning. */
+   *  The zone threshold only holds while the turn can still be a rounding of that mark: o.round = the turn direction of a rounding
+   *  there (-1 port, +1 starboard; sign of dh), o.mrb = the mark's bearing off the bow, o.h / o.next = the heading now and the next
+   *  leg's course. A turn that began the other way round, or away from the mark (it lay more than 30 deg on the wrong side), counts
+   *  from PEN_RUN / PEN_BEAR as anywhere else; one that runs PEN_PAST beyond the next leg's course counts from there (at least
+   *  PEN_RUN, at most PEN_RUN_ZONE). Sets p.turning, clears p.ctl, returns p.turning. */
   function penTurning(p, dh, dt, o) {
     if (!p) return false;
     dt = dt || KOS.DT; o = o || {};
     if (Math.abs(dh) >= R(4) * dt || o.sailing === false) p.calm = 0; // stuck head to wind half way round: still taking it
     else { p.calm = (p.calm || 0) + dt; if (p.calm >= 1.5) p.run = 0; }
-    const fresh = () => { p.bear = o.twa !== undefined && Math.abs(o.twa) < R(100) && Math.sign(dh) === -Math.sign(o.twa); p.zone = !!o.zone; };
+    const fresh = () => {
+      p.bear = o.twa !== undefined && Math.abs(o.twa) < R(100) && Math.sign(dh) === -Math.sign(o.twa); p.zone = !!o.zone;
+      const sg = Math.sign(dh);
+      p.free = !!(o.round && (sg !== o.round || (o.mrb !== undefined && o.round * o.mrb < -R(30)))); // no rounding of that mark
+      p.lim = o.next !== undefined && o.h !== undefined ? U.wrap2Pi(sg * U.angDiff(o.h - dh, o.next)) + PEN_PAST : PEN_RUN_ZONE;
+    };
     if (!p.run || Math.sign(dh) === Math.sign(p.run)) { if (!p.run && dh) fresh(); p.run = (p.run || 0) + dh; p.back = 0; }
     else { p.back = (p.back || 0) + dh; if (Math.abs(p.back) > R(15)) { p.run = p.back; p.back = 0; fresh(); } }
     if (o.zone) p.zone = true;
     const run = Math.abs(p.run || 0);
-    p.turning = !!(p.ctl || run >= (p.zone ? PEN_RUN_ZONE : PEN_RUN) || (p.bear && !p.zone && run >= PEN_BEAR));
+    const zr = p.zone && !p.free, zlim = Math.max(PEN_RUN, Math.min(PEN_RUN_ZONE, p.lim || PEN_RUN_ZONE));
+    p.turning = !!(p.ctl || run >= (zr ? zlim : PEN_RUN) || (p.bear && !zr && run >= PEN_BEAR));
     p.ctl = false;
     return p.turning;
   }
@@ -317,6 +341,10 @@
       }
       // sail vs sail outside racing: same structure as RRS 10/11 (COLREG rule 12)
     } else {
+      // R23 (Section D preamble: Section A does not apply to a capsized boat): the boat that is not capsized avoids the one that is
+      const ca = !!a.capsized, cb = !!b.capsized;
+      if (ca && !cb) return result(a, b, 'R23');
+      if (cb && !ca) return result(b, a, 'R23');
       // R22: returning OCS / taking a penalty -> keep clear of boats sailing normally (both: the normal rules between them)
       const ka = keepsClear(a), kb = keepsClear(b);
       if (ka && !kb) return result(b, a, 'R22');
@@ -389,6 +417,7 @@
   }
 
   const REACT = 1.2; // s: time to react after the other boat gains right of way (R15) or turns towards you (R16)
+  const R17_LUFF = R(12); // a leeward boat bound by RRS 17 that luffs more than this above its course then (and its next mark) sails above its proper course
   const TURN = R(10); // a change of course of at least this much within REACT counts for R16
 
   /** How close the hulls come over the next 2 s if boat so sails on at heading h (its own speed) and o keeps its velocity:
@@ -414,7 +443,8 @@
     // per pair: so = the right-of-way boat's id last frame, gainT/gainer = when and who last gained right of way, gainOwn = it
     // gained it by its own action (RRS 15 then binds it), ast = the id of the boat clear astern last frame (null = overlapped),
     // room = {markKey: {id, astern}}: who has mark-room, fixed when the first of the two reached the zone (RRS 18.2(b));
-    // id null = no fixed entitlement (a boat passed head to wind in the zone, RRS 18.3), the fresh verdict decides
+    // id null = no fixed entitlement (a boat passed head to wind in the zone, RRS 18.3), the fresh verdict decides;
+    // r17 = {id, h}: the boat that got its leeward overlap from clear astern within 2 lengths, and its heading then (RRS 17)
     const pairs = {};
     const seen = {}; // per boat: r13 / tack / R22 state last frame and its recent headings (R16)
     const markKey = m => (m.id !== undefined ? m.id : m.x + ',' + m.y);
@@ -502,6 +532,16 @@
           const tc = seen[ids[i]].tc, tr = tc.tn !== null ? tc : tc.prev, d = U.angDiff(tr ? tr.h0 : so.heading || 0, so.heading || 0);
           return (m.round || m.side || 'port') === 'starboard' ? d < 0 : d > 0;
         };
+        // RRS 17: has the leeward boat luffed more than R17_LUFF above h0 (its heading when the overlap began) and above its course to
+        // the nearest mark it heads for? Measured as the true wind angle: smaller = higher
+        const luffed17 = (lb, h0, w) => {
+          const wd = windDirOf(w, lb), up = h => Math.abs(U.wrapPi(wd - h));
+          let ref = up(h0);
+          let m = null;
+          for (const mm of marks || []) if (headsFor(lb, mm, rctx) && (!m || U.dist(lb, mm) < U.dist(lb, m))) m = mm;
+          if (m) ref = Math.min(ref, up(U.bearing(lb, m)));
+          return up(lb.heading || 0) < ref - R17_LUFF;
+        };
         const rctx = { nextMark: opts.nextMark };
         for (let i = 0; i < boats.length; i++) {
           for (let j = i + 1; j < boats.length; j++) {
@@ -559,8 +599,17 @@
             if (soId !== null && P.so !== null && soId !== P.so && !own[si === i ? j : i] && !(P.gainOwn && t - P.gainT <= REACT)) {
               P.gainT = t; P.gainer = soId; P.gainOwn = act[si] || (P.ast === soId && ast === null);
             }
-            P.so = soId; P.ast = ast;
             const gap = hullGap(a, b);
+            // RRS 17: a boat that was clear astern and is now overlapped to leeward within 2 of its lengths may not sail above its
+            // proper course while they stay overlapped on the same tack within that distance (proper course, simplified: its heading
+            // when the overlap began, or its course to its next mark if that is higher)
+            const sameTack = tackOf(a, a.tack ? undefined : windDirOf(wind, a)) === tackOf(b, b.tack ? undefined : windDirOf(wind, b));
+            if (P.ast !== null && ast === null && sameTack) {
+              const k = P.ast === ids[i] ? i : P.ast === ids[j] ? j : -1;
+              if (k >= 0 && gap <= 2 * lengthOf(boats[k]) && !isWindward(boats[k], boats[k === i ? j : i], wind)) P.r17 = { id: ids[k], h: boats[k].heading || 0 };
+            }
+            if (P.r17 && (ast !== null || !sameTack || gap > 2 * L)) P.r17 = null;
+            P.so = soId; P.ast = ast;
             if (gap > L) continue;
             const va = velOf(a), vb = velOf(b);
             const dx = a.x - b.x, dy = a.y - b.y, dd = Math.hypot(dx, dy) || 1;
@@ -580,7 +629,11 @@
             }
             const offender = jr.giveWay, victim = jr.standOn || (jr.giveWay === a ? b : a);
             const f = { type: 'foul', offender, victim, rule: jr.rule, reasonKey: jr.reasonKey, reasonVars: jr.reasonVars, contact, t };
-            if (sj === si && si >= 0 && opts.react !== false) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
+            const l17 = jr.rule === 'R11' && P.r17 && sj >= 0 && P.r17.id === ids[sj] ? boats[sj] : null;
+            if (l17 && luffed17(l17, P.r17.h, wind)) { // RRS 17: the leeward boat sailed above its proper course into the windward boat
+              const w17 = l17 === a ? b : a;
+              Object.assign(f, { offender: l17, victim: w17, rule: 'R17', baseRule: jr.rule, reasonKey: 'rules.reason.R17', reasonVars: { give: nameOf(l17), stand: nameOf(w17) } });
+            } else if (sj === si && si >= 0 && opts.react !== false) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
               const gi = si === i ? j : i;
               // the give-way boat could have kept clear by holding its course: the gain gave it time, the base rule stands
               const gained = t - P.gainT <= REACT && P.gainer === soId && !heldClear(gi, si, P.gainT);

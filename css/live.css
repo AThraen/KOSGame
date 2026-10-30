@@ -207,7 +207,7 @@
 .live-schedtop .live-schedin { font-size: 1.3rem; }
 .live-schedtop > .btn { align-self: flex-start; }
 .live-codebox.is-small .live-code { font-size: clamp(2rem, 8vw, 3rem); }
-@media (min-width: 700px) { .live-room.is-waiting { grid-template-columns: 1.2fr minmax(260px, 1fr); } }
+@media (min-width: 700px) { .live-room.is-waiting, .live-room.is-sailor { grid-template-columns: 1.2fr minmax(260px, 1fr); } }
 /* the list: the refresh button sits beside the intro; on a narrow phone it is an icon-only 44 px button */
 .live-listhead { flex-wrap: nowrap; }
 .live-listhead .live-intro { flex: 1 1 auto; min-width: 0; }
@@ -293,3 +293,15 @@
   .live-waitwrap > .live-waitbox { grid-column: 2; grid-row: 1 / span 2; }
   .live-waitwrap > .live-actions { grid-column: 1; grid-row: 2; justify-content: flex-start; }
 }
+
+/* review round 3: the host's Start sticks to the bottom of the screen (with the player count and why it cannot start yet), as the plan
+   form's button does: below the QR code, the players and the visibility row it used to be off screen on a phone */
+.live-startbar {
+  position: sticky; bottom: 0; z-index: 2; margin-top: 12px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: row; align-items: center; gap: 10px; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: rgba(8, 24, 44, .92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid var(--glass-border);
+}
+.live-startinfo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--text); font-size: max(15px, .95rem); }
+.live-startinfo .live-hint { margin: 0; font-size: max(13px, .85rem); }
+.live-startbar .btn-big { flex: none; min-height: 48px; padding: 10px 16px; font-size: 1.02rem; }
+@media (max-height: 450px) { .live-startbar { position: static; } }

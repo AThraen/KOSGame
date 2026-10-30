@@ -142,8 +142,10 @@ function createRooms(opts) {
       if (old) r.players.delete(old.id);
       for (const q of [...r.players.values()]) if (q.wasHost && q.lost) r.players.delete(q.id); // the creator's old seat, demoted while it was away
     }
-    if (r.players.size >= effMaxPlayers(r)) { // a lobby keeps dropped seats (to the gun, or LOBBY_SEAT_MS); a full one gives the oldest up for a new sailor
-      const old = [...r.players.values()].filter(q => q.lost && !q.host && now() - q.lostAt >= lobbyGrace).sort((a, b) => a.lostAt - b.lostAt)[0];
+    // a lobby keeps dropped seats: a scheduled one to the gun (spec E6: a kid who locked the phone while waiting keeps the place, so
+    // a full scheduled lobby stays full), any other one LOBBY_SEAT_MS (tick); a full one gives such an expired seat up at once
+    if (r.players.size >= effMaxPlayers(r) && !r.sched) {
+      const old = [...r.players.values()].filter(q => q.lost && !q.host && now() - q.lostAt >= lobbySeat).sort((a, b) => a.lostAt - b.lostAt)[0];
       if (old) r.players.delete(old.id);
     }
     if (r.players.size >= effMaxPlayers(r)) return { err: 'full' };
@@ -190,7 +192,7 @@ function createRooms(opts) {
         serverRun(r);
         if (r.phase === 'lobby') { r.players.delete(id); pushRoom(r); return; }
         p.host = false;
-      } else if (p.host) {
+      } else if (p.host && r.phase === 'lobby') { // a host who leaves the lobby closes it; in a countdown the race goes on without them
         broadcast(r, { t: 'hostleft' });
         r.phase = 'closing'; r.deleteAt = now() + HOSTLEFT_KEEP_MS;
         return;

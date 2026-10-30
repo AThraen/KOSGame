@@ -2,7 +2,7 @@
 // docs/superpowers/specs/2026-10-30-live-rules-and-race-list-design.md A8 + A10 (ports tools/tmp/rowreview/phones.js D/E).
 // Each simulated phone runs what race.js runs: its own boat is the truth, the other boat comes from a KOS.MPState.Buffer (10 Hz states
 // with latency, dead-reckoned, rules position without the visual easing, the sender's tack / R13 flags), KOS.Rules.monitor judges
-// [me, remote], onFoul's filters (contact, not excused, closing speed >= 0.35 m/s, pair cool-down) decide, and KOS.MPState.FoulLog turns
+// [me, remote], onFoul's filters (contact, not excused, closing speed >= 0.15 m/s, pair cool-down) decide, and KOS.MPState.FoulLog turns
 // the verdict into "take the penalty" or "send {t:'foul'}"; the foul message reaches the other phone with the same latency.
 //   1. clear fouls (port/starboard T-bone, windward boat sliding onto a long-overlapped leeward boat): exactly one boat turns, every time
 //   2. the review incident D (clear astern, leeward, the boat ahead slows hard): never both, never neither (counts are printed)
@@ -10,6 +10,7 @@
 //   4. E: a slow T-bone (0.5 m/s) is penalised in live and AI races (closing speed measured before the bump)
 //   5. T: a port boat tacks too close under a starboard boat (RRS 13/15): the same boat turns at 0, 150 and 300 ms latency
 //   6. a foul message about a boat this phone never saw close by (50 m away) gives no penalty; an excused contact vetoes it
+//   7. review round 3: a windward boat that sags onto the leeward boat at 10-20 degrees (Optimist speed, closing 0.17-0.35 m/s) is penalised
 'use strict';
 
 const KOS = require('./harness').load();
@@ -20,6 +21,8 @@ let fails = 0, checks = 0;
 function ok(cond, msg) { checks++; if (!cond) { fails++; console.log('  FAIL ' + msg); } else console.log('  ok   ' + msg); }
 
 const DT = 1 / 60, T0 = 2e12, LEN = 2.31, BEAM = 1.13;
+const MIN_REL = 0.15; // race.js CONTACT_REL: the closing speed a contact with the player's boat needs to cost a penalty turn
+{ const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/modes/race.js'), 'utf8'); if (!/const CONTACT_REL = 0\.15;/.test(src)) { console.log('  FAIL race.js CONTACT_REL is not 0.15 (update MIN_REL)'); process.exitCode = 1; } }
 const boat = (rid, x, y, hd, vx, vy, tack) => ({ id: rid, rid, name: 'B' + rid, x, y, heading: hd, vx, vy, speed: Math.hypot(vx, vy), length: LEN, beam: BEAM, tack, r13: false, _init: true, rc: { leg: 1, pen: null } });
 
 // One phone: what race.js simStep + onFoul + onFoulMsg / applyFoulMsg do for this pair.
@@ -42,7 +45,7 @@ function phone(me, otherRid, wind, lat) {
       if (f.excused) { P.flog.excuse(otherRid, nowMs); continue; }
       if (P.contactT === null) P.contactT = t;
       const a = f.offender, v = f.victim;
-      if (Math.hypot(a.vx - v.vx, a.vy - v.vy) < 0.35) continue;
+      if (Math.hypot(a.vx - v.vx, a.vy - v.vy) < MIN_REL) continue;
       if (a === me && t < P.myFoulT) continue;
       const key = Math.min(a.id, v.id) + '|' + Math.max(a.id, v.id); // live: the unordered pair
       if (P.cool[key] > t) continue;
@@ -303,6 +306,18 @@ function tallyOf(list) {
   const f = new MPS.FoulLog(1, 2000);
   f.excuse(2, 1000);
   ok(f.recv(2, 1500) === false && f.recv(2, 3200) === true, 'FoulLog: our own excuse vetoes the other phone\'s verdict for 2 s');
+}
+
+// ---- 7. review round 3 (tools/tmp/rowreview/review10.js 5): W sags slowly onto L (both 1.0 m/s): exactly W turns, at any latency
+{
+  for (const ang of [10, 15, 20]) for (const lat of [0, 150, 300]) {
+    const side = U.vec(R(45)), hl = R(-45), hw = R(-45 - ang);
+    const fl = U.vec(hl, 1.0), fw = U.vec(hw, 1.0);
+    const Lb = boat(1, -side.x * 1.8, -side.y * 1.8, hl, fl.x, fl.y, 'starboard'), Wb = boat(2, 0, 0, hw, fw.x, fw.y, 'starboard');
+    const res = incident(Lb, Wb, 0, lat, kin, 20);
+    const rel = Math.hypot(fw.x - fl.x, fw.y - fl.y);
+    ok(res.contact && res.penB === 1 && res.penA === 0, 'sag ' + ang + ' deg (closing ' + rel.toFixed(2) + ' m/s), ' + lat + ' ms: W turns once, L not (W ' + res.penB + ', L ' + res.penA + ')');
+  }
 }
 
 console.log('livefoul: ' + checks + ' checks, ' + fails + ' failed');

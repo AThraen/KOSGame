@@ -1374,6 +1374,96 @@ test('rules: the boat entitled to mark-room that turns into the other boat away 
   }
 });
 
+test('rules: a boat that overtakes to leeward from clear astern and then luffs far above its course into the windward boat breaks R17', () => {
+  // review round 3 (tools/tmp/rowreview/review10.js 1): on a reach (heading -100) L gets a leeward overlap from clear astern within 2
+  // lengths and then luffs into W, who holds course. Before: W (R11) at 2 m, nobody (R16) at 1.4 m. RRS 17: L may not sail above its
+  // proper course while the overlap lasts.
+  let n = 0;
+  for (const lat of [1.4, 2.0]) for (const wait of [1.5, 3, 5]) for (const rate of [10, 20]) {
+    const fw = U.vec(R(-100)), lee = U.vec(R(-190));
+    const W = r7.B('W', 0, 0, -100, { tack: 'starboard' });
+    const L = r7.B('L', -fw.x * 4.5 + lee.x * lat, -fw.y * 4.5 + lee.y * lat, -100, { tack: 'starboard' });
+    let ovT = null;
+    const f = r7.run([W, L], [], null, t => {
+      if (ovT === null && KOS.Rules.overlapped(W, L)) ovT = t;
+      if (ovT !== null && t > ovT + wait) L.heading = Math.min(R(-45), L.heading + R(rate) * r7.DT);
+      r7.setV(W, 1.0); r7.setV(L, ovT !== null && t > ovT + 1 ? 1.0 : 1.7); r7.mv(W); r7.mv(L);
+    }, 20);
+    if (!f) continue;
+    n++;
+    ok(!f.excused && f.offender === L && f.rule === 'R17', 'lateral ' + lat + ', luff ' + rate + ' deg/s after ' + wait + ' s: L (R17), got ' + r7.say(f));
+  }
+  ok(n === 12, 'contacts: ' + n);
+  // a leeward boat that was never clear astern (overlapped from the start) may luff: W (R11), as before
+  const fw = U.vec(R(-100)), lee = U.vec(R(-190));
+  const W = r7.B('W', 0, 0, -100, { tack: 'starboard' }), L = r7.B('L', lee.x * 2, lee.y * 2, -100, { tack: 'starboard' });
+  const f = r7.run([W, L], [], null, t => {
+    if (t > 3) L.heading = Math.min(R(-45), L.heading + R(10) * r7.DT);
+    r7.setV(W, 1.0); r7.setV(L, 1.0); r7.mv(W); r7.mv(L);
+  }, 20);
+  ok(f && !f.excused && f.offender === W && f.rule === 'R11', 'overlapped from the start, L luffs: W (R11), got ' + r7.say(f));
+  // the same overtake, then L only luffs up to its course to the next mark (higher than its heading then): still its proper course
+  const W2 = r7.B('W', 0, 0, -100, { tack: 'starboard' }), L2 = r7.B('L', -fw.x * 4.5 + lee.x * 2, -fw.y * 4.5 + lee.y * 2, -100, { tack: 'starboard' });
+  const mk = Object.assign(U.vec(R(-70), 60), { id: 'mx', round: 'port' });
+  let ov2 = null;
+  const f2 = r7.run([W2, L2], [mk], () => 'mx', t => {
+    if (ov2 === null && KOS.Rules.overlapped(W2, L2)) ov2 = t;
+    if (ov2 !== null && t > ov2 + 1.5) L2.heading = Math.min(U.bearing(L2, mk), L2.heading + R(15) * r7.DT);
+    W2.heading = R(-100); r7.setV(W2, 1.0); r7.setV(L2, ov2 !== null && t > ov2 + 1 ? 1.0 : 1.7); r7.mv(W2); r7.mv(L2);
+  }, 20);
+  ok(!f2 || f2.rule !== 'R17', 'luffing only up to the course to the next mark is not R17, got ' + r7.say(f2));
+  ok(KOS.Rules.ruleName('R17') !== 'rules.name.R17' && KOS.Rules.strings.da['rules.reason.R17'] && KOS.Rules.strings.en['rules.reason.R17'], 'R17 has da and en strings');
+});
+test('rules: a capsized boat has no obligations - the other boat keeps clear (RRS 23.1, Section D preamble)', () => {
+  // review round 3 (review10.js 4): C is capsized and stopped on port, S on starboard sails into it. Before: C (R10)
+  for (const off of [-0.5, 0, 0.5]) {
+    const C = r7.B('C', 0, 0, 45, { tack: 'port', capsized: true }), S = r7.B('S', 5 + off, 5, -45, { tack: 'starboard' });
+    const f = r7.run([C, S], [], null, () => { r7.setV(C, 0); r7.setV(S, 1.1); r7.mv(C); r7.mv(S); }, 10);
+    ok(f && !f.excused && f.offender === S && f.victim === C && f.rule === 'R23', 'off ' + off + ': S (R23), got ' + r7.say(f));
+  }
+  const C = r7.B('C', 0, 0, 45, { tack: 'starboard', capsized: true }), P = r7.B('P', 5, 5, -45, { tack: 'port' });
+  const rw = KOS.Rules.rightOfWay(P, C, { wind: 0, mode: 'race' });
+  ok(rw.rule === 'R23' && rw.giveWay === P && rw.standOn === C, 'the capsized boat also stands on against a boat that would have right of way otherwise');
+  C.capsized = false;
+  ok(KOS.Rules.rightOfWay(P, C, { wind: 0, mode: 'race' }).rule === 'R10', 'upright again: R10');
+  ok(KOS.Rules.strings.da['rules.reason.R23'] && KOS.Rules.strings.en['rules.reason.R23'] && KOS.Rules.strings.da['rules.name.R23'], 'R23 has da and en strings');
+});
+test('rules: a hand-steered 360 next to the mark it touched counts as taking the penalty - not as a rounding (RRS 22.2)', () => {
+  // review round 3 (review10.js 3, review10spin.js): X touched the windward mark and spins by hand right there (bearing away first, to
+  // port). Inside the zone the 220-degree rounding threshold kept its right of way, and port boat Y got R18. race.js now passes the
+  // mark's rounding direction, where it lies (o.mrb) and the next leg's course: the mark lay on X's starboard side when X turned to
+  // port, so this cannot be the port rounding and the turn counts from 45 degrees (bearing away) as anywhere else.
+  const m = { x: 3, y: -17, id: 'm1', round: 'port' }, L = 2.31;
+  let n = 0;
+  for (const startT of [0.4, 0.8, 1.2]) for (const off of [-1, 0, 1]) {
+    const X = r7.B('X', 0, -14, -45, { rc: { leg: 1, pen: { need: 2 * Math.PI, acc: 0 } } }), Y = r7.B('Y', -7 + off, -10.5, 45, { tack: 'port' });
+    delete X._init; X.windDir = 0;
+    let prevH = X.heading;
+    const f = r7.run([X, Y], [m], () => 'm1', t => {
+      if (t > startT) X.heading = U.wrapPi(X.heading - R(45) * r7.DT);
+      const dh = U.wrapPi(X.heading - prevH); prevH = X.heading; X.rc.pen.acc += dh;
+      KOS.Rules.penTurning(X.rc.pen, dh, r7.DT, { twa: U.wrapPi(0 - X.heading), zone: U.dist(X, m) < 3 * L + 1, sailing: true,
+        round: -1, mrb: U.angDiff(X.heading, U.bearing(X, m)), h: X.heading, next: R(180) });
+      r7.setV(X, 0.8); r7.setV(Y, 1.1); r7.mv(X); r7.mv(Y);
+    }, 10);
+    if (!f) continue;
+    n++;
+    ok(f.excused || f.offender === X, 'start ' + startT + ' off ' + off + ': not Y, got ' + r7.say(f));
+  }
+  ok(n >= 4, 'contacts: ' + n);
+  const pt = KOS.Rules.penTurning, dt = 1 / 60;
+  // a port rounding in the zone (mark to port, turning left 135 deg onto the next leg) is still not a penalty turn ...
+  let p = {}, h = R(180);
+  for (let i = 0; i < 135; i++) { const dh = -R(1); h += dh; pt(p, dh, dt, { twa: U.wrapPi(0 - h), zone: true, round: -1, mrb: -R(90), h, next: R(45) }); }
+  ok(!p.turning, 'a 135-degree port rounding onto the next leg: not taking the penalty');
+  // ... but the same turn running on 60 deg past the next leg's course is a 360
+  for (let i = 0; i < 60; i++) { const dh = -R(1); h += dh; pt(p, dh, dt, { twa: U.wrapPi(0 - h), zone: true, round: -1, mrb: -R(90), h, next: R(45) }); }
+  ok(p.turning, 'running on 60 deg past the next leg\'s course: taking it');
+  // a turn the other way round from the rounding direction counts from 120 deg, also in the zone
+  p = {}; h = R(-45);
+  for (let i = 0; i < 125; i++) { const dh = R(1); h += dh; pt(p, dh, dt, { twa: U.wrapPi(0 - h), zone: true, round: -1, mrb: -R(20), h, next: R(180) }); }
+  ok(p.turning, 'turning to starboard at a port-rounding mark, 125 deg: taking it');
+});
 // ====================================================================== AI
 function raceCourse(cls, skill, tws, opts) {
   opts = opts || {};

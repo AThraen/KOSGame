@@ -552,6 +552,29 @@ async function main() {
     ok(R.d.errs.length === 0, 'no page errors (' + R.d.errs.slice(0, 2).join(' | ') + ')');
     await R.done();
   });
+  // review round 3: the kept session (finish not confirmed) must not take the seat from the session the hub banner opens (4409)
+  for (const when of ['before', 'after']) scen('orphan-' + when, 'finish offline, results, hub, tap "Fortsæt" ' + when + ' the network is back', async (ok) => {
+    const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    R.px.cut();
+    await sleep(17000);
+    await R.d.evaluate(() => KOS.App.run.inst.debug.finishNow());
+    ok(await until(R.d, () => KOS.App.cur === 'results', null, 15000), 'the unofficial result screen comes up');
+    await R.d.evaluate(() => KOS.App.show('hub'));
+    ok(await R.d.waitForSelector('#screen-hub .seatbar [data-seat="go"]', { timeout: 5000 }).then(() => true, () => false), 'the hub banner shows');
+    await R.d.evaluate(() => { window.__old = KOS.Lobby.state.sess; });
+    if (when === 'after') { R.px.up(); await sleep(300); }
+    await R.d.click('#screen-hub .seatbar [data-seat="go"]');
+    if (when === 'before') { await sleep(4000); R.px.up(); }
+    ok(await until(R.d, () => { const i = KOS.App.run.inst, s = KOS.Lobby.state.sess; return KOS.App.cur === 'play' && i && i.live && s && s.state === 'ok' && !i.live.unofficial; }, null, 30000), 'back in the race, connected and official');
+    await sleep(3000);
+    const c = await R.d.evaluate(() => { const i = KOS.App.run.inst, s = KOS.Lobby.state.sess; return { net: i && i.state ? i.state.netMode : null, st: s && s.state, old: window.__old && window.__old.state, same: window.__old === s, fin: i && i.boat ? i.boat.rc.finT : null, banner: (document.querySelector('.race-live-banner:not([hidden])') || {}).textContent || '' }; });
+    ok(c.net !== 'replaced' && c.st === 'ok' && !/andet vindue|another window/.test(c.banner), 'not "open in another window": the session is ok (' + JSON.stringify(c) + ')');
+    ok(c.old === 'closed' && !c.same, 'the kept session was closed when the banner resumed the seat');
+    ok(c.fin != null, 'the race screen still has the finish');
+    ok(await srvUntil(() => R.seat('Dorte').status === 'fin' && !R.seat('Dorte').lost, 15000), 'the server has Dorte finished and the seat is not lost (' + JSON.stringify(R.seat('Dorte')) + ')');
+    ok(R.d.errs.length === 0, 'no page errors (' + R.d.errs.slice(0, 2).join(' | ') + ')');
+    await R.done();
+  });
   scen('abortdrop', 'a 3 s drop while the host aborts the race; then the host starts again', async (ok) => {
     const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
     R.px.cut();
