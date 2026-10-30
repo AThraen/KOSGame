@@ -9,7 +9,7 @@ const path = require('path');
 const MODES = ['on', 'closed', 'hidden'];
 
 function hiddenStatus() {
-  return { mode: 'hidden', message: '', maxRooms: null, maxPlayers: null, minClient: null, minProto: null };
+  return { mode: 'hidden', message: '', maxRooms: null, maxPlayers: null, minClient: null, minProto: null, dropCodes: [] };
 }
 
 function cleanMessage(v) {
@@ -25,6 +25,12 @@ function cleanVer(v) {
   return /^v?\d{1,4}\.\d{1,4}(\.\d{1,4})?$/.test(s) ? s.replace(/^v/, '') : null;
 }
 
+// race codes the operator took off the server (kos-race unsched): 4 letters/digits, at most 50
+function cleanCodes(v) {
+  if (!Array.isArray(v)) return [];
+  return v.filter(c => typeof c === 'string' && /^[A-Z0-9]{4}$/.test(c)).slice(-50);
+}
+
 function cleanInt(v) {
   if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return null;
   return Math.floor(v);
@@ -33,7 +39,7 @@ function cleanInt(v) {
 /**
  * Parse a status file's text.
  * @param {string|null|undefined} text  JSON like
- *   {"mode":"on"|"closed"|"hidden","message":"...","maxRooms":40,"maxPlayers":24,"minClient":"0.8.5","minProto":2}
+ *   {"mode":"on"|"closed"|"hidden","message":"...","maxRooms":40,"maxPlayers":24,"minClient":"0.8.5","minProto":2,"dropCodes":["AB2C"]}
  * @returns {{mode: string, message: string, maxRooms: number|null, maxPlayers: number|null}}
  *   Any missing/invalid input, non-object JSON, or unknown mode yields the
  *   hidden status.
@@ -55,7 +61,8 @@ function parseStatus(text) {
     maxRooms: cleanInt(obj.maxRooms),
     maxPlayers: cleanInt(obj.maxPlayers),
     minClient: cleanVer(obj.minClient),
-    minProto: cleanInt(obj.minProto)
+    minProto: cleanInt(obj.minProto),
+    dropCodes: cleanCodes(obj.dropCodes)
   };
 }
 

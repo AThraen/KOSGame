@@ -631,7 +631,7 @@ test('Rules: R13 tacking boat keeps clear (even if it will be on starboard)', ()
   ok(r.rule === 'R13' && r.giveWay === tacking);
 });
 test('Rules: R18 mark-room inside the 3-length zone; not on opposite tacks upwind', () => {
-  const mark = { x: 0, y: 0 };
+  const mark = { x: 0, y: 0, round: 'starboard' }; // the boats pass it on their starboard side
   // running down to a leeward mark, both on starboard, overlapped; inside boat nearer the mark
   const inside = sb({ x: 1.5, y: -4, h: 180 - 20 });
   const outside = sb({ x: 4.5, y: -4.5, h: 180 - 20 });
@@ -817,12 +817,17 @@ test('rules: tacking too close - a port boat that tacks under a starboard boat i
 });
 test('rules: changing course (R16) is judged by its effect - turning into the other boat excuses it, ducking does not', () => {
   const run = (relB, turnTo) => {
-    const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
+    const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true });
     const S = lb('S', 0, 0, -45, { id: 's', speed: 1.5 }), far = U.vec(R(-45 + relB), 5);
     const Pb = lb('P', far.x, far.y, 45, { id: 'p', speed: 1.5 }); // port tack, heading NE
-    mon.update([S, Pb], 0, [], 0.05);
+    // find where P touches S once S has turned, then start both 0.5 s back along their old courses so the tracks are real ones
+    const h0 = S.heading;
     S.heading = R(turnTo);
     for (let d = 3; d > 0.5 && KOS.Rules.hullGap(S, Object.assign(Pb, U.vec(R(-45 + relB), d))) > 0.02; d -= 0.02);
+    const hit = { x: Pb.x, y: Pb.y }, vp = U.vec(R(45), 1.5), vs = U.vec(h0, 1.5);
+    Object.assign(S, { heading: h0, x: -vs.x * 0.5, y: -vs.y * 0.5 }); Object.assign(Pb, { x: hit.x - vp.x * 0.5, y: hit.y - vp.y * 0.5 });
+    mon.update([S, Pb], 0, [], 0.05);
+    Object.assign(S, { heading: R(turnTo), x: 0, y: 0 }); Object.assign(Pb, hit);
     return mon.update([S, Pb], 0, [], 0.5).filter(x => x.type === 'foul' && x.contact);
   };
   let f = run(-90, -70); // P abeam to port, aiming at S; S bears away 25 degrees into it
@@ -998,6 +1003,94 @@ test('rules: by the lee on a run uses the physics 9-degree margin for scenario o
   ok(tackAt(195) === 'starboard' && tackAt(175) === 'starboard' && tackAt(172) === 'starboard', 'physics: 8 degrees by the lee is still starboard');
   ok(b.boom < 0 && KOS.Rules.tackOf(b) === 'starboard', 'boom to port on starboard tack, as the scenario objects assume');
   ok(tackAt(170) === 'port', 'physics: past 9 degrees it gybes');
+});
+test('rules: the inside boat is decided by the rounding side, also when the outside boat aims straight at the mark', () => {
+  // review round 3 (tools/tmp/rowreview/review6inside.js): every course mark is left to port unless mark.round says starboard
+  const B = (name, x, y, hd, tack) => lb(name, x, y, hd, { tack, _init: true, rc: { leg: 1 } });
+  const mk = { x: 0, y: 0, id: 'm' }, ctx = { wind: 0, marks: [mk], nextMark: () => 'm' };
+  for (const off of [0, 0.4, 0.8]) { // run south on port gybe: O aims at (or just east of) the mark, I 1.3 m east = on O's port side = inside
+    const O = B('O', off, -4.5, 180, 'port'), I = B('I', off + 1.3, -4.5, 180, 'port');
+    ok(KOS.Rules.insideOf(O, I, mk) === I && KOS.Rules.insideOf(I, O, mk) === I, 'run, offset ' + off + ': I inside');
+    for (const r of [KOS.Rules.rightOfWay(O, I, ctx), KOS.Rules.rightOfWay(I, O, ctx)]) ok(r.rule === 'R18' && r.giveWay === O, 'run, offset ' + off + ': O gives room, got ' + r.rule + ' ' + r.giveWay.name);
+  }
+  for (const off of [0, 0.4]) { // beat on starboard: W aims at the mark, L 1.4 m to leeward (its port side) is inside
+    const s = U.vec(R(-135)), f = U.vec(R(-45));
+    const W = B('W', -f.x * 5 - s.x * off, -f.y * 5 - s.y * off, -45, 'starboard'), Lb = B('L', W.x + s.x * 1.4, W.y + s.y * 1.4, -45, 'starboard');
+    const r = KOS.Rules.rightOfWay(W, Lb, ctx);
+    ok(r.rule === 'R18' && r.giveWay === W, 'beat, W aims at the mark (' + off + '): W gives room, got ' + r.rule + ' ' + r.giveWay.name);
+  }
+  // a starboard-rounding mark (a gate's 's' mark) mirrors it: the boat on the other's starboard side is inside
+  const gs = { x: 0, y: 0, id: 'g2s', round: 'starboard' };
+  const O = B('O', 0, -4.5, 180, 'port'), I = B('I', -1.3, -4.5, 180, 'port'); // I to the west = starboard side when heading south
+  ok(KOS.Rules.insideOf(O, I, gs) === I && KOS.Rules.insideOf(O, I, mk) === O, 'starboard rounding: I inside; port rounding: O inside');
+});
+test('rules: mark-room applies once ONE of the two boats is in the zone (RRS 18.1, 18.2(a))', () => {
+  // review round 3 (review6inside.js last block, review6.js 6): run south on port gybe, O (outside) in the zone, I (inside) just outside
+  const B = (name, x, y, hd) => lb(name, x, y, hd, { id: name, tack: 'port', _init: true, rc: { leg: 1 }, speed: 0, vx: 0, vy: 0 });
+  const mk = { x: 0, y: 0, id: 'm' }, nm = () => 'm', ctx = { wind: 0, marks: [mk], nextMark: nm };
+  let O = B('O', -2.6, -6.2, 180), I = B('I', -1.3, -7.0, 180);
+  ok(U.dist(O, mk) < 3 * 2.31 && U.dist(I, mk) > 3 * 2.31 && KOS.Rules.overlapped(O, I), 'O in the zone, I outside, overlapped');
+  for (const r of [KOS.Rules.rightOfWay(O, I, ctx), KOS.Rules.rightOfWay(I, O, ctx)]) ok(r.rule === 'R18' && r.giveWay === O, 'O gives room, got ' + r.rule + ' ' + r.giveWay.name);
+  // through the monitor: O luffs into I before I reaches the zone
+  O = B('O', -2.4, -6.3, 170); I = B('I', -1.1, -7.2, 170);
+  const DT = 1 / 60, mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true, nextMark: nm });
+  let f = null;
+  for (let i = 0; i * DT < 3 && !f; i++) {
+    O.heading = R(150); I.heading = R(170);
+    for (const [b, v] of [[O, 0.9], [I, 0.5]]) { const d = U.vec(b.heading, v); b.vx = d.x; b.vy = d.y; b.speed = v; b.x += d.x * DT; b.y += d.y * DT; }
+    f = mon.update([O, I], 0, [mk], DT).find(x => x.type === 'foul' && x.contact) || null;
+  }
+  ok(f && !f.excused && f.offender === O && f.rule === 'R18', 'monitor: O penalised, got ' + (f ? f.rule + ' ' + f.offender.name : 'no contact'));
+});
+test('rules: a boat that just gained right of way but left room is not blamed when the other boat steers into it (RRS 15)', () => {
+  // review round 3 (review6.js 1): the give-way boat could have kept clear by holding its course, so it broke R11 itself
+  const DT = 1 / 60, B = (name, x, y, hd, tack) => lb(name, x, y, hd, { id: name, tack, _init: true, rc: { leg: 1 }, speed: 0, vx: 0, vy: 0 });
+  const setV = (b, v) => { const d = U.vec(b.heading, v); b.vx = d.x; b.vy = d.y; b.speed = v; };
+  const run = (boats, step, secs) => {
+    const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true });
+    for (let i = 0; i * DT < secs; i++) {
+      step(i * DT);
+      for (const b of boats) { b.x += b.vx * DT; b.y += b.vy * DT; }
+      const f = mon.update(boats, 0, [], DT).find(x => x.type === 'foul' && x.contact);
+      if (f) return f;
+    }
+    return null;
+  };
+  const say = f => (f ? (f.excused ? 'excused ' : '') + f.rule + ' ' + f.offender.name : 'no contact');
+  { // C gets a leeward overlap from clear astern with ~1.6 m to spare; A (windward) then bears away hard into C
+    const lee = U.vec(R(-135)), fw = U.vec(R(-45));
+    const A = B('A', 0, 0, -45, 'starboard'), C = B('C', lee.x * 2.4 - fw.x * 2.6, lee.y * 2.4 - fw.y * 2.6, -45, 'starboard');
+    let ovT = null;
+    const f = run([A, C], t => {
+      if (ovT === null && KOS.Rules.overlapped(A, C)) ovT = t;
+      if (ovT !== null && t > ovT + 0.3) A.heading = Math.max(R(-135), A.heading - R(180) * DT);
+      setV(A, 1.4); setV(C, 2.0);
+    }, 6);
+    ok(f && !f.excused && f.offender === A && f.rule === 'R11', 'A bore away into C: A (R11), got ' + say(f));
+  }
+  { // P completes a tack well to leeward of S; S bears away hard into P 0.15 s later
+    const side = U.vec(R(45)), fw = U.vec(R(-45));
+    const S = B('S', side.x * 2.6 - fw.x * 0.5, side.y * 2.6 - fw.y * 0.5, -45, 'starboard'), Pb = B('P', 0, 0, 45, 'port');
+    const f = run([Pb, S], t => {
+      if (t < 0.1) { Pb.tack = 'port'; Pb.r13 = false; Pb.heading = R(45); }
+      else if (t < 0.6) { Pb.r13 = true; Pb.tack = 'starboard'; Pb.heading = R(45 - 90 * (t - 0.1) / 0.5); }
+      else { Pb.r13 = false; Pb.heading = R(-45); }
+      if (t > 0.75) S.heading = Math.max(R(-150), S.heading - R(240) * DT);
+      setV(Pb, 1.0); setV(S, 1.6);
+    }, 5);
+    ok(f && !f.excused && f.offender === S && f.rule === 'R11', 'S bore away into P: S (R11), got ' + say(f));
+  }
+  { // the R15 case it must keep: P tacks right under S's bow; S holding its course hits P -> P (R15)
+    const fw = U.vec(R(-45), 3.2), lee = U.vec(R(-135), 0.3);
+    const S = B('S', 0, 0, -45, 'starboard'), Pb = B('P', fw.x + lee.x, fw.y + lee.y, 45, 'port');
+    const f = run([Pb, S], t => {
+      if (t < 0.1) { Pb.tack = 'port'; Pb.r13 = false; Pb.heading = R(45); }
+      else if (t < 0.4) { Pb.r13 = true; Pb.tack = 'starboard'; Pb.heading = R(45 - 90 * (t - 0.1) / 0.3); }
+      else { Pb.r13 = false; Pb.heading = R(-45); }
+      setV(Pb, 0.3); setV(S, 2.0);
+    }, 4);
+    ok(f && !f.excused && f.offender === Pb && f.rule === 'R15', 'P tacked too close: P (R15), got ' + say(f));
+  }
 });
 
 // ====================================================================== AI
@@ -1394,6 +1487,17 @@ test('boatpick: resolve falls back to the default when the stored boat is not (o
   ok(BP.resolve(null, [], 'opti') === 'opti', 'empty list -> default');
 });
 
+test('sw: the race list and the server status files are never served from or put in the cache', () => {
+  // review round 3: a cached /mp/rooms froze the "Find et løb" list, a cached /mp-status.json hid the kill switch
+  const vm = require('vm'), src = require('fs').readFileSync(require('path').join(__dirname, '..', 'sw.js'), 'utf8');
+  const on = {};
+  const self = { location: { origin: 'https://spil.example.dk' }, addEventListener: (t, f) => { on[t] = f; } };
+  vm.runInNewContext(src, { self, URL, caches: { match: () => Promise.resolve({}) }, fetch: () => Promise.resolve({ ok: false }) });
+  const handled = (p, o) => { let r = false; on.fetch({ request: Object.assign({ method: 'GET', url: 'https://spil.example.dk' + p, mode: 'cors', cache: 'default' }, o), respondWith: () => { r = true; } }); return r; };
+  for (const p of ['/mp/rooms', '/mp-test/rooms', '/mp-status.json', '/mp-test-status.json', '/mp-status.json?x=1']) ok(!handled(p), p + ' goes to the network');
+  ok(!handled('/js/whatever.js', { cache: 'no-store' }), 'a no-store request goes to the network');
+  ok(handled('/js/core/rules.js'), 'game files are still served by the worker');
+});
 test('feedback: the address assembles correctly', () => {
   ok(KOS.Feedback.address() === ['thraen', 'gmail.com'].join(String.fromCharCode(64)), 'got ' + KOS.Feedback.address());
 });
@@ -1438,6 +1542,14 @@ function bestRange(tws, azRel) { // wind from north (dir 0) blows towards south 
   for (let e = 8; e <= 40; e += 0.5) { const f = jetFlight(fakeBoat({ cls: { length: 0 } }), Math.PI + azRel, R(e), { dir: 0, speed: tws }); best = Math.max(best, Math.hypot(f.x, f.y)); }
   return best;
 }
+test('Soslag: an excused foul (R15 / R16 time to react) never costs a penalty turn', () => {
+  // review round 3: the shared monitor reports excused fouls; Søslag's onFoul must return before the penalty for them.
+  // (Checked in headless Chrome through inst.debug.foul(off, vic, false, {excused: true}): no pen, no foul count.)
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/modes/soslag.js'), 'utf8');
+  const body = src.slice(src.indexOf('function onFoul(f)'), src.indexOf('function penalize('));
+  const ex = body.indexOf('if (f.excused)'), pen = body.indexOf('penalize(');
+  ok(ex > 0 && pen > ex && body.indexOf('return;', ex) < pen, 'onFoul returns on f.excused before penalize()');
+});
 test('Soslag: range table at 6/9/12 kn (downwind, still, upwind) within +-1 m of the spec', () => {
   const tab = { 6: [16, 11, 8.5], 9: [18.7, 11, 7.5], 12: [21.3, 11, 6.7] };
   for (const k of [6, 9, 12]) {

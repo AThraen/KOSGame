@@ -5,7 +5,8 @@
 //              nextMark?: boat -> mark id | [ids] (gate: both ids) | null, room?: mark -> {boat, astern} | {off: true} (zone-entry memory;
 //              off: RRS 18.3, rule 18.2 does not apply between the two at that mark)}
 //       rule: 'R10' 'R11' 'R12' 'R13' 'R18' 'R22' 'C-power-sail' 'C-overtaking' 'C-headon' 'C-crossing' 'C-sail-tack' 'C-sail-lee'
-//       R18 only between boats both heading for that mark (ctx.nextMark, else boat.nextMark; unknown = yes) and never at a
+//       R18 once at least one of the two is in the zone (RRS 18.1); the inside boat by the mark's rounding side (mark.round,
+//       default 'port'). R18 only between boats both heading for that mark (ctx.nextMark, else boat.nextMark; unknown = yes) and never at a
 //       start mark (mark.start) until both have started (boat.rc.leg >= 1, light objects: boat.started).
 //       R22: a boat that is OCS (rc.ocs / ocs) or doing penalty turns (rc.pen / pen) keeps clear of boats sailing normally.
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
@@ -17,7 +18,9 @@
 //       opposite tacks on a beat, ended when the entitled boat passes head to wind or leaves the zone; none at all when one of them
 //       was tacking when the first reached the zone: RRS 18.3, simplified), and when a boat gained
 //       right of way. Within 1.2 s of a gain: gained by its own action (a finished tack or penalty, an overlap from clear astern)
-//       -> the gainer broke R15 (offender, rule 'R15', reason R15-gain); otherwise -> excused. excused: nobody is penalised
+//       -> the gainer broke R15 (offender, rule 'R15', reason R15-gain); otherwise -> excused. Neither when the give-way boat could
+//       have kept clear by holding the course it had at the gain (it steered into a boat that left room): its base rule stands.
+//       excused: nobody is penalised
 //       (R15: the other boat had only just gained right of way; R16: the right-of-way boat turned so the hulls came closer, except
 //       a boat entitled to mark-room, sailing within it: RRS 21).
 // Boats may be physics boats or light scenario objects {x, y, heading, length?, tack?, r13?, isPower?, speed?, name?}.
@@ -207,8 +210,11 @@
     return va.x * fb.x + va.y * fb.y > vb.x * fb.x + vb.y * fb.y + 0.05;
   }
 
-  /** The inside boat of an overlapped pair: the one on the mark's side of the other (across their mean course). With headings
-   *  more than 45 degrees apart (one boat already rounding) the mean course says little: then the boat nearer the mark. */
+  /** The inside boat of an overlapped pair: the one on the other's side that the mark must be left on (across their mean
+   *  course): its port side for a port rounding (m.round, default 'port' as on every course mark), its starboard side for a
+   *  starboard rounding (a gate's 's' mark). Where the mark lies across the course does not matter: a boat aiming straight at it
+   *  is still outside. With headings more than 45 degrees apart (one boat already rounding) the mean course says little: then
+   *  the boat nearer the mark. */
   function insideOf(a, b, m) {
     if (Math.abs(U.angDiff(a.heading || 0, b.heading || 0)) > R(45)) return U.dist(a, m) <= U.dist(b, m) ? a : b;
     const fa = U.vec(a.heading || 0), fb = U.vec(b.heading || 0);
@@ -216,9 +222,10 @@
     const hl = Math.hypot(hx, hy);
     if (hl < 1e-6) { hx = fa.x; hy = fa.y; } else { hx /= hl; hy /= hl; }
     const lat = p => -p.x * hy + p.y * hx; // across the course, + = starboard
-    const la = lat(a), lb = lat(b), lm = lat(m);
+    const la = lat(a), lb = lat(b);
     if (Math.abs(la - lb) < 0.05) return U.dist(a, m) < U.dist(b, m) ? a : b; // in line: the nearer boat
-    return Math.abs(lm - la) < Math.abs(lm - lb) ? a : b;
+    const stbd = (m.round || m.side) === 'starboard';
+    return (stbd ? la > lb : la < lb) ? a : b;
   }
   /** Is the boat heading for mark m next? Unknown (no ctx.nextMark / boat.nextMark, or a mark without id) counts as yes. */
   function headsFor(b, m, ctx) {
@@ -292,7 +299,7 @@
             if (!r18At(a, b, m, ctx)) continue;
             const da = U.dist(a, m), db = U.dist(b, m);
             const zr = zoneL * (da < db ? lengthOf(a) : lengthOf(b));
-            if (da > zr || db > zr) continue;
+            if (Math.min(da, db) > zr) continue; // RRS 18.1: rule 18 applies once at least one of the two is in the zone
             const memo = ctx.room && ctx.room(m); // RRS 18.2(b): the state when the first of the two reached the zone
             if (memo && memo.off) continue; // RRS 18.3: a boat tacked in the zone, 18.2 does not apply between them (R10/R11 do)
             if (memo && (memo.boat === a || memo.boat === b)) {
@@ -380,7 +387,8 @@
           const st = { r13: !!(b.r13 || b.tacking), tack: tackOf(b, b.tack ? undefined : windDirOf(wind, b)), kc: keepsClear(b) };
           const p = seen[ids[i]];
           const hs = p ? p.hs : [];
-          hs.push({ t, h: b.heading || 0 });
+          const v = velOf(b); // heading, position and velocity: R16 and the held-course check below
+          hs.push({ t, h: b.heading || 0, x: b.x, y: b.y, vx: v.x, vy: v.y });
           while (hs.length > 2 && hs[1].t <= t - REACT) hs.shift();
           seen[ids[i]] = Object.assign(st, { hs });
           act[i] = !!p && ((!st.r13 && p.r13) || st.tack !== p.tack || (!st.kc && p.kc));
@@ -395,6 +403,22 @@
           if (Math.abs(U.angDiff(h0, h1)) < TURN) return false;
           const was = approach(so, boats[j], h0), now = approach(so, boats[j], h1);
           return now.min < was.min - 0.05 || (now.min <= was.min + 0.05 && now.mean < was.mean - 0.05);
+        };
+        // RRS 15 only asks the gainer to give room to keep clear: could the give-way boat at g have kept clear of s just by
+        // holding the course it had when s gained right of way (sailed on from where it was then at its velocity then, against
+        // s's real track since)? The same question for R16: would its old course have kept clear of s's turn?
+        const heldClear = (g, s, since) => {
+          const hg = seen[ids[g]].hs, hs = seen[ids[s]].hs;
+          const g0 = hg.find(e => e.t >= since) || hg[0], v = { x: g0.vx, y: g0.vy };
+          const ghost = { x: 0, y: 0, heading: g0.h, length: lengthOf(boats[g]), beam: beamOf(boats[g]) };
+          const o = { x: 0, y: 0, heading: 0, length: lengthOf(boats[s]), beam: beamOf(boats[s]) };
+          for (const e of hs) {
+            if (e.t < g0.t) continue;
+            ghost.x = g0.x + v.x * (e.t - g0.t); ghost.y = g0.y + v.y * (e.t - g0.t);
+            o.x = e.x; o.y = e.y; o.heading = e.h;
+            if (hullGap(ghost, o) <= 0.05) return false;
+          }
+          return true;
         };
         const rctx = { nextMark: opts.nextMark };
         for (let i = 0; i < boats.length; i++) {
@@ -458,16 +482,18 @@
             cd[key] = t + (opts.cooldown || 8);
             const offender = row.giveWay, victim = row.standOn || (row.giveWay === a ? b : a);
             const f = { type: 'foul', offender, victim, rule: row.rule, reasonKey: row.reasonKey, reasonVars: row.reasonVars, contact, t };
-            if (si >= 0) { // no time to react (RRS 15 / 16)
+            if (si >= 0) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
               const gi = si === i ? j : i;
-              if (t - P.gainT <= REACT && P.gainer === soId && P.gainOwn) {
+              // the give-way boat could have kept clear by holding its course: the gain gave it time, the base rule stands
+              const gained = t - P.gainT <= REACT && P.gainer === soId && !heldClear(gi, si, P.gainT);
+              if (gained && P.gainOwn) {
                 // the boat that just gained right of way by its own action did not give room to keep clear: it broke RRS 15
                 Object.assign(f, { offender: boats[si], victim: boats[gi], rule: 'R15', baseRule: row.rule, reasonKey: 'rules.reason.R15-gain',
                   reasonVars: { give: nameOf(boats[si]), stand: nameOf(boats[gi]) } });
               } else {
                 // gained without its own action (mark-room at the zone), or it turned into the give-way boat: nobody is penalised
                 // R16 never excuses against the boat entitled to mark-room: it is sailing within its room as it rounds (RRS 21)
-                const ex = t - P.gainT <= REACT && P.gainer === soId ? 'R15' : row.rule !== 'R18' && turnedTowards(si, gi) ? 'R16' : null;
+                const ex = gained ? 'R15' : row.rule !== 'R18' && turnedTowards(si, gi) && !heldClear(gi, si, t - REACT) ? 'R16' : null;
                 if (ex) Object.assign(f, { rule: ex, baseRule: row.rule, reasonKey: 'rules.reason.' + ex, excused: true });
               }
             }

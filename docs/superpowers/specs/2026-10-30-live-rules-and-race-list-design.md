@@ -16,6 +16,7 @@ Apply in this order. "AI races" means `!LIVE`. Rule fixes 3–7 are real rules b
    - **Fixes:** luffing shown as tacking; port/starboard flipping on a run.
 2. **No R18 at the start.** Exclude the starting marks (pin, and the committee boat already) from R18 for a boat until it has started (`rc.leg >= 1` or the equivalent). R11/R10 then apply at the pin (RRS 18.1).
 3. **Mark-room goes to the inside boat.** When overlapped, the inside boat is the one whose side faces the mark; decide by which side of the other boat the mark lies on, not by distance to the mark.
+   - **Review round 3:** "the side that faces the mark" is the side the mark must be left on (`mark.round`, default port; a gate's `s` mark is starboard), across the pair's mean course, not where the mark happens to lie laterally (a boat aiming straight at the mark is still outside). Headings more than 45° apart keep the nearer-boat fallback.
 4. **Mark-room is fixed at zone entry.** For each pair, remember the overlap state when the first of the two reaches the zone (RRS 18.2(b)):
    - clear ahead at entry → that boat keeps mark-room even if an overlap begins later;
    - overlapped at entry → the inside boat keeps it.
@@ -37,6 +38,14 @@ Apply in this order. "AI races" means `!LIVE`. Rule fixes 3–7 are real rules b
     - **Unchanged:** stand-on boats are never penalised.
 11. **Clear astern (rules.js:133).** Use the hull's most forward point along the other boat's heading, not only the bow point.
 12. **By the lee for scenario objects (rules.js:128).** Use the same 9° margin as the physics boats.
+13a. **Review-round rules changes (deviations; they apply to AI races and Søslag too, since all use `rules.js`).** Found by the rules reviews, each a real RRS bug with a `rules:` test in `tools/test-core.js`:
+   - **Windward/leeward by side** (RRS Definitions *Leeward and Windward*): a boat is to windward when it lies on the other's windward side across their course (on a run: the side away from the mainsail), not by the wind line. Round 1.
+   - **Both boats tacking** (RRS 13): the one clear astern keeps clear, else the one on the other's port side.
+   - **Zone-entry memory limits** (RRS 18.1(a), 18.2(c), 18.3): no fixed entitlement between opposite tacks on a beat; it ends when the entitled boat passes head to wind or leaves the zone; none when a boat was tacking as the first reached the zone.
+   - **RRS 21 over R16:** a boat entitled to mark-room and sailing within it is not "turning into" the other boat; R16 does not excuse the boat that owed it room. Round 2.
+   - **Rule 18 with one boat in the zone** (RRS 18.1, 18.2(a)): mark-room (fresh or the zone-entry memory) applies once at least one of the two is in the zone. Round 3.
+   - **R15 only binds a gainer that left no room** (RRS 15): within 1.2 s of a gain the gainer is the offender (or, for a gain that is nobody's action, nobody is) only if the give-way boat could not have kept clear by holding the course it had when the gain happened; a give-way boat that steers into a boat that left room breaks its base rule (R10/R11/R12). The same held-course check limits the R16 excuse. Round 3.
+   - **Søslag** ignores excused fouls (no penalty turn, the reason is shown). Round 3.
 13. **Contact position.** Rules and contact use the dead-reckoned position without the visual smoothing offset (`mpstate.js`, about line 206); only drawing uses the smoothed one.
 
 **Tests:**

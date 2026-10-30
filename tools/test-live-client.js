@@ -564,6 +564,26 @@ async function main() {
       ok(hp.page.errs.length === 0, lang + ': no errors (' + hp.page.errs.join(' | ') + ')');
       await hp.ctx.close();
     }
+    console.log('-- review round 3: the list cards and the plan form at 320 px (and the plan form on a landscape phone)');
+    for (const lang of ['en', 'da']) {
+      const sp = await newPage('area=race', 'Frederikke');
+      await sp.page.setViewportSize({ width: 320, height: 568 });
+      await sp.page.evaluate(l => KOS.I18n.setLang(l), lang);
+      await listOpen(sp.page);
+      await sp.page.waitForSelector('#live-listbox [data-code="' + fri.code + '"]', { timeout: 8000 });
+      const wide = await sp.page.evaluate(() => [...document.querySelectorAll('#live-listbox .live-item, #live-listbox .live-st, #live-listbox .live-n')].filter(e => e.getBoundingClientRect().right > innerWidth + 0.5).map(e => e.className + ' ' + Math.round(e.getBoundingClientRect().right)));
+      ok(wide.length === 0, lang + ' 320: every list card (status pill, opening time) ends inside the screen (' + wide.slice(0, 3).join(', ') + ')');
+      await sp.page.click('#screen-live .screen-head [data-act="back"]'); await waitView(sp.page, 'entry');
+      await clickAct(sp.page, 'host'); await waitView(sp.page, 'setup'); await clickAct(sp.page, 'planview'); await waitView(sp.page, 'plan');
+      for (const [w, h] of [[320, 568], [844, 390]]) {
+        await sp.page.setViewportSize({ width: w, height: h }); await sp.page.waitForTimeout(200);
+        const g = await sp.page.evaluate(() => { const bar = document.querySelector('.live-plan-bar'), sticky = getComputedStyle(bar).position === 'sticky', top = sticky ? bar.getBoundingClientRect().top : innerHeight;
+          return { top, h: Math.round(bar.getBoundingClientRect().height), sticky, day: document.getElementById('live-plan-day').getBoundingClientRect().bottom, time: document.getElementById('live-plan-time').getBoundingClientRect().bottom }; });
+        ok(g.day <= g.top && g.time <= g.top && g.h <= 80, lang + ' ' + w + 'x' + h + ': the day and time pickers are visible above the button bar (' + JSON.stringify(g) + ')');
+      }
+      ok(sp.page.errs.length === 0, lang + ': no errors (' + sp.page.errs.join(' | ') + ')');
+      await sp.ctx.close();
+    }
 
     console.log('-- schedule a race: validation, private, my scheduled races (QR, reminder, cancel)');
     const pp = await newPage('area=race', 'Trine');
@@ -640,23 +660,36 @@ async function main() {
     await pp.ctx.close();
 
     console.log('-- #live=CODE for a race that is not open yet, a server-run scheduled room, the creator takes the host seat');
+    // review round 3: a listed scheduled code goes straight to the wait card (one GET /rooms, no socket, no "Deltag" first)
     const wp = await newPage('live=' + fri.code, 'Wilma');
-    await waitView(wp.page, 'join');
-    ok(await wp.page.evaluate(c => document.getElementById('live-code').value === c && location.hash.indexOf('live=') < 0, fri.code), '#live=CODE opens the join screen with the code (and leaves the hash)');
-    await clickAct(wp.page, 'join');
     await waitView(wp.page, 'wait');
-    ok(await wp.page.evaluate(() => { const x = document.getElementById('screen-live').textContent; return /Fredagsræs – [^:]+: åbner kl\. 17\.45 · starter kl\. 18\.00\./.test(x) && (x.match(/nov|dec|jan|feb|mar|apr|maj|jun|jul|aug|sep|okt/g) || []).length <= 1 && /Åbner om \d+ (t|dage)/.test(x) && /Siden går selv ind i løbet, når det åbner\./.test(x); }),
-      'not open yet: "Fredagsræs – <day>: åbner kl. 17.45 · starter kl. 18.00." (the date once), a countdown and "Siden går selv ind …"');
+    ok(await wp.page.evaluate(() => window.__ws === 0 && location.hash.indexOf('live=') < 0 && KOS.Lobby.state.wait && KOS.Lobby.state.wait.title === 'friday'), '#live=CODE for a listed race that is not open: the wait card at once, no socket (and the hash is gone)');
+    ok(await wp.page.evaluate(() => { const x = document.getElementById('screen-live'), msg = x.querySelector('.live-trainer-text').textContent, left = x.querySelector('.live-waitleft').textContent;
+      return x.querySelector('.screen-head h1').textContent === 'Fredagsræs' && /^Åbner \S.* kl\. 17\.45 · starter kl\. 18\.00\.$/.test(msg) && !/–/.test(msg) && /^Åbner \S.* kl\. 17\.45$/.test(left) && /Siden går selv ind i løbet, når det åbner\./.test(x.textContent); }),
+      'not open yet: "Åbner <dag> kl. 17.45 · starter kl. 18.00." (no capital after a dash), more than a day away the countdown says the day: ' + await wp.page.evaluate(() => document.querySelector('#screen-live .live-trainer-text').textContent + ' / ' + document.querySelector('#screen-live .live-waitleft').textContent));
+    for (const [w, h] of [[320, 568], [844, 390]]) {
+      await wp.page.setViewportSize({ width: w, height: h }); await wp.page.waitForTimeout(200);
+      ok(await wp.page.evaluate(() => ['remind', 'waitjoin'].every(a => { const r = document.querySelector('#screen-live [data-act="' + a + '"]').getBoundingClientRect(); return r.bottom <= innerHeight && r.right <= innerWidth; })),
+        w + 'x' + h + ': "Påmind mig" and "Tjek om løbet er åbent" are on screen without scrolling');
+    }
+    await wp.page.setViewportSize({ width: 1000, height: 800 });
     ok(await wp.page.evaluate(() => /Tjek om løbet er åbent/.test(document.querySelector('#screen-live [data-act="waitjoin"]').textContent)), 'the button says what it does: "Tjek om løbet er åbent"');
     ok(await wp.page.evaluate(() => !!document.querySelector('#screen-live [data-act="remind"]') && !KOS.Lobby.state.sess), 'the wait card offers "Påmind mig" and holds no connection');
     ok(wp.page.errs.length === 0, 'no errors (' + wp.page.errs.join(' | ') + ')');
     await wp.ctx.close();
     // review round 2: a phone whose clock is 40 min fast counts down to the server's opensAt (the notopen error carries the server time)
-    const fast = await newPage('live=' + fri.code, 'Frida', { clockMs: 40 * 60000 });
-    await waitView(fast.page, 'join'); await clickAct(fast.page, 'join'); await waitView(fast.page, 'wait');
+    // a private scheduled race is not listed: the join screen, and the server's notopen answer, lead to the wait card
+    const hanne = await bot('Hanne', '10.9.0.6');
+    const hid = await hanne.call({ t: 'sched', cfg: { boat: 'opti', vis: 'private' }, title: 'train', startAt: Date.now() + 3 * 3600000 }, ['scheduled', 'err']);
+    hanne.ws.close();
+    const fast = await newPage('live=' + hid.code, 'Frida', { clockMs: 40 * 60000 });
+    await waitView(fast.page, 'join');
+    ok(await fast.page.evaluate(c => document.getElementById('live-code').value === c, hid.code), '#live=CODE of a private race opens the join screen with the code');
+    await clickAct(fast.page, 'join'); await waitView(fast.page, 'wait');
     ok(await fast.page.evaluate(() => { const w = KOS.Lobby.state.wait, el = document.querySelector('#screen-live .live-waitleft [data-until]');
       return Math.abs(w.skew + 40 * 60000) < 5000 && +el.getAttribute('data-until') === Math.round(w.opensAt - w.skew); }),
       'clock 40 min fast: the countdown and the join tries use opensAt on the phone\'s clock (opensAt - skew)');
+    ok(await fast.page.evaluate(() => /^Åbner om 2 timer \d+ min$/.test(document.querySelector('#screen-live .live-waitleft').textContent)), 'review round 3: hours are written out ("Åbner om 2 timer 4x min", not "2 t"): ' + await fast.page.evaluate(() => document.querySelector('#screen-live .live-waitleft').textContent));
     await fast.ctx.close();
 
     // a race 11 min ahead opens at once (startAt - 15 min) as a lobby without a host

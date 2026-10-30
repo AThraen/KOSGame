@@ -5,6 +5,8 @@
 #   kos-race min <version> [proto]           refuse game builds older than <version> (e.g. 0.8.5); optional protocol level
 #   kos-race min off                         lift the minimum again
 #   kos-race min                             show the current minimum
+#   kos-race unsched CODE                    take one race off the server: a pending scheduled race is deleted, an open room
+#                                            closed (moderation, e.g. a bad nickname on the public list); kept in "dropCodes"
 #   kos-race status                          show status file (mode, message, minimum) + server health
 #
 # Env:
@@ -12,8 +14,8 @@
 #   KOS_HEALTH_URL   health endpoint (default http://127.0.0.1:8787/health)
 #
 # The status file is JSON:
-#   {"mode":"on|closed|hidden","message":"...","maxRooms":40,"maxPlayers":24,"minClient":"0.8.5","minProto":2}
-# maxRooms/maxPlayers/minClient/minProto are preserved from the existing file when present (defaults 40/24, no minimum);
+#   {"mode":"on|closed|hidden","message":"...","maxRooms":40,"maxPlayers":24,"minClient":"0.8.5","minProto":2,"dropCodes":["AB2C"]}
+# maxRooms/maxPlayers/minClient/minProto/dropCodes are preserved from the existing file when present (defaults 40/24, no minimum);
 # message defaults to the empty string. The server reads the file within seconds (fs.watch + 5 s poll): no restart needed.
 # A client below minClient, or one that sends no version at all (v0.8.4 and older), is refused with "old" and the game
 # tells the player to update. Raise the minimum between races: players already in a race are not touched, but a refused
@@ -24,11 +26,12 @@ STATUS_FILE="${KOS_STATUS_FILE:-/var/www/html/mp-status.json}"
 HEALTH_URL="${KOS_HEALTH_URL:-http://127.0.0.1:8787/health}"
 
 usage() {
-  echo "usage: kos-race on|closed|hidden [message...] | kos-race min <version>|off [proto] | kos-race status" >&2
+  echo "usage: kos-race on|closed|hidden [message...] | kos-race min <version>|off [proto] | kos-race unsched CODE | kos-race status" >&2
 }
 
 # Merge the requested change into the existing file (all values arrive via env vars, so quoting is safe) and replace it atomically.
 #   KOS_OP=mode:  KOS_MODE, KOS_MESSAGE          KOS_OP=min:  KOS_MINVER ("off" clears), KOS_MINPROTO ("" keeps/clears with off)
+#   KOS_OP=drop:  KOS_CODE (added to dropCodes; the last 50 are kept)
 write_status() {
   local dir tmp
   dir=$(dirname -- "$STATUS_FILE")
@@ -46,6 +49,9 @@ write_status() {
     };
     if (typeof o.minClient === "string" && o.minClient) out.minClient = o.minClient;
     if (pos(o.minProto)) out.minProto = pos(o.minProto);
+    const codes = Array.isArray(o.dropCodes) ? o.dropCodes.filter((c) => typeof c === "string" && /^[A-Z0-9]{4}$/.test(c)) : [];
+    if (process.env.KOS_OP === "drop" && codes.indexOf(process.env.KOS_CODE) < 0) codes.push(process.env.KOS_CODE);
+    if (codes.length) out.dropCodes = codes.slice(-50);
     if (process.env.KOS_OP === "mode") {
       out.mode = process.env.KOS_MODE;
       out.message = process.env.KOS_MESSAGE || "";
@@ -92,6 +98,18 @@ set_min() {
   show_min
 }
 
+# kos-race unsched CODE
+unsched() {
+  local code
+  code=$(printf '%s' "${1:-}" | tr '[:lower:]' '[:upper:]')
+  if ! [[ "$code" =~ ^[A-Z0-9]{4}$ ]]; then
+    echo "kos-race unsched: give the 4-character race code, got '${1:-}'" >&2
+    exit 2
+  fi
+  KOS_OP=drop KOS_CODE="$code" write_status
+  echo "dropped=$code"
+}
+
 # prints minClient=... and minProto=... (or "none")
 read_file() {
   KOS_STATUS_FILE="$STATUS_FILE" node -e '
@@ -103,7 +121,8 @@ read_file() {
     const msg = ok && typeof o.message === "string" ? o.message.replace(/[\r\n]+/g, " ") : "";
     const mc = ok && typeof o.minClient === "string" && o.minClient ? o.minClient : "none";
     const mp = ok && Number.isFinite(o.minProto) && o.minProto > 0 ? String(Math.floor(o.minProto)) : "none";
-    process.stdout.write("mode=" + mode + "\nmessage=" + msg + "\nminClient=" + mc + "\nminProto=" + mp + "\n");
+    const dc = ok && Array.isArray(o.dropCodes) && o.dropCodes.length ? o.dropCodes.join(",") : "none";
+    process.stdout.write("mode=" + mode + "\nmessage=" + msg + "\nminClient=" + mc + "\nminProto=" + mp + "\ndropCodes=" + dc + "\n");
   ' || true
 }
 
@@ -151,6 +170,10 @@ case "$cmd" in
   min)
     shift
     set_min "$@"
+    ;;
+  unsched)
+    shift
+    unsched "$@"
     ;;
   status)
     show_status

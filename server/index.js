@@ -60,10 +60,17 @@ function createServer(env) {
       maxPlayers: Math.min(HARD.maxPlayers, s.maxPlayers || HARD.maxPlayers),
     });
   }
+  // kos-race unsched CODE: each code in the status file's dropCodes is taken off the server once per process (a pending
+  // scheduled race is deleted, an open room closed); the list stays in the file, so a restart applies it again
+  const dropped = new Set();
+  function dropCodes(s) {
+    for (const c of s.dropCodes || []) if (!dropped.has(c)) { dropped.add(c); rooms.dropCode(c); }
+  }
   const status = createStatus({
     file: env.KOS_STATUS_FILE, pollMs: num(env.KOS_STATUS_POLL_MS, 5000),
     onChange: (s) => {
       applyLimits();
+      dropCodes(s);
       for (const r of rooms.rooms.values()) if (r.phase === 'lobby') rooms.broadcast(r, { t: 'status', mode: s.mode, msg: s.message });
     },
   });
@@ -267,6 +274,7 @@ function createServer(env) {
   function listen() {
     status.start();
     applyLimits();
+    dropCodes(status.current());
     timers.push(setInterval(() => { rooms.tick(); for (const r of rooms.rooms.values()) rooms.flush(r); }, 100));
     timers.push(setInterval(() => { for (const ws of wss.clients) ws._kos && ws._kos.idleCheck(); }, 5000));
     return new Promise((resolve) => server.listen(PORT, HOST, () => resolve(server.address().port)));

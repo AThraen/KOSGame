@@ -54,11 +54,12 @@ function createRooms(opts) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   };
 
+  const gone = new Set(); // codes the operator took off the server (dropCode): never handed out again by this process
   function newCode() {
     for (let i = 0; i < 200; i++) {
       let c = '';
       for (let k = 0; k < 4; k++) c += P.ALPHABET[randInt(P.ALPHABET.length)];
-      if (!rooms.has(c) && !sched.has(c)) return c; // a scheduled code is reserved from the moment it is made
+      if (!rooms.has(c) && !sched.has(c) && !gone.has(c)) return c; // a scheduled code is reserved from the moment it is made
     }
     return null;
   }
@@ -168,6 +169,7 @@ function createRooms(opts) {
     p.lost = true; p.lostAt = now(); p.send = null;
     if (graceful) p.left = true;
     if (graceful || r.phase === 'results') { p.final = true; if (!p.status) p.status = 'lost'; }
+    if (p.host && r.sched && (graceful || r.phase === 'results')) hostGone(r);
     pushRoom(r);
     checkEmpty(r);
     if (r.phase === 'racing') maybeFinish(r);
@@ -180,6 +182,15 @@ function createRooms(opts) {
   function serverRun(r) {
     r.hostId = 0;
     if (r.sched.fired) r.sched.startAt = Math.max(r.sched.startAt, now() + SCHED_REGUN_MS);
+  }
+  // a scheduled room whose host seat left in a race, or is still dropped when the results are in: server-run again, so any seated
+  // player may ask for the rematch and the server's gun applies (spec C "Fallback": results and rematch need no host)
+  function hostGone(r) {
+    if (!r.sched || !r.hostId) return;
+    const h = r.players.get(r.hostId);
+    if (h && !h.lost) return;
+    if (h) h.host = false;
+    serverRun(r);
   }
 
   function kick(r, hostId, id) {
@@ -313,6 +324,7 @@ function createRooms(opts) {
     r.deleteAt = now() + RESULTS_KEEP_MS;
     r.lobbyAt = r.lobbyAfter ? now() + LOBBY_AFTER_MS : 0;
     broadcast(r, { t: 'res', rows: r.results });
+    if (r.sched && r.hostId) { hostGone(r); if (!r.hostId) pushRoom(r); } // a host seat still dropped at the results
   }
   // how long a boat that has not finished has been out of touch: socket gone, or open but no state frame
   function silentMs(r, p, t) { return p.lost ? t - p.lostAt : t - (p.seenAt || r.T0 || t); }
@@ -396,7 +408,11 @@ function createRooms(opts) {
         // (no timeout on a lost seat here any more: it stays until it returns or the race ends; see maybeFinish)
         if (t >= r.T0 + Math.min(r.cfg.maxS * 1000, HARD_RACE_MS) || (r.finishAt && t >= r.finishAt)) endRace(r); else maybeFinish(r);
       }
-      if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { r.lobbyAt = 0; if (!r.hostId || rematch(r, r.hostId) !== 'ok') r.lobbyAfter = false; }
+      if (r.phase === 'results' && r.lobbyAt && t >= r.lobbyAt) { // "back to the lobby after": the host, or in a server-run room any seated player
+        r.lobbyAt = 0;
+        const by = r.hostId || (r.sched && ([...r.players.values()].find(p => !p.lost) || {}).id);
+        if (!by || rematch(r, by) !== 'ok') r.lobbyAfter = false;
+      }
       if (r.phase === 'results' && t >= r.deleteAt) remove(r);
     }
   }
@@ -522,6 +538,19 @@ function createRooms(opts) {
     return true;
   }
 
+  // The operator takes one race off the server (kos-race unsched CODE, through the status file's dropCodes): a pending scheduled
+  // race is deleted from memory and the file, an open room is closed for everyone in it. Moderation, e.g. a bad host nickname on
+  // the public list. Returns 'sched' | 'room' | null (unknown code).
+  function dropCode(code) {
+    gone.add(code);
+    if (sched.delete(code)) { schedSave(); return 'sched'; }
+    const r = rooms.get(code);
+    if (!r) return null;
+    broadcast(r, { t: 'err', code: 'closed' });
+    remove(r);
+    return 'room';
+  }
+
   function stats() {
     let players = 0;
     for (const r of rooms.values()) for (const p of r.players.values()) if (!p.lost) players++;
@@ -529,7 +558,7 @@ function createRooms(opts) {
   }
   function setLimits(l) { Object.assign(lim, l); }
 
-  return { rooms, sched, restore, schedule, scheduleCancel, listRooms, foul, create, join, resume, disconnect, kick, setCfg, start, rematch, endNow, abort, lobbyAfter, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
+  return { rooms, sched, restore, schedule, scheduleCancel, dropCode, listRooms, foul, create, join, resume, disconnect, kick, setCfg, start, rematch, endNow, abort, lobbyAfter, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
 }
 
 module.exports = { createRooms, LOST_GRACE_MS, RESULTS_KEEP_MS };

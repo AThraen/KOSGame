@@ -97,8 +97,8 @@
     startEarly: 'Start løbet nu', auto: 'Løbet starter af sig selv {when}, når mindst 2 sejlere er med.', autoIn: 'Starter om {t}', waitMore: 'Venter på flere sejlere…',
     cancelHost: 'Løbet er aflyst.', cancelFew: 'Der kom ikke nok sejlere, så løbet er aflyst. Prøv igen en anden dag!',
     titles: { train: 'Træningsløb', friday: 'Fredagsræs', club: 'Klubmesterskab', xmas: 'Juleræs', weekend: 'Weekendræs' },
-    when: { today: 'i dag kl. {time}', tomorrow: 'i morgen kl. {time}', day: '{day} kl. {time}', dToday: 'I dag', dTomorrow: 'I morgen', at: 'kl. {time}' },
-    dur: { h: '{h} t {m} min', d: '{d} dage' },
+    when: { today: 'i dag kl. {time}', tomorrow: 'i morgen kl. {time}', day: '{day} kl. {time}', at: 'kl. {time}' },
+    dur: { h: '{h} timer {m} min', h1: '1 time {m} min', d: '{d} dage' },
     vis: { label: 'Hvem kan være med', private: 'Kun med kode', open: 'Alle (på listen)', privateHint: 'Kun dem, der får koden, linket eller QR-koden.', openHint: 'Alle kan se dit navn og være med – løbet står under “Find et løb”.' },
     list: { title: 'Find et løb', intro: 'Tryk på et løb for at være med.', sched: 'Planlagte løb', open: 'Åbne løb', loading: 'Henter løb…', refresh: 'Opdater',
       empty: 'Ingen åbne løb lige nu – start dit eget eller planlæg et.', err: 'Jeg kan ikke hente listen lige nu. Prøv igen om lidt.',
@@ -112,7 +112,7 @@
     mine: { btn: 'Mine planlagte løb', btnN: 'Mine planlagte løb ({n})', title: 'Mine planlagte løb', intro: 'Del koden, linket eller QR-koden med dine sejlere. Når løbet er åbnet, kan du gå ind og starte det.',
       empty: 'Du har ingen planlagte løb lige nu.', opens: 'Åbner {when}', isOpen: 'Løbet er åbent nu!', go: 'Gå til løbet', qr: 'QR-kode', cancel: 'Aflys',
       cancelAsk: 'Aflys {title} {when}?', cancelled: 'Løbet er aflyst.', cantCancel: 'Løbet er i gang og kan ikke aflyses nu.' },
-    wait: { msg: '{title} – {day}: åbner {opens} · starter {start}.', left: 'Åbner om {t}', soon: 'Åbner nu…', remind: 'Påmind mig', check: 'Tjek om løbet er åbent',
+    wait: { msg: 'Åbner {opens} · starter {start}.', left: 'Åbner om {t}', leftDay: 'Åbner {when}', soon: 'Åbner nu…', remind: 'Påmind mig', check: 'Tjek om løbet er åbent',
       auto: 'Siden går selv ind i løbet, når det åbner.' },
     ics: { desc: 'Live-kapsejlads i KØS SEJL. Kode: {code}. Løbet åbner 15 minutter før start: {link}' },
   } });
@@ -120,8 +120,8 @@
     startEarly: 'Start the race now', auto: 'The race starts by itself {when} when at least 2 sailors are in.', autoIn: 'Starting in {t}', waitMore: 'Waiting for more sailors…',
     cancelHost: 'The race was cancelled.', cancelFew: 'Not enough sailors came, so the race is cancelled. Try again another day!',
     titles: { train: 'Training race', friday: 'Friday race', club: 'Club championship', xmas: 'Christmas race', weekend: 'Weekend race' },
-    when: { today: 'today at {time}', tomorrow: 'tomorrow at {time}', day: '{day} at {time}', dToday: 'Today', dTomorrow: 'Tomorrow', at: 'at {time}' },
-    dur: { h: '{h} h {m} min', d: '{d} days' },
+    when: { today: 'today at {time}', tomorrow: 'tomorrow at {time}', day: '{day} at {time}', at: 'at {time}' },
+    dur: { h: '{h} hours {m} min', h1: '1 hour {m} min', d: '{d} days' },
     vis: { label: 'Who can join', private: 'Code only', open: 'Everyone (listed)', privateHint: 'Only those who get the code, the link or the QR code.', openHint: 'Everyone can see your name and join – the race is shown under “Find a race”.' },
     list: { title: 'Find a race', intro: 'Tap a race to join it.', sched: 'Scheduled races', open: 'Open races', loading: 'Getting races…', refresh: 'Refresh',
       empty: 'No open races right now – start your own or schedule one.', err: 'I cannot get the list right now. Try again in a little while.',
@@ -135,7 +135,7 @@
     mine: { btn: 'My scheduled races', btnN: 'My scheduled races ({n})', title: 'My scheduled races', intro: 'Share the code, the link or the QR code with your sailors. When the race has opened you can go in and start it.',
       empty: 'You have no scheduled races right now.', opens: 'Opens {when}', isOpen: 'The race is open now!', go: 'Go to the race', qr: 'QR code', cancel: 'Cancel',
       cancelAsk: 'Cancel {title} {when}?', cancelled: 'The race is cancelled.', cantCancel: 'The race is on and cannot be cancelled now.' },
-    wait: { msg: '{title} – {day}: opens {opens} · starts {start}.', left: 'Opens in {t}', soon: 'Opening now…', remind: 'Remind me', check: 'Check if the race is open',
+    wait: { msg: 'Opens {opens} · starts {start}.', left: 'Opens in {t}', leftDay: 'Opens {when}', soon: 'Opening now…', remind: 'Remind me', check: 'Check if the race is open',
       auto: 'This page joins by itself when the race opens.' },
     ics: { desc: 'Live race in KØS SEJL. Code: {code}. The race opens 15 minutes before the start: {link}' },
   } });
@@ -550,26 +550,23 @@
     if (k === dayKey(now + 86400000)) return t('live.when.tomorrow', { time: tm });
     return t('live.when.day', { day: fmtDate(ms, { weekday: 'short', day: 'numeric', month: 'short' }), time: tm });
   }
-  // the day alone: "I dag" / "I morgen" / "fre. 6. nov."
-  function dayTxt(ms) {
-    const now = Date.now(), k = dayKey(ms);
-    return k === dayKey(now) ? t('live.when.dToday') : k === dayKey(now + 86400000) ? t('live.when.dTomorrow') : fmtDate(ms, { weekday: 'short', day: 'numeric', month: 'short' });
-  }
-  // a countdown: "0:45", "12:03", "2 t 5 min", "3 dage"
+  // a countdown: "0:45", "12:03", "2 timer 5 min", "3 dage"
   function durTxt(ms) {
     const s = Math.max(0, Math.ceil(ms / 1000));
     if (s < 3600) return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     const h = Math.floor(s / 3600);
-    return h < 48 ? t('live.dur.h', { h, m: Math.floor((s % 3600) / 60) }) : t('live.dur.d', { d: Math.floor(h / 24) });
+    return h < 48 ? t(h === 1 ? 'live.dur.h1' : 'live.dur.h', { h, m: Math.floor((s % 3600) / 60) }) : t('live.dur.d', { d: Math.floor(h / 24) });
   }
   // a clock on screen: data-until (local ms) + data-fmt (key with {t}) + data-done (key when it has passed); onTick() fills it
-  const untilHtml = (cls, at, fmt, done) => '<span class="' + cls + '" data-until="' + Math.round(at) + '" data-fmt="' + fmt + '" data-done="' + done + '"></span>';
+  // far (optional): a key with {when}, used while it is a day or more away ("Åbner i morgen kl. 13.38" instead of "25 timer 44 min")
+  const untilHtml = (cls, at, fmt, done, far) => '<span class="' + cls + '" data-until="' + Math.round(at) + '" data-fmt="' + fmt + '" data-done="' + done + '"' + (far ? ' data-far="' + far + '"' : '') + '></span>';
   function onTick() {
     const sec = secEl(), now = Date.now();
     if (!sec) return;
     sec.querySelectorAll('[data-until]').forEach(el => {
       const left = +el.getAttribute('data-until') - now;
-      const txt = left > 0 ? t(el.getAttribute('data-fmt'), { t: durTxt(left) }) : t(el.getAttribute('data-done'));
+      const far = el.getAttribute('data-far');
+      const txt = left <= 0 ? t(el.getAttribute('data-done')) : far && left >= 86400000 ? t(far, { when: whenTxt(+el.getAttribute('data-until')) }) : t(el.getAttribute('data-fmt'), { t: durTxt(left) });
       if (el.textContent !== txt) el.textContent = txt;
     });
     // the list refreshes every 10 s while it is on screen (never in the background)
@@ -703,12 +700,14 @@
     return shell(t('live.plan.title'),
       '<p class="live-intro">' + esc(t('live.plan.intro')) + '</p>' +
       '<div class="live-form live-plan glass">' +
-      row(t('live.plan.name'), TITLES.map(id => chip('ptitle', 'title', id, titleTxt(id), p.title === id)).join('')) +
-      '<div class="live-row"><label class="live-label" for="live-plan-day">' + esc(t('live.plan.day')) + '</label><div class="live-chips">' +
-      '<input id="live-plan-day" class="live-input" type="date" min="' + ymd(now) + '" max="' + ymd(new Date(Date.now() + MAX_LEAD)) + '" value="' + esc(p.day) + '" required></div></div>' +
-      '<div class="live-row"><label class="live-label" for="live-plan-time">' + esc(t('live.plan.time')) + '</label><div class="live-chips">' +
+      // day and time first, side by side (the fields that matter most stay above the fold on a small phone), then the name
+      '<div class="live-plan-dt"><div class="live-plan-f"><label class="live-label" for="live-plan-day">' + esc(t('live.plan.day')) + '</label>' +
+      '<input id="live-plan-day" class="live-input" type="date" min="' + ymd(now) + '" max="' + ymd(new Date(Date.now() + MAX_LEAD)) + '" value="' + esc(p.day) + '" required></div>' +
+      '<div class="live-plan-f"><label class="live-label" for="live-plan-time">' + esc(t('live.plan.time')) + '</label>' +
       '<input id="live-plan-time" class="live-input" type="time" step="300" value="' + esc(p.time) + '" required></div></div>' +
+      '<div class="live-plan-when live-plan-when2" aria-hidden="true">' + esc(planWhen(p)) + '</div>' + // a narrow phone: the summary under the pickers, the bar holds the button only
       '<div id="live-plan-err" class="live-err" role="alert">' + esc(p.err || '') + '</div>' +
+      row(t('live.plan.name'), TITLES.map(id => chip('ptitle', 'title', id, titleTxt(id), p.title === id)).join('')) +
       row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
       row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
       visRow(p.vis, 'pvis', true) +
@@ -813,13 +812,27 @@
   }
   function viewWait() {
     const w = L.wait;
-    return shell(titleTxt(w.title),
-      trainerHtml(t('live.wait.msg', { title: titleTxt(w.title), day: dayTxt(w.startAt), opens: t('live.when.at', { time: clock(w.opensAt) }), start: t('live.when.at', { time: clock(w.startAt) }) })) +
+    // "Åbner i morgen kl. 13.38 · starter kl. 13.53." (the title is the screen head); the start's day only when it differs
+    const start = dayKey(w.startAt) === dayKey(w.opensAt) ? t('live.when.at', { time: clock(w.startAt) }) : whenTxt(w.startAt);
+    return shell(titleTxt(w.title), '<div class="live-waitwrap">' +
+      trainerHtml(t('live.wait.msg', { opens: whenTxt(w.opensAt), start })) +
       '<div class="live-waitbox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code">' + esc(w.code) + '</div>' +
-      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt - (w.skew || 0), 'live.wait.left', 'live.wait.soon') + '</div>' +
+      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt - (w.skew || 0), 'live.wait.left', 'live.wait.soon', 'live.wait.leftDay') + '</div>' +
       '<div class="live-hint">' + esc(t('live.wait.auto')) + '</div></div>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="remind">' + kit().ico('calendar') + '<span>' + esc(t('live.wait.remind')) + '</span></button>' +
-      '<button type="button" class="btn btn-glass" data-act="waitjoin"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('retry') + '<span>' + esc(L.busy || t('live.wait.check')) + '</span></button></div>');
+      '<button type="button" class="btn btn-glass" data-act="waitjoin"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('retry') + '<span>' + esc(L.busy || t('live.wait.check')) + '</span></button></div></div>');
+  }
+  // a #live=CODE link: a listed scheduled race that has not opened yet shows its wait card at once (one GET /rooms, no socket),
+  // instead of the join screen that only says so after "Deltag i løbet". A private one is not listed: the join tells, as before.
+  function peekSched(code) {
+    const url = wsUrl();
+    if (!url || !KOS.MP || typeof KOS.MP.fetchRooms !== 'function') return;
+    KOS.MP.fetchRooms(url, { timeoutMs: 4000 }).then(rows => {
+      const r = (rows || []).find(x => x.code === code && x.phase === 'sched' && x.sched);
+      const inp = doc && doc.getElementById('live-code');
+      if (!r || L.view !== 'join' || L.busy || (inp && String(inp.value || '').toUpperCase() !== code)) return;
+      showWait(code, { opensAt: r.sched.opens, startAt: r.sched.at, title: r.sched.title, now: r.sched.at - (+r.startsIn || 0) });
+    }, () => { /* no list: the join screen stays */ });
   }
   // the scheduled room in the lobby: its title, the server's gun and how long until it
   function schedRoomHtml(room) {
@@ -964,6 +977,7 @@
     if (tooOld) { L.oldIntent = opts.join ? { join: opts.join } : {}; L.view = 'msg'; L.msgText = t('live.old.msg'); L.msgActions = ['update', 'ai']; lt('old', (KOS.BUILD && KOS.BUILD.version) || ''); }
     app().show('live', {});
     if (opts.join && opts.auto && !tooOld) autoRejoin(opts.join);
+    else if (opts.join && L.view === 'join') peekSched(String(opts.join).toUpperCase());
   }
 
   if (app() && app().registerScreen) app().registerScreen('live', sec => render(sec), () => { if (!L.handoff) reset(); });

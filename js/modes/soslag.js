@@ -289,6 +289,10 @@
       const a = f.offender, v = f.victim;
       if (!a || !v || a.pen) return;
       if (v.pen) return; // RRS 22.2: a boat taking a penalty keeps clear and has no right of way (no chain of penalties round a spinning boat)
+      if (f.excused) { // no time to react (R15 / R16): nobody is penalised; the player only hears why
+        if (f.contact && (a === me || v === me)) say(t(f.reasonKey, f.reasonVars || {}), 5000);
+        return;
+      }
       const gap = KOS.Rules.hullGap ? KOS.Rules.hullGap(a, v) : 0;
       if (!f.contact) { // close call, no contact: the trainer warns the player once in a while, no penalty
         if (a === me && gap < 0.4 * L && now > S.closeT) { S.closeT = now + 25; say(t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); sfx('whistle', { vol: 0.4 }); }
@@ -988,9 +992,9 @@
     function setAutopilot(on, o) { autopilot = on ? KOS.AI.createHelm(me, { skill: AP_SKILL, aggression: 0.6, seed: 5 }) : null; S.apFire = !(o && o.fire === false); } // o.fire === false: a PASSIVE autopilot (sails near him, never shoots: how does the AI treat a peaceful player?)
     function skipIntro() { if (S.phase === 'intro') beginCount(); }
     const debug = {
-      O, arenaR: AR, arena, get opp() { return opp; }, get plan() { return opp.plan; }, get ai() { return opp.ai; }, isWindward, foul(off, vic, hard) { // test hook: a contact foul by off (me or opp) on vic, as the monitor would report it
+      O, arenaR: AR, arena, get opp() { return opp; }, get plan() { return opp.plan; }, get ai() { return opp.ai; }, isWindward, foul(off, vic, hard, extra) { // test hook: a contact foul by off (me or opp) on vic, as the monitor would report it (extra: e.g. {excused: true})
         if (hard) S.lastHit[off.id + '|' + vic.id] = { speed: 2, t: env.t };
-        onFoul({ offender: off, victim: vic, rule: 'R10', contact: true, reasonKey: 'rules.reason.R10', reasonVars: {} }); },
+        onFoul(Object.assign({ offender: off, victim: vic, rule: 'R10', contact: true, reasonKey: 'rules.reason.R10', reasonVars: {} }, extra)); },
       jump(sec) { const n = Math.round(sec / KOS.DT); for (let i = 0; i < n && !S.done; i++) simStep(KOS.DT); },
       end() { finishRound(SL.endCheck(me.wet, opp.wet, true)); },
     };

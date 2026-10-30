@@ -955,6 +955,34 @@ async function main() {
     R.start(r10, h10.player.id); R.disconnect(r10, h10.player.id, true);
     ok(r10.phase === 'countdown' && r10.players.has(h10.player.id) && r10.players.get(h10.player.id).left && r10.hostId === 0, 'host leaves in a countdown: the boat stays on the grid as a seat that left');
 
+    // review round 3: the claimed host leaves (or is still dropped) during the RACE: the results and the rematch need no host
+    for (const how of ['leave', 'drop']) {
+      const sH = R.schedule(mkConn('VaertR', '8.8.8.4'), { countdownS: 8 }, 'club', clock.t + 30 * MIN);
+      clock.t = sH.entry.startAt - 15 * MIN; R.tick();
+      const rH = R.rooms.get(sH.entry.code);
+      const hH = R.join(mkConn('VaertR'), sH.entry.code, sH.secret), a = R.join(mkConn('SejlerA'), sH.entry.code), b = R.join(mkConn('SejlerB'), sH.entry.code);
+      R.start(rH, hH.player.id); clock.t = rH.T0 + 1; R.tick();
+      ok(rH.phase === 'racing' && rH.hostId === hH.player.id, how + ': racing with the claimed host');
+      R.disconnect(rH, hH.player.id, how === 'leave');
+      R.finish(rH, a.player.id, 60000); R.finish(rH, b.player.id, 61000);
+      if (rH.phase !== 'results') { clock.t += 5 * MIN; R.tick(); }
+      ok(rH.phase === 'results' && rH.hostId === 0, how + ': at the results the room is server-run (hostId ' + rH.hostId + ', ' + rH.phase + ')');
+      ok(R.rematch(rH, a.player.id) === 'ok' && rH.phase === 'lobby' && rH.players.has(b.player.id), how + ': any seated sailor can ask for the rematch');
+    }
+    { // ...and "back to the lobby after" in that room rematches by itself
+      const sL = R.schedule(mkConn('VaertL', '8.8.8.5'), { countdownS: 8 }, 'club', clock.t + 30 * MIN);
+      clock.t = sL.entry.startAt - 15 * MIN; R.tick();
+      const rL = R.rooms.get(sL.entry.code);
+      const hL = R.join(mkConn('VaertL'), sL.entry.code, sL.secret), a = R.join(mkConn('SejlerC'), sL.entry.code); R.join(mkConn('SejlerD'), sL.entry.code);
+      R.start(rL, hL.player.id); ok(R.lobbyAfter(rL, hL.player.id, true) === 'ok', 'host sets lobby-after');
+      clock.t = rL.T0 + 1; R.tick();
+      R.disconnect(rL, hL.player.id, true);
+      for (const p of [...rL.players.values()]) if (!p.lost) R.finish(rL, p.id, 60000 + p.id);
+      ok(rL.phase === 'results' && rL.hostId === 0, 'lobby-after room: server-run at the results');
+      clock.t += 60000; R.tick();
+      ok(rL.phase === 'lobby' && rL.players.has(a.player.id), 'lobby-after rematch happens without a host');
+    }
+
     // review round 1: a restart in the 15 min before the start opens the room again
     const sv = [];
     const RA = mkRooms({ onSchedChange: (l) => { sv.length = 0; sv.push(...JSON.parse(JSON.stringify(l))); } });
@@ -1099,7 +1127,18 @@ async function main() {
     const Cl = await mkW('Lukket');
     Cl.send({ t: 'sched', cfg: {}, title: 'train', startAt: Date.now() + 3600000 });
     ok((await Cl.wait('err')).code === 'closed', 'status closed blocks creating scheduled races');
-    [Cr3, Fan, Cl, Cr2].forEach(x => x.close());
+    // review round 3 (moderation): kos-race unsched CODE -> the status file's dropCodes take one race off the server
+    fs.writeFileSync(sf2, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 })); await sleep(500);
+    const Cm = await mkW('Moderat');
+    Cm.send({ t: 'sched', cfg: {}, title: 'train', startAt: Date.now() + 2 * 86400000 });
+    const sm = await Cm.wait('scheduled');
+    ok(ws1.rooms.sched.has(sm.code) && JSON.parse(fs.readFileSync(schedPath, 'utf8')).races.some(e => e.code === sm.code), 'a pending race to take off');
+    fs.writeFileSync(sf2, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24, dropCodes: [sm.code, s9.code] })); await sleep(700);
+    ok(!ws1.rooms.sched.has(sm.code) && !JSON.parse(fs.readFileSync(schedPath, 'utf8')).races.some(e => e.code === sm.code), 'dropCodes: the pending race is gone from memory and the file');
+    ok(!ws1.rooms.rooms.has(s9.code), 'dropCodes: an open room with that code is closed');
+    Cm.send({ t: 'list' });
+    ok(!(await Cm.wait('rooms')).rooms.some(x => x.code === sm.code || x.code === s9.code), 'and neither is in the list');
+    [Cr3, Fan, Cl, Cr2, Cm].forEach(x => x.close());
     await ws1.close();
   }
 
@@ -1121,6 +1160,10 @@ async function main() {
     ok(run('min', 'abc').status === 2, 'kos-race min with a bad version => exit 2');
     run('min', 'off');
     ok(!('minClient' in JSON.parse(fs.readFileSync(sf, 'utf8'))), 'kos-race min off lifts it');
+    run('unsched', 'ab2c'); run('unsched', 'AB2C'); run('on');
+    const jd = JSON.parse(fs.readFileSync(sf, 'utf8'));
+    ok(JSON.stringify(jd.dropCodes) === '["AB2C"]' && jd.mode === 'on', 'kos-race unsched adds the code once (upper case), kept by later writes');
+    ok(run('unsched', 'a b').status === 2 && /dropCodes=AB2C/.test(run('status').stdout), 'kos-race unsched with a bad code => exit 2; status shows the dropped codes');
   } else console.log('  (skipping kos-race script test on Windows without KOS_TEST_BASH)');
 
   console.log('-- lib helpers (limits, status)');
