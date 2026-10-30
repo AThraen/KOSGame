@@ -96,3 +96,46 @@ Use case: a trainer says "Fredagsræs kl. 18" and the kids join from home.
 ## D. Deployment notes (for Allan)
 - The server needs the new `KOS_SCHEDULE_FILE` env var per instance (e.g. `/var/lib/kos-race/8787-schedule.json`). The README is updated.
 - The protocol bump means the server and the game must be deployed together. Deploy the test instance first and test there.
+
+## E. Reconnect and resume (must never lose a racer)
+
+User requirement (2026-10-30): a player who drops off, gets lost, reloads, or ends up back in the normal game must always be able to get back into the live race they are still part of. Evidence: the audit scripts in `tools/tmp/reconnect/` (`srv-exp.js`, `br-exp.js`, `out.txt`).
+
+1. **Never give up while the seat may still be alive** (`js/net/mp.js` `RECONNECT_MS`/giveUp, `race.js` `goOffline`).
+   - **No final "offline" state** while a seat token exists.
+   - **Backoff:** 0.5, 1, 2, 5, 10 s, then every 10 s, with jitter.
+   - **Immediate retry:** `online`, `visibilitychange` (visible), `pageshow` and `focus` reset the backoff to an immediate try, with only one retry chain at a time.
+   - **Stop conditions:** retries stop only on `nocode`, `res`, `kicked` or `hostleft`.
+   - **While retrying:** after 15 s the banner says "Forbindelsen er væk – vi prøver stadig" / "Connection lost – still trying" with a "Prøv nu" button. Sailing continues locally. "Unofficial" is a reversible display state that is cleared once the player is back.
+2. **The player keeps their own boat.**
+   - **Same race instance:** a reconnect inside the same race keeps the client's own boat as the truth (no teleport).
+   - **Reload:** a local snapshot (pose, velocity, leg/marks, penalty turns owed + progress, OCS) goes to sessionStorage every 2 s and on `pagehide`. On reload, the newer of the snapshot and the server's `me` wins.
+   - **Penalty count:** the number of penalty turns owed is restored exactly (today it is always 1).
+3. **Leaving is not withdrawing.**
+   - **Leaving:** "Til kortet", the back button or quitting a live race only *detaches* the session. No `leave` is sent and the seat is kept.
+   - **Withdrawing:** a separate "Udgå af løbet" / "Retire" action with a confirm sends `leave` (the player becomes RET/DNF).
+4. **"Fortsæt live-løbet" on the title screen and the hub.**
+   - **When it shows:** a prominent banner/button (not a one-time dialog) whenever a valid seat is stored. It shows without network and also when a `#join` is pending (with a choice).
+   - **Tapping it:** resumes and goes straight into the race.
+   - **"Ikke nu":** hides it for this visit only. "Udgå" sends `leave` and clears it.
+   - **Seat record:** `{code, id, key, url, exp, phase, startedAt}` in localStorage, refreshed on every contact and every 60 s, with `exp` = last contact + 2 h. Cleared on retire, kick, `hostleft` or expiry.
+   - **Results:** on `res`, store `kos.mp.lastResult` `{code, rows, myId, at}` for 30 min before clearing the seat.
+   - **If the race is gone (`nocode`):** show the stored result if there is one, otherwise "Løbet er slut – vi kunne ikke hente resultatet". Then clear.
+   - **Late resume:** resuming during the results phase shows the official result.
+5. **Watchdogs everywhere.**
+   - **Client:** a pong watchdog in every phase (lobby 8 s, countdown/racing 2.5 s), so a half-open socket in the lobby can no longer miss the start.
+   - **Server:** a ws `ping` every 10 s; a socket is terminated after about 25 s without a pong, which marks the seat lost (the seat itself is kept).
+6. **Lost seats still start.** `begin()` no longer deletes seats that are lost at the gun. They are put on the grid and can resume. A boat that never comes back is DNS/lost in the results. A lobby seat in a scheduled room waits until the gun.
+7. **One owner per seat.** On resume the server closes the previous socket with code 4409 "replaced", and only accepts `st`/`fin`/`foul` from the socket that owns the seat. The client treats 4409 as "the race is open in another window" and does not reconnect-steal.
+8. **Docs:** update `docs/specs/live-race.md` (the 45 s text is obsolete) to describe this behaviour.
+
+**Tests:**
+- **New suite** `tools/test-live-reconnect.js`, registered as `livereconnect`. It runs headless Chrome through a TCP proxy that can cut cleanly or black-hole (the `br-exp.js` approach).
+- **Lost network:** 2, 10, 40 and 90 s cuts, both clean and half-open. Each must reconnect in the same instance with no teleport, an official result, and the host seeing the boat again. Also `context.setOffline` with the `online` event.
+- **Background:**
+  - iOS-like: CDP `Page.setWebLifecycleState` frozen/active, plus visibility events;
+  - Android-like: hidden with timers running and the network down for 20 s after the page returns.
+- **Reload and kill:** `page.reload()` and a fresh context from `storageState`; check the hub/title banner, resume, pose, leg and penalty count.
+- **Accidental exit:** "Til kortet" mid-race → banner → resume back into the race.
+- **Race over while away:** the result is shown.
+- **Server-level** (`test-live-server.js`): a lost seat at the gun (manual + scheduled), a duplicate socket (4409, old frames ignored), and heartbeat termination.
