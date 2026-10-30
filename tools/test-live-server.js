@@ -1142,6 +1142,151 @@ async function main() {
     await ws1.close();
   }
 
+  console.log('-- reconnect and resume (spec E): lost seats at the gun, late results, heartbeat, one owner per seat');
+  {
+    const { createRooms, RESULTS_KEEP_MS, PAST_KEEP_MS } = require(path.join(ROOT, 'server', 'lib', 'rooms.js'));
+    const clock = { t: 1900000000000 }, MIN = 60000;
+    const mkRooms = (extra) => createRooms(Object.assign({ now: () => clock.t, limits: { maxRooms: 50, maxPlayers: 24 }, lobbyGraceMs: 20000 }, extra || {}));
+    const mkConn = (name, ip) => { const log = []; return { name, ip: ip || '9.9.9.9', send: (m) => log.push(m), log }; };
+    const R = mkRooms();
+    // E6: a seat that is dropped when the host starts goes on the grid (it used to be deleted) and may resume
+    const hc = mkConn('Vaert'), cr = R.create(hc, { countdownS: 8, maxS: 600, finishS: 0 }, 'sail');
+    R.join(mkConn('Ane'), cr.room.code); const b = R.join(mkConn('Bent'), cr.room.code);
+    R.disconnect(cr.room, b.player.id, false); clock.t += 5000; R.tick();
+    ok(R.start(cr.room, cr.player.id) === 'ok', 'manual start with a dropped seat in the lobby');
+    const grid = hc.log.find(m => m.t === 'start').grid;
+    ok(grid.length === 3 && grid.some(g => g.id === b.player.id) && cr.room.players.get(b.player.id).lost, 'the dropped seat is on the grid, still marked lost');
+    clock.t = cr.room.T0 + 1000; R.tick();
+    ok(R.resume(mkConn('Bent'), cr.room.code, b.player.id, b.player.key).player === b.player && !b.player.lost, 'and it can resume into the race');
+    // ...and one that never comes back is lost (DNS) in the results
+    const c2 = R.create(mkConn('V2'), { countdownS: 8, maxS: 600, finishS: 0 }, 'sail');
+    const a2 = R.join(mkConn('A2'), c2.room.code), g2 = R.join(mkConn('Ghost'), c2.room.code);
+    R.disconnect(c2.room, g2.player.id, false);
+    R.start(c2.room, c2.player.id); clock.t = c2.room.T0 + 1; R.tick();
+    R.finish(c2.room, c2.player.id, 60000); R.finish(c2.room, a2.player.id, 61000);
+    clock.t += 21000; R.tick(); clock.t += 61000; R.tick(); // gone 20 s -> the 60 s window for the boats that are away
+    ok(c2.room.phase === 'results' && c2.room.results.find(x => x.id === g2.player.id).status === 'lost', 'a seat lost at the gun that never comes back is lost in the results');
+    // only the boats that are here count for the minimum
+    const c3 = R.create(mkConn('V3'), {}, 'sail'), l3 = R.join(mkConn('L3'), c3.room.code);
+    R.disconnect(c3.room, l3.player.id, false);
+    ok(R.start(c3.room, c3.player.id) === 'few' && c3.room.players.has(l3.player.id), 'host + one dropped seat is too few to start (the seat is kept)');
+    // the abort keeps a dropped seat (it waits in the lobby again)
+    const c4 = R.create(mkConn('V4'), { countdownS: 30 }, 'sail'), p4 = R.join(mkConn('P4'), c4.room.code), l4 = R.join(mkConn('L4'), c4.room.code);
+    R.start(c4.room, c4.player.id); R.disconnect(c4.room, l4.player.id, false); R.disconnect(c4.room, p4.player.id, true);
+    R.abort(c4.room, c4.player.id);
+    ok(c4.room.phase === 'lobby' && c4.room.players.has(l4.player.id) && !c4.room.players.has(p4.player.id), 'abort: a dropped seat stays in the lobby, a seat that left is gone');
+
+    // E6: a lobby seat in a scheduled room waits until the gun, the creator's dropped host seat too
+    const s1 = R.schedule(mkConn('Traener', '9.9.1.1'), { countdownS: 8, maxP: 4 }, 'friday', clock.t + 30 * MIN);
+    clock.t = s1.entry.startAt - 15 * MIN; R.tick();
+    const rs = R.rooms.get(s1.entry.code);
+    const hs = R.join(mkConn('Traener'), s1.entry.code, s1.secret), x1 = R.join(mkConn('X1'), s1.entry.code), x2 = R.join(mkConn('X2'), s1.entry.code), lz = R.join(mkConn('Lise'), s1.entry.code);
+    R.disconnect(rs, lz.player.id, false); R.disconnect(rs, hs.player.id, false);
+    clock.t += 5 * MIN; R.tick();
+    ok(rs.players.has(lz.player.id) && rs.players.has(hs.player.id), 'scheduled lobby: dropped seats (the host too) are kept for minutes, not 20 s');
+    ok(rs.hostId === 0 && !hs.player.host && hs.player.wasHost, 'the dropped host seat is demoted: the room is server-run');
+    clock.t = s1.entry.startAt; R.tick();
+    ok(rs.phase === 'countdown' && [lz, hs, x1, x2].every(j => rs.players.has(j.player.id)), 'the server gun starts with the 2 sailors that are here; the dropped seats are on the grid');
+    // a claim with the secret replaces a demoted host seat (no ghost boat)
+    const s2 = R.schedule(mkConn('Traener2', '9.9.1.2'), { maxP: 3 }, 'club', clock.t + 30 * MIN);
+    clock.t = s2.entry.startAt - 15 * MIN; R.tick();
+    const r2 = R.rooms.get(s2.entry.code);
+    const h2 = R.join(mkConn('Traener2'), s2.entry.code, s2.secret); R.disconnect(r2, h2.player.id, false); clock.t += 30000; R.tick();
+    const h2b = R.join(mkConn('Traener2'), s2.entry.code, s2.secret);
+    ok(h2b.player.host && r2.hostId === h2b.player.id && !r2.players.has(h2.player.id), 'the creator with the secret takes the host seat back; the demoted seat is removed');
+    // a full scheduled lobby gives the oldest long-dropped seat up for a new sailor (dropped seats cannot fill a public race)
+    const q1 = R.join(mkConn('Q1'), s2.entry.code), q2 = R.join(mkConn('Q2'), s2.entry.code);
+    R.disconnect(r2, q1.player.id, false); clock.t += 5000;
+    ok(R.join(mkConn('Ny'), s2.entry.code).err === 'full', 'a seat dropped for 5 s still holds its place (full)');
+    clock.t += 20000;
+    const nw = R.join(mkConn('Ny'), s2.entry.code);
+    ok(nw.player && !r2.players.has(q1.player.id) && r2.players.has(q2.player.id), 'after the grace a new sailor takes the oldest dropped seat');
+
+    // E4 (server): a late resume gets the official result, also after the room is gone; the same 2 h as the client's seat record
+    const c5 = R.create(mkConn('V5'), { countdownS: 8, maxS: 600, finishS: 0 }, 'sail'), p5 = R.join(mkConn('P5'), c5.room.code), k5 = R.join(mkConn('K5'), c5.room.code);
+    R.start(c5.room, c5.player.id); clock.t = c5.room.T0 + 1; R.tick();
+    R.disconnect(c5.room, p5.player.id, false);
+    R.kick(c5.room, c5.player.id, k5.player.id);
+    R.finish(c5.room, c5.player.id, 60000); R.endNow(c5.room, c5.player.id);
+    const code5 = c5.room.code;
+    clock.t += RESULTS_KEEP_MS + 1000; R.tick();
+    ok(!R.rooms.has(code5), 'the results room is removed after ' + RESULTS_KEEP_MS / 1000 + ' s');
+    const late = R.resume(mkConn('P5'), code5, p5.player.id, p5.player.key);
+    ok(late.err === 'nocode' && Array.isArray(late.rows) && late.rows.find(x => x.id === p5.player.id).status === 'lost' && late.rows[0].id === c5.player.id, 'a late resume of a removed race: nocode with the official rows');
+    ok(!R.resume(mkConn('P5'), code5, p5.player.id, 'forkert').rows && !R.resume(mkConn('K5'), code5, k5.player.id, k5.player.key).rows, 'a wrong key or a kicked seat gets a bare nocode');
+    clock.t += PAST_KEEP_MS - RESULTS_KEEP_MS - 5000; R.tick();
+    ok(!!R.resume(mkConn('P5'), code5, p5.player.id, p5.player.key).rows, 'the result is still there just under 2 h after the race');
+    clock.t += 10000; R.tick();
+    ok(!R.resume(mkConn('P5'), code5, p5.player.id, p5.player.key).rows, 'and gone after 2 h (the client record has expired too)');
+    // a rematch deletes the seats that are away: they still get the result of the race they sailed
+    const c6 = R.create(mkConn('V6'), { countdownS: 8, maxS: 600, finishS: 0 }, 'sail'), p6 = R.join(mkConn('P6'), c6.room.code), l6 = R.join(mkConn('L6'), c6.room.code);
+    R.start(c6.room, c6.player.id); clock.t = c6.room.T0 + 1; R.tick();
+    R.finish(c6.room, l6.player.id, 59000); R.disconnect(c6.room, l6.player.id, false);
+    R.finish(c6.room, c6.player.id, 60000); R.finish(c6.room, p6.player.id, 61000);
+    ok(R.rematch(c6.room, c6.player.id) === 'ok' && !c6.room.players.has(l6.player.id), 'rematch: the seat that is away is not taken into the new lobby');
+    const lr = R.resume(mkConn('L6'), c6.room.code, l6.player.id, l6.player.key);
+    ok(lr.err === 'nocode' && lr.rows && lr.rows[0].id === l6.player.id && lr.rows[0].place === 1, 'its resume gets the result of the race it won');
+  }
+  {
+    // E5 heartbeat and E7 one owner per seat, over the wire (fast heartbeat: ping every 200 ms, dead after 900 ms)
+    const hf = path.join(tmp, 'hb.json');
+    fs.writeFileSync(hf, JSON.stringify({ mode: 'on', message: '', maxRooms: 40, maxPlayers: 24 }));
+    const hs = createServer({ PORT: '0', KOS_STATUS_FILE: hf, KOS_STATUS_POLL_MS: '200', KOS_PING_MS: '200', KOS_DEAD_MS: '900' });
+    const hp = await hs.listen();
+    const mkH = async (n) => { const c = new Client(hp, n); await c.hello(); return c; };
+    const H = await mkH('Vaert'), B = await mkH('Bo'), Q = await mkH('Stille');
+    H.send({ t: 'create', cfg: { countdownS: 8, maxS: 600, finishS: 0 }, hostRole: 'sail' });
+    const crH = await H.wait('created');
+    B.send({ t: 'join', code: crH.code }); const jb = await B.wait('joined');
+    Q.send({ t: 'join', code: crH.code }); const jq = await Q.wait('joined');
+    const room = hs.rooms.rooms.get(crH.code);
+    let pings = 0; Q.ws.on('ping', () => pings++);
+    await sleep(1500);
+    ok(Q.closed === null && pings >= 4 && !room.players.get(jq.id).lost, 'a quiet client that answers the pings stays connected (' + pings + ' pings in 1.5 s)');
+    H.send({ t: 'start' }); await B.wait('start');
+    room.T0 = Date.now() + 10; await sleep(250);
+    ok(room.phase === 'racing', 'racing');
+    // half-open: the client stops reading (no pong, no frames; like a phone whose network vanished without a FIN)
+    B.send({ t: 'st', s: [0, 6e11, 7, 8, 1, 3, 0, 0, 1] }); await sleep(150);
+    B.ws._socket.pause();
+    const t0 = Date.now();
+    await H.wait((m) => m.t === 'room' && m.room.players.some(p => p.id === jb.id && p.lost), 3000);
+    const took = Date.now() - t0;
+    ok(took >= 500 && took < 2500 && room.players.has(jb.id) && room.players.get(jb.id).lost && !room.players.get(jb.id).final, 'a half-open socket is terminated after the dead time (' + took + ' ms): the seat is kept, marked lost');
+    const B2 = await mkH('Bo');
+    B2.send({ t: 'resume', code: crH.code, id: jb.id, key: jb.key });
+    ok((await B2.wait('joined')).id === jb.id && (await B2.wait('me')).s[2] === 7 && !room.players.get(jb.id).lost, 'and the seat resumes with its last state');
+    // E7: a second socket resumes the same seat while the first one is still open (and half-open: it does not read)
+    B2.ws._socket.pause();
+    const B3 = await mkH('Bo');
+    B3.send({ t: 'resume', code: crH.code, id: jb.id, key: jb.key });
+    await B3.wait('joined');
+    B3.send({ t: 'st', s: [0, 7e11, 100, 200, 1, 3, 0, 0, 1] }); await sleep(150);
+    B2.send({ t: 'st', s: [0, 8e11, -5, -5, 1, 3, 0, 0, 1] }); B2.send({ t: 'fin', ms: 30000 }); B2.send({ t: 'foul', o: 1, r: 'R10' }); B2.send({ t: 'leave' });
+    await sleep(300);
+    const seat = room.players.get(jb.id);
+    ok(seat.state[2] === 100 && !seat.final && !seat.left && !seat.lost && !H.q.some(m => m.t === 'fin' || m.t === 'foul'), 'frames from the replaced socket (st, fin, foul, leave) are ignored');
+    B2.ws._socket.resume();
+    ok((await B2.waitClose(3000)) === 4409, 'the replaced socket is closed with 4409 "replaced"');
+    await sleep(200);
+    ok(!room.players.get(jb.id).lost && B3.closed === null, 'its close does not mark the seat lost; the new socket owns it');
+    // a replaced socket that never reads the close is terminated
+    B3.ws._socket.pause();
+    const B4 = await mkH('Bo');
+    B4.send({ t: 'resume', code: crH.code, id: jb.id, key: jb.key }); await B4.wait('joined');
+    await sleep(3500);
+    ok(hs.wss.clients.size === 3 && !room.players.get(jb.id).lost && B4.closed === null, 'a replaced socket that never answers is terminated; the seat stays with the new socket');
+    // over the wire: a late resume after the room is gone gets nocode with the rows
+    H.send({ t: 'hend' }); await H.wait('res');
+    room.deleteAt = Date.now(); await sleep(300);
+    const B5 = await mkH('Bo');
+    B5.send({ t: 'resume', code: crH.code, id: jb.id, key: jb.key });
+    const e5 = await B5.wait('err');
+    ok(!hs.rooms.rooms.has(crH.code) && e5.code === 'nocode' && Array.isArray(e5.rows) && e5.rows.length === 3, 'wire: a resume after the results room is gone answers err nocode with rows');
+    [H, Q, B2, B3, B4, B5].forEach(x => x.close()); [B, B2, B3].forEach(x => x.ws.terminate());
+    await hs.close();
+  }
+
   console.log('-- kos-race script');
   if (process.platform !== 'win32' || process.env.KOS_TEST_BASH) {
     const sf = path.join(tmp, 'cli.json');

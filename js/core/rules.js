@@ -12,8 +12,9 @@
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
 //   KOS.Rules.overlapped(a, b), isWindward(a, b, wind), clearAstern(a, b), tackOf(boat, windDir?)
 //   KOS.Rules.explain(result) -> localized reason text;  KOS.Rules.ruleName(rule) -> short localized title
-//   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
+//   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?, react?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
 //       offender, victim, rule, reasonKey, contact, excused?}], reset()}
+//       react: false turns the time-to-react part below off (Søslag: every contact is judged by the base rule alone).
 //       The monitor remembers per pair who had mark-room when the first of the two reached the zone (RRS 18.2(b); not between
 //       opposite tacks on a beat, ended when the entitled boat passes head to wind or leaves the zone; none at all when one of them
 //       was tacking when the first reached the zone: RRS 18.3, simplified), and when a boat gained
@@ -170,6 +171,9 @@
     return (a.x - sx) * fb.x + (a.y - sy) * fb.y + Math.max(0, lengthOf(a) / 2 - r) * along + r < 0;
   }
   function overlapped(a, b) { return !clearAstern(a, b) && !clearAstern(b, a); }
+  /** Neither boat is clear ahead of the other: overlapped, or (headings far apart, sterns towards each other) each clear astern of
+   *  the other. Then the rules treat them as overlapped, so the verdict does not depend on which boat is passed first. */
+  function noneAhead(a, b) { return clearAstern(a, b) === clearAstern(b, a); }
 
   /** Is a to windward of b? By side, as the RRS defines it: a lies on b's windward side across the two boats' mean course (the
    *  side the wind comes over: starboard on starboard tack; on a run the side away from the mainsail, which the tack gives).
@@ -306,7 +310,7 @@
               const k = memo.astern ? 'rules.reason.R18-astern' : null;
               return memo.boat === a ? result(a, b, 'R18', k) : result(b, a, 'R18', k);
             }
-            if (overlapped(a, b)) return insideOf(a, b, m) === a ? result(a, b, 'R18') : result(b, a, 'R18');
+            if (noneAhead(a, b)) return insideOf(a, b, m) === a ? result(a, b, 'R18') : result(b, a, 'R18');
             if (clearAstern(a, b)) return result(b, a, 'R18', 'rules.reason.R18-astern');
             if (clearAstern(b, a)) return result(a, b, 'R18', 'rules.reason.R18-astern');
           }
@@ -318,7 +322,7 @@
     // two sailing boats outside racing: same answers as RRS 10/11/12 but under their COLREG names (rule 12 / rule 13)
     const cr = ctx.mode === 'colreg';
     if (tA !== tB) return tA === 'port' ? result(b, a, cr ? 'C-sail-tack' : 'R10') : result(a, b, cr ? 'C-sail-tack' : 'R10');
-    if (overlapped(a, b)) return isWindward(a, b, wd, tA) ? result(b, a, cr ? 'C-sail-lee' : 'R11') : result(a, b, cr ? 'C-sail-lee' : 'R11');
+    if (noneAhead(a, b)) return isWindward(a, b, wd, tA) ? result(b, a, cr ? 'C-sail-lee' : 'R11') : result(a, b, cr ? 'C-sail-lee' : 'R11');
     return clearAstern(a, b) ? result(b, a, cr ? 'C-overtaking' : 'R12') : result(a, b, cr ? 'C-overtaking' : 'R12');
   }
 
@@ -448,7 +452,7 @@
                 // A boat tacking right then (RRS 18.3, simplified: passing head to wind in the zone) fixes nothing: 18.2 does not
                 // apply between these two at this mark until both have left the zone
                 if (htw[i] || htw[j] || seen[ids[i]].r13 || seen[ids[j]].r13) { pair().room[mk] = { id: null, astern: false, off: true }; continue; }
-                pair().room[mk] = overlapped(a, b) ? { id: insideOf(a, b, m) === a ? ids[i] : ids[j], astern: false }
+                pair().room[mk] = noneAhead(a, b) ? { id: insideOf(a, b, m) === a ? ids[i] : ids[j], astern: false }
                   : { id: clearAstern(a, b) ? ids[j] : ids[i], astern: true };
               }
             }
@@ -482,7 +486,7 @@
             cd[key] = t + (opts.cooldown || 8);
             const offender = row.giveWay, victim = row.standOn || (row.giveWay === a ? b : a);
             const f = { type: 'foul', offender, victim, rule: row.rule, reasonKey: row.reasonKey, reasonVars: row.reasonVars, contact, t };
-            if (si >= 0) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
+            if (si >= 0 && opts.react !== false) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
               const gi = si === i ? j : i;
               // the give-way boat could have kept clear by holding its course: the gain gave it time, the base rule stands
               const gained = t - P.gainT <= REACT && P.gainer === soId && !heldClear(gi, si, P.gainT);

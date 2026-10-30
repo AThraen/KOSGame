@@ -1092,6 +1092,51 @@ test('rules: a boat that just gained right of way but left room is not blamed wh
     ok(f && !f.excused && f.offender === Pb && f.rule === 'R15', 'P tacked too close: P (R15), got ' + say(f));
   }
 });
+test('rules: time to react (R15 / R16) is off with react: false, as in Søslag - the base rule decides every contact', () => {
+  // review round 3: the time-to-react verdicts are for races (race.js); Søslag's duel keeps judging contacts by the base rule
+  const mon = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true, react: false });
+  const T = lb('Tacker', 0, 0, -45, { id: 't', r13: true, vx: -1.06, vy: -1.06 }), O = lb('Other', 1.13, -1.13, -45, { id: 'o', vx: -1.5, vy: -0.9 });
+  mon.update([T, O], 0, [], 0.05);
+  T.r13 = false; O.x = 0.72; O.y = -0.72; // as the R15 test above: the tack is complete 0.05 s before the contact
+  let f = mon.update([T, O], 0, [], 0.05);
+  ok(f.length === 1 && f[0].contact && !f[0].excused && f[0].rule === 'R11' && f[0].offender === O, 'no R15: windward Other (R11), got ' + f.map(x => x.rule + ' ' + x.offender.name));
+  // R16: the starboard boat bears away 25 degrees into P (the R16 test above): no excuse, P broke R10
+  const mon2 = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: true, react: false });
+  const S = lb('S', 0, 0, -45, { id: 's', speed: 1.5 }), Pb = lb('P', 0, 0, 45, { id: 'p', speed: 1.5 });
+  S.heading = R(-70);
+  for (let d = 3; d > 0.5 && KOS.Rules.hullGap(S, Object.assign(Pb, U.vec(R(-135), d))) > 0.02; d -= 0.02);
+  const hit = { x: Pb.x, y: Pb.y }, vp = U.vec(R(45), 1.5), vs = U.vec(R(-45), 1.5);
+  Object.assign(S, { heading: R(-45), x: -vs.x * 0.5, y: -vs.y * 0.5 }); Object.assign(Pb, { x: hit.x - vp.x * 0.5, y: hit.y - vp.y * 0.5 });
+  mon2.update([S, Pb], 0, [], 0.05);
+  Object.assign(S, { heading: R(-70), x: 0, y: 0 }); Object.assign(Pb, hit);
+  f = mon2.update([S, Pb], 0, [], 0.5).filter(x => x.type === 'foul' && x.contact);
+  ok(f.length === 1 && !f[0].excused && f[0].rule === 'R10' && f[0].offender === Pb, 'no R16 excuse: P (R10), got ' + f.map(x => x.rule + ' ' + !!x.excused));
+  const src = f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
+  ok(/Rules\.monitor\(\{[^}]*react: false/.test(src('js/modes/soslag.js')), 'Søslag builds its monitor with react: false');
+  ok(/Rules\.monitor\(\{[^}]*react: true/.test(src('js/modes/race.js')), 'races build theirs with react: true');
+});
+test('rules: the verdict does not depend on which boat is passed first, also when each is clear astern of the other', () => {
+  // review round 3 (tools/tmp/rowreview/review6sym.js): each phone runs the monitor with its own boat first. Two boats with their
+  // sterns towards each other are each clear astern of the other; at a mark that made R18 favour whichever boat came second.
+  const B = (name, x, y, hd) => lb(name, x, y, hd, { tack: U.wrapPi(-R(hd)) >= 0 ? 'starboard' : 'port', _init: true, rc: { leg: 1 } });
+  const a = B('a', 0, 0, 38), b = B('b', 0.6, 3.33, 135.1), ctx = { wind: 0, marks: [{ x: 4.05, y: -0.98, id: 'm' }] };
+  ok(KOS.Rules.clearAstern(a, b) && KOS.Rules.clearAstern(b, a), 'each clear astern of the other');
+  let r1 = KOS.Rules.rightOfWay(a, b, ctx), r2 = KOS.Rules.rightOfWay(b, a, ctx);
+  ok(r1.rule === 'R18' && r1.giveWay === r2.giveWay && r1.giveWay === b, 'R18: the boat farther from the mark gives room, got ' + r1.giveWay.name + ' / ' + r2.giveWay.name);
+  let seed = 7, bad = 0, n = 0;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < 40000; i++) {
+    const ha = rnd() * 360 - 180, hb = rnd() * 360 - 180, d = rnd() * 5, ang = rnd() * 2 * Math.PI;
+    const p = B('p', 0, 0, ha), q = B('q', Math.sin(ang) * d, -Math.cos(ang) * d, hb);
+    if (KOS.Rules.hullGap(p, q) > 1.5) continue;
+    const c = { wind: 0 };
+    if (rnd() < 0.4) c.marks = [{ x: (rnd() - 0.5) * 10, y: (rnd() - 0.5) * 10, id: 'm' }];
+    r1 = KOS.Rules.rightOfWay(p, q, c); r2 = KOS.Rules.rightOfWay(q, p, c);
+    n++;
+    if (!r1.both && !r2.both && r1.giveWay !== r2.giveWay) bad++;
+  }
+  ok(n > 5000 && bad === 0, bad + ' of ' + n + ' close pairs get a different verdict when swapped');
+});
 
 // ====================================================================== AI
 function raceCourse(cls, skill, tws, opts) {

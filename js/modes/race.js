@@ -548,7 +548,7 @@
       if (it.type === 'mark') return it.m.gate ? it.m.gate.map(g => g.id) : [it.m.id];
       return it.type === 'finish' ? [FL.a.id, FL.b.id] : [pin.id, com.id];
     };
-    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: !!LIVE, nextMark: nextMarkIds });
+    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1, splitContact: !!LIVE, nextMark: nextMarkIds, react: true }); // react: time to react (R15 / R16, spec A6)
 
     // ---------------------------------------------------------------- scene, input, HUD
     const scene = new KOS.SailScene(host.canvas, { tilt: host.tilt, tiltAuto: host.tiltAuto, venue, wind, boats, follow: WATCH ? null : me, marks: marks.concat([pin], fpin ? [fpin] : []), lines: [{ a: pin, b: com, kind: 'start' }].concat(fpin ? [{ a: fpin, b: fcom, kind: 'finish' }] : []),

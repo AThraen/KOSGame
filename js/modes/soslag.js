@@ -192,7 +192,7 @@
     // the AI duellist (spec section 9): b.ai.mode = SEEK | SHOOT | CONTEST | ESCAPE | REFILL; aimSigma (deg) and the burst timing come from its skill
     const aiSigma = U.lerp(24, 13, skill), aiSigmaEl = U.lerp(9, 5, skill), aiPace = 0.9 + 0.65 * skill, aiReact = U.lerp(0.4, 0.1, skill); // pace: burst length x, pause / x (shorter pauses at higher skill)
     opp.ai = { mode: 'SEEK', t0: 0, along0: 0, cd: 0, refillCd: 0, luff: false, burst: 0, pause: 0, react: aiReact, needFill: false, aim: null, aimN: 0, zeroT: 0, maxZeroT: 0, fired: 0, lastFire: 0, close: false, winT: 0, modeT: { SEEK: 0, SHOOT: 0, CONTEST: 0, ESCAPE: 0, REFILL: 0 } };
-    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1 });
+    const monitor = KOS.Rules.monitor({ mode: 'race', cooldown: 1, react: false }); // no time-to-react (R15 / R16) in a duel: the base rule decides
     const boats = [me, opp];
     let controls = KOS.Physics.controls();
     controls.autoTrim = assist !== 'pro';

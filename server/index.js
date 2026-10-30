@@ -2,7 +2,8 @@
 // KOS race server: relays states and keeps the clock. Only dependency: ws.
 // Env: PORT (default 8787), HOST (127.0.0.1), KOS_STATUS_FILE, KOS_ORIGINS (comma list of hostnames),
 //      KOS_SCHEDULE_FILE (pending scheduled races, JSON, survives a restart; unset = memory only),
-//      KOS_MAX_ROOMS, KOS_MAX_PLAYERS, KOS_MAX_CONNS, KOS_MAX_PER_IP, KOS_MIN_CLIENT (e.g. 0.8.5), KOS_MIN_PROTO (e.g. 2).
+//      KOS_MAX_ROOMS, KOS_MAX_PLAYERS, KOS_MAX_CONNS, KOS_MAX_PER_IP, KOS_MIN_CLIENT (e.g. 0.8.5), KOS_MIN_PROTO (e.g. 2),
+//      KOS_PING_MS (10000) / KOS_DEAD_MS (25000): ws heartbeat; a socket silent (no pong, no frame) this long is terminated.
 // The status file may carry minClient / minProto too (watched like mode, no restart); the stricter of file and env wins.
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -22,6 +23,9 @@ function createServer(env) {
   const origins = (env.KOS_ORIGINS || 'spil.kossejlsport.dk,athraen.github.io,localhost,127.0.0.1')
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const IDLE_MS = num(env.KOS_IDLE_MS, 60000);
+  // heartbeat (spec E5): a ws ping every 10 s; a socket that has answered nothing (no pong, no frame) for 25 s is half-open (a phone
+  // that lost its network without a FIN) and is terminated, which marks its seat lost. The seat itself is kept for a resume.
+  const PING_MS = num(env.KOS_PING_MS, 10000), DEAD_MS = num(env.KOS_DEAD_MS, 25000);
 
   const saved = schedFile.load(env.KOS_SCHEDULE_FILE);
   const ipSalt = saved.salt || require('crypto').randomBytes(16).toString('hex'); // kept in the schedule file: per-IP limits survive a restart
@@ -135,7 +139,7 @@ function createServer(env) {
   wss.on('connection', (ws, req) => {
     const ip = clientIp(req);
     if (!conns.add(ip)) { ws.close(1013, 'busy'); return; }
-    const c = { ws, ip, hello: false, name: '', room: null, id: 0, strikes: 0, last: Date.now(),
+    const c = { ws, ip, hello: false, name: '', room: null, id: 0, strikes: 0, last: Date.now(), aliveAt: Date.now(),
       // state frames: a phone that was backgrounded flushes a burst of queued frames; the burst is absorbed (burst 60) and any excess is
       // dropped silently. A player in a countdown/race is NEVER closed for state traffic (only a lobby/idle socket can be).
       stB: createBucket({ rate: 14, burst: 60 }), msgB: createBucket({ rate: 10, burst: 30 }),
@@ -150,8 +154,11 @@ function createServer(env) {
       send({ t, code: res.room.code, id: res.player.id, key: res.player.key, room: rooms.info(res.room) });
     };
 
+    ws.on('pong', () => { c.aliveAt = Date.now(); });
+    // one owner per seat (spec E7): after a resume from another socket this one no longer speaks for the seat
+    const owns = () => { const p = c.room && c.room.players.get(c.id); return !!p && p.send === send; };
     ws.on('message', (data, isBinary) => {
-      c.last = Date.now();
+      c.last = c.aliveAt = Date.now();
       if (isBinary) return strike();
       const rawTxt = data.toString();
       const v = P.validate(rawTxt);
@@ -179,6 +186,7 @@ function createServer(env) {
         send({ t: 'welcome', v: P.PROTOCOL_VERSION, id: 0, now: Date.now(), mode: s.mode, msg: s.message });
         return;
       }
+      if ((c.replaced || (c.room && !owns())) && m.t !== 'ping') return; // a replaced socket (4409 on its way): its st/fin/foul/leave/resume ... are ignored
       const r = c.room;
       switch (m.t) {
         case 'ping': send({ t: 'pong', c: m.c, s: Date.now() }); break;
@@ -205,7 +213,16 @@ function createServer(env) {
         case 'resume': {
           if (r) return err('bad');
           const res = rooms.resume({ send, ip, ver: c.ver }, m.code, m.id, m.key);
-          if (res.err) return err(res.err);
+          // the race is over and its room gone: nocode carries the official rows when this seat was in it (spec E4, late resume)
+          if (res.err) return err(res.err, undefined, res.rows ? { rows: res.rows } : undefined);
+          // the seat had another live socket (a second window, or a half-open one): that one is closed with 4409 'replaced' and the
+          // client there must not reconnect-steal the seat back
+          for (const sock of wss.clients) {
+            if (sock === ws || !sock._kos || sock._kos.room !== res.room || sock._kos.id !== res.player.id) continue;
+            sock._kos.room = null; sock._kos.replaced = true; sock._kosPlayer = null;
+            try { sock.close(4409, 'replaced'); } catch (e) { /* ignore */ }
+            const old = sock; setTimeout(() => { if (old.readyState !== 3) old.terminate(); }, 3000).unref(); // a half-open one never answers the close
+          }
           bind(res, 'joined');
           if (res.room.phase === 'countdown' || res.room.phase === 'racing') {
             send({ t: 'start', T0: res.room.T0, cfg: res.room.cfg, grid: [...res.room.players.values()].filter(p => p.boat).map((p, i) => ({ id: p.id, slot: i, name: p.name, color: p.color })) });
@@ -277,6 +294,14 @@ function createServer(env) {
     dropCodes(status.current());
     timers.push(setInterval(() => { rooms.tick(); for (const r of rooms.rooms.values()) rooms.flush(r); }, 100));
     timers.push(setInterval(() => { for (const ws of wss.clients) ws._kos && ws._kos.idleCheck(); }, 5000));
+    timers.push(setInterval(() => {
+      const t = Date.now();
+      for (const ws of wss.clients) {
+        if (!ws._kos) continue;
+        if (t - ws._kos.aliveAt > DEAD_MS) { ws.terminate(); continue; } // 'close' follows: the seat is marked lost (rooms.disconnect)
+        if (ws.readyState === 1) { try { ws.ping(); } catch (e) { /* ignore */ } }
+      }
+    }, PING_MS));
     return new Promise((resolve) => server.listen(PORT, HOST, () => resolve(server.address().port)));
   }
   function close() {

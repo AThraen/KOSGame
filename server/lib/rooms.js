@@ -32,6 +32,9 @@ const SCHED_PENDING_PER_IP = 5; // races not yet run per IP (counted from the sa
 const SCHED_REGUN_MS = 60000; // a scheduled room that lost its host after its first race: the server's next gun at the earliest this far ahead
 const LIST_MAX = 30, LIST_SCHED_MAX = 15; // pending scheduled races never take more than half the list from the lobbies you can join now
 const FOUL_PAIR_MS = 500; // the same sender may report the same offender at most this often
+// a seat whose room is gone (removed after the results, or deleted by a rematch) still gets its official result on resume this long:
+// the same 2 h as the client's seat record (kos.mp.seat exp = last contact + 2 h)
+const PAST_KEEP_MS = 2 * 3600000, PAST_MAX = 300;
 
 function createRooms(opts) {
   const o = opts || {};
@@ -54,6 +57,8 @@ function createRooms(opts) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   };
 
+  const past = new Map(); // code -> [{rows, seats: Map id -> key, at}] results of races whose seats may still come back (memory only)
+  let pastPruneAt = 0;
   const gone = new Set(); // codes the operator took off the server (dropCode): never handed out again by this process
   function newCode() {
     for (let i = 0; i < 200; i++) {
@@ -127,6 +132,11 @@ function createRooms(opts) {
       const old = r.players.get(r.hostId);
       if (old && !old.lost) return { err: 'bad' }; // the creator is already in
       if (old) r.players.delete(old.id);
+      for (const q of [...r.players.values()]) if (q.wasHost && q.lost) r.players.delete(q.id); // the creator's old seat, demoted while it was away
+    }
+    if (r.players.size >= effMaxPlayers(r) && r.sched) { // a scheduled lobby keeps dropped seats until the gun; a full one gives the oldest up for a new sailor
+      const old = [...r.players.values()].filter(q => q.lost && !q.host && now() - q.lostAt >= lobbyGrace).sort((a, b) => a.lostAt - b.lostAt)[0];
+      if (old) r.players.delete(old.id);
     }
     if (r.players.size >= effMaxPlayers(r)) return { err: 'full' };
     const p = addPlayer(r, conn, claim, true);
@@ -139,7 +149,11 @@ function createRooms(opts) {
     const r = rooms.get(code);
     const p = r && r.players.get(id);
     // the seat belongs to the key for the whole room: lobby, countdown, racing and results (only a kick or an explicit leave ends it)
-    if (!p || p.key !== key || p.kicked || p.left || r.phase === 'closing') return { err: 'nocode' };
+    if (!p || p.key !== key || p.kicked || p.left || r.phase === 'closing') {
+      // the race is over and the room gone (or this seat was dropped by a rematch): the official result instead of a bare nocode
+      const rows = !(p && (p.kicked || p.left)) && pastResult(code, id, key);
+      return rows ? { err: 'nocode', rows } : { err: 'nocode' };
+    }
     p.send = conn.send; p.ip = conn.ip; if (conn.ver) p.ver = P.clean(conn.ver, 16); p.lost = false; p.lostAt = 0; p.seenAt = now(); r.emptyAt = 0;
     pushRoom(r);
     return { room: r, player: p };
@@ -222,8 +236,9 @@ function createRooms(opts) {
     return begin(r);
   }
   function begin(r) {
-    for (const p of [...r.players.values()]) if (p.lost && !p.host) r.players.delete(p.id); // a seat that is still dropped when the host starts is gone
-    const boats = [...r.players.values()].filter(hasBoat).length;
+    // a seat that is dropped at the gun is NOT deleted (spec E6): it goes on the grid and may resume; one that never comes back is lost
+    // in the results. Only the boats that are here count for the minimum.
+    const boats = [...r.players.values()].filter(p => hasBoat(p) && !p.lost).length;
     if (r.hostRole === 'sail' ? boats < 2 : boats < 1) { pushRoom(r); return 'few'; }
     const t = now();
     if (r.sched && !r.sched.fired) { r.sched.fired = true; dropOpened(r.code); } // the scheduled race has begun: nothing left to restore
@@ -241,6 +256,7 @@ function createRooms(opts) {
     if ((r.hostId !== hostId && !(serverRun && r.players.has(hostId))) || r.phase !== 'results') return 'denied';
     const host = r.players.get(hostId);
     if (!host || host.lost) return 'denied';
+    archive(r); // the seats dropped here can still fetch this result
     for (const p of [...r.players.values()]) {
       if (p.lost) { r.players.delete(p.id); continue; }
       p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
@@ -261,7 +277,8 @@ function createRooms(opts) {
   function abort(r, hostId) {
     if (r.hostId !== hostId || (r.phase !== 'racing' && r.phase !== 'countdown')) return 'denied';
     for (const p of [...r.players.values()]) {
-      if (p.lost && !p.host) { r.players.delete(p.id); continue; }
+      if (p.kicked || p.left) { r.players.delete(p.id); continue; }
+      if (p.lost) p.lostAt = now(); // a dropped seat waits in the lobby again (the lobby grace, or until the gun in a scheduled room)
       p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
     }
     r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
@@ -320,7 +337,7 @@ function createRooms(opts) {
   function endRace(r) {
     for (const p of r.players.values()) if (p.boat && !p.final) { p.final = true; p.status = p.lost ? 'lost' : 'dnf'; }
     r.phase = 'results';
-    r.results = buildResults(r);
+    r.results = buildResults(r); r.resAt = now();
     r.deleteAt = now() + RESULTS_KEEP_MS;
     r.lobbyAt = r.lobbyAfter ? now() + LOBBY_AFTER_MS : 0;
     broadcast(r, { t: 'res', rows: r.results });
@@ -368,10 +385,26 @@ function createRooms(opts) {
     }
   }
 
-  function remove(r) { rooms.delete(r.code); dropOpened(r.code); }
+  function remove(r) { archive(r); rooms.delete(r.code); dropOpened(r.code); }
+  // keeps a finished race's table for the seats that may still come back (resume -> err nocode + rows)
+  function archive(r) {
+    if (!r.results) return;
+    const seats = new Map();
+    for (const p of r.players.values()) if (p.boat && !p.kicked && !p.left) seats.set(p.id, p.key);
+    const list = (past.get(r.code) || []).filter(x => x.rows !== r.results);
+    list.push({ rows: r.results, seats, at: r.resAt || now() }); // counted from the results: a seat away since before them has an older client record
+    past.delete(r.code); past.set(r.code, list.slice(-3));
+    while (past.size > PAST_MAX) past.delete(past.keys().next().value);
+  }
+  function pastResult(code, id, key) {
+    const list = past.get(code) || [], t = now();
+    for (let i = list.length - 1; i >= 0; i--) if (t - list[i].at < PAST_KEEP_MS && list[i].seats.get(id) === key) return list[i].rows;
+    return null;
+  }
 
   function tick() {
     const t = now();
+    if (t - pastPruneAt > 60000) { pastPruneAt = t; for (const [c, l] of past) { const k = l.filter(x => t - x.at < PAST_KEEP_MS); if (k.length) past.set(c, k); else past.delete(c); } }
     openDue(t);
     for (const r of [...rooms.values()]) {
       if (r.phase === 'closing') { if (t >= r.deleteAt) remove(r); continue; }
@@ -382,16 +415,16 @@ function createRooms(opts) {
       if (r.phase === 'lobby' || r.phase === 'countdown') {
         for (const p of [...r.players.values()]) {
           if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;
-          if (p.host && r.sched) { // server-run from now on; in a countdown the boat keeps its seat on the grid (a lost seat like any other)
+          if (p.host && r.sched) { // server-run from now on; the seat stays as a player's (to the gun in a lobby, on the grid in a countdown)
             serverRun(r);
-            if (r.phase === 'lobby') r.players.delete(p.id); else p.host = false;
+            p.host = false; p.wasHost = true;
             pushRoom(r); continue;
           }
           if (p.host) { // a host that never comes back closes a LOBBY; a countdown/race goes on without them (their seat waits for a rejoin like any other)
             if (r.phase !== 'lobby') continue;
             broadcast(r, { t: 'hostleft' }); r.phase = 'closing'; r.deleteAt = t + HOSTLEFT_KEEP_MS; break;
           }
-          if (r.phase === 'lobby') { r.players.delete(p.id); pushRoom(r); }
+          if (r.phase === 'lobby' && !r.sched) { r.players.delete(p.id); pushRoom(r); } // a scheduled lobby seat waits until the gun (spec E6)
         }
         if (r.phase === 'closing') continue;
       }
@@ -561,4 +594,4 @@ function createRooms(opts) {
   return { rooms, sched, restore, schedule, scheduleCancel, dropCode, listRooms, foul, create, join, resume, disconnect, kick, setCfg, start, rematch, endNow, abort, lobbyAfter, state, finish, flush, tick, info, stats, setLimits, broadcast, send };
 }
 
-module.exports = { createRooms, LOST_GRACE_MS, RESULTS_KEEP_MS };
+module.exports = { createRooms, LOST_GRACE_MS, RESULTS_KEEP_MS, PAST_KEEP_MS };
