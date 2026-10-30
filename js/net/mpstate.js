@@ -46,8 +46,9 @@
     return { offset: median(top.map(e => e.offset)), rtt: last[0].rtt };
   }
 
-  // boat: numbers x, y, heading, speed, heel; optional booleans spinnaker, capsized, penalty, hiking;
-  // optional rc { finT (finite number = finished), ocs (bool), leg (int) }.
+  // boat: numbers x, y, heading, speed, heel; optional booleans spinnaker, capsized, penalty, hiking, r13 (tacking: RRS 13);
+  // optional tack ('port' | 'starboard'); optional rc { finT (finite number = finished), ocs (bool), leg (int) }.
+  // fl bits: 1 spinnaker, 2 capsized, 4 penalty, 8 finished, 16 ocs, 32 hiking, 64 port tack, 128 r13 (protocol 2).
   // Returns [id, seq, x, y, hd, sp, hl, fl, lg].
   function packState(boat, id, seq) {
     const b = boat || {};
@@ -59,6 +60,8 @@
     if (Number.isFinite(rc.finT)) fl |= 8;
     if (rc.ocs) fl |= 16;
     if (b.hiking) fl |= 32;
+    if (b.tack === 'port') fl |= 64; // the sender's own tack and R13 state: the receiver must not guess them from a delayed heading
+    if (b.r13) fl |= 128;
     const lg = Number.isFinite(rc.leg) ? Math.round(rc.leg) : 0;
     return [
       id,
@@ -96,7 +99,9 @@
       penalty: !!(fl & 4),
       finished: !!(fl & 8),
       ocs: !!(fl & 16),
-      hiking: !!(fl & 32)
+      hiking: !!(fl & 32),
+      port: !!(fl & 64),
+      r13: !!(fl & 128)
     };
   }
 
@@ -118,6 +123,8 @@
       finished: s.finished,
       ocs: s.ocs,
       hiking: s.hiking,
+      port: s.port,
+      r13: s.r13,
       extrapolated: extrapolated,
       frozen: frozen
     };
@@ -195,7 +202,7 @@
       if (!this.items.length) return null;
       if (!this.stamped) {
         const o = this.sample(nowMs - this.delay());
-        if (o) { o.vx = Math.sin(o.hd) * o.sp; o.vy = -Math.cos(o.hd) * o.sp; }
+        if (o) { o.vx = Math.sin(o.hd) * o.sp; o.vy = -Math.cos(o.hd) * o.sp; o.rx = o.x; o.ry = o.y; }
         return o;
       }
       const e = this._extrap(nowMs), ls = this.items[this.items.length - 1].s;
@@ -204,6 +211,7 @@
       const k = Math.exp(-dt / 0.2); this.cx *= k; this.cy *= k;
       const out = resultOf(ls, true, e.frozen);
       out.x = e.x + this.cx; out.y = e.y + this.cy; out.hd = e.hd; out.vx = e.vx; out.vy = e.vy;
+      out.rx = e.x; out.ry = e.y; // rules and contact: the dead-reckoned position without the visual easing (x, y are for drawing only)
       return out;
     }
 
@@ -267,6 +275,30 @@
   // the server only needs seq to grow, so old servers and old clients keep working unchanged.
   function stamp(serverMs, prevSeq) { return Math.max(Math.round(serverMs), (prevSeq || 0) + 1); }
 
-  KOS.MPState = { stamp, clockSample, pickOffset, packState, unpackState, Buffer: StateBuffer };
+  // Both phones judge a contact (docs/superpowers/specs/2026-10-30-live-rules-and-race-list-design.md A10). Per other boat it remembers
+  // when this phone last took a penalty for that pair and when it last told that boat "you fouled me".
+  //   own(otherId, iFouled, nowMs) -> 'pen' (take the penalty) | 'send' (send {t:'foul'}) | null (the same incident, already handled)
+  //   recv(fromId, nowMs)          -> true: take the penalty the other phone says we owe
+  // Within DEDUPE ms one incident counts once. When both phones said "the other one fouled me" (each sent, each received), the
+  // lower player id's verdict wins on both phones, so exactly one boat turns.
+  class FoulLog {
+    constructor(myId, dedupeMs) { this.myId = myId; this.ms = dedupeMs || 2000; this.pen = {}; this.sent = {}; }
+    _recent(map, id, nowMs) { return map[id] !== undefined && nowMs - map[id] < this.ms; }
+    own(otherId, iFouled, nowMs) {
+      if (this._recent(this.pen, otherId, nowMs)) return null;
+      if (iFouled) { this.pen[otherId] = nowMs; return 'pen'; }
+      if (this._recent(this.sent, otherId, nowMs)) return null;
+      this.sent[otherId] = nowMs;
+      return 'send';
+    }
+    recv(fromId, nowMs) {
+      if (this._recent(this.pen, fromId, nowMs)) return false;
+      if (this._recent(this.sent, fromId, nowMs) && !(fromId < this.myId)) return false; // we both blamed the other: the lower id decides
+      this.pen[fromId] = nowMs;
+      return true;
+    }
+  }
+
+  KOS.MPState = { stamp, clockSample, pickOffset, packState, unpackState, Buffer: StateBuffer, FoulLog };
   if (typeof module !== 'undefined' && module.exports) module.exports = KOS.MPState;
 })(typeof window !== 'undefined' ? window : globalThis);

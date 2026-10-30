@@ -6,7 +6,7 @@
 //     create(cfg, hostRole) -> Promise<room>   rejects {code:'closed'|'busy'|'bad'|'timeout'}
 //     join(code)            -> Promise<room>   rejects {code:'nocode'|'full'|'started'|'closed'|'timeout'}
 //     setCfg(partial), kick(id), start(), rematch(), resume(token), hostEnd(), hostAbort(), hostLobby(on), leave(), send(msg), close()
-//     on(evt, fn) -> off     evts: room, start, states, fin, res, rematch, hostleft, kicked, reconnecting, reconnected, offline, status, error
+//     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, reconnecting, reconnected, offline, status, error
 //   KOS.MP.parseJoin(hash) -> 'ABCD'|null     KOS.MP.normCode(str) -> 'ABCD'|null
 //   KOS.MP.seat() -> {code,id,key,url,exp}|null   the rejoin entry kept in localStorage for 2 h (survives closing the page / an update reload)
 //   KOS.MP.clearSeat()    KOS.MP.LEVEL   client protocol level sent in hello (cp); the server can refuse builds below it ('old')
@@ -217,6 +217,7 @@
         case 's': S.lastStates = now(); emit('states', Array.isArray(m.a) ? m.a : []); break;
         case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, fin: typeof m.fin === 'number' ? m.fin : null, T0: m.T0, now: m.now }; emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
         case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
+        case 'foul': if (typeof m.from === 'number') emit('foul', { from: m.from, r: String(m.r || '') }); break; // another phone says our boat fouled theirs
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
         case 'res': S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; clearToken(); emit('res', m.rows); break;
         case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token

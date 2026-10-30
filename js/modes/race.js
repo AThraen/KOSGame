@@ -76,6 +76,7 @@
         progress: 'Strafrunde',
         right: 'Du havde ret! {offender} skulle have holdt af vejen og tager en strafrunde.',
         rightTitle: 'Du havde ret',
+        told: 'Du skulle have holdt af vejen for {other} – {rule}.',
         timePen: '+{n} sek. straf for strafrunder, du ikke tog.',
         ai: 'Strafrunde!',
       },
@@ -151,6 +152,7 @@
         progress: 'Penalty turn',
         right: 'You had right of way! {offender} should have kept clear and is doing a penalty turn.',
         rightTitle: 'Your right of way',
+        told: 'You had to keep clear of {other} – {rule}.',
         timePen: '+{n} s penalty for turns you did not take.',
         ai: 'Penalty turn!',
       },
@@ -826,14 +828,34 @@
         if (a === me && gap < 0.4 * L && now > (S.closeT || 0)) { S.closeT = now + 25; say(t(f.reasonKey, f.reasonVars || {}), 5000, 'oops'); sfx('whistle', { vol: 0.4 }); }
         return;
       }
-      const rel = Math.hypot(a.vx - v.vx, a.vy - v.vy);
-      if (rel < 0.35) return; // a gentle rub is not worth a penalty
+      const rel = Math.hypot(vxOf(a) - vxOf(v), vyOf(a) - vyOf(v)); // measured before the bump took the speed out of it (spec A8)
+      if (rel < 0.35) return; // a gentle rub is not worth a penalty (live and AI races alike)
       if (a === me && now < (S.myFoulT || 0)) return;
       const key = a.id + '|' + v.id;
       if (S.cool[key] > now) return;
+      if (S.flog) { // live: both phones judge the contact; the stand-on phone tells the offender (spec A10)
+        const act = S.flog.own((a === me ? v : a).rid, a === me, LIVE.serverNow());
+        if (!act) return; // the other phone's verdict already gave us this penalty
+        if (act === 'send') LIVE.send({ t: 'foul', o: a.rid, r: f.rule });
+      }
       S.cool[key] = now + 12;
       if (a === me) S.myFoulT = now + 15;
       penalize(a, 2, f.rule, f);
+    }
+    const vxOf = b => (b.cvx !== undefined ? b.cvx : b.vx), vyOf = b => (b.cvy !== undefined ? b.cvy : b.vy);
+    // another phone says our boat fouled theirs: we take the penalty if our own verdict did not already (de-duplicated per pair, spec A10)
+    const TOLD_RULES = ['R10', 'R11', 'R12', 'R13', 'R18', 'R22'];
+    function onFoulMsg(m) {
+      const b = m && byRid[m.from], now = env.t;
+      if (!b || WATCH || S.unofficial || TOLD_RULES.indexOf(m.r) < 0) return;
+      if (S.phase === 'pre' && !S.sig.prep) return;
+      if (me.rc.finT != null || b.rc.finT != null || b.rc.pen) return; // as onFoul: a boat taking a penalty has no right of way (RRS 22.2)
+      if (now < (S.myFoulT || 0)) return;
+      if (!S.flog.recv(b.rid, LIVE.serverNow())) return;
+      S.cool[me.id + '|' + b.id] = now + 12;
+      S.myFoulT = now + 15;
+      const who = b.short || b.name;
+      penalize(me, 2, m.r, { type: 'foul', offender: me, victim: b, rule: m.r, contact: true, reasonKey: 'race.pen.told', reasonVars: { other: who, rule: KOS.Rules.ruleName(m.r) } });
     }
     function penalize(b, sev, rule, f) {
       const turns = 1; // RRS rule 44: one turn (one tack and one gybe) for Part 2 fouls and rule 31 alike
@@ -973,7 +995,8 @@
     // ==================================================================== live race (docs/specs/live-race.md 5)
     const REMOTE_CTL = KOS.Physics.controls();
     const REMOTE_PEN = { need: TAU, acc: 0 }; // only shown (tag arrow, standings); never stepped
-    const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, rc: null };
+    const PK = { x: 0, y: 0, heading: 0, speed: 0, heel: 0, spinnaker: false, capsized: false, penalty: false, hiking: false, tack: 'starboard', r13: false, rc: null };
+    S.flog = LIVE && !WATCH ? new MPS.FoulLog(LIVE.myId, 2000) : null;
     const banner = LIVE ? document.createElement('div') : null;
     if (banner) { banner.className = 'race-live-banner'; banner.hidden = true; banner.textContent = t('live.reconnecting'); host.layer.appendChild(banner); }
     const liveOffs = [];
@@ -1090,17 +1113,23 @@
             if (w > 0) { s.x += (pr.x - s.x) * w; s.y += (pr.y - s.y) * w; s.hd = U.wrapPi(s.hd + U.angDiff(s.hd, pr.hd) * w); s.sp += (pr.sp - s.sp) * w; }
             b.predW = w; b.pvx = pr.vx; b.pvy = pr.vy;
           } else b.predW = 0;
+          // rules and contact use the dead-reckoned position; the visual easing (s.x - s.rx) is only added while drawing (spec A13)
+          const rx = b.buf.stamped && s.rx !== undefined ? s.rx : s.x, ry = b.buf.stamped && s.ry !== undefined ? s.ry : s.y;
           REMOTE_CTL.spinnaker = s.spinnaker; REMOTE_CTL.hike = s.hiking ? 0.8 : 0.2; REMOTE_CTL.autoTrim = true;
-          b.x = s.x; b.y = s.y; b.heading = s.hd; b.speed = s.sp;
+          if (b.ptack) { b.tack = b.ptack; b.r13 = b.pr13; } // our physics keeps its own guess between steps (sails, wake; no tack event every frame)
+          b.x = rx; b.y = ry; b.heading = s.hd; b.speed = s.sp;
           KOS.Physics.step(b, REMOTE_CTL, env, dt);
-          b.x = s.x; b.y = s.y; b.heading = s.hd; b.speed = s.sp; b.heel = s.hl; b.capsized = s.capsized;
+          b.ptack = b.tack; b.pr13 = b.r13;
+          b.x = rx; b.y = ry; b.heading = s.hd; b.speed = s.sp; b.heel = s.hl; b.capsized = s.capsized;
+          b.tack = s.port ? 'port' : 'starboard'; b.r13 = s.r13; // the rules use the sender's own tack and R13 state, never our guess (spec A1)
+          b.drawDx = s.x - rx; b.drawDy = s.y - ry;
           if (pr) { b.vx = pr.vx; b.vy = pr.vy; }
           rc.ocs = s.ocs;
           if (rc.finT == null && s.lg !== rc.leg && s.lg >= 0 && s.lg < seq.length) setLeg(b, s.lg);
           if (s.penalty && !rc.pen) rc.penN = (rc.penN || 0) + 1; // penalty turns taken, for the big-screen board
           rc.pen = s.penalty ? REMOTE_PEN : null;
           b.lost = !S.unofficial && rc.finT == null && b.buf.isLost(nowS, LOST_MS); // a boat that has finished stops sending: that is not a lost connection
-          b.ghost = b.lost || s.frozen;
+          b.ghost = b.lost; // a short gap (frozen, newest state < 2 s old) keeps the boat in the rules and contact lists (spec A9)
         }
         if (rc.finT != null) { const since = S.raceT - rc.finT; if (since > 22) b.hidden = true; else if (since > 14) b.ghost = true; }
         if (S.unofficial) { b.ghost = true; if (env.t - S.offAt > 3 && rc.finT == null) b.hidden = true; }
@@ -1135,7 +1164,7 @@
       if (WATCH || S.unofficial) return; // from the first second of the countdown (older servers drop it until 2 s before the gun)
       if (S.holdSend) return; // a reloaded page waits for the server's copy of the last state before it says anything (else the start line would overwrite it)
       S.sendT = (S.sendT || 0) + dt;
-      const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0);
+      const key = (me.capsized ? 1 : 0) | (S.pen ? 2 : 0) | (me.rc.finT != null ? 4 : 0) | (me.tack === 'port' ? 8 : 0) | (me.r13 ? 16 : 0); // a tack goes out at once
       const changed = key !== S.sendKey;
       if (S.sendT < 0.1 - 1e-6 && !changed && !S.sendNow) return;
       // never send NaN / a broken pose: the server would drop the frame (and used to count it as a strike); put the boat back where it was last fine
@@ -1148,7 +1177,7 @@
       S.sentOnce = true; S.sendNow = false;
       S.sendT = 0; S.sendKey = key;
       PK.x = me.x; PK.y = me.y; PK.heading = me.heading; PK.speed = me.speed; PK.heel = me.heel; PK.spinnaker = me.spinnaker; PK.capsized = me.capsized;
-      PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.rc = me.rc;
+      PK.penalty = !!S.pen; PK.hiking = me.hike > 0.5; PK.tack = me.tack; PK.r13 = !!me.r13; PK.rc = me.rc;
       LIVE.send({ t: 'st', s: MPS.packState(PK, LIVE.myId, S.seq = MPS.stamp(LIVE.T0 + S.clock * 1000, S.seq)) });
     }
     // the connection is gone for good: carry on on our own clock, the result is marked unofficial (spec 5.6)
@@ -1455,6 +1484,7 @@
       buildLiveExtras();
       liveOffs.push(LIVE.on('fwin', () => { paintFwin(); }));
       liveOffs.push(LIVE.on('states', onStates));
+      if (S.flog) liveOffs.push(LIVE.on('foul', onFoulMsg));
       liveOffs.push(LIVE.on('fin', m => { const b = m && byRid[m.id]; if (b && b.rc.finT == null && Number.isFinite(m.ms)) finished(b, m.ms); }));
       liveOffs.push(LIVE.on('res', rows => { toggleHostMenu(false); S.liveRes = Array.isArray(rows) ? rows : null; if (S.liveRes && !WATCH && (S.phase === 'race' || S.phase === 'pre')) dnf(); if (S.liveRes && WATCH) { paintWatchBoard(); showPodium(); } }));
       liveOffs.push(LIVE.on('reconnecting', () => { if (banner && !S.unofficial) banner.hidden = false; }));
@@ -1500,6 +1530,7 @@
         if (b.rc.pen) c = penControls(b, c);
         KOS.Physics.step(b, c, env, dt);
       }
+      for (const b of ruled) { b.cvx = b.vx; b.cvy = b.vy; } // closing speed for onFoul, before the bump changes it (spec A8)
       const hits = KOS.Physics.collide(live, venue, collMarks) || [];
       if (rl) bumpRemotes(rl);
       // an AI boat pinned against a mark / the committee boat with no speed (no steerage) pushes off by hand,
@@ -1946,7 +1977,10 @@
       ctx.font = '800 10px ui-rounded,"Segoe UI",system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(dist + ' m', ax, ay + 32);
     }
 
-    function render(alpha) { scene.render(alpha); }
+    function render(alpha) {
+      for (const b of remotes) if (b.drawDx || b.drawDy) { b.x += b.drawDx; b.y += b.drawDy; } // remote boats are drawn with the visual easing
+      try { scene.render(alpha); } finally { for (const b of remotes) if (b.drawDx || b.drawDy) { b.x -= b.drawDx; b.y -= b.drawDy; } }
+    }
     // keep the screen awake for the whole live race (and re-take the lock when the page comes back to the foreground)
     let wakeLock = null, wakeVis = null;
     function takeWake() {

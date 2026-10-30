@@ -236,6 +236,8 @@ async function main() {
     await sleep(500);
     const tacks = await Promise.all(sail.map(p => p.evaluate(() => KOS.App.run.inst.boat.tack)));
     ok(tacks[0] === 'starboard' && tacks[1] === 'port', label + ': one boat on starboard, one on port tack (' + tacks.join('/') + ')');
+    const seen = await Promise.all(sail.map(p => p.evaluate(() => KOS.App.run.inst.live.remotes[0].tack)));
+    ok(seen[0] === 'port' && seen[1] === 'starboard', label + ': each client sees the other boat on its sent tack (' + seen.join('/') + ')');
     await sleep(11000);
     const res = await Promise.all(sail.map(p => p.evaluate(() => { const i = KOS.App.run.inst, S = i.state; clearInterval(window.__iv);
       return { fouls: S.fouls, pen: !!i.boat.rc.pen, minGap: window.__minGap, speed: i.boat.speed, dist: Math.hypot(i.boat.x - i.live.remotes[0].x, i.boat.y - i.live.remotes[0].y) }; })));
@@ -254,6 +256,9 @@ async function main() {
     ok(sb.minGap < 0.3 && pt.minGap < 0.3, 'the hulls touched on both clients (' + sb.minGap.toFixed(2) + ', ' + pt.minGap.toFixed(2) + ' m)');
     ok(pt.fouls >= 1 && pt.pen === true, 'the port boat is penalised on its own client (fouls ' + pt.fouls + ', penalty turn owed)');
     ok(sb.fouls === 0 && sb.pen === false, 'the starboard boat is not penalised');
+    const fl = r.keep.sail[0].sent.map(x => { try { return JSON.parse(x); } catch (e) { return {}; } }).filter(m => m.t === 'foul');
+    ok(fl.length >= 1 && /^R1[03]$/.test(fl[0].r) && fl.length <= 2, 'the starboard phone told the port boat: ' + JSON.stringify(fl[0] || null) + ' (' + fl.length + ' sent)');
+    ok(pt.fouls === 1, 'the port boat turns once, not once per phone (fouls ' + pt.fouls + ')');
     ok(r.board.penN.find(x => x.name === 'Bagbord').n >= 1 && r.board.penN.find(x => x.name === 'Styrbord').n === 0, 'the big screen sees the penalty for the port boat only (' + JSON.stringify(r.board.penN) + ')');
     ok(/↻/.test(r.board.html), 'the big screen board shows the penalty mark');
     ok(r.errs.length === 0, 'no errors (' + r.errs.join(' | ') + ')');

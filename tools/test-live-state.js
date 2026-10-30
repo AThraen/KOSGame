@@ -168,6 +168,73 @@ function ok(cond, msg) {
   ok(r2.mean < 3 && r2.max < 8.4, 'stamped, 250 ms RTT jitter + 0.7 s stalls: mean ' + r2.mean.toFixed(2) + ' m, max ' + r2.max.toFixed(2) + ' m (< 2 boat lengths)');
 }
 
+// (5b) live rules on the receiving phone (docs/superpowers/specs/2026-10-30-live-rules-and-race-list-design.md A1, A9, A13; ports
+// tools/tmp/rowreview/live.js A/B/C). The sender is a physics boat with a scripted heading; the receiver poses its copy like race.js
+// applyRemotes: rules position (rx, ry), the sender's tack and R13 flags, in the rules lists unless lost (newest state > 2 s old).
+{
+  ok(M.unpackState(M.packState({ tack: 'port', r13: true }, 1, 1)).fl === 192, 'tack and R13 travel as fl bits 64 + 128');
+  const u0 = M.unpackState(M.packState({ tack: 'starboard', r13: false, penalty: true }, 1, 1));
+  ok(u0.port === false && u0.r13 === false && u0.penalty === true, 'starboard / no R13 leave the bits clear');
+  const KOS = require('./harness').load();
+  const R = d => d * Math.PI / 180, DT = 1 / 60, T0 = 2e12;
+  const env = { wind: { dir: 0, speed: 8 }, t: 0, assist: 'normal' };
+  function run(hdOf, secs, latMs, opts) {
+    opts = opts || {};
+    const snd = KOS.Physics.createBoat('opti', { x: 0, y: 0, heading: hdOf(0), speed: 1.5 });
+    const rcv = KOS.Physics.createBoat('opti', { x: 0, y: 0, heading: hdOf(0), speed: 1.5 });
+    const buf = new M.Buffer(), ctl = KOS.Physics.controls(), REMOTE = KOS.Physics.controls();
+    const fly = []; let acc = 0, seq = 0;
+    const o = { tackWrong: 0, r13Wrong: 0, maxPos: 0, maxDraw: 0, out: 0, frozen: 0, tacks: 0 };
+    for (let i = 0; i * DT < secs; i++) {
+      const t = i * DT, now = T0 + t * 1000;
+      const h = hdOf(t), was = snd.tack; snd.heading = h; KOS.Physics.step(snd, ctl, env, DT); snd.heading = h;
+      if (snd.tack !== was) o.tacks++;
+      if ((acc += DT) >= 0.1 - 1e-6 && !(opts.dropFrom && t >= opts.dropFrom && t < opts.dropTo)) {
+        acc = 0;
+        fly.push({ at: now + latMs, s: M.packState({ x: snd.x, y: snd.y, heading: snd.heading, speed: snd.speed, heel: 0, tack: snd.tack, r13: snd.r13, rc: {} }, 2, seq = M.stamp(now, seq)) });
+      }
+      while (fly.length && fly[0].at <= now) buf.add(M.unpackState(fly.shift().s), now);
+      const v = buf.view(now); if (!v) continue;
+      if (rcv.ptack) { rcv.tack = rcv.ptack; rcv.r13 = rcv.pr13; }
+      rcv.x = v.rx; rcv.y = v.ry; rcv.heading = v.hd; rcv.speed = v.sp; KOS.Physics.step(rcv, REMOTE, env, DT);
+      rcv.ptack = rcv.tack; rcv.pr13 = rcv.r13;
+      rcv.x = v.rx; rcv.y = v.ry; rcv.heading = v.hd; rcv.tack = v.port ? 'port' : 'starboard'; rcv.r13 = v.r13;
+      if (rcv.tack !== snd.tack) o.tackWrong += DT;
+      if (rcv.r13 !== snd.r13) o.r13Wrong += DT;
+      if (v.frozen) o.frozen += DT;
+      if (buf.isLost(now, 2000)) o.out += DT; // race.js: b.ghost = b.lost, the rules list drops only ghosts
+      o.maxPos = Math.max(o.maxPos, Math.hypot(rcv.x - snd.x, rcv.y - snd.y));
+      o.maxDraw = Math.max(o.maxDraw, Math.hypot(v.x - snd.x, v.y - snd.y));
+    }
+    return o;
+  }
+  // A: pre-start luff from close-hauled starboard to 12 deg off the wind, no tack. Before: R13 wrong for 2.8 s (shown as tacking).
+  const a = run(t => R(-45 + Math.min(33, 70 * Math.max(0, t - 0.5))), 4, 150);
+  ok(a.tacks === 0 && a.tackWrong === 0 && a.r13Wrong === 0, 'A luff to 12 deg: the receiver never shows a tack or R13 (tack ' + a.tackWrong.toFixed(2) + ' s, R13 ' + a.r13Wrong.toFixed(2) + ' s wrong)');
+  // B: dead run weaving +-7 deg around by the lee, never gybing. Before: port/starboard flipped for 3.9 s of 8.
+  for (const lat of [150, 300]) {
+    const b = run(t => -R(180 - 1 + 7 * Math.sin(2 * Math.PI * t / 1.2)), 8, lat);
+    ok(b.tacks === 0 && b.tackWrong === 0, 'B run weave, ' + lat + ' ms: port/starboard never flips on the receiver (' + b.tackWrong.toFixed(2) + ' s wrong)');
+  }
+  // a real tack: the receiver follows within one packet plus the latency (race.js also sends a frame at once when tack or R13 changes)
+  const k = run(t => R(t < 1 ? -45 : t < 2 ? -45 + 90 * (t - 1) : 45), 4, 150);
+  ok(k.tacks === 1 && k.tackWrong <= 0.3 && k.r13Wrong <= 0.6, 'a real tack: each change reaches the receiver within one packet + latency (tack ' + k.tackWrong.toFixed(2) + ' s, R13 on + off ' + k.r13Wrong.toFixed(2) + ' s behind)');
+  // C: one 0.6 s gap. Before: frozen -> ghost -> out of rules and contact on this phone only.
+  const c = run(t => R(-45), 3, 120, { dropFrom: 1.0, dropTo: 1.6 });
+  ok(c.frozen > 0 && c.out === 0, 'C 0.6 s gap: frozen for ' + c.frozen.toFixed(2) + ' s but never out of the rules lists');
+  ok(c.maxPos < 0.5, 'C 0.6 s gap: the rules position stays within 0.5 m of the truth (' + c.maxPos.toFixed(2) + ' m)');
+  const c2 = run(t => R(-45), 4, 120, { dropFrom: 1.0, dropTo: 3.5 });
+  ok(c2.out > 0, 'a 2.5 s silence makes the boat lost (out of the rules lists for ' + c2.out.toFixed(2) + ' s)');
+  // A13: the rules position is the dead-reckoned one; only x, y carry the visual easing after a model change
+  const bf = new M.Buffer();
+  bf.add(M.unpackState(M.packState({ x: 0, y: 0, heading: 0, speed: 2 }, 1, T0)), T0 + 100);
+  bf.add(M.unpackState(M.packState({ x: 0, y: -0.2, heading: 0, speed: 2 }, 1, T0 + 100)), T0 + 200);
+  bf.add(M.unpackState(M.packState({ x: 1.5, y: -0.4, heading: 0, speed: 2 }, 1, T0 + 200)), T0 + 300); // a correction: the boat was 1.5 m further east
+  const v = bf.view(T0 + 310), e = bf._extrap(T0 + 310);
+  ok(Math.abs(v.rx - e.x) < 1e-9 && Math.abs(v.ry - e.y) < 1e-9, 'view(): rx, ry are the dead-reckoned position');
+  ok(Math.hypot(v.x - v.rx, v.y - v.ry) > 0.5, 'view(): x, y still ease the correction for drawing (' + Math.hypot(v.x - v.rx, v.y - v.ry).toFixed(2) + ' m apart)');
+}
+
 // (6) clock sync against a fake socket: skewed local clock, a lucky early low rtt followed by a slower link and a drifting clock
 async function clockTests() {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
