@@ -3,6 +3,9 @@
 //   - startup and a normal hub/race-area visit touch no WebSocket and no /mp* URL; server OFF => no entry, no errors
 //   - closed => greyed entry with the message, host/join disabled; on + unreachable => the trainer's kind message + AI race button
 //   - host creates (code, link, QR), two clients join via link and via code, player list, kick, start -> countdown arrives
+//   - live-rules spec B/C: "Find et løb" (render over GET /rooms without a socket, 10 s refresh only while open, empty state, join from the
+//     list, kill switch), "Planlæg til senere" (validation, schedule, private), "Mine planlagte løb" (QR, .ics reminder, cancel),
+//     #live=CODE for a race that is not open yet (the wait card), a server-run scheduled room and the creator taking the host seat
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -476,6 +479,187 @@ async function main() {
     await clean.page.waitForTimeout(600);
     ok(await clean.page.evaluate(() => !document.querySelector('.dialog') && window.__ws === 0), 'no entry: no prompt and still no WebSocket at startup');
     await clean.ctx.close(); await hostP.ctx.close();
+  }
+
+  // ---------------------------------------------------------------- live-rules spec B/C: open list + scheduled races
+  {
+    const WSM = require(path.join(ROOT, 'server', 'node_modules', 'ws'));
+    // a phone of its own (its own IP via x-real-ip, so the per-IP schedule limit is not shared with the browser pages)
+    const bot = (name, ip) => new Promise((res, rej) => {
+      const ws = new WSM(WS, { headers: { 'x-real-ip': ip } });
+      const waiters = [];
+      ws.on('message', d => { const m = JSON.parse(String(d)); const i = waiters.findIndex(w => w.t.includes(m.t)); if (i >= 0) waiters.splice(i, 1)[0].fn(m); });
+      const call = (msg, t) => new Promise(r => { waiters.push({ t, fn: r }); ws.send(JSON.stringify(msg)); });
+      ws.on('open', () => call({ t: 'hello', v: 2, name, build: 'test', ver: 'dev', cp: 2 }, ['welcome', 'err']).then(() => res({ ws, call })));
+      ws.on('error', rej);
+    });
+    const listOpen = async (page) => {
+      await page.waitForSelector('.live-card', { timeout: 8000 }); await page.click('.live-card'); await waitView(page, 'entry');
+      await clickAct(page, 'listview'); await waitView(page, 'list');
+    };
+    status = { mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 };
+    const inDays = (d, h, m) => { const x = new Date(Date.now() + d * 86400000); x.setHours(h, m || 0, 0, 0); return x.getTime(); };
+
+    console.log('-- open list: render, refresh while open, empty state, join from the list');
+    const anton = await bot('Anton', '10.9.0.1');
+    const fri = await anton.call({ t: 'sched', cfg: { boat: 'opti', course: 'tri', windKn: 10, maxP: 12 }, title: 'friday', startAt: inDays(3, 18) }, ['scheduled', 'err']);
+    ok(fri.t === 'scheduled' && /^[0-9a-f]{32}$/.test(fri.secret), 'seed: a scheduled Friday race (' + fri.code + ')');
+    const mille = await bot('Mille', '10.9.0.2');
+    const mRoom = await mille.call({ t: 'create', cfg: { boat: 'zest', vis: 'open', maxP: 8 }, hostRole: 'sail' }, ['created']);
+    const priv = await bot('Hemmelig', '10.9.0.3');
+    const pRoom = await priv.call({ t: 'create', cfg: { boat: 'zest' }, hostRole: 'sail' }, ['created']);
+    const lp = await newPage('area=race', 'Liva');
+    const roomsReq = []; lp.page.on('request', r => { if (/\/rooms$/.test(new URL(r.url()).pathname)) roomsReq.push(Date.now()); });
+    await listOpen(lp.page);
+    await lp.page.waitForSelector('#live-listbox .live-item', { timeout: 8000 });
+    const rows = await lp.page.evaluate(() => [...document.querySelectorAll('#live-listbox .live-sect')].map(sec => ({ h: sec.querySelector('.live-h').textContent, items: [...sec.querySelectorAll('.live-item')].map(b => ({ code: b.getAttribute('data-code'), txt: b.textContent, dis: b.disabled })) })));
+    ok(rows.length === 2 && rows[0].h === 'Planlagte løb' && rows[1].h === 'Åbne løb', 'two sections, scheduled races above open lobbies (' + rows.map(r => r.h).join(' / ') + ')');
+    ok(rows[0] && rows[0].items.some(i => i.code === fri.code && /Fredagsræs/.test(i.txt) && /Planlagt/.test(i.txt) && /Vært: Anton/.test(i.txt) && /Optimist/.test(i.txt) && /Trekant/.test(i.txt) && /Åbner kl\./.test(i.txt)), 'the scheduled race shows title, "Planlagt <when>", host, class, course and its opening time');
+    ok(rows[1] && rows[1].items.some(i => i.code === mRoom.code && /Mille/.test(i.txt) && /I lobbyen/.test(i.txt) && /1\/8 sejlere/.test(i.txt) && /m\/s/.test(i.txt)), 'the open lobby shows host, "I lobbyen", players 1/8 and wind in the player\'s unit');
+    ok(!rows.some(r => r.items.some(i => i.code === pRoom.code)), 'a private lobby is not listed');
+    ok(await lp.page.evaluate(() => window.__ws) === 0 && roomsReq.length >= 1, 'the list comes over GET /rooms: no WebSocket is opened to show it');
+    // the 10 s refresh while the list is open
+    const ole = await bot('Ole', '10.9.0.4');
+    const oRoom = await ole.call({ t: 'create', cfg: { boat: 'opti', vis: 'open', maxP: 4 }, hostRole: 'sail' }, ['created']);
+    const t0 = Date.now();
+    await lp.page.waitForFunction(c => !!document.querySelector('#live-listbox [data-code="' + c + '"]'), oRoom.code, { timeout: 14000 });
+    ok(Date.now() - t0 < 13000, 'a new open lobby shows up by itself within one 10 s refresh (' + Math.round((Date.now() - t0) / 1000) + ' s)');
+    // join from the list = the same flow as a code
+    await lp.page.click('#live-listbox [data-code="' + mRoom.code + '"]');
+    await waitView(lp.page, 'room');
+    ok(await lp.page.evaluate(c => KOS.Lobby.state.room.code === c && KOS.Lobby.state.room.players.length === 2, mRoom.code), 'tapping a list entry joins that room (2 sailors in Mille\'s lobby)');
+    await clickAct(lp.page, 'leave'); await waitView(lp.page, 'entry');
+    const nReq = roomsReq.length;
+    await lp.page.waitForTimeout(11000);
+    ok(roomsReq.length === nReq, 'no list requests once the list is closed (none in 11 s)');
+    // the empty state
+    await lp.page.route('**/rooms', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"rooms":[]}' }));
+    await clickAct(lp.page, 'listview'); await waitView(lp.page, 'list');
+    await lp.page.waitForSelector('#live-listbox .live-empty', { timeout: 8000 });
+    ok(await lp.page.evaluate(() => /Ingen åbne løb lige nu – start dit eget eller planlæg et\./.test(document.querySelector('#live-listbox .live-empty').textContent) &&
+      !!document.querySelector('#live-listbox [data-act="host"]') && !!document.querySelector('#live-listbox [data-act="planview"]')), 'empty list: the trainer says "Ingen åbne løb lige nu …" with host + schedule buttons');
+    await lp.page.unroute('**/rooms');
+    ok(lp.page.errs.length === 0, 'no errors in the list flow (' + lp.page.errs.join(' | ') + ')');
+    await lp.ctx.close();
+
+    console.log('-- schedule a race: validation, private, my scheduled races (QR, reminder, cancel)');
+    const pp = await newPage('area=race', 'Trine');
+    await pp.page.waitForSelector('.live-card', { timeout: 8000 }); await pp.page.click('.live-card'); await waitView(pp.page, 'entry');
+    await clickAct(pp.page, 'host'); await waitView(pp.page, 'setup');
+    ok(await pp.page.evaluate(() => document.querySelectorAll('#screen-live [data-act="vis"]').length === 2 && document.querySelector('#screen-live [data-act="vis"][data-v="private"]').classList.contains('on')), 'host setup has the visibility setting, private by default');
+    await clickAct(pp.page, 'planview'); await waitView(pp.page, 'plan');
+    ok(await pp.page.evaluate(() => [...document.querySelectorAll('#screen-live [data-act="ptitle"]')].map(b => b.textContent).join('|') === 'Træningsløb|Fredagsræs|Klubmesterskab|Juleræs|Weekendræs' &&
+      !document.querySelector('#screen-live input[type="text"], #screen-live textarea')), 'five preset race names and no free text field');
+    ok(await pp.page.evaluate(() => document.querySelector('#screen-live [data-act="pvis"][data-v="open"]').classList.contains('on')), 'a scheduled race is listed (open) by default');
+    const setWhen = (ms) => pp.page.evaluate(ms => { const d = new Date(ms), p = n => String(n).padStart(2, '0'); const day = document.getElementById('live-plan-day'), tm = document.getElementById('live-plan-time');
+      day.value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); tm.value = p(d.getHours()) + ':' + p(d.getMinutes()); tm.dispatchEvent(new Event('change')); }, ms);
+    const ws0 = await pp.page.evaluate(() => window.__ws);
+    await setWhen(Date.now() + 3 * 60000); await clickAct(pp.page, 'plan');
+    ok(await pp.page.evaluate(() => /mindst 10 minutter/.test(document.getElementById('live-plan-err').textContent)), 'a time 3 min ahead: "mindst 10 minutter fra nu"');
+    await setWhen(Date.now() + 15 * 86400000); await clickAct(pp.page, 'plan');
+    ok(await pp.page.evaluate(() => /højst planlægge 14 dage/.test(document.getElementById('live-plan-err').textContent)), '15 days ahead: "højst planlægge 14 dage frem"');
+    await pp.page.evaluate(() => { document.getElementById('live-plan-time').value = ''; document.getElementById('live-plan-time').dispatchEvent(new Event('change')); });
+    await clickAct(pp.page, 'plan');
+    ok(await pp.page.evaluate(() => /både dag og tidspunkt/.test(document.getElementById('live-plan-err').textContent)), 'no time: "Vælg både dag og tidspunkt"');
+    ok(await pp.page.evaluate(() => window.__ws) === ws0, 'a form that fails validation sends nothing');
+    const at = inDays(2, 17, 30);
+    await setWhen(at);
+    ok(await pp.page.evaluate(() => /kl\. 17\.30 · Åbner kl\. 17\.15/.test(document.getElementById('live-plan-when').textContent)), 'the form says when it starts and when it opens (' + await pp.page.evaluate(() => document.getElementById('live-plan-when').textContent) + ')');
+    await pp.page.click('#screen-live [data-act="ptitle"][data-v="weekend"]');
+    await pp.page.click('#screen-live [data-act="pvis"][data-v="private"]');
+    await pp.page.click('#screen-live [data-act="opt"][data-k="maxP"][data-v="4"]');
+    await clickAct(pp.page, 'plan');
+    await waitView(pp.page, 'mine', 10000);
+    const st = await pp.page.evaluate(() => JSON.parse(localStorage.getItem('kos.liveSched') || 'null'));
+    const mine = st && st[0];
+    ok(Array.isArray(st) && st.length === 1 && /^[ACDEFGHJKMNPRTUVWXY34679]{4}$/.test(mine.code) && /^[0-9a-f]{32}$/.test(mine.secret) && mine.title === 'weekend' && mine.startAt === at && mine.opensAt === at - 15 * 60000,
+      'KOS.Storage liveSched keeps {code, secret, title, startAt, opensAt} (' + (mine && mine.code) + ')');
+    const e = mine && srv.rooms.sched.get(mine.code);
+    ok(!!e && e.title === 'weekend' && e.startAt === at && e.cfg.vis === 'private' && e.cfg.maxP === 4 && e.hostName === 'Trine', 'the server stores the race: title id, start, private, max 4, host nickname');
+    ok(await pp.page.evaluate(c => { const it = document.querySelector('.live-mitem[data-code="' + c + '"]'); return !!it && /Weekendræs/.test(it.textContent) && /Kun med kode/.test(it.textContent) && !!it.querySelector('.live-qr svg'); }, mine.code), 'my scheduled races: title, code, "Kun med kode" and the QR code right after scheduling');
+    ok(await pp.page.evaluate(() => !document.querySelector('#screen-live [data-act="mgo"]')), 'not open yet: no "Gå til løbet" button');
+    const listed = await (await fetch(web.url.replace(/\/$/, '').replace(/:\d+$/, '') + ':' + port + '/rooms')).json();
+    ok(!listed.rooms.some(r => r.code === mine.code), 'a private scheduled race is not in the open list');
+    // "Påmind mig": a calendar file made in the browser
+    const [dl] = await Promise.all([pp.page.waitForEvent('download', { timeout: 8000 }), pp.page.click('#screen-live [data-act="mremind"][data-code="' + mine.code + '"]')]);
+    const ics = fs.readFileSync(await dl.path(), 'utf8');
+    const z = new Date(at).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    ok(/\.ics$/.test(dl.suggestedFilename()) && /^BEGIN:VCALENDAR\r\n/.test(ics) && ics.indexOf('DTSTART:' + z) > 0 && /SUMMARY:Weekendræs/.test(ics) && ics.indexOf(mine.code) > 0 && /TRIGGER:-PT15M/.test(ics) && /END:VCALENDAR\r\n$/.test(ics),
+      '"Påmind mig" downloads an .ics with the start (UTC), the title, the code and a 15 min alarm');
+    // the entry shows the button with a count
+    await pp.page.click('#screen-live .screen-head [data-act="back"]'); await waitView(pp.page, 'entry');
+    ok(await pp.page.evaluate(() => { const b = document.querySelector('#screen-live [data-act="mineview"]'); return !!b && b.querySelector('.live-badge').textContent === '1'; }), 'the entry shows "Mine planlagte løb" with 1');
+    await clickAct(pp.page, 'mineview'); await waitView(pp.page, 'mine');
+    // cancel
+    await pp.page.click('#screen-live [data-act="mcancel"][data-code="' + mine.code + '"]');
+    await pp.page.waitForSelector('.dialog .btn-danger', { timeout: 5000 });
+    ok(await pp.page.evaluate(() => /Aflys Weekendræs/.test(document.querySelector('.dialog').textContent)), 'cancel asks first ("Aflys Weekendræs …?")');
+    await pp.page.click('.dialog .btn-danger');
+    await pp.page.waitForFunction(() => !document.querySelector('.live-mitem'), null, { timeout: 8000 });
+    ok(!srv.rooms.sched.has(mine.code) && await pp.page.evaluate(() => JSON.parse(localStorage.getItem('kos.liveSched')).length === 0), 'cancelled on the server and forgotten on the phone');
+    ok(await pp.page.evaluate(() => /ingen planlagte løb/.test(document.getElementById('screen-live').textContent)), 'my scheduled races: the empty text');
+    ok(pp.page.errs.length === 0, 'no errors in the schedule flow (' + pp.page.errs.join(' | ') + ')');
+    if (process.env.SHOTS) await pp.page.screenshot({ path: process.env.SHOTS + 'live-mine-empty.png' });
+    await pp.ctx.close();
+
+    console.log('-- #live=CODE for a race that is not open yet, a server-run scheduled room, the creator takes the host seat');
+    const wp = await newPage('live=' + fri.code, 'Wilma');
+    await waitView(wp.page, 'join');
+    ok(await wp.page.evaluate(c => document.getElementById('live-code').value === c && location.hash.indexOf('live=') < 0, fri.code), '#live=CODE opens the join screen with the code (and leaves the hash)');
+    await clickAct(wp.page, 'join');
+    await waitView(wp.page, 'wait');
+    ok(await wp.page.evaluate(() => { const x = document.getElementById('screen-live').textContent; return /Fredagsræs åbner .* kl\. 17\.45\. Løbet starter .* kl\. 18\.00\./.test(x) && /Åbner om \d+ (t|dage)/.test(x); }),
+      'not open yet: "Fredagsræs åbner … kl. 17.45. Løbet starter … kl. 18.00." and a countdown');
+    ok(await wp.page.evaluate(() => !!document.querySelector('#screen-live [data-act="remind"]') && !KOS.Lobby.state.sess), 'the wait card offers "Påmind mig" and holds no connection');
+    ok(wp.page.errs.length === 0, 'no errors (' + wp.page.errs.join(' | ') + ')');
+    await wp.ctx.close();
+
+    // a race 11 min ahead opens at once (startAt - 15 min) as a lobby without a host
+    const maria = await bot('Maria', '10.9.0.5');
+    const soon = await maria.call({ t: 'sched', cfg: { boat: 'zest', course: 'wl', maxP: 8 }, title: 'train', startAt: Date.now() + 11 * 60000 }, ['scheduled', 'err']);
+    maria.ws.close();
+    const rp = await newPage('area=race', 'Rasmus');
+    await rp.page.waitForFunction(c => true, null);
+    await listOpen(rp.page);
+    await rp.page.waitForSelector('#live-listbox [data-code="' + soon.code + '"]', { timeout: 8000 });
+    ok(await rp.page.evaluate(c => { const b = document.querySelector('#live-listbox [data-code="' + c + '"]'); return /Træningsløb/.test(b.textContent) && /Starter om (10|11):/.test(b.textContent) && !b.disabled; }, soon.code), 'an opened scheduled race is listed with its title and "Starter om 10:xx"');
+    await rp.page.click('#live-listbox [data-code="' + soon.code + '"]');
+    await waitView(rp.page, 'room');
+    ok(await rp.page.evaluate(() => { const x = document.getElementById('screen-live'); return x.querySelector('.screen-head h1').textContent === 'Træningsløb' && /starter af sig selv/.test(x.textContent) && /Starter om \d+:\d\d/.test(x.querySelector('.live-schedin').textContent) && !x.querySelector('[data-act="start"]'); }),
+      'the server-run room: title, "Løbet starter af sig selv …" with a countdown, no start button');
+    // the creator (Maria's phone) joins with the secret from "Mine planlagte løb" and becomes host
+    const cp = await newPage('area=race', 'Maria');
+    await cp.page.evaluate(x => KOS.Storage.set('liveSched', [x]), { code: soon.code, secret: soon.secret, title: soon.title, startAt: soon.startAt, opensAt: soon.opensAt, boat: 'zest', course: 'wl', wind: 10, maxP: 8, vis: 'open', url: WS });
+    await cp.page.waitForSelector('.live-card', { timeout: 8000 }); await cp.page.click('.live-card'); await waitView(cp.page, 'entry');
+    await clickAct(cp.page, 'mineview'); await waitView(cp.page, 'mine');
+    ok(await cp.page.evaluate(() => /Løbet er åbent nu!/.test(document.getElementById('screen-live').textContent) && !!document.querySelector('#screen-live [data-act="mgo"]')), 'my scheduled race is open: "Løbet er åbent nu!" and "Gå til løbet"');
+    await clickAct(cp.page, 'mgo');
+    await waitView(cp.page, 'room');
+    ok(await cp.page.evaluate(() => KOS.Lobby.state.sess.role === 'host' && /Start løbet nu/.test(document.querySelector('#screen-live [data-act="start"]').textContent)), 'the creator takes the host seat with the secret and may start early');
+    await rp.page.waitForFunction(() => /Venter på værten/.test(document.getElementById('screen-live').textContent), null, { timeout: 8000 });
+    ok(true, 'the other sailor now waits for the host');
+    // the creator cancels from the room's own lobby: everybody gets the kind message
+    await clickAct(cp.page, 'leave'); await waitView(cp.page, 'entry');
+    await rp.page.waitForFunction(() => /starter af sig selv/.test(document.getElementById('screen-live').textContent), null, { timeout: 8000 });
+    ok(true, 'the creator leaves: the room is server-run again');
+    await clickAct(cp.page, 'mineview'); await waitView(cp.page, 'mine');
+    await cp.page.click('#screen-live [data-act="mcancel"]'); await cp.page.waitForSelector('.dialog .btn-danger'); await cp.page.click('.dialog .btn-danger');
+    await waitView(rp.page, 'msg', 8000);
+    ok(await rp.page.evaluate(() => /Løbet er aflyst\./.test(document.getElementById('screen-live').textContent)), 'the sailor in the opened room is told "Løbet er aflyst."');
+    ok(rp.page.errs.length === 0 && cp.page.errs.length === 0, 'no errors (' + rp.page.errs.concat(cp.page.errs).join(' | ') + ')');
+    await rp.ctx.close(); await cp.ctx.close();
+
+    console.log('-- kill switch: closed hides the list and scheduling, my races stay visible');
+    status = { mode: 'closed', message: 'Pause i dag.', maxRooms: 10, maxPlayers: 12 };
+    const kp = await newPage('area=race', 'Kim');
+    await kp.page.evaluate(x => KOS.Storage.set('liveSched', [x]), { code: fri.code, secret: fri.secret, title: 'friday', startAt: fri.startAt, opensAt: fri.opensAt, boat: 'opti', course: 'tri', wind: 10, maxP: 12, vis: 'open', url: WS });
+    await kp.page.waitForSelector('.live-card', { timeout: 8000 }); await kp.page.click('.live-card'); await waitView(kp.page, 'entry');
+    ok(await kp.page.evaluate(() => !document.querySelector('#screen-live [data-act="listview"]') && !!document.querySelector('#screen-live [data-act="mineview"]')), 'closed: no "Find et løb", "Mine planlagte løb" is still there');
+    await clickAct(kp.page, 'mineview'); await waitView(kp.page, 'mine');
+    ok(await kp.page.evaluate(() => !document.querySelector('#screen-live [data-act="planview"]') && !!document.querySelector('.live-mitem')), 'closed: my race is shown, "Planlæg til senere" is not');
+    await kp.ctx.close();
+    status = { mode: 'on', message: '', maxRooms: 10, maxPlayers: 12 };
+    [anton, mille, priv, ole].forEach(b => { try { b.ws.close(); } catch (x) { /* ignore */ } });
   }
 
   await browser.close();

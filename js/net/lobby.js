@@ -1,7 +1,8 @@
 // KØS SEJL — js/net/lobby.js  (LAZY: loaded together with mp.js when the "Live-kapsejlads" entry is opened)
 // KOS.Lobby: the screens around a live race (docs/specs/live-race.md section 6.4 and 8). It is a normal app screen 'live'
 // (KOS.App.registerScreen). Views: entry, setup (host), join, room (code, link, QR, players), starting, results, msg (the
-// trainer talks: unavailable, closed, kicked ...). No chat and no free text: names come from the profile.
+// trainer talks: unavailable, closed, kicked ...), list ("Find et løb"), plan (schedule a race), mine (my scheduled races),
+// wait (a scheduled race that is not open yet). No chat and no free text: names come from the profile, race titles are presets.
 //   KOS.Lobby.open({join?: 'ABCD', status?})
 //   KOS.Lobby.state            the current view model (read-only; used by tests)
 // All strings are live.* keys in both languages (live.title / live.card.* / live.unavailable live in js/net/mpstatus.js).
@@ -91,11 +92,56 @@
     rejoinGone: 'That race is gone – it has probably finished.',
   } });
 
+  // the open race list and scheduled races (live-rules spec B/C). Titles are fixed presets: no free text anywhere.
+  KOS.I18n.add('da', { live: {
+    startEarly: 'Start løbet nu', auto: 'Løbet starter af sig selv {when}, når mindst 2 sejlere er med.', autoIn: 'Starter om {t}', waitMore: 'Venter på flere sejlere…',
+    cancelHost: 'Løbet er aflyst.', cancelFew: 'Der kom ikke nok sejlere, så løbet er aflyst. Prøv igen en anden dag!',
+    titles: { train: 'Træningsløb', friday: 'Fredagsræs', club: 'Klubmesterskab', xmas: 'Juleræs', weekend: 'Weekendræs' },
+    when: { today: 'i dag kl. {time}', tomorrow: 'i morgen kl. {time}', day: '{day} kl. {time}' },
+    dur: { h: '{h} t {m} min', d: '{d} dage' },
+    vis: { label: 'Hvem kan være med', private: 'Kun med kode', open: 'Alle (på listen)', privateHint: 'Kun dem, der får koden, linket eller QR-koden.', openHint: 'Løbet står under “Find et løb”, så alle kan være med.' },
+    list: { title: 'Find et løb', intro: 'Tryk på et løb for at være med.', sched: 'Planlagte løb', open: 'Åbne løb', loading: 'Henter løb…', refresh: 'Opdater',
+      empty: 'Ingen åbne løb lige nu – start dit eget eller planlæg et.', err: 'Jeg kan ikke hente listen lige nu. Prøv igen om lidt.',
+      lobby: 'I lobbyen', startsIn: 'Starter om {t}', now: 'Starter nu', planned: 'Planlagt {when}', full: 'Fuldt', by: 'Vært: {name}', sailors: '{n}/{max} sejlere' },
+    plan: { btn: 'Planlæg til senere', title: 'Planlæg et løb', intro: 'Vælg navn, dag og tidspunkt. Løbet åbner 15 minutter før start, og serveren starter det selv, når mindst 2 sejlere er med.',
+      name: 'Navn', day: 'Dag', time: 'Tidspunkt', go: 'Planlæg løbet', opens: 'Åbner kl. {time}',
+      noTime: 'Vælg både dag og tidspunkt.', tooSoon: 'Vælg et tidspunkt mindst 10 minutter fra nu.', tooLate: 'Du kan højst planlægge 14 dage frem.',
+      badtime: 'Det tidspunkt kan ikke bruges – vælg et andet.', limit: 'Du har planlagt 3 løb i dag. Det er max.', full: 'Der er planlagt rigtig mange løb lige nu – prøv igen senere.',
+      done: '{title} er planlagt {when}.' },
+    mine: { btn: 'Mine planlagte løb', title: 'Mine planlagte løb', intro: 'Del koden, linket eller QR-koden med dine sejlere. Når løbet er åbnet, kan du gå ind og starte det.',
+      empty: 'Du har ingen planlagte løb lige nu.', opens: 'Åbner {when}', isOpen: 'Løbet er åbent nu!', go: 'Gå til løbet', qr: 'QR-kode', cancel: 'Aflys',
+      cancelAsk: 'Aflys {title} {when}?', cancelled: 'Løbet er aflyst.', cantCancel: 'Løbet er i gang og kan ikke aflyses nu.' },
+    wait: { msg: '{title} åbner {opens}. Løbet starter {start}.', left: 'Åbner om {t}', soon: 'Åbner nu…', remind: 'Påmind mig', check: 'Prøv igen' },
+    ics: { desc: 'Live-kapsejlads i KØS SEJL. Kode: {code}. Løbet åbner 15 minutter før start: {link}' },
+  } });
+  KOS.I18n.add('en', { live: {
+    startEarly: 'Start the race now', auto: 'The race starts by itself {when} when at least 2 sailors are in.', autoIn: 'Starting in {t}', waitMore: 'Waiting for more sailors…',
+    cancelHost: 'The race was cancelled.', cancelFew: 'Not enough sailors came, so the race is cancelled. Try again another day!',
+    titles: { train: 'Training race', friday: 'Friday race', club: 'Club championship', xmas: 'Christmas race', weekend: 'Weekend race' },
+    when: { today: 'today at {time}', tomorrow: 'tomorrow at {time}', day: '{day} at {time}' },
+    dur: { h: '{h} h {m} min', d: '{d} days' },
+    vis: { label: 'Who can join', private: 'Code only', open: 'Everyone (listed)', privateHint: 'Only those who get the code, the link or the QR code.', openHint: 'The race is shown under “Find a race”, so anyone can join.' },
+    list: { title: 'Find a race', intro: 'Tap a race to join it.', sched: 'Scheduled races', open: 'Open races', loading: 'Getting races…', refresh: 'Refresh',
+      empty: 'No open races right now – start your own or schedule one.', err: 'I cannot get the list right now. Try again in a little while.',
+      lobby: 'In the lobby', startsIn: 'Starting in {t}', now: 'Starting now', planned: 'Scheduled {when}', full: 'Full', by: 'Host: {name}', sailors: '{n}/{max} sailors' },
+    plan: { btn: 'Schedule for later', title: 'Schedule a race', intro: 'Pick a name, a day and a time. The race opens 15 minutes before the start, and the server starts it by itself when at least 2 sailors are in.',
+      name: 'Name', day: 'Day', time: 'Time', go: 'Schedule the race', opens: 'Opens at {time}',
+      noTime: 'Pick both a day and a time.', tooSoon: 'Pick a time at least 10 minutes from now.', tooLate: 'You can schedule at most 14 days ahead.',
+      badtime: 'That time cannot be used – pick another one.', limit: 'You have scheduled 3 races today. That is the maximum.', full: 'A lot of races are scheduled right now – try again later.',
+      done: '{title} is scheduled {when}.' },
+    mine: { btn: 'My scheduled races', title: 'My scheduled races', intro: 'Share the code, the link or the QR code with your sailors. When the race has opened you can go in and start it.',
+      empty: 'You have no scheduled races right now.', opens: 'Opens {when}', isOpen: 'The race is open now!', go: 'Go to the race', qr: 'QR code', cancel: 'Cancel',
+      cancelAsk: 'Cancel {title} {when}?', cancelled: 'The race is cancelled.', cantCancel: 'The race is on and cannot be cancelled now.' },
+    wait: { msg: '{title} opens {opens}. The race starts {start}.', left: 'Opens in {t}', soon: 'Opening now…', remind: 'Remind me', check: 'Try again' },
+    ics: { desc: 'Live race in KØS SEJL. Code: {code}. The race opens 15 minutes before the start: {link}' },
+  } });
+
   // ------------------------------------------------------------------ state
   const DIRS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
   const L = {
     view: 'entry', hostRole: 'sail', cfg: null, sess: null, room: null, code: '', msgKey: null, msgText: '', msgActions: [],
     busy: '', status: null, offs: [], timers: [], handoff: false, results: null, via: 'code',
+    list: null, plan: null, wait: null, mineQr: '', planFrom: 'setup', waitFrom: '', tickT: 0,
   };
   const app = () => KOS.App;
   const kit = () => KOS.App.kit;
@@ -106,7 +152,7 @@
     const boats = boatsList();
     const fav = KOS.Storage && KOS.Storage.get ? KOS.Storage.get('boat', 'opti') : 'opti';
     return { boat: boats.indexOf(fav) >= 0 ? fav : boats[0] || 'opti', venue: 'sound', course: 'wl', laps: 2, windDeg: 225, windKn: 10,
-      gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, contact: true, help: 'free', rain: 0, finishS: 180 };
+      gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, contact: true, help: 'free', rain: 0, finishS: 180, vis: 'private' };
   }
   function boatsList() { try { const l = app().liveBoats(); return l && l.length ? l : ['opti']; } catch (e) { return ['opti']; } }
   function myName() {
@@ -120,9 +166,20 @@
     L.timers.forEach(clearInterval); L.timers = [];
     if (L.sess && (!L.handoff || L.sess.phase === 'results')) { try { L.sess.leave(); } catch (e) { /* ignore */ } }
     L.sess = null; L.room = null; L.busy = ''; L.results = null; L.handoff = false;
+    stopTick();
   }
   function paint() { const sec = secEl(); if (sec && app().cur === 'live') { render(sec); if (KOS.I18n) KOS.I18n.apply(sec); } }
   function setView(v) { L.view = v; paint(); if (KOS.Nav) KOS.Nav.sync(); } // KOS.Nav: a lobby sub view is one back step
+  // one 1 s ticker for the clocks on screen (list, wait, scheduled room): runs only while one of those views is shown
+  const TICK_VIEWS = ['list', 'wait', 'room'];
+  function stopTick() { if (L.tickT) { clearInterval(L.tickT); L.tickT = 0; } }
+  function ensureTick() {
+    if (L.tickT) return;
+    L.tickT = setInterval(() => {
+      if (app().cur !== 'live' || TICK_VIEWS.indexOf(L.view) < 0) { stopTick(); return; }
+      onTick();
+    }, 1000);
+  }
 
   // ------------------------------------------------------------------ messages (the trainer talks)
   function trainerMsg(text, actions) {
@@ -144,6 +201,9 @@
     if (code === 'full') return t('live.full');
     if (code === 'started') return t('live.started');
     if (code === 'few') return t('live.few');
+    if (code === 'badtime') return t('live.plan.badtime');
+    if (code === 'schedlimit') return t('live.plan.limit');
+    if (code === 'schedfull') return t('live.plan.full');
     return t('live.unavailable');
   }
 
@@ -203,6 +263,7 @@
       if (cur === 'live') paint(); else if (cur === 'play' || cur === 'results') app().show('live', {}, { replace: true }); else reset();
     });
     on('hostleft', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.hostLeft'), ['back']); leaveRaceScreen(); });
+    on('schedcancelled', e => { const s = L.sess; L.sess = null; try { s.close(); } catch (x) { /* ignore */ } trainerMsg(t(e && e.why === 'host' ? 'live.cancelHost' : 'live.cancelFew'), ['back']); leaveRaceScreen(); });
     on('kicked', () => { const s = L.sess; L.sess = null; try { s.close(); } catch (e) { /* ignore */ } trainerMsg(t('live.kicked'), ['back']); leaveRaceScreen(); });
     on('offline', () => { if (L.view === 'room' || L.view === 'starting') { if (!L.handoff) lt('unavailable', 'offline'); trainerMsg(t('live.unavailable'), ['retry', 'ai']); } });
     on('reconnecting', () => { const el = secEl() && secEl().querySelector('.live-banner'); if (el) el.hidden = false; });
@@ -235,21 +296,24 @@
       unavailable(L.hostRole === 'watch');
     });
   }
-  function doJoin(raw) {
+  function doJoin(raw, secret) {
     const code = KOS.MP.normCode(raw);
     if (!code) { L.joinErr = t('live.noCode'); paint(); return; }
+    if (secret === undefined) { const mine = mySched().find(e => e.code === code); secret = mine ? mine.secret : ''; } // my own scheduled race: I take the host seat
     L.code = code; L.busy = t('live.connecting'); L.joinErr = ''; L.intent = { join: code }; paint();
     guard().then(ok => {
       if (!ok) return;
       return connectNow().then(sess => {
         wire(sess);
-        return sess.join(code).then(room => { L.room = room; L.busy = ''; lt('join', L.via || 'code'); setView('room'); });
+        return sess.join(code, secret).then(room => { L.room = room; L.busy = ''; lt('join', L.via || 'code'); setView('room'); });
       });
     }).catch(e => {
       L.busy = '';
       if (handleOld(e, { join: code })) return;
       const code2 = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
+      if (code2 === 'notopen') { showWait(code, e); return; }
+      if (code2 === 'bad' && secret) { doJoin(code, ''); return; } // my scheduled race, but its host seat is taken (my other phone): join as a sailor
       if (code2 === 'closed' || code2 === 'busy') lt('unavailable', 'closed');
       if (code2 === 'nocode' || code2 === 'full' || code2 === 'started' || code2 === 'closed' || code2 === 'busy') { L.joinErr = errText(code2); setView('join'); return; }
       unavailable(false);
@@ -276,6 +340,7 @@
       if (handleOld(e, { join: code })) return;
       const c2 = e && e.code;
       try { if (L.sess) { L.sess.close(); L.sess = null; } } catch (x) { /* ignore */ }
+      if (c2 === 'notopen') { showWait(code, e); return; }
       if (L.rejoin && (c2 === 'nocode' || c2 === 'started' || c2 === 'full')) { L.rejoin = false; try { KOS.MP.clearSeat(); } catch (x) { /* ignore */ } trainerMsg(t('live.rejoinGone'), ['back']); return; }
       if (c2 === 'nocode' || c2 === 'full' || c2 === 'started' || c2 === 'closed' || c2 === 'busy') { L.joinErr = errText(c2); setView('join'); return; }
       unavailable(false);
@@ -325,13 +390,15 @@
   }
 
   function viewEntry() {
-    const closed = L.status && L.status.mode === 'closed';
+    const closed = L.status && L.status.mode === 'closed', mineN = mySched().length;
     return shell(t('live.title'),
       (closed ? trainerHtml(L.status.message || t('live.closed')) : '<p class="live-intro">' + esc(t('live.intro')) + '</p>') +
       '<div class="live-big-btns">' +
       '<button type="button" class="btn btn-primary btn-big" data-act="host"' + (closed ? ' disabled' : '') + '>' + kit().ico('flag') + '<span>' + esc(t('live.host')) + '</span></button>' +
       '<button type="button" class="btn btn-glass btn-big" data-act="joinview"' + (closed ? ' disabled' : '') + '>' + kit().ico('user') + '<span>' + esc(t('live.join')) + '</span></button>' +
-      '</div>' + (closed ? '<button type="button" class="btn btn-glass" data-act="recheck">' + esc(t('live.retry')) + '</button>' : ''));
+      (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="listview">' + kit().ico('map') + '<span>' + esc(t('live.list.title')) + '</span></button>' : '') +
+      '</div>' + (closed ? '<button type="button" class="btn btn-glass" data-act="recheck">' + esc(t('live.retry')) + '</button>' : '') +
+      (mineN ? '<div class="live-actions"><button type="button" class="btn btn-glass" data-act="mineview">' + kit().ico('calendar') + '<span>' + esc(t('live.mine.btn')) + '</span><b class="live-badge">' + mineN + '</b></button></div>' : ''));
   }
   function viewMsg() {
     const btn = { retry: '<button type="button" class="btn btn-primary" data-act="retry">' + esc(t('live.retry')) + '</button>',
@@ -343,9 +410,7 @@
   function viewSetup() {
     const c = L.cfg, boats = boatsList(), G = kit().boatGet;
     const bn = id => (G(id) && G(id).name) || id;
-    const U = KOS.U, ms = U && U.windUnit && U.windUnit() !== 'kn';
-    // wind chips in the player's unit (the server stores knots): 3-14 m/s or 6-27 kn
-    const winds = ms ? [3, 4, 5, 6, 7, 8, 9, 10, 12, 14].map(v => ({ kn: Math.round(U.kn(v) * 10) / 10, label: v + ' m/s' })) : [6, 8, 10, 12, 14, 16, 18, 20, 24, 27].map(v => ({ kn: v, label: v + ' kn' }));
+    const U = KOS.U, winds = windOpts();
     const wMs = U && U.ms ? U.ms(c.windKn) : c.windKn * 0.5144;
     const keelB = id => { const B = G(id); return !!(B && B.canCapsize === false); };
     const note = wMs > 8.6 && !keelB(c.boat) ? t('live.dinghyNote') : wMs > 9 && keelB(c.boat) ? t('live.strongNote') : '';
@@ -358,7 +423,7 @@
       row(t('live.cfg.venue'), ['sound', 'bay'].map(v => chip('opt', 'venue', v, t('live.cfg.' + v), c.venue === v)).join('')) +
       row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
       row(t('live.cfg.laps'), [1, 2, 3].map(v => chip('opt', 'laps', v, String(v), c.laps === v)).join('')) +
-      row(t('live.cfg.wind'), winds.map(w => chip('opt', 'windKn', w.kn, w.label, Math.abs(c.windKn - w.kn) < 0.06)).join('')) +
+      windRow(c, winds) +
       (note ? '<div class="live-hint live-windnote" role="note">' + esc(note) + '</div>' : '') +
       row(t('live.cfg.windDir'), DIRS.map(d => chip('opt', 'windDeg', d[1], t('live.dir.' + d[0]), c.windDeg === d[1])).join('')) +
       row(t('live.cfg.gust'), [['none', 0], ['some', 0.4], ['lots', 0.8], ['hard', 1]].map(g => chip('opt', 'gust', g[1], t('live.cfg.' + g[0]), c.gust === g[1])).join('')) +
@@ -370,8 +435,10 @@
       row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
       row(t('live.cfg.help'), ['locked', 'free'].map(v => chip('opt', 'help', v, t('live.cfg.' + v), c.help === v)).join('')) +
       row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
+      visRow(c.vis, 'vis') +
       '</div>' +
-      '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="create"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('play') + '<span>' + esc(L.busy || t('live.cfg.create')) + '</span></button></div>');
+      '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="create"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('play') + '<span>' + esc(L.busy || t('live.cfg.create')) + '</span></button>' +
+      (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="planview"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(t('live.plan.btn')) + '</span></button>' : '') + '</div>');
   }
   function viewJoin() {
     const p = KOS.Storage && KOS.Storage.profile ? KOS.Storage.profile() : null;
@@ -414,16 +481,19 @@
     const can = host && have >= need;
     const cf = room.cfg || {};
     const bn = (kit().boatGet(cf.boat) || {}).name || cf.boat;
-    return '<div class="live-banner" role="status" hidden>' + esc(t('live.reconnecting')) + '</div>' + shell(t('live.title'),
+    return '<div class="live-banner" role="status" hidden>' + esc(t('live.reconnecting')) + '</div>' + shell(room.sched ? titleTxt(room.sched.title) : t('live.title'),
       '<div class="live-room">' +
       '<div class="live-codebox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code" id="live-code-show" aria-live="polite">' + esc(code) + '</div>' +
       '<div class="live-link"><small>' + esc(t('live.joinLink')) + ':</small> <code id="live-link">' + esc(link) + '</code></div>' +
       '<div class="live-qr" id="live-qr" aria-label="' + esc(t('live.scan')) + '">' + qr + '</div><small>' + esc(t('live.scan')) + '</small>' +
       '<button type="button" class="btn btn-glass btn-sm" data-act="share">' + kit().ico('share') + '<span>' + esc(t('live.share')) + '</span></button></div>' +
       '<div class="live-side glass"><h2>' + esc(t('live.players')) + ' (' + room.players.length + '/' + (cf.maxP || '') + ')</h2>' + playersHtml(room) +
-      '<div class="live-sum">' + esc(bn) + ' · ' + esc(t('live.cfg.' + cf.course)) + ' · ' + esc(String(cf.laps)) + ' ' + esc(t('live.cfg.laps').toLowerCase()) + ' · ' + esc(role(room)) + '</div>' +
-      (host ? '<button type="button" class="btn btn-primary btn-big" data-act="start"' + (can ? '' : ' disabled') + '>' + kit().ico('play') + '<span>' + esc(t('live.start')) + '</span></button>' +
-        (can ? '' : '<div class="live-hint" id="live-few">' + esc(t('live.few')) + '</div>') : '<div class="live-hint">' + esc(t('live.waitHost')) + '</div>') +
+      '<div class="live-sum">' + esc(bn) + ' · ' + esc(t('live.cfg.' + cf.course)) + ' · ' + esc(String(cf.laps)) + ' ' + esc(t('live.cfg.laps').toLowerCase()) + (room.sched ? '' : ' · ' + esc(role(room))) + '</div>' +
+      (room.sched ? schedRoomHtml(room) : '') +
+      (host ? visRow(cf.vis, 'visroom') : '') +
+      (host ? '<button type="button" class="btn btn-primary btn-big" data-act="start"' + (can ? '' : ' disabled') + '>' + kit().ico('play') + '<span>' + esc(t(room.sched ? 'live.startEarly' : 'live.start')) + '</span></button>' +
+        (can ? '' : '<div class="live-hint" id="live-few">' + esc(t('live.few')) + '</div>') :
+        '<div class="live-hint">' + esc(room.sched && !room.hostId ? t('live.auto', { when: whenTxt(room.sched.at) }) : t('live.waitHost')) + '</div>') +
       '<button type="button" class="btn btn-glass btn-sm" data-act="leave">' + esc(t('live.leave')) + '</button></div>' +
       '</div>');
   }
@@ -440,15 +510,313 @@
       '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="entry">' + esc(t('common.ok')) + '</button></div>');
   }
 
+  // wind chips in the player's unit (the server stores knots): 3-14 m/s or 6-27 kn
+  function windOpts() {
+    const U = KOS.U, ms = U && U.windUnit && U.windUnit() !== 'kn';
+    return ms ? [3, 4, 5, 6, 7, 8, 9, 10, 12, 14].map(v => ({ kn: Math.round(U.kn(v) * 10) / 10, label: v + ' m/s' })) : [6, 8, 10, 12, 14, 16, 18, 20, 24, 27].map(v => ({ kn: v, label: v + ' kn' }));
+  }
+  const windRow = (c, winds) => row(t('live.cfg.wind'), (winds || windOpts()).map(w => chip('opt', 'windKn', w.kn, w.label, Math.abs(c.windKn - w.kn) < 0.06)).join(''));
+  function visRow(v, act) {
+    v = v === 'open' ? 'open' : 'private';
+    return row(t('live.vis.label'), ['private', 'open'].map(x => chip(act, 'vis', x, t('live.vis.' + x), v === x, kit().ico(x === 'open' ? 'eye' : 'lock'))).join('')) +
+      '<div class="live-hint">' + esc(t('live.vis.' + v + 'Hint')) + '</div>';
+  }
+
+  // ------------------------------------------------------------------ open list + scheduled races (live-rules spec B/C)
+  const TITLES = ['train', 'friday', 'club', 'xmas', 'weekend']; // the server's preset ids; the client translates them
+  const SCHED_KEY = 'liveSched'; // KOS.Storage: [{code, secret, title, startAt, opensAt, boat, course, wind, maxP, vis, url}] my scheduled races
+  const MIN_LEAD = 10 * 60000, MAX_LEAD = 14 * 86400000, OPEN_BEFORE = 15 * 60000, LIST_MS = 10000;
+  // the status file kill switch: closed/hidden hides the list and blocks new schedules (my existing ones stay visible)
+  const canPlan = () => !L.status || L.status.mode === 'on';
+  const titleTxt = id => (TITLES.indexOf(id) >= 0 ? t('live.titles.' + id) : t('live.title'));
+  const locale = () => (KOS.I18n && KOS.I18n.lang === 'en' ? 'en-GB' : 'da-DK');
+  function fmtDate(ms, o) { try { return new Intl.DateTimeFormat(locale(), o).format(new Date(ms)); } catch (e) { return new Date(ms).toLocaleString(); } }
+  const clock = ms => fmtDate(ms, { hour: '2-digit', minute: '2-digit' });
+  const dayKey = ms => { const d = new Date(ms); return d.getFullYear() * 500 + d.getMonth() * 40 + d.getDate(); };
+  // "i dag kl. 18.00" / "i morgen kl. 18.00" / "fre. 6. nov. kl. 18.00" (local time)
+  function whenTxt(ms) {
+    const now = Date.now(), k = dayKey(ms), tm = clock(ms);
+    if (k === dayKey(now)) return t('live.when.today', { time: tm });
+    if (k === dayKey(now + 86400000)) return t('live.when.tomorrow', { time: tm });
+    return t('live.when.day', { day: fmtDate(ms, { weekday: 'short', day: 'numeric', month: 'short' }), time: tm });
+  }
+  // a countdown: "0:45", "12:03", "2 t 5 min", "3 dage"
+  function durTxt(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    if (s < 3600) return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    const h = Math.floor(s / 3600);
+    return h < 48 ? t('live.dur.h', { h, m: Math.floor((s % 3600) / 60) }) : t('live.dur.d', { d: Math.floor(h / 24) });
+  }
+  // a clock on screen: data-until (local ms) + data-fmt (key with {t}) + data-done (key when it has passed); onTick() fills it
+  const untilHtml = (cls, at, fmt, done) => '<span class="' + cls + '" data-until="' + Math.round(at) + '" data-fmt="' + fmt + '" data-done="' + done + '"></span>';
+  function onTick() {
+    const sec = secEl(), now = Date.now();
+    if (!sec) return;
+    sec.querySelectorAll('[data-until]').forEach(el => {
+      const left = +el.getAttribute('data-until') - now;
+      const txt = left > 0 ? t(el.getAttribute('data-fmt'), { t: durTxt(left) }) : t(el.getAttribute('data-done'));
+      if (el.textContent !== txt) el.textContent = txt;
+    });
+    // the list refreshes every 10 s while it is on screen (never in the background)
+    if (L.view === 'list' && L.list && !L.list.loading && !(doc && doc.hidden) && now - L.list.tried >= LIST_MS) loadList();
+    // the wait card joins by itself once the room has opened (a few tries, in case the phone's clock is ahead of the server's)
+    const w = L.wait;
+    if (L.view === 'wait' && w && !L.busy && w.tries < 4 && now >= w.opensAt + 1500 + w.tries * 10000) { w.tries++; doJoin(w.code); }
+  }
+
+  // my scheduled races (the secret is only here: it makes me the host and lets me cancel)
+  function wsUrl() { try { return KOS.MPStatus.resolve().wsUrl || ''; } catch (e) { return ''; } }
+  function schedAll() {
+    const S = KOS.Storage, now = Date.now();
+    if (!S || !S.get) return [];
+    return (S.get(SCHED_KEY, [], Array.isArray) || []).filter(e => e && KOS.MP.normCode(e.code) && /^[0-9a-f]{32}$/.test(String(e.secret)) && typeof e.startAt === 'number' && e.startAt + 10 * 60000 > now);
+  }
+  function mySched() { const u = wsUrl(); return schedAll().filter(e => !e.url || e.url === u).sort((a, b) => a.startAt - b.startAt); } // a race on another server (test vs prod) is not shown
+  function saveSched(list) { try { KOS.Storage.set(SCHED_KEY, list.slice(-20)); } catch (e) { /* storage full */ } }
+  const addSched = e => saveSched(schedAll().filter(x => x.code !== e.code).concat([e]));
+  const dropSched = code => saveSched(schedAll().filter(x => x.code !== code));
+
+  // ---- "Find et løb": GET /rooms (no socket); falls back to one short socket when the HTTP route is not there
+  function openList() { L.list = L.list || { rows: null, err: '', tried: 0, at: 0, loading: false }; L.waitFrom = ''; L.joinErr = ''; setView('list'); loadList(); }
+  function loadList() {
+    const st = L.list;
+    if (!st || st.loading) return;
+    st.loading = true; st.tried = Date.now();
+    const viaWs = () => connectNow().then(sess => sess.list().then(r => { sess.close(); return r; }, e => { sess.close(); throw e; }));
+    KOS.MP.fetchRooms(wsUrl()).catch(e => (e && e.code === 'rate' ? Promise.reject(e) : viaWs())).then(rows => {
+      st.rows = rows; st.at = Date.now(); st.err = '';
+    }, e => {
+      if (handleOld(e, {})) return;
+      if (!st.rows) st.err = t('live.list.err'); // a failed refresh keeps the last list on screen
+    }).then(() => {
+      st.loading = false;
+      const box = L.view === 'list' && secEl() && secEl().querySelector('#live-listbox');
+      if (box) { box.innerHTML = listBody(); box.setAttribute('aria-busy', 'false'); onTick(); } // only the list itself: the scroll position stays
+    });
+  }
+  const courseTxt = c => (COURSE_ICO[c] || '') + esc(t('live.cfg.' + (c === 'tri' ? 'tri' : 'wl')));
+  function metaHtml(cls, course, wind) {
+    const bn = (kit().boatGet(cls) || {}).name || cls || '';
+    const U = KOS.U, w = U && U.windTxt ? U.windTxt(+wind || 0) : Math.round(+wind || 0) + ' kn';
+    return '<span class="live-meta"><span>' + kit().ico('boat') + esc(bn) + '</span><span>' + courseTxt(course) + '</span><span>' + kit().ico('wind') + esc(w) + '</span></span>';
+  }
+  function rowHtml(r) {
+    const st = L.list, pending = r.phase === 'sched', full = !pending && r.n >= r.max, shut = full || r.phase === 'countdown'; // a countdown is shown, but nobody can join it any more
+    const head = r.sched ? titleTxt(r.sched.title) : r.host;
+    let status;
+    if (pending) status = '<span class="live-st is-sched">' + kit().ico('calendar') + esc(t('live.list.planned', { when: whenTxt(r.sched.at) })) + '</span>';
+    else if (r.phase === 'countdown') status = '<span class="live-st is-go">' + kit().ico('timer') + untilHtml('', st.at + (+r.startsIn || 0), 'live.list.startsIn', 'live.list.now') + '</span>';
+    else if (r.sched) status = '<span class="live-st is-open">' + kit().ico('timer') + untilHtml('', st.at + (+r.startsIn || 0), 'live.list.startsIn', 'live.list.now') + '</span>';
+    else status = '<span class="live-st is-lobby">' + esc(t('live.list.lobby')) + '</span>';
+    const count = pending ? '<span class="live-n">' + esc(t('live.plan.opens', { time: clock(r.sched.opens) })) + '</span>' :
+      '<span class="live-n' + (full ? ' is-full' : '') + '">' + kit().ico('user') + esc(full ? t('live.list.full') : t('live.list.sailors', { n: r.n, max: r.max })) + '</span>';
+    return '<li><button type="button" class="live-item glass" data-act="pick" data-code="' + esc(r.code) + '"' + (shut ? ' disabled' : '') + '>' +
+      '<span class="live-item-top"><b class="live-item-name">' + esc(head) + '</b>' + status + '</span>' +
+      (r.sched ? '<span class="live-item-by">' + esc(t('live.list.by', { name: r.host })) + '</span>' : '') +
+      '<span class="live-item-bot">' + metaHtml(r.cls, r.course, r.wind) + count + '</span></button></li>';
+  }
+  function listBody() {
+    const st = L.list || {};
+    if (!st.rows) return st.err ? trainerHtml(st.err) + '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="relist">' + kit().ico('retry') + '<span>' + esc(t('live.retry')) + '</span></button></div>' :
+      '<p class="live-hint live-loading" role="status">' + esc(t('live.list.loading')) + '</p>';
+    if (!st.rows.length) {
+      return '<div class="live-empty">' + trainerHtml(t('live.list.empty')) + '<div class="live-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="host">' + kit().ico('flag') + '<span>' + esc(t('live.host')) + '</span></button>' +
+        '<button type="button" class="btn btn-glass" data-act="planview">' + kit().ico('calendar') + '<span>' + esc(t('live.plan.btn')) + '</span></button></div></div>';
+    }
+    const sch = st.rows.filter(r => r.sched), open = st.rows.filter(r => !r.sched);
+    const sect = (k, rows) => rows.length ? '<section class="live-sect"><h2 class="live-h">' + esc(t(k)) + '</h2><ul class="live-list">' + rows.map(rowHtml).join('') + '</ul></section>' : '';
+    return sect('live.list.sched', sch) + sect('live.list.open', open);
+  }
+  function viewList() {
+    return shell(t('live.list.title'),
+      '<div class="live-listhead"><p class="live-intro">' + esc(t('live.list.intro')) + '</p>' +
+      '<button type="button" class="btn btn-glass btn-sm" data-act="relist">' + kit().ico('retry') + '<span>' + esc(t('live.list.refresh')) + '</span></button></div>' +
+      '<div id="live-listbox" aria-live="polite">' + listBody() + '</div>');
+  }
+
+  // ---- "Planlæg til senere": preset title, local day + time (now + 10 min .. 14 days), the race settings and who can see it
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const hhmm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+  function openPlan(from) {
+    L.planFrom = from === 'setup' || from === 'list' ? from : 'entry';
+    if (!L.plan) {
+      const d = new Date(); d.setHours(18, 0, 0, 0); // today at 18.00, or tomorrow when that is too close
+      if (d.getTime() < Date.now() + MIN_LEAD + 5 * 60000) d.setDate(d.getDate() + 1);
+      L.plan = { title: 'train', day: ymd(d), time: hhmm(d), vis: 'open', err: '' };
+    }
+    L.plan.err = '';
+    setView('plan');
+  }
+  function planStart(p) { // local day + time -> UTC ms (NaN when one is missing)
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.day || ''), n = /^(\d{2}):(\d{2})/.exec(p.time || '');
+    return m && n ? new Date(+m[1], +m[2] - 1, +m[3], +n[1], +n[2], 0, 0).getTime() : NaN;
+  }
+  function planCheck(p) {
+    const at = planStart(p), now = Date.now();
+    return !isFinite(at) ? 'noTime' : at < now + MIN_LEAD ? 'tooSoon' : at > now + MAX_LEAD ? 'tooLate' : '';
+  }
+  const planWhen = p => { const at = planStart(p); return isFinite(at) && !planCheck(p) ? whenTxt(at) + ' · ' + t('live.plan.opens', { time: clock(at - OPEN_BEFORE) }) : ''; };
+  function viewPlan() {
+    const p = L.plan, c = L.cfg, boats = boatsList(), G = kit().boatGet, now = new Date();
+    const bn = id => (G(id) && G(id).name) || id;
+    return shell(t('live.plan.title'),
+      '<p class="live-intro">' + esc(t('live.plan.intro')) + '</p>' +
+      '<div class="live-form live-plan glass">' +
+      row(t('live.plan.name'), TITLES.map(id => chip('ptitle', 'title', id, titleTxt(id), p.title === id)).join('')) +
+      '<div class="live-row"><label class="live-label" for="live-plan-day">' + esc(t('live.plan.day')) + '</label><div class="live-chips">' +
+      '<input id="live-plan-day" class="live-input" type="date" min="' + ymd(now) + '" max="' + ymd(new Date(Date.now() + MAX_LEAD)) + '" value="' + esc(p.day) + '" required></div></div>' +
+      '<div class="live-row"><label class="live-label" for="live-plan-time">' + esc(t('live.plan.time')) + '</label><div class="live-chips">' +
+      '<input id="live-plan-time" class="live-input" type="time" step="300" value="' + esc(p.time) + '" required></div></div>' +
+      '<div class="live-hint live-plan-when" id="live-plan-when">' + esc(planWhen(p)) + '</div>' +
+      '<div id="live-plan-err" class="live-err" role="alert">' + esc(p.err || '') + '</div>' +
+      row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
+      row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
+      windRow(c) +
+      row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
+      row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
+      row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
+      visRow(p.vis, 'pvis') +
+      '</div>' +
+      '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="plan"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(L.busy || t('live.plan.go')) + '</span></button></div>');
+  }
+  // the pickers write into L.plan as they change (no repaint: the native picker keeps its focus)
+  function bindPlanInputs(sec) {
+    const upd = () => {
+      const d = sec.querySelector('#live-plan-day'), tm = sec.querySelector('#live-plan-time');
+      if (!L.plan || !d || !tm) return;
+      L.plan.day = d.value; L.plan.time = tm.value; L.plan.err = '';
+      const w = sec.querySelector('#live-plan-when'), er = sec.querySelector('#live-plan-err');
+      if (w) w.textContent = planWhen(L.plan);
+      if (er) er.textContent = '';
+    };
+    ['#live-plan-day', '#live-plan-time'].forEach(q => { const el = sec.querySelector(q); if (el) { el.addEventListener('input', upd); el.addEventListener('change', upd); } });
+  }
+  function doPlan() {
+    const p = L.plan, bad = planCheck(p);
+    if (bad) { p.err = t('live.plan.' + bad); paint(); const el = secEl() && secEl().querySelector('#live-plan-err'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' }); return; }
+    const at = planStart(p), cfg = Object.assign({}, L.cfg, { vis: p.vis });
+    L.busy = t('live.connecting'); p.err = ''; paint();
+    guard().then(ok => {
+      if (!ok) { L.busy = ''; return; }
+      return connectNow().then(sess => sess.schedule(cfg, p.title, at).then(r => {
+        try { sess.close(); } catch (x) { /* ignore */ }
+        const c = r.cfg || cfg;
+        addSched({ code: r.code, secret: r.secret, title: r.title, startAt: r.startAt, opensAt: r.opensAt, boat: c.boat, course: c.course, wind: c.windKn, maxP: c.maxP, vis: c.vis, url: wsUrl() });
+        L.busy = ''; L.plan = null; L.mineQr = r.code;
+        lt('schedule', r.title);
+        try { KOS.UI.toast(t('live.plan.done', { title: titleTxt(r.title), when: whenTxt(r.startAt) }), { kind: 'good' }); } catch (x) { /* optional */ }
+        setView('mine');
+      }, e => { try { sess.close(); } catch (x) { /* ignore */ } throw e; }));
+    }).catch(e => {
+      L.busy = '';
+      if (handleOld(e, {})) return;
+      const code = e && e.code;
+      if (['badtime', 'schedlimit', 'schedfull', 'closed', 'busy'].indexOf(code) >= 0) { if (L.plan) L.plan.err = errText(code); setView('plan'); return; }
+      unavailable(false);
+    });
+  }
+
+  // ---- "Mine planlagte løb": share (link/QR), remind, go in as host, cancel
+  function mineHtml(e) {
+    const link = linkFor(e.code), open = Date.now() >= e.opensAt, qrOn = L.mineQr === e.code;
+    let qr = '';
+    if (qrOn) { try { qr = KOS.QR.svg(link, { size: 180, ecc: 'M' }); } catch (x) { qr = ''; } }
+    const btn = (act, ico, k, cls) => '<button type="button" class="btn btn-sm ' + (cls || 'btn-glass') + '" data-act="' + act + '" data-code="' + e.code + '"' + (L.busy ? ' disabled' : '') + '>' + kit().ico(ico) + '<span>' + esc(t(k)) + '</span></button>';
+    return '<li class="live-mitem glass" data-code="' + e.code + '">' +
+      '<div class="live-mhead"><div class="live-mtxt"><b class="live-mtitle">' + esc(titleTxt(e.title)) + '</b><span class="live-mwhen">' + kit().ico('calendar') + esc(whenTxt(e.startAt)) + '</span></div>' +
+      '<div class="live-mcode" aria-label="' + esc(t('live.code')) + '">' + esc(e.code) + '</div></div>' +
+      '<div class="live-mmeta">' + metaHtml(e.boat, e.course, e.wind) + '<span class="live-n">' + kit().ico(e.vis === 'private' ? 'lock' : 'eye') + esc(t('live.vis.' + (e.vis === 'private' ? 'private' : 'open'))) + '</span></div>' +
+      '<div class="live-hint' + (open ? ' is-open' : '') + '">' + esc(open ? t('live.mine.isOpen') : t('live.mine.opens', { when: whenTxt(e.opensAt) })) + '</div>' +
+      (qrOn ? '<div class="live-mqr"><div class="live-qr">' + qr + '</div><div class="live-link"><code>' + esc(link) + '</code></div></div>' : '') +
+      '<div class="live-mbtns">' + (open ? btn('mgo', 'play', 'live.mine.go', 'btn-primary') : '') + btn('mshare', 'share', 'live.share') + btn('mqr', 'eye', 'live.mine.qr', qrOn ? 'btn-glass is-on' : '') +
+      btn('mremind', 'calendar', 'live.wait.remind') + btn('mcancel', 'trash', 'live.mine.cancel', 'btn-glass live-cancel') + '</div></li>';
+  }
+  function viewMine() {
+    const list = mySched();
+    return shell(t('live.mine.title'),
+      (list.length ? '<p class="live-intro">' + esc(t('live.mine.intro')) + '</p><ul class="live-list live-mine">' + list.map(mineHtml).join('') + '</ul>' : trainerHtml(t('live.mine.empty'))) +
+      (canPlan() ? '<div class="live-actions"><button type="button" class="btn btn-glass" data-act="planview">' + kit().ico('plus') + '<span>' + esc(t('live.plan.btn')) + '</span></button></div>' : ''));
+  }
+  function askCancel(code) {
+    const e = mySched().find(x => x.code === code);
+    if (!e || L.busy) return;
+    KOS.UI.dialog({ icon: 'calendar', title: t('live.mine.cancelAsk', { title: titleTxt(e.title), when: whenTxt(e.startAt) }), buttons: [
+      { label: t('live.hm.no') },
+      { label: t('live.mine.cancel'), kind: 'danger', icon: 'trash', onClick: () => doCancel(e) },
+    ] });
+  }
+  function doCancel(e) {
+    L.busy = t('live.connecting'); paint();
+    const done = () => { dropSched(e.code); if (L.mineQr === e.code) L.mineQr = ''; lt('schedcancel'); try { KOS.UI.toast(t('live.mine.cancelled'), { kind: 'info' }); } catch (x) { /* optional */ } };
+    connectNow().then(sess => sess.schedCancel(e.code, e.secret).then(() => { sess.close(); }, x => { sess.close(); throw x; })).then(done, x => {
+      if (handleOld(x, {})) { L.busy = ''; return; }
+      const c = x && x.code;
+      if (c === 'nocode') done(); // the server no longer has it (it ran, or it was cancelled for too few sailors): forget it here too
+      else { try { KOS.UI.toast(t(c === 'bad' ? 'live.mine.cantCancel' : 'live.unavailable'), { kind: 'warn' }); } catch (y) { /* optional */ } }
+    }).then(() => { L.busy = ''; if (L.view === 'mine') paint(); });
+  }
+
+  // ---- a scheduled race that has not opened yet (from the list, a code or a #live=/#join= link)
+  function showWait(code, e) {
+    const prev = L.wait && L.wait.code === code ? L.wait.tries : 0;
+    L.wait = { code, opensAt: +e.opensAt || Date.now(), startAt: +e.startAt || Date.now(), title: e.title, tries: prev };
+    L.busy = ''; L.joinErr = '';
+    setView('wait');
+  }
+  function viewWait() {
+    const w = L.wait;
+    return shell(titleTxt(w.title),
+      trainerHtml(t('live.wait.msg', { title: titleTxt(w.title), opens: whenTxt(w.opensAt), start: whenTxt(w.startAt) })) +
+      '<div class="live-waitbox glass"><div class="live-label">' + esc(t('live.code')) + '</div><div class="live-code">' + esc(w.code) + '</div>' +
+      '<div class="live-count live-waitleft" aria-live="off">' + untilHtml('', w.opensAt, 'live.wait.left', 'live.wait.soon') + '</div></div>' +
+      '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="remind">' + kit().ico('calendar') + '<span>' + esc(t('live.wait.remind')) + '</span></button>' +
+      '<button type="button" class="btn btn-glass" data-act="waitjoin"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('retry') + '<span>' + esc(L.busy || t('live.wait.check')) + '</span></button></div>');
+  }
+  // the scheduled room in the lobby: its title, the server's gun and how long until it
+  function schedRoomHtml(room) {
+    const sc = room.sched, skew = L.sess && L.sess.serverNow ? L.sess.serverNow() - Date.now() : 0;
+    return '<div class="live-schedbox">' + kit().ico('calendar') + '<span><b>' + esc(titleTxt(sc.title)) + '</b> · ' + esc(whenTxt(sc.at)) + '</span>' +
+      untilHtml('live-schedin', sc.at - skew, 'live.autoIn', 'live.waitMore') + '</div>';
+  }
+
+  // ---- "Påmind mig": a calendar file made here in the browser (no server, no mail)
+  function icsText(e) {
+    const z = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const q = x => String(x).replace(/[\\;,]/g, m => '\\' + m).replace(/\n/g, '\\n');
+    const fold = l => { let out = ''; while (l.length > 70) { out += l.slice(0, 70) + '\r\n '; l = l.slice(70); } return out + l; };
+    const link = linkFor(e.code), title = titleTxt(e.title) + ' – ' + t('live.title');
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KOS SEJL//Live race//DA', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+      'UID:' + e.code + '-' + e.startAt + '@kos-sejl', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(e.startAt), 'DTEND:' + z(e.startAt + 30 * 60000),
+      'SUMMARY:' + q(title), 'DESCRIPTION:' + q(t('live.ics.desc', { code: e.code, link })), 'URL:' + link,
+      'BEGIN:VALARM', 'TRIGGER:-PT15M', 'ACTION:DISPLAY', 'DESCRIPTION:' + q(title), 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].map(fold).join('\r\n') + '\r\n';
+  }
+  function remind(e) {
+    if (!e || !doc) return;
+    try {
+      const a = doc.createElement('a');
+      a.href = URL.createObjectURL(new Blob([icsText(e)], { type: 'text/calendar;charset=utf-8' }));
+      a.download = 'kos-sejl-' + e.code + '.ics'; a.hidden = true;
+      doc.body.appendChild(a); a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch (x) { /* ignore */ } }, 2000);
+      lt('remind', e.title || '');
+    } catch (x) { /* no download support: nothing to do */ }
+  }
+
   function render(sec) {
     const v = L.view;
     sec.innerHTML = v === 'setup' ? viewSetup() : v === 'join' ? viewJoin() : v === 'room' && L.room ? viewRoom() : v === 'starting' ? viewStarting() :
-      v === 'results' ? viewResults() : v === 'msg' ? viewMsg() : viewEntry();
+      v === 'results' ? viewResults() : v === 'msg' ? viewMsg() : v === 'list' ? viewList() : v === 'plan' && L.plan ? viewPlan() : v === 'mine' ? viewMine() :
+      v === 'wait' && L.wait ? viewWait() : viewEntry();
     sec.setAttribute('data-live-view', v);
     kit().bind(sec, {
       back: () => {
         kit().sfx('click');
         if (L.view === 'entry') { app().back(); return; }
+        if (L.view === 'plan') { L.plan.err = ''; if (L.planFrom === 'setup') setView('setup'); else if (L.planFrom === 'list') openList(); else toEntry(); return; }
+        if ((L.view === 'wait' || L.view === 'join') && L.waitFrom === 'list') { L.waitFrom = ''; L.joinErr = ''; openList(); return; }
+        if ((L.view === 'wait' || L.view === 'join') && L.waitFrom === 'mine') { L.waitFrom = ''; L.joinErr = ''; setView('mine'); return; }
         if (L.view === 'room' || L.view === 'starting') leaveRoom(); else toEntry();
       },
       host: () => { L.hostRole = L.hostRole || 'sail'; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => setView('setup')); },
@@ -464,26 +832,48 @@
       join: () => { const inp = sec.querySelector('#live-code'); if (!L.busy) doJoin(inp ? inp.value : ''); },
       kick: b => { if (L.sess) { lt('kick'); L.sess.kick(Number(b.getAttribute('data-id'))); } },
       start: () => { if (L.sess) L.sess.start(); },
-      share: () => share(),
+      share: () => share(L.room.code, L.room.sched ? titleTxt(L.room.sched.title) : ''),
       leave: () => leaveRoom(),
       update: () => doUpdate(),
       retry: () => recheckThen(() => { reset(); setView('entry'); }),
       ai: () => { kit().sfx('click'); reset(); aiRace(); },
       entry: () => toEntry(),
+      // live-rules spec B/C: the open list, scheduling, my scheduled races, the wait card
+      listview: () => recheckThen(() => openList()),
+      relist: () => loadList(),
+      pick: b => { L.via = 'list'; L.waitFrom = 'list'; kit().sfx('click'); doJoin(b.getAttribute('data-code')); },
+      vis: b => { L.cfg.vis = b.getAttribute('data-v') === 'open' ? 'open' : 'private'; paint(); },
+      visroom: b => { if (L.sess) L.sess.setCfg({ vis: b.getAttribute('data-v') === 'open' ? 'open' : 'private' }); },
+      planview: () => { const from = L.view; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => openPlan(from)); },
+      ptitle: b => { L.plan.title = b.getAttribute('data-v'); paint(); },
+      pvis: b => { L.plan.vis = b.getAttribute('data-v') === 'private' ? 'private' : 'open'; paint(); },
+      plan: () => { if (!L.busy) doPlan(); },
+      mineview: () => { L.mineQr = ''; setView('mine'); },
+      mqr: b => { const c = b.getAttribute('data-code'); L.mineQr = L.mineQr === c ? '' : c; paint(); },
+      mshare: b => { const e = mySched().find(x => x.code === b.getAttribute('data-code')); if (e) share(e.code, titleTxt(e.title)); },
+      mgo: b => { L.via = 'mine'; L.waitFrom = 'mine'; doJoin(b.getAttribute('data-code')); },
+      mcancel: b => askCancel(b.getAttribute('data-code')),
+      remind: () => remind(L.wait),
+      mremind: b => { const e = mySched().find(x => x.code === b.getAttribute('data-code')); if (e) remind(e); },
+      waitjoin: () => { if (L.wait) doJoin(L.wait.code); },
     });
+    if (v === 'plan') bindPlanInputs(sec);
+    if (v === 'list' || v === 'wait' || v === 'room' && sec.querySelector('[data-until]')) { onTick(); ensureTick(); }
     const inp = sec.querySelector('#live-code');
     if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = sec.querySelector('[data-act="join"]'); if (b) b.click(); } });
   }
   // the results card after a live race: the host gets the rematch button, the others a note (they follow automatically)
   function parked() { return !!(L.sess && L.sess.phase === 'results' && L.sess.state === 'ok'); }
+  // a scheduled room whose creator is not here is run by the server: any sailor may ask for the next race (it starts a minute later)
+  function canRematch() { const r = L.sess && L.sess.room; return L.sess.role === 'host' || !!(r && r.sched && !r.hostId); }
   function decorateResults(card) {
     if (!card || !parked()) return;
     const btn = card.querySelector('[data-act="retry"]');
     if (!btn) return;
-    if (L.sess.role === 'host') { btn.setAttribute('data-act', 'rematch'); btn.classList.replace('btn-glass', 'btn-primary'); btn.innerHTML = kit().ico('retry') + '<span>' + esc(t('live.rematch')) + '</span>'; }
+    if (canRematch()) { btn.setAttribute('data-act', 'rematch'); btn.classList.replace('btn-glass', 'btn-primary'); btn.innerHTML = kit().ico('retry') + '<span>' + esc(t('live.rematch')) + '</span>'; }
     else { btn.insertAdjacentHTML('beforebegin', '<p class="results-locknote live-rematch-wait">' + esc(t('live.rematchWait')) + '</p>'); btn.remove(); }
   }
-  function rematch() { if (parked() && L.sess.role === 'host') { lt('rematch'); L.sess.rematch(); } else open(); }
+  function rematch() { if (parked() && canRematch()) { lt('rematch'); L.sess.rematch(); } else open(); }
   function recheckThen(fn) {
     KOS.MPStatus.refresh({ force: true }).then(st => {
       L.status = st;
@@ -495,11 +885,11 @@
   }
   function toEntry() { reset(); L.joinErr = ''; setView('entry'); }
   function leaveRoom() { reset(); setView('entry'); }
-  function share() {
-    const link = linkFor(L.room.code);
+  function share(code, title) {
+    const link = linkFor(code);
     const done = () => KOS.UI.toast(t('live.copied'), { kind: 'good' });
     try {
-      if (root.navigator && root.navigator.share) { root.navigator.share({ title: t('live.title'), url: link }).catch(() => {}); return; }
+      if (root.navigator && root.navigator.share) { root.navigator.share({ title: title || t('live.title'), url: link }).catch(() => {}); return; }
       if (root.navigator && root.navigator.clipboard && root.navigator.clipboard.writeText) { root.navigator.clipboard.writeText(link).then(done, () => {}); return; }
     } catch (e) { /* fall through */ }
     done();
@@ -521,5 +911,5 @@
   }
 
   if (app() && app().registerScreen) app().registerScreen('live', sec => render(sec), () => { if (!L.handoff) reset(); });
-  KOS.Lobby = { open, state: L, decorateResults, rematch, leaveParked: () => { if (parked()) reset(); }, _render: render };
+  KOS.Lobby = { open, state: L, decorateResults, rematch, leaveParked: () => { if (parked()) reset(); }, _render: render, _ics: icsText };
 })(typeof window !== 'undefined' ? window : globalThis);

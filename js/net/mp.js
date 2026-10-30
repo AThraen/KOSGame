@@ -4,10 +4,15 @@
 //   Session: id, code, room, phase, role ('host'|'player'), rtt, offset, state ('ok'|'reconnecting'|'offline'|'closed'),
 //            status {mode,msg}, T0, cfg, grid, serverNow()
 //     create(cfg, hostRole) -> Promise<room>   rejects {code:'closed'|'busy'|'bad'|'timeout'}
-//     join(code)            -> Promise<room>   rejects {code:'nocode'|'full'|'started'|'closed'|'timeout'}
+//     join(code, secret?)   -> Promise<room>   rejects {code:'nocode'|'full'|'started'|'closed'|'timeout'} or {code:'notopen', opensAt, startAt, title}
+//     list()                -> Promise<rows>   the open race list over the socket (KOS.MP.fetchRooms needs none)
+//     schedule(cfg, title, startAt) -> Promise<{code, secret, title, startAt, opensAt, cfg}>   rejects {code:'badtime'|'schedlimit'|'schedfull'|'closed'|'busy'|'bad'}
+//     schedCancel(code, secret)     -> Promise<{code, why}>   rejects {code:'nocode'|'bad'}
 //     setCfg(partial), kick(id), start(), rematch(), resume(token), hostEnd(), hostAbort(), hostLobby(on), leave(), send(msg), close()
-//     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, reconnecting, reconnected, offline, status, error
+//     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, schedcancelled, reconnecting, reconnected, offline, status, error
 //   KOS.MP.parseJoin(hash) -> 'ABCD'|null     KOS.MP.normCode(str) -> 'ABCD'|null
+//   KOS.MP.fetchRooms(wsUrl, {timeoutMs}) -> Promise<rows>   GET /rooms next to the socket URL (no socket); rejects {code:'unreachable'|'rate'}
+//   KOS.MP.roomsUrl(wsUrl) -> 'https://host/mp/rooms'
 //   KOS.MP.seat() -> {code,id,key,url,exp}|null   the rejoin entry kept in localStorage for 2 h (survives closing the page / an update reload)
 //   KOS.MP.clearSeat()    KOS.MP.LEVEL   client protocol level sent in hello (cp); the server can refuse builds below it ('old')
 // All rejections are plain {code} objects; nothing is thrown out of socket handlers; no console output.
@@ -30,7 +35,7 @@
     return CODE_RE.test(c) ? c : null;
   }
   function parseJoin(hash) {
-    const m = /(?:^|[#&])join=([^&]*)/.exec(String(hash || ''));
+    const m = /(?:^|[#&])(?:join|live)=([^&]*)/.exec(String(hash || '')); // #live=CODE is the same link (scheduled races)
     if (!m) return null;
     let v = m[1];
     try { v = decodeURIComponent(v); } catch (e) { /* keep raw */ }
@@ -102,6 +107,36 @@
       if (m.t === 'welcome') { welcomed = true; sock.onopen = sock.onerror = sock.onclose = sock.onmessage = null; ok(sock, m); }
       else if (m.t === 'err') bad(m.code === 'proto' ? 'proto' : m.code === 'old' ? 'old' : 'unreachable', m);
     };
+  }
+
+  // a server 'err' as a plain rejection: {code} plus the extras some codes carry ('old': min; 'notopen': opensAt, startAt, title)
+  function errOf(m) {
+    const e = { code: m.code || 'bad' };
+    if (m.min) e.min = m.min;
+    if (m.code === 'notopen') ['opensAt', 'startAt'].forEach(k => { if (typeof m[k] === 'number') e[k] = m[k]; });
+    if (m.code === 'notopen' && typeof m.title === 'string') e.title = m.title;
+    return e;
+  }
+
+  // The open race list over plain HTTP, next to the socket: ws(s)://host/x/ws -> http(s)://host/x/rooms. No socket, no seat.
+  function roomsUrl(wsUrl) {
+    const u = String(wsUrl || '');
+    if (!/^wss?:\/\//.test(u)) return '';
+    return u.replace(/^ws/, 'http').replace(/[?#].*$/, '').replace(/\/ws$/, '').replace(/\/$/, '') + '/rooms';
+  }
+  function fetchRooms(wsUrl, o) {
+    const url = roomsUrl(wsUrl), ms = (o && o.timeoutMs) || 5000;
+    return new Promise((res, rej) => {
+      if (!url || typeof fetch !== 'function') { rej({ code: 'unreachable' }); return; }
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = setTimeout(() => { try { ctl && ctl.abort(); } catch (e) { /* ignore */ } rej({ code: 'unreachable' }); }, ms);
+      fetch(url, { cache: 'no-store', signal: ctl ? ctl.signal : undefined }).then(r => {
+        if (r.status === 429) throw { code: 'rate' };
+        if (!r.ok) throw { code: 'unreachable' };
+        return r.json();
+      }).then(j => { clearTimeout(timer); res(j && Array.isArray(j.rooms) ? j.rooms.filter(x => x && normCode(x.code)) : []); },
+        e => { clearTimeout(timer); rej(e && e.code === 'rate' ? e : { code: 'unreachable' }); });
+    });
   }
 
   function makeSession(opts, sock0, welcome) {
@@ -207,6 +242,12 @@
           if (pending && pending.t === m.t) { const p = pending; pending = null; clearTimeout(p.timer); p.res(m.room); }
           else emit('room', m.room);
           break;
+        case 'rooms': if (pending && pending.t === 'rooms') { const p = pending; pending = null; clearTimeout(p.timer); p.res(Array.isArray(m.rooms) ? m.rooms : []); } break;
+        case 'scheduled': if (pending && pending.t === 'scheduled') { const p = pending; pending = null; clearTimeout(p.timer); p.res(m); } break;
+        case 'schedcancelled': // our own cancel request, or the scheduled room we sit in was called off (why 'host' | 'few')
+          if (pending && pending.t === 'schedcancelled') { const p = pending; pending = null; clearTimeout(p.timer); p.res({ code: m.code, why: m.why }); }
+          else if (S.room && m.code === S.code) { clearToken(); final = true; S.phase = 'closed'; emit('schedcancelled', { code: m.code, why: m.why === 'host' ? 'host' : 'few' }); }
+          break;
         case 'room': setRoom(m.room); emit('room', m.room); break;
         case 'start': { // the server repeats 'start' on every resume: the same gun on a session that already has it is NOT a new race (it used to relaunch the race screen = the boat went back to the start line)
           const dup = S.T0 === m.T0 && !!S.grid;
@@ -227,7 +268,7 @@
         case 'kicked': clearToken(); final = true; emit('kicked'); break;
         case 'status': S.status = { mode: m.mode, msg: m.msg || '' }; emit('status', S.status); break;
         case 'err':
-          if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej(m.min ? { code: m.code || 'bad', min: m.min } : { code: m.code || 'bad' }); }
+          if (pending) { const p = pending; pending = null; clearTimeout(p.timer); p.rej(errOf(m)); }
           else emit('error', { code: m.code, msg: m.msg });
           break;
         default: break;
@@ -321,10 +362,15 @@
       });
     }
     S.create = (cfg, hostRole) => request('created', { t: 'create', cfg: cfg || {}, hostRole: hostRole === 'watch' ? 'watch' : 'sail' });
-    S.join = (code) => {
+    S.join = (code, secret) => {
       const c = normCode(code);
-      return c ? request('joined', { t: 'join', code: c }) : Promise.reject({ code: 'nocode' });
+      const msg = { t: 'join', code: c };
+      if (typeof secret === 'string' && /^[0-9a-f]{32}$/.test(secret)) msg.secret = secret; // the creator of a scheduled race takes the host seat
+      return c ? request('joined', msg) : Promise.reject({ code: 'nocode' });
     };
+    S.list = () => request('rooms', { t: 'list' });
+    S.schedule = (cfg, title, startAt) => request('scheduled', { t: 'sched', cfg: cfg || {}, title: String(title || ''), startAt: Math.round(+startAt || 0) });
+    S.schedCancel = (code, secret) => request('schedcancelled', { t: 'schedcancel', code: normCode(code) || '', secret: String(secret || '') });
     S.setCfg = (cfg) => raw({ t: 'cfgset', cfg });
     S.kick = (id) => raw({ t: 'kick', id });
     S.start = () => raw({ t: 'start' });
@@ -370,6 +416,6 @@
     };
   }
 
-  KOS.MP = { connect, parseJoin, normCode, liveFacade, savedToken, seat, clearSeat: () => storeSeat(null), LEVEL, ALPHABET };
+  KOS.MP = { connect, parseJoin, normCode, liveFacade, savedToken, seat, clearSeat: () => storeSeat(null), fetchRooms, roomsUrl, LEVEL, ALPHABET };
   if (typeof module !== 'undefined' && module.exports) module.exports = KOS.MP;
 })(typeof window !== 'undefined' ? window : globalThis);

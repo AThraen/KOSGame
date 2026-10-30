@@ -96,3 +96,87 @@
 .live-link small { display: block; }
 .live-rematch-wait { flex: 1 1 100%; order: -1; margin: 0 0 6px; text-align: center; }
 .live-windnote { padding: 8px 12px; border-left: 3px solid var(--primary, #ffb547); border-radius: 6px; background: rgba(255,181,71,.12); color: var(--text, #fff); font-size: .92rem; font-weight: 600; }
+
+/* ---- open race list, scheduled races (live-rules spec B/C) */
+.live-badge { min-width: 1.6em; height: 1.6em; padding: 0 .4em; border-radius: 999px; background: var(--primary); color: #1a0f05; font-size: .8rem; display: inline-grid; place-items: center; }
+.live-chips .chip .ico { width: 1.1em; height: 1.1em; vertical-align: -.2em; margin-right: .3em; }
+.live-listhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.live-listhead .live-intro { margin: 0; }
+.live-loading { text-align: center; padding: 24px 0; }
+.live-sect + .live-sect { margin-top: 18px; }
+.live-h { margin: 0 0 10px; font-size: 1rem; font-weight: 900; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+.live-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 10px; }
+.live-item {
+  width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; text-align: left; color: var(--text);
+  border-radius: var(--radius-lg); min-height: 64px; font: inherit; transition: transform .15s var(--ease-pop), background .15s;
+}
+.live-item:hover:not(:disabled) { background: rgba(255,255,255,.14); transform: translateY(-1px); }
+.live-item:active:not(:disabled) { transform: scale(.98); }
+.live-item:disabled { opacity: .55; cursor: default; }
+.live-item-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.live-item-name { flex: 1 1 auto; min-width: 0; font-size: 1.1rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-item-by { font-size: .82rem; color: var(--text-dim); margin-top: -4px; }
+.live-item-bot { display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; }
+.live-st { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.live-st .ico { width: 15px; height: 15px; }
+.live-st.is-lobby { background: rgba(62,224,143,.16); color: var(--good); }
+.live-st.is-go { background: rgba(255,181,71,.2); color: var(--primary); }
+.live-st.is-open { background: rgba(62,224,143,.16); color: var(--good); }
+.live-st.is-sched { background: rgba(73,198,242,.16); color: #8fdcff; }
+.live-meta { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-size: .88rem; color: var(--text-dim); }
+.live-meta > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.live-meta .ico, .live-meta .live-cico { width: 16px; height: 16px; margin: 0; }
+.live-n { display: inline-flex; align-items: center; gap: 4px; font-size: .88rem; font-weight: 800; white-space: nowrap; }
+.live-n .ico { width: 16px; height: 16px; }
+.live-n.is-full { color: #ffb3bb; }
+.live-empty { display: flex; flex-direction: column; gap: 16px; }
+
+/* plan: the day + time pickers look like the code field, smaller */
+.live-input {
+  font: inherit; font-size: 1.1rem; font-weight: 800; padding: 10px 14px; min-height: 48px; border-radius: 14px;
+  border: 2px solid var(--glass-border); background: rgba(0,0,0,.3); color: var(--text); color-scheme: dark; max-width: 100%;
+}
+.live-input:focus { border-color: var(--primary); outline: none; }
+.live-plan-when { font-weight: 800; color: var(--good); min-height: 1.2em; }
+.live-plan-when:empty { display: none; }
+.live-err:empty { min-height: 0; }
+
+/* my scheduled races */
+.live-mitem { padding: 14px 16px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 8px; }
+.live-mhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.live-mtxt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.live-mtitle { font-size: 1.15rem; font-weight: 900; }
+.live-mwhen { display: inline-flex; align-items: center; gap: 6px; color: var(--text-dim); font-weight: 700; }
+.live-mwhen .ico { width: 16px; height: 16px; color: var(--primary); }
+.live-mcode { font-size: 1.7rem; font-weight: 900; letter-spacing: .18em; color: var(--primary); line-height: 1; padding-top: 2px; }
+.live-mmeta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.live-mmeta .live-n { font-weight: 700; font-size: .85rem; color: var(--text-dim); }
+.live-hint.is-open { color: var(--good); font-weight: 800; }
+.live-mqr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.live-mqr .live-qr svg { width: 180px; height: 180px; }
+.live-mbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.live-mbtns .btn.is-on { background: rgba(255,181,71,.22); border-color: var(--primary); }
+.live-cancel { color: #ffb3bb; }
+
+/* waiting for a scheduled race to open */
+.live-waitbox { padding: 16px; border-radius: var(--radius-lg); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.live-waitleft { font-size: clamp(1.5rem, 6vw, 2.4rem); font-variant-numeric: tabular-nums; }
+
+/* a scheduled room in the lobby: title, the server's gun */
+.live-schedbox { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 10px 12px; border-radius: 14px; background: rgba(73,198,242,.12); border: 1px solid rgba(73,198,242,.35); }
+.live-schedbox > .ico { color: #8fdcff; }
+.live-schedin { margin-left: auto; font-weight: 900; color: var(--primary); font-variant-numeric: tabular-nums; }
+
+@media (min-width: 760px) {
+  .live-big-btns:has(> :nth-child(3)) { grid-template-columns: 1fr 1fr 1fr; }
+  .live-list:not(.live-mine) { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-item { transition: none; }
+}
+.live-mine { max-width: 760px; width: 100%; margin: 0 auto; }
+/* the plan form on a phone: the label above its chips (five race names do not fit beside a label) */
+@media (max-width: 559px) {
+  .live-plan .live-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .live-plan .live-label { min-width: 0; }
+}

@@ -7,7 +7,7 @@
 //   visible()          -> boolean              the "Live-kapsejlads" entry is shown (mode on or closed)
 //   load()             -> Promise<void>        injects the lazy scripts (mpstate, qr, mp, lobby) once; rejects {code:'load'}
 //   open(opts)         -> Promise<void>        refresh(force) + load() + KOS.Lobby.open(opts); unavailable => message, never throws
-//   handlePendingJoin()                         #join=CODE arrived with the page: opens the join screen (no network before this)
+//   handlePendingJoin()                         #join=CODE (or #live=CODE) arrived with the page: opens the join screen (no network before this)
 //   tooOld(status)     -> boolean              this build is below the status file's minClient / minProto (the server is the judge too: err 'old')
 //   seatPrompt(then)   -> boolean              a rejoin entry (localStorage, kos.mp.seat) exists: asks "back to the race?"; reads storage only, no network
 // Missing, unreachable, non-200, unparseable or unknown mode => {mode:'hidden'}. See docs/specs/live-race.md section 6.
@@ -196,7 +196,7 @@
     KOS.pendingJoin = null;
     // drop only join=CODE from the hash (keeps dev overrides like mp= and mpstatus=)
     try {
-      const rest = String(loc().hash || '').replace(/^#/, '').split('&').filter(kv => kv && kv.indexOf('join=') !== 0).join('&');
+      const rest = String(loc().hash || '').replace(/^#/, '').split('&').filter(kv => kv && kv.indexOf('join=') !== 0 && kv.indexOf('live=') !== 0).join('&');
       if (root.history && root.history.replaceState) root.history.replaceState(root.history.state, '', loc().pathname + (loc().search || '') + (rest ? '#' + rest : ''));
     } catch (e) { /* ignore */ }
     const auto = !!KOS.pendingAuto; KOS.pendingAuto = false;
@@ -235,9 +235,10 @@
   }
   function markUpdated() { try { root.sessionStorage.setItem('kos.mp.upd', '1'); } catch (e) { /* ignore */ } }
 
-  // #join=CODE: remember it only (no network). Cleared again by handlePendingJoin.
+  // #join=CODE (#live=CODE, the scheduled-race link, is the same): remember it only (no network). Cleared again by handlePendingJoin.
   (function () {
-    const j = String(hashParams().join || '').toUpperCase().replace(/\s+/g, '');
+    const hp = hashParams();
+    const j = String(hp.join || hp.live || '').toUpperCase().replace(/\s+/g, '');
     if (KOS.Config.liveRace === false) return;
     if (CODE_RE.test(j)) { KOS.pendingJoin = j; KOS.pendingAuto = false; try { root.sessionStorage.setItem('kos.mp.pending', JSON.stringify({ code: j, auto: false, at: Date.now() })); } catch (e) { /* ignore */ } return; }
     const p = readPending(); // the page was reloaded (update, refresh) and #join is gone
