@@ -236,11 +236,17 @@
 .race-live-banner > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .race-live-banner.is-away { padding: 3px 3px 3px 14px; }
 .race-live-banner .btn { flex: none; min-height: 44px; pointer-events: auto; }
-.race-live-banner .nb-short { display: none; }
+.race-live-banner .nb-short, .race-live-banner .nb-tiny { display: none; }
 @media (max-width: 480px), (max-height: 520px) {
   .race-live-banner .nb-long { display: none; }
   .race-live-banner .nb-short { display: inline; }
 }
+@media (max-width: 340px) {
+  .race-live-banner.has-tiny .nb-short { display: none; }
+  .race-live-banner.has-tiny .nb-tiny { display: inline; }
+}
+/* one message at a time: a coach bubble waits while the connection banner is up (it sits in the same spot under the HUD) */
+#screen-play:has(.race-live-banner:not([hidden])) .coach { visibility: hidden; }
 /* portrait phones: under the HUD (two rows when narrow) and the leg chip, clear of time and place */
 @media (orientation: portrait) and (max-width: 520px) {
   .race-live-banner { top: calc(var(--safe-t) + 124px); }

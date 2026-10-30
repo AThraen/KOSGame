@@ -11,6 +11,8 @@
 //     setCfg(partial), kick(id), start(), rematch(), resume(token), hostEnd(), hostAbort(), hostLobby(on), leave(), send(msg), close()
 //     retryNow()            the "Prøv nu" button / back online: an immediate resume attempt (still one retry chain)
 //     detach()              the race screen was left ("Til kortet", back, quit): the socket is closed, the seat is KEPT (no leave)
+//     keepFin(ms)           the race screen was left with our finish not yet confirmed: the session stays and sends fin on every
+//                           reconnect and pong until the server has it (its fin for our id, a resume's me.fin, res), then detaches
 //     on(evt, fn) -> off     evts: room, start, states, fin, foul, res, rematch, hostleft, kicked, schedcancelled, reconnecting, reconnected,
 //                            away (15 s reconnecting: "still trying"), gone ({rows, why}: the seat is gone, nocode; why 'over' = the race
 //                            ended while away, 'closed' = the lobby was closed, 'dropped' = it started without this seat, 'full'), replaced (4409:
@@ -188,8 +190,8 @@
     S.serverNow = () => now() + S.offset;
     S.away = false;
 
-    const emit = (evt, arg, arg2) => {
-      (subs[evt] || []).slice().forEach(fn => { try { fn(arg, arg2); } catch (e) { /* listener bug must not kill the socket */ } });
+    const emit = (evt, arg, arg2, arg3) => {
+      (subs[evt] || []).slice().forEach(fn => { try { fn(arg, arg2, arg3); } catch (e) { /* listener bug must not kill the socket */ } });
     };
     S.on = (evt, fn) => {
       (subs[evt] = subs[evt] || []).push(fn);
@@ -290,12 +292,17 @@
     // ---- message handling (shared by the first socket and reconnected sockets)
     function handle(m) {
       switch (m.t) {
-        case 'pong': onPong(m); break;
+        case 'pong': onPong(m); finAgain(); break;
         case 'created': case 'joined': {
           const was = S.phase;
           setToken(m); setRoom(m.room);
           if (pending && pending.t === m.t) { const p = pending; pending = null; clearTimeout(p.timer); p.res(m.room); }
-          else if (was === 'results' && S.phase === 'lobby') { S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; emit('rematch', m.room, false); } // back after a drop on the podium: the rematch happened meanwhile
+          else if (S.phase === 'lobby' && (was === 'results' || was === 'countdown' || was === 'racing' || S.T0)) {
+            // back after a drop on the podium: the rematch happened meanwhile. Back after a drop in the race: the host aborted it or ended
+            // it and went again (rows: its result, from a rejoin), the race screen must go (it would sail on alone and close this session)
+            const inRace = was !== 'results', rows = m.rows || null;
+            S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; emit('rematch', m.room, inRace && !rows, rows);
+          }
           else emit('room', m.room);
           break;
         }
@@ -314,12 +321,12 @@
           break;
         }
         case 's': S.lastStates = now(); emit('states', Array.isArray(m.a) ? m.a : []); break;
-        case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, fin: typeof m.fin === 'number' ? m.fin : null, T0: m.T0, now: m.now }; emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
-        case 'fin': emit('fin', { id: m.id, ms: m.ms }); break;
+        case 'me': S.me = { s: Array.isArray(m.s) ? m.s : null, fin: typeof m.fin === 'number' ? m.fin : null, T0: m.T0, now: m.now }; if (S.me.fin != null) finDone(); emit('restore', S.me); break; // the server's copy of my last state, sent on every resume
+        case 'fin': if (m.id === S.id) finDone(); emit('fin', { id: m.id, ms: m.ms }); break;
         case 'foul': if (typeof m.from === 'number') emit('foul', { from: m.from, r: String(m.r || ''), self: m.s === 1 }); break; // another phone says our boat fouled theirs (self: its own boat fouled ours)
         case 'fwin': if (typeof m.endAt === 'number') { S.finishAt = m.endAt; emit('fwin', { endAt: m.endAt }); } break;
         case 'res': // the result is in: the banner's seat record goes (it must not offer a finished race), the token stays for a rematch
-          S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; saveResult(S.code, m.rows, S.id); storeSeat(null, null, { code: S.code }); emit('res', m.rows); break;
+          finDone(); S.phase = 'results'; S.rows = m.rows; S.lastToken = S.token || S.lastToken; saveResult(S.code, m.rows, S.id); storeSeat(null, null, { code: S.code }); emit('res', m.rows); break;
         case 'rematch': // host started a new race in the same room: back to the lobby with a fresh resume token
           if (m.room) { if (S.lastToken) { S.token = S.lastToken; store(S.token, opts.url, seatX()); } S.T0 = 0; S.grid = null; S.finishAt = 0; S.rows = null; setRoom(m.room); emit('rematch', m.room, !!m.aborted); }
           break;
@@ -333,6 +340,12 @@
         default: break;
       }
     }
+    // keepFin: a finish the race screen could not deliver before it closed (offline at the line). Sent again on every reconnect and
+    // pong (the server ignores a second fin from the same seat); once it is confirmed the session lets go like a detach
+    S.finPending = null;
+    function finAgain() { if (S.finPending != null && S.state === 'ok' && !final) raw({ t: 'fin', ms: S.finPending }); }
+    function finDone() { if (S.finPending == null) return; S.finPending = null; if (S.finThenDetach) { S.finThenDetach = false; setTimeout(() => S.detach(), 0); } }
+    S.keepFin = (ms) => { if (final || !Number.isFinite(ms)) return false; S.finPending = Math.round(ms); S.finThenDetach = true; finAgain(); return true; };
     function attach(s) {
       s.onmessage = (ev) => {
         lastRx = now(); lastContact = Date.now();
@@ -424,9 +437,10 @@
           if (over) { try { sk.close(); } catch (e) { /* ignore */ } return; } // a dropped attempt that got through late: the newer one is the chain
           if (m.t === 'joined') {
             resumed = true; clearTimeout(guard); over = true; trying = false;
+            if (rejoin && rejoin.rows) { saveResult(S.code, rejoin.rows, S.id); m.rows = rejoin.rows; } // the race ended while we were away: keep its table
             clearTimeout(awayTimer); clearTimeout(retryTimer);
             sock = sk; attach(sk); lastRx = now(); lastContact = Date.now(); grace = now() + 2000;
-            S.state = 'ok'; S.away = false; S.reconnects++; handle(m); touchSeat(true); startSync(); emit('reconnected');
+            S.state = 'ok'; S.away = false; S.reconnects++; handle(m); touchSeat(true); startSync(); finAgain(); emit('reconnected');
           } else if (m.t === 'err' && (m.code === 'nocode' || rejoin)) {
             // the seat is gone. alive = the room is still there: in its lobby, simply join it again on this socket (the seat was dropped
             // while the phone was away, a rematch left it behind, the server restarted). Otherwise stop for good and say why
@@ -506,6 +520,8 @@
   // The thin facade race.js sees as host.live (spec 5.1): no socket knowledge, easy to stub in tests.
   function liveFacade(sess) {
     const room = sess.room || {};
+    const T0 = sess.T0; // this race's gun: once the session is on to another race (an abort or a rematch), this facade lets it be
+    const moved = () => sess.T0 !== T0;
     const cfg = sess.cfg || room.cfg || {};
     return {
       cfg, grid: sess.grid || [], T0: sess.T0, myId: sess.id, code: sess.code,
@@ -523,11 +539,12 @@
       get finishAt() { return sess.finishAt || 0; },
       get players() { return (sess.room && sess.room.players) || room.players || []; },
       hostEnd: () => sess.hostEnd(), hostAbort: () => sess.hostAbort(), hostLobby: on => sess.hostLobby(on), kick: id => sess.kick(id),
-      leave: () => { if (sess.phase === 'lobby' && sess.state === 'ok') return; /* the host aborted/rematched: the lobby owns the seat now */ try { sess.leave(); } catch (e) { /* ignore */ } },
+      leave: () => { if (moved() || (sess.phase === 'lobby' && sess.state === 'ok')) return; /* the host aborted/rematched: the lobby owns the seat now */ try { sess.leave(); } catch (e) { /* ignore */ } },
       // leaving the race screen keeps the seat (spec E3); the lobby still owns the session after an official result or a rematch
-      detach: () => { if (sess.state === 'closed' || sess.phase === 'results' || sess.phase === 'lobby' && sess.state === 'ok') return; try { sess.detach(); } catch (e) { /* ignore */ } },
+      detach: () => { if (moved() || sess.state === 'closed' || sess.phase === 'results' || sess.phase === 'lobby' && sess.state === 'ok') return; try { sess.detach(); } catch (e) { /* ignore */ } },
       retire: () => { try { sess.leave(); } catch (e) { /* ignore */ } }, // "Udgå af løbet": the server makes it RET/DNF
       retryNow: () => { try { sess.retryNow(); } catch (e) { /* ignore */ } },
+      keepFin: ms => { if (moved() || sess.state === 'closed') return false; try { return sess.keepFin(ms); } catch (e) { return false; } },
     };
   }
 

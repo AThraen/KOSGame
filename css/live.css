@@ -85,6 +85,10 @@
 .live-results li { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
 .live-results li span { flex: 1; }
 .live-results li em { font-style: normal; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.live-results li b { min-width: 2.2em; font-variant-numeric: tabular-nums; }
+.live-results li.is-me { margin: 0 -10px; padding: 10px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 18%, transparent); font-weight: 700; }
+.live-results li.is-me b, .live-results li.is-me span { color: var(--primary); }
+.live-metag { font-style: normal; font-size: 0.75em; font-weight: 800; padding: 1px 7px; margin-left: 6px; border-radius: 999px; background: var(--primary); color: var(--ink); vertical-align: 1px; }
 
 /* hub entry card */
 .live-card.is-closed { opacity: .6; }

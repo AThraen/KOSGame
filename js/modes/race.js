@@ -932,7 +932,10 @@
       const dh = U.wrapPi(b.heading - p.prevH); p.prevH = b.heading;
       if (!p.dir && Math.abs(p.acc + dh) > 0.4) p.dir = Math.sign(p.acc + dh);
       p.acc += dh;
-      KOS.Rules.penTurning(p, dh, dt); // RRS 22.2: no right of way only while the turn is being taken
+      // RRS 22.2: no right of way only while the turn is being taken. A rounding in the zone is not a penalty turn; a boat stuck
+      // head to wind half way round (slow or in irons) is still taking it
+      const it = seq[b.rc.leg], zm = it && it.type === 'mark' ? (it.m.gate || [it.m]) : [];
+      KOS.Rules.penTurning(p, dh, dt, { twa: U.wrapPi(wind.dir - b.heading), zone: zm.some(m => U.dist(b, m) < 3 * L + 1), sailing: b.speed > 0.5 * cls.uRef && !b.inIrons });
       if (Math.abs(p.acc) >= p.need - 0.05) {
         b.rc.pen = null;
         if (b === me) {
@@ -1041,7 +1044,9 @@
       S.netMode = mode || '';
       banner.hidden = !mode;
       banner.classList.toggle('is-away', mode === 'away');
-      banner.innerHTML = mode ? '<span class="nb-long">' + KOS.UI.esc(t(BANNER_KEYS[mode])) + '</span><span class="nb-short">' + KOS.UI.esc(t(BANNER_KEYS[mode] + 'Short')) + '</span>' + (mode === 'away' ? '<button type="button" class="btn btn-sm btn-primary" data-net="try">' + KOS.UI.esc(t('live.tryNow')) + '</button>' : '') : '';
+      banner.classList.toggle('has-tiny', mode === 'away'); // the smallest phones: "Ingen forbindelse" + "Prøv nu", never cut off
+      banner.innerHTML = mode ? '<span class="nb-long">' + KOS.UI.esc(t(BANNER_KEYS[mode])) + '</span><span class="nb-short">' + KOS.UI.esc(t(BANNER_KEYS[mode] + 'Short')) + '</span>' +
+        (mode === 'away' ? '<span class="nb-tiny">' + KOS.UI.esc(t('live.stillTryingTiny')) + '</span>' : '') + (mode === 'away' ? '<button type="button" class="btn btn-sm btn-primary" data-net="try">' + KOS.UI.esc(t('live.tryNow')) + '</button>' : '') : '';
     }
     if (banner) {
       banner.className = 'race-live-banner'; banner.setAttribute('role', 'status'); paintBanner('');
@@ -1278,8 +1283,7 @@
     function goOffline() {
       if (S.unofficial) return;
       lt('disconnect');
-      S.unofficial = true; S.offAt = env.t;
-      if (!WATCH) { try { say(t('live.offlineNote'), 9000); } catch (e) { /* optional */ } }
+      S.unofficial = true; S.offAt = env.t; // no coach tip: the banner says it ('away'), and a coach bubble hides while the banner is up (race.css)
     }
     function backOnline() {
       if (me.rc.finT != null && !S.finAck && !WATCH && !S.gone) sendFin(); // finished while away (also within the 15 s, and a fin lost in a half-open socket)
@@ -2135,7 +2139,13 @@
       if (snapOn) { window.removeEventListener('pagehide', snapOn); document.removeEventListener('visibilitychange', snapOn); }
       // leaving the race screen ("Til kortet", back, quit) only detaches: the seat stays and the title/hub banner leads back (spec E3).
       // An official result keeps the room open for a rematch; the lobby owns the session then
-      if (LIVE && !(S.liveRes && !S.unofficial)) { saveSnap(); LIVE.detach ? LIVE.detach() : LIVE.leave(); }
+      // Our finish not confirmed yet (crossed the line offline, the unofficial result screen came up): the session stays and sends it
+      // as soon as it is back, then lets go by itself (keepFin); otherwise the seat would end up lost/DNF although it finished
+      if (LIVE && !(S.liveRes && !S.unofficial)) {
+        saveSnap();
+        const owed = !WATCH && me.rc.finT != null && !S.finAck && !S.gone && LIVE.keepFin && LIVE.keepFin(Math.round(me.rc.finT * 1000));
+        if (!owed) LIVE.detach ? LIVE.detach() : LIVE.leave();
+      }
       [wCount, wFollow, wEnd, fwinEl, hostBtn, hostMenu].forEach(e => { if (e) e.remove(); });
       for (const k in handlers) KOS.Events.off(k, handlers[k]);
       host.layer.removeEventListener('wheel', onWheel);

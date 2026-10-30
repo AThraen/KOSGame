@@ -345,7 +345,7 @@
       const dh = U.wrapPi(b.heading - p.prevH); p.prevH = b.heading;
       if (!p.dir && Math.abs(p.acc + dh) > 0.4) p.dir = Math.sign(p.acc + dh);
       p.acc += dh;
-      KOS.Rules.penTurning(p, dh, dt); // RRS 22.2: no right of way only while the turn is being taken
+      KOS.Rules.penTurning(p, dh, dt, { sailing: b.speed > 0.5 * cls.uRef && !b.inIrons }); // RRS 22.2: no right of way only while the turn is being taken (a boat stalled half way round still is)
       if (Math.abs(p.acc) >= p.need - 0.05) {
         b.pen = null;
         if (b === me) {

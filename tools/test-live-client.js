@@ -752,6 +752,30 @@ async function main() {
     [anton, mille, priv, ole].forEach(b => { try { b.ws.close(); } catch (x) { /* ignore */ } });
   }
 
+  console.log('-- review round 2: the official table after a late resume marks my own row; a boat without a time has no place number');
+  for (const lang of ['da', 'en']) {
+    const rp = await newPage('area=race', 'Dorte');
+    await rp.page.waitForSelector('.live-card', { timeout: 8000 }); await rp.page.click('.live-card'); await waitView(rp.page, 'entry');
+    const rows = [{ id: 1, name: 'Vaert', place: 1, ms: 61000, status: 'fin' }, { id: 4, name: 'Dorte', place: 2, ms: 64000, status: 'fin' }, { id: 7, name: 'Dorte 2', place: 3, ms: null, status: 'dnf' }];
+    const g = await rp.page.evaluate(([rows, lang]) => {
+      KOS.I18n.setLang(lang);
+      localStorage.setItem('kos.mp.lastResult', JSON.stringify({ code: 'KKKK', rows, myId: 4, at: Date.now() }));
+      const L = KOS.Lobby.state; L.results = rows; L.resCode = 'KKKK'; L.resLate = true; L.view = 'results';
+      const sec = document.getElementById('screen-live'); KOS.Lobby._render(sec);
+      const li = [...sec.querySelectorAll('.live-results li')];
+      const me = sec.querySelector('.live-results li.is-me');
+      return { n: li.length, me: me ? me.textContent : '', meN: sec.querySelectorAll('.live-results li.is-me').length, places: li.map(e => e.querySelector('b').textContent),
+        tag: (sec.querySelector('.live-metag') || {}).textContent || '', bg: me ? getComputedStyle(me).backgroundColor : '', ok: (sec.querySelector('.live-actions [data-act]') || {}).getAttribute ? sec.querySelector('.live-actions [data-act]').getAttribute('data-act') : '' };
+    }, [rows, lang]);
+    ok(g.n === 3 && g.meN === 1 && /Dorte/.test(g.me) && !/Dorte 2/.test(g.me) && g.tag === (lang === 'da' ? 'Dig' : 'You') && g.bg !== 'rgba(0, 0, 0, 0)', lang + ': my row (myId from kos.mp.lastResult) is marked "' + g.tag + '", not the other Dorte (' + JSON.stringify(g) + ')');
+    ok(g.places.join(' ') === '1. 2. –', lang + ': places 1. 2. and "–" for the boat that did not finish (' + g.places.join(' ') + ')');
+    ok(g.ok === 'entry', lang + ': without a lobby to go back to, OK goes to the start of Live');
+    await rp.page.evaluate(() => { localStorage.setItem('kos.mp.lastResult', JSON.stringify({ code: 'KKKK', rows: [{ id: 2, name: 'A', place: 1, ms: null, status: 'lost' }, { id: 3, name: 'B', place: 2, ms: null, status: 'dnf' }], myId: 3, at: Date.now() })); const L = KOS.Lobby.state; L.results = JSON.parse(localStorage.getItem('kos.mp.lastResult')).rows; KOS.Lobby._render(document.getElementById('screen-live')); });
+    ok(await rp.page.evaluate(() => [...document.querySelectorAll('.live-results li b')].every(b => b.textContent === '–')), lang + ': nobody finished: no "1." for a boat that did not finish');
+    ok(rp.page.errs.length === 0, 'no errors (' + rp.page.errs.join(' | ') + ')');
+    await rp.ctx.close();
+  }
+
   await browser.close();
   await srv.close();
   await web.close();

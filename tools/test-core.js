@@ -1157,7 +1157,7 @@ test('rules: R22 only while the penalty turn is being taken - a boat that owes o
   // race.js and soslag.js run it in their penalty step, mark the steered turn, and only skip a victim that is turning
   const src = f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
   for (const f of ['js/modes/race.js', 'js/modes/soslag.js']) {
-    ok(/Rules\.penTurning\(p, dh, dt\)/.test(src(f)) && /p\.ctl = true/.test(src(f)), f + ': penTurning + ctl');
+    ok(/Rules\.penTurning\(p, dh, dt, \{[^}]*sailing: b\.speed > 0\.5 \* cls\.uRef && !b\.inIrons/.test(src(f)) && /p\.ctl = true/.test(src(f)), f + ': penTurning + ctl');
   }
   ok(!/if \(v\.rc\.pen\) return/.test(src('js/modes/race.js')) && /turningPen\(v\)/.test(src('js/modes/race.js')), 'race onFoul: only a turning victim');
   ok(/if \(v\.pen && v\.pen\.turning\) return/.test(src('js/modes/soslag.js')), 'Søslag onFoul: only a turning victim');
@@ -1280,6 +1280,98 @@ test('rules: the verdict does not depend on which boat is passed first, also whe
     if (!r1.both && !r2.both && r1.giveWay !== r2.giveWay) bad++;
   }
   ok(n > 5000 && bad === 0, bad + ' of ' + n + ' close pairs get a different verdict when swapped');
+});
+
+test('rules: a hand-steered 360 is taking the penalty from its bear-away - the crossing boat is never penalised (RRS 22.2, 16.1)', () => {
+  // review round 8 (tools/tmp/rowreview/review8.js 6): starboard X owes a turn and spins by hand; port Y holds its course. Before,
+  // X kept right of way for the first 120 deg and the turn's 10-degree mark was > 1.2 s old, so Y got R10 in 14 of 16 contacts.
+  // race.js passes the wind angle: a turn that begins by bearing away from upwind counts from 45 deg.
+  let n = 0;
+  for (const rate of [20, 30, 45, 60]) for (const startT of [0.6, 1.4, 2.2, 3.0]) for (const off of [-1, 0, 1]) {
+    const X = r7.B('X', 0, 0, -45, { rc: { leg: 1, pen: { need: 2 * Math.PI, acc: 0 } } }), Y = r7.B('Y', -7 + off, 3.5, 45, { tack: 'port' });
+    delete X._init; X.windDir = 0;
+    let prevH = X.heading;
+    const f = r7.run([X, Y], [], null, t => {
+      if (t > startT) X.heading = U.wrapPi(X.heading - R(rate) * r7.DT);
+      const dh = U.wrapPi(X.heading - prevH); prevH = X.heading; X.rc.pen.acc += dh;
+      KOS.Rules.penTurning(X.rc.pen, dh, r7.DT, { twa: U.wrapPi(0 - X.heading), sailing: true });
+      r7.setV(X, 0.8); r7.setV(Y, 1.1); r7.mv(X); r7.mv(Y);
+    }, 10);
+    if (!f) continue;
+    n++;
+    ok(f.excused || f.offender === X, rate + ' deg/s from ' + startT + ' s, off ' + off + ': not Y, got ' + r7.say(f));
+  }
+  ok(n > 30, 'contacts: ' + n);
+  // the same turn without the wind angle (an older caller): a spin still under way at the contact is a fresh course change (R16)
+  const pt = KOS.Rules.penTurning, dt = 1 / 60;
+  let pen = {};
+  for (let i = 0; i < 60; i++) pt(pen, -R(50) * dt, dt, { twa: R(45) + R(50) * i * dt });
+  ok(pen.turning, 'bore away 50 deg from close-hauled: taking it');
+  pen = {};
+  for (let i = 0; i < 60; i++) pt(pen, R(50) * dt, dt, { twa: R(45) - R(50) * i * dt });
+  ok(!pen.turning, 'luffed 50 deg (a tack): not yet');
+  pen = {};
+  for (let i = 0; i < 60; i++) pt(pen, -R(60) * dt, dt, { twa: R(150) + R(60) * i * dt });
+  ok(!pen.turning, 'a 60-degree gybe on a run: not a penalty turn');
+});
+test('rules: a hand-steered 360 that stalls head to wind half way is still being taken (RRS 22.2)', () => {
+  // review round 8 (review8.js 5): 140 deg, then 2.5 s stuck at 3 deg/s; before, the calm reset gave it right of way back
+  const pt = KOS.Rules.penTurning, dt = 1 / 60, p = {};
+  const step = (deg, secs, sailing) => { for (let i = 0; i < secs / dt; i++) pt(p, R(deg) * dt, dt, { sailing }); };
+  step(40, 3.5, true);
+  ok(p.turning, '140 deg: turning');
+  step(3, 2.5, false);
+  ok(p.turning, 'stalled in irons for 2.5 s: still turning');
+  step(30, 1, true);
+  ok(p.turning, 'going again: turning');
+  step(0, 2, true);
+  ok(!p.turning, 'sailing on straight at speed for 2 s: no longer turning');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/modes/race.js'), 'utf8');
+  ok(/penTurning\(p, dh, dt, \{ twa: [^}]*zone: [^}]*sailing: /.test(src), 'race.js passes the wind angle, the zone and sailing');
+});
+test('rules: rounding a mark while owing a turn is not taking it - the inside boat keeps its mark-room (RRS 22.2, 18)', () => {
+  // review round 8 (tools/tmp/rowreview/review8round.js): inside boat I owes a turn and rounds from a run to a beat (135 deg). Past
+  // 120 deg one way penTurning made it 'turning' (R22 before R18). In the zone (race.js: zone) a turn needs more than any rounding.
+  const mk = { x: 0, y: 0, id: 'm2', round: 'port' };
+  for (const touchAt of [120, 133, 140]) {
+    const rI = 2.4, rO0 = 4.4, rT = rI + 1.0, v = 1.4, w = v / rI;
+    const pen = { need: 2 * Math.PI, acc: 0 };
+    const I = r7.B('I', -rI, -10, 180, { tack: 'port', rc: { leg: 1, pen } }), O = r7.B('O', -rO0, -10, 180, { tack: 'port' });
+    const leg = { I: 0, O: 0 };
+    let phi = 0, prevH = I.heading;
+    const f = r7.run([I, O], [mk], b => (leg[b.id] ? 'm3' : 'm2'), () => {
+      if (I.y < 0) { for (const b of [I, O]) { b.y += v * r7.DT; b.heading = R(180); b.vx = 0; b.vy = v; b.speed = v; } }
+      else {
+        phi += w * r7.DT;
+        for (const b of [I, O]) {
+          const pe = R(touchAt), r = b === I ? rI : (phi < pe ? rO0 - (rO0 - rT) * (phi / pe) : rT);
+          const END = R(135), q = Math.min(phi, END);
+          if (phi < END) { b.x = -r * Math.cos(q); b.y = r * Math.sin(q); b.heading = U.wrapPi(Math.PI - q); }
+          else { b.heading = R(45); const e = U.vec(R(45), (phi - END) * rI); b.x = -r * Math.cos(END) + e.x; b.y = r * Math.sin(END) + e.y; }
+          const fv = U.vec(b.heading, v * r / rI); b.vx = fv.x; b.vy = fv.y; b.speed = v * r / rI; b.tack = 'port';
+          if (phi > 2.2) leg[b.id] = 1;
+        }
+      }
+      const dh = U.wrapPi(I.heading - prevH); prevH = I.heading; pen.acc += dh;
+      KOS.Rules.penTurning(pen, dh, r7.DT, { twa: U.wrapPi(0 - I.heading), zone: !leg.I && U.dist(I, mk) < 3 * 2.31 + 1, sailing: true });
+    }, 16);
+    ok(f && !f.excused && f.offender === O && f.rule === 'R18', 'touch at ' + touchAt + ' deg: O (R18), got ' + r7.say(f));
+    ok(!pen.turning, 'I is not taking its penalty');
+  }
+});
+test('rules: the boat entitled to mark-room that turns into the other boat away from the mark is judged by the base rule (RRS 21, 43.1(b))', () => {
+  // review round 8 (review8.js 1): port-gybe run, port rounding, the inside boat I is the WINDWARD boat and bears away into the
+  // outside leeward boat O while the mark is still ahead. Before: O (R18). Within its room only a turn towards the mark is protected.
+  for (const markAhead of [3, 5, 6.5]) for (const rate of [15, 30]) {
+    const fw = U.vec(R(135)), ne = U.vec(R(45));
+    const O = r7.B('O', 0, 0, 135, { tack: 'port' }), I = r7.B('I', ne.x * 1.7, ne.y * 1.7, 135, { tack: 'port' });
+    const m = { x: fw.x * markAhead + ne.x * 3.5, y: fw.y * markAhead + ne.y * 3.5, id: 'm1', round: 'port' };
+    const f = r7.run([O, I], [m], () => 'm1', t => {
+      if (t > 0.3) I.heading = Math.min(R(175), I.heading + R(rate) * r7.DT);
+      r7.setV(O, 1.2); r7.setV(I, 1.2); r7.mv(O); r7.mv(I);
+    }, 5);
+    ok(f && !f.excused && f.offender === I && f.rule === 'R11', 'mark ' + markAhead + ' m, ' + rate + ' deg/s: I (R11), got ' + r7.say(f));
+  }
 });
 
 // ====================================================================== AI

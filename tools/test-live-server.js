@@ -688,7 +688,7 @@ async function main() {
       ok(r.phase === 'results' && r.results.every(x => x.status === 'fin') && r.results[2].id === c.id, 'the returner finished: three finishers, no DNF');
     }
     {
-      // everybody else is lost and nobody finished: the host can end at once; without the host the race ends after 2 min of silence
+      // everybody else is lost and nobody finished: the host can end at once; without the host the race ends after 5 min of silence
       const T = { v: 6e6 }, { rr, r, a, b, c } = setup(0, T);
       rr.disconnect(r, b.id, false); rr.disconnect(r, c.id, false);
       T.v += 30000; rr.tick();
@@ -697,7 +697,52 @@ async function main() {
       const T2 = { v: 7e6 }, s2 = setup(0, T2);
       s2.rr.disconnect(s2.r, s2.a.id, false); s2.rr.disconnect(s2.r, s2.b.id, false); s2.rr.disconnect(s2.r, s2.c.id, false);
       T2.v += 125000; s2.rr.tick();
-      ok(s2.r.phase === 'results', 'all lost and nobody finished: the race ends after 2 minutes');
+      ok(s2.r.phase === 'racing', 'all lost and nobody finished for 2 min 5 s (club Wi-Fi down): the race goes on, the seats can come back');
+      T2.v += 180000; s2.rr.tick();
+      ok(s2.r.phase === 'results', 'all lost and nobody finished: the race ends after 5 minutes (as long as an empty race room waits)');
+      const late2 = s2.rr.resume(mkc('A'), s2.r.code, s2.a.id, s2.a.key);
+      ok(late2.err === 'nocode' && late2.rows && late2.rows.length === 3, 'the empty room is gone, but a seat that comes back later still gets the table');
+      // a watch-only host stays connected while both sailors are away for 2 min 10 s: they come back to a race that is still on
+      const T3 = { v: 7.5e6 }, rr3 = createRooms({ now: () => T3.v });
+      const cr3 = rr3.create(mkc('Skaerm'), { countdownS: 8, maxS: 900, maxP: 4, finishS: 0 }, 'watch');
+      const b3 = rr3.join(mkc('B'), cr3.room.code).player, c3 = rr3.join(mkc('C'), cr3.room.code).player;
+      rr3.start(cr3.room, cr3.player.id); T3.v += 9000; rr3.tick();
+      st(rr3, cr3.room, b3.id, 1); st(rr3, cr3.room, c3.id, 1);
+      rr3.disconnect(cr3.room, b3.id, false); rr3.disconnect(cr3.room, c3.id, false);
+      T3.v += 130000; rr3.tick();
+      ok(cr3.room.phase === 'racing' && rr3.resume(mkc('B'), cr3.room.code, b3.id, b3.key).room, 'watch host connected, both sailors gone 2 min 10 s: the race is still on and they resume into it');
+    }
+    for (const fs0 of [180, 0]) {
+      // a short drop must not shorten the race for good: A finishes, B drops 22 s (the 60 s lost window starts), B resumes and sails on.
+      // The window is provisional: B gets the host's finish window (or no limit) back and can still finish
+      const T = { v: 9e6 + fs0 }, { rr, r, a, b, c } = setup(fs0, T);
+      rr.kick(r, a.id, c.id); // two boats: A and B
+      const keep = () => st(rr, r, b.id, Math.round(T.v), 2);
+      keep(); T.v += 30000; keep();
+      rr.finish(r, a.id, 30000); rr.tick();
+      const win = r.finishAt;
+      ok(fs0 ? win === T.v + fs0 * 1000 : !win, 'finishS=' + fs0 + ': the first finish opens the host window (' + (win ? Math.round((win - T.v) / 1000) + ' s' : 'none') + ')');
+      rr.disconnect(r, b.id, false); T.v += 22000; rr.tick();
+      ok(r.phase === 'racing' && r.finishAt && r.finishAt <= T.v + 60000, 'finishS=' + fs0 + ': B gone 22 s, the 60 s lost window runs');
+      const log = []; const back = rr.resume({ name: 'B', ip: '1.1.1.1', send: (m) => log.push(m) }, r.code, b.id, b.key);
+      ok(back.room && r.finishAt === (win || 0) && log.some(m => m.t === 'fwin' && m.endAt === (win || 0)), 'finishS=' + fs0 + ': B resumed, the window is back to ' + (win ? 'the host window' : 'no limit') + ' and everybody is told (fwin)');
+      for (let k = 0; k < 7; k++) { T.v += 10000; keep(); rr.tick(); }
+      ok(r.phase === 'racing', 'finishS=' + fs0 + ': 70 s after the resume, B still sailing: the race is not over');
+      rr.finish(r, b.id, 140000); rr.tick();
+      ok(r.phase === 'results' && r.results.find(x => x.id === b.id).status === 'fin', 'finishS=' + fs0 + ': B finishes and gets its time');
+    }
+    {
+      // the resumed boat that then goes silent again gets a fresh 60 s lost window (the rule still applies)
+      const T = { v: 9.5e6 }, { rr, r, a, b, c } = setup(0, T);
+      rr.kick(r, a.id, c.id);
+      st(rr, r, b.id, 1); rr.finish(r, a.id, 30000);
+      rr.disconnect(r, b.id, false); T.v += 22000; rr.tick();
+      rr.resume(mkc('B'), r.code, b.id, b.key); rr.tick();
+      ok(!r.finishAt, 'back: no limit again');
+      rr.disconnect(r, b.id, false); T.v += 21000; rr.tick();
+      ok(r.finishAt && r.finishAt <= T.v + 60000, 'gone again: a new lost window');
+      T.v += 61000; rr.tick();
+      ok(r.phase === 'results' && r.results.find(x => x.id === b.id).status === 'lost', 'and it ends the race when B stays away');
     }
     {
       // safety net: a boat still sailing far beyond the first finisher (3x) is DNF even with no limit
@@ -955,6 +1000,19 @@ async function main() {
     ok(h5b.player && h5b.player.host, 'the creator can take the host seat back');
     h5b.player.lost = true; h5b.player.lostAt = clock.t;
     const h5c = R.join(mkConn('Traener'), s5.entry.code, s5.secret);
+    {
+      // the creator's phone locks for > 20 s in the scheduled lobby: server-run meanwhile, but the automatic resume makes it host again
+      const s6 = R.schedule(mkConn('Traener', '5.5.5.7'), { countdownS: 8 }, 'train', clock.t + 30 * MIN);
+      const c0 = clock.t; clock.t = s6.entry.startAt - 15 * MIN; R.tick();
+      const r6 = R.rooms.get(s6.entry.code), h6 = R.join(mkConn('Traener'), s6.entry.code, s6.secret).player, o6 = R.join(mkConn('Kid'), s6.entry.code).player;
+      R.disconnect(r6, h6.id, false); clock.t += 25000; R.tick();
+      ok(r6.hostId === 0 && !h6.host, 'creator gone 25 s: the scheduled lobby is server-run');
+      const back6 = R.resume(mkConn('Traener'), s6.entry.code, h6.id, h6.key);
+      ok(back6.player === h6 && h6.host && r6.hostId === h6.id && r6.players.size === 2, 'the creator resumes: host again, no second seat');
+      ok(R.start(r6, h6.id) === 'ok' && r6.phase === 'countdown', 'the creator can start early again');
+      ok(R.start(r6, o6.id) === 'denied', '(a player still cannot)');
+      clock.t = c0;
+    }
     ok(h5c.player && h5c.player.host && !r5.players.has(h5b.player.id), 'a dropped host seat is replaced when the creator comes back with the secret');
     ok(R.scheduleCancel(s5.entry.code, 'f'.repeat(32)) === 'denied' && r5.phase === 'lobby', 'cancel with a wrong secret is denied');
     const cl = mkConn('Fan'); R.join(cl, s5.entry.code);

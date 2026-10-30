@@ -20,7 +20,7 @@
     few: 'Der skal være flere sejlere for at starte.', reconnecting: 'Forbinder igen…',
     host: 'Vær vært', join: 'Deltag', code: 'Løbskode', start: 'Start løbet', kick: 'Fjern', leave: 'Forlad', share: 'Del link',
     copied: 'Link kopieret', startsIn: 'Starter om {n}', players: 'Sejlere', waitHost: 'Venter på værten…', go: 'Sejl!',
-    guest: 'Sejler', ready: 'Klar', lost: 'Mistet forbindelsen', lostShort: 'Mistet', offlineNote: 'Forbindelsen er væk. Sejl bare videre – dit resultat bliver uofficielt.', backOnline: 'Du er online igen!', you: 'dig', hostTag: 'Vært',
+    guest: 'Sejler', ready: 'Klar', lost: 'Mistet forbindelsen', lostShort: 'Mistet', backOnline: 'Du er online igen!', you: 'dig', meTag: 'Dig', hostTag: 'Vært',
     intro: 'Sejl et rigtigt løb mod dine kammerater – alle i samme båd-type, på samme tid.',
     hostIntro: 'Vælg båd og bane. Så får du en kode, som de andre taster ind.', joinIntro: 'Tast koden fra værten – eller scan QR-koden.',
     role: { sail: 'Vært + sejler', watch: 'Kun vært', sailHint: 'Du sejler selv med.', watchHint: 'Storskærm: overblik og stillingen.' },
@@ -52,7 +52,7 @@
     few: 'More sailors are needed to start.', reconnecting: 'Reconnecting…',
     host: 'Host a race', join: 'Join', code: 'Race code', start: 'Start race', kick: 'Remove', leave: 'Leave', share: 'Share link',
     copied: 'Link copied', startsIn: 'Starting in {n}', players: 'Sailors', waitHost: 'Waiting for the host…', go: 'Go!',
-    guest: 'Sailor', ready: 'Ready', lost: 'Lost connection', lostShort: 'Lost', offlineNote: 'The connection is gone. Keep sailing – your result will be unofficial.', backOnline: 'You are back online!', you: 'you', hostTag: 'Host',
+    guest: 'Sailor', ready: 'Ready', lost: 'Lost connection', lostShort: 'Lost', backOnline: 'You are back online!', you: 'you', meTag: 'You', hostTag: 'Host',
     intro: 'Sail a real race against your friends – everyone in the same boat type, at the same time.',
     hostIntro: 'Pick the boat and the course. You get a code for the others to type in.', joinIntro: 'Type the code from the host – or scan the QR code.',
     role: { sail: 'Host + sail', watch: 'Host only', sailHint: 'You sail too.', watchHint: 'Big screen: overview and standings.' },
@@ -90,13 +90,13 @@
   // reconnect and resume (live-rules spec E): never lose a racer
   KOS.I18n.add('da', { live: {
     stillTrying: 'Forbindelsen er væk – vi prøver stadig', tryNow: 'Prøv nu', replaced: 'Løbet er åbent i et andet vindue.',
-    stillTryingShort: 'Ingen forbindelse – prøver igen', reconnectingShort: 'Forbinder igen…', replacedShort: 'Åbent i et andet vindue', rejoinGoneShort: 'Løbet er slut',
+    stillTryingShort: 'Ingen forbindelse – prøver igen', stillTryingTiny: 'Ingen forbindelse', reconnectingShort: 'Forbinder igen…', replacedShort: 'Åbent i et andet vindue', rejoinGoneShort: 'Løbet er slut',
     resTitle: 'Resultatet af løbet {code}', detachNote: 'Løbet fortsætter. Du kan komme tilbage fra forsiden eller Live-kapsejlads.',
     retire: { btn: 'Udgå af løbet', title: 'Udgå af løbet?', body: 'Så er du ude af løbet og får ikke en placering. Det kan ikke fortrydes.', stay: 'Bliv i løbet', yes: 'Udgå' },
   } });
   KOS.I18n.add('en', { live: {
     stillTrying: 'Connection lost – still trying', tryNow: 'Try now', replaced: 'The race is open in another window.',
-    stillTryingShort: 'No connection – retrying', reconnectingShort: 'Reconnecting…', replacedShort: 'Open in another window', rejoinGoneShort: 'The race is over',
+    stillTryingShort: 'No connection – retrying', stillTryingTiny: 'No connection', reconnectingShort: 'Reconnecting…', replacedShort: 'Open in another window', rejoinGoneShort: 'The race is over',
     resTitle: 'Result of race {code}', detachNote: 'The race goes on. You can come back from the start screen or Live race.',
     retire: { btn: 'Retire from the race', title: 'Retire from the race?', body: 'You leave the race and get no place. This cannot be undone.', stay: 'Stay in the race', yes: 'Retire' },
   } });
@@ -278,8 +278,10 @@
       if (app().cur === 'live') setView('results'); // while racing, race.js shows the result itself
       else { const me = sess; L.timers.push(setTimeout(() => { if (L.sess === me && me.phase === 'results') { reset(); } }, 190000)); } // the server drops the room after 3 min: do not keep a socket on a dead room
     });
-    on('rematch', (room, aborted) => { // the host went again with the same people: everybody lands in the lobby of the same room
+    on('rematch', (room, aborted, rows) => { // the host went again with the same people: everybody lands in the lobby of the same room
       L.room = room; L.results = null; L.resLate = false; L.handoff = false; L.view = 'room';
+      // rows: the race ended while this phone was away and we are already in the next lobby: its table first, OK leads to the room
+      if (rows && rows.length) { L.results = rows; L.resCode = sess.code || ''; L.resLate = true; L.view = 'results'; }
       if (aborted) { try { KOS.UI.toast(t('live.aborted'), { kind: 'info' }); } catch (e) { /* optional */ } }
       const cur = app().cur;
       if (cur === 'live') paint(); else if (cur === 'play' || cur === 'results') app().show('live', {}, { replace: true }); else reset();
@@ -603,11 +605,17 @@
       '<button type="button" class="btn btn-glass btn-sm" data-act="leave">' + esc(t('live.leave')) + '</button></div>');
   }
   function fmt(ms) { const s = ms / 1000, m = Math.floor(s / 60); return m + ':' + (s - m * 60 < 10 ? '0' : '') + (s - m * 60).toFixed(1); }
+  // the official table: my own row stands out (kos.mp.lastResult keeps my seat id for that race), a boat without a time gets no place.
+  // OK goes back to the room when we are already in its next lobby (the race ended while this phone was away), else to the start
   function viewResults() {
     const rows = (L.results || []).slice().sort((a, b) => a.place - b.place);
-    return shell(L.resCode ? t('live.resTitle', { code: L.resCode }) : t('live.res.title'), (L.resLate ? '<p class="live-intro">' + esc(t('live.resOver')) + '</p>' : '') + '<ol class="live-results glass">' + rows.map(r => '<li><b>' + r.place + '.</b> <span>' + esc(r.name) + '</span> <em>' +
+    const lr = L.resCode && KOS.MP.lastResult ? KOS.MP.lastResult(L.resCode) : null;
+    const me = lr && lr.myId != null ? lr.myId : L.sess && L.sess.code === L.resCode ? L.sess.id : null;
+    const inRoom = !!(L.sess && L.room && L.sess.phase === 'lobby');
+    return shell(L.resCode ? t('live.resTitle', { code: L.resCode }) : t('live.res.title'), (L.resLate ? '<p class="live-intro">' + esc(t('live.resOver')) + '</p>' : '') + '<ol class="live-results glass">' + rows.map(r => '<li' + (me != null && r.id === me ? ' class="is-me"' : '') + '><b>' + (r.ms != null ? r.place + '.' : '–') + '</b> <span>' + esc(r.name) +
+      (me != null && r.id === me ? ' <i class="live-metag">' + esc(t('live.meTag')) + '</i>' : '') + '</span> <em>' +
       (r.ms != null ? fmt(r.ms) : esc(t('live.res.dnf'))) + '</em></li>').join('') + '</ol>' +
-      '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="entry">' + esc(t('common.ok')) + '</button></div>');
+      '<div class="live-actions"><button type="button" class="btn btn-primary" data-act="' + (inRoom ? 'toroom' : 'entry') + '">' + esc(t('common.ok')) + '</button></div>');
   }
 
   // wind chips in the player's unit (the server stores knots): 3-14 m/s or 6-27 kn
@@ -998,6 +1006,7 @@
       retry: () => recheckThen(() => { reset(); setView('entry'); }),
       ai: () => { kit().sfx('click'); reset(); aiRace(); },
       entry: () => toEntry(),
+      toroom: () => { L.results = null; L.resLate = false; setView(L.room ? 'room' : 'entry'); },
       // live-rules spec B/C: the open list, scheduling, my scheduled races, the wait card
       listview: () => recheckThen(() => openList()),
       relist: () => loadList(),

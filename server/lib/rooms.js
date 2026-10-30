@@ -10,7 +10,7 @@ const RESULTS_KEEP_MS = 180000; // long enough for a podium on the projector and
 const HOSTLEFT_KEEP_MS = 5000;
 const EMPTY_KEEP_MS = 30000; // an empty LOBBY
 const EMPTY_RACE_KEEP_MS = 5 * 60000; // a countdown/race/result where everybody dropped: the seats wait (a rejoin brings the race back)
-const LOST_END_MS = 120000; // the race may end for the others when every boat that is still out is a seat that has been gone this long
+const LOST_END_MS = EMPTY_RACE_KEEP_MS; // nobody finished and every boat still out has been gone this long: the race ends (as long as an empty race room waits; club Wi-Fi down for 2 min must not end it)
 const GONE_LOST_MS = 20000; // a racing seat whose socket is gone this long no longer holds the others up
 const GONE_STALE_MS = 30000; // ...and so does a seat whose socket is open but that has sent no state for this long (frozen tab, dead tunnel)
 const LOST_WINDOW_MS = 60000; // once every boat that is still here has finished, the ones that are gone get this long to come back, then DNF
@@ -169,7 +169,10 @@ function createRooms(opts) {
       return e;
     }
     p.send = conn.send; p.ip = conn.ip; if (conn.ver) p.ver = P.clean(conn.ver, 16); p.lost = false; p.lostAt = 0; p.seenAt = now(); r.emptyAt = 0;
+    // the creator of a scheduled race whose seat was demoted while it was away (tick: server-run) is host again, in the lobby (spec C)
+    if (r.sched && r.phase === 'lobby' && !r.hostId && p.wasHost) { p.host = true; p.wasHost = false; r.hostId = p.id; }
     pushRoom(r);
+    if (r.phase === 'racing') lostBack(r); // a boat back in the race: the short window for the gone boats no longer applies
     return { room: r, player: p };
   }
 
@@ -278,7 +281,7 @@ function createRooms(opts) {
       if (p.lost) p.lostAt = t;
       p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
     }
-    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
+    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.finWin = 0; r.lostWin = false; r.lobbyAfter = false; r.lobbyAt = 0;
     r.cfg = Object.assign({}, r.cfg, { seed: randInt(2147483647) });
     if (serverRun) r.sched.startAt = now() + 60000; // next gun in a minute, with >= 2 players
     broadcast(r, { t: 'rematch', room: info(r) });
@@ -298,7 +301,7 @@ function createRooms(opts) {
       if (p.lost) p.lostAt = now(); // a dropped seat waits in the lobby again (the lobby grace, or until the gun in a scheduled room)
       p.final = false; p.finMs = null; p.lg = 0; p.status = null; p.state = null; p.sent = new Map();
     }
-    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.lobbyAfter = false; r.lobbyAt = 0;
+    r.phase = 'lobby'; r.T0 = 0; r.results = null; r.deleteAt = 0; r.emptyAt = 0; r.created = now(); r.finishAt = 0; r.finWin = 0; r.lostWin = false; r.lobbyAfter = false; r.lobbyAt = 0;
     r.cfg = Object.assign({}, r.cfg, { seed: randInt(2147483647) });
     broadcast(r, { t: 'rematch', room: info(r), aborted: true });
     return 'ok';
@@ -331,7 +334,10 @@ function createRooms(opts) {
     else p.status = 'dnf';
     if (p.status === 'fin') {
       broadcast(r, { t: 'fin', id, ms: p.finMs });
-      if (!r.finishAt && r.cfg.finishS > 0) { r.finishAt = now() + r.cfg.finishS * 1000; broadcast(r, { t: 'fwin', endAt: r.finishAt }); }
+      if (!r.finWin && r.cfg.finishS > 0) {
+        r.finWin = now() + r.cfg.finishS * 1000; // the finish window the host chose; finishAt may run shorter while every open boat is gone
+        if (!r.finishAt || r.finWin < r.finishAt) { r.finishAt = r.finWin; broadcast(r, { t: 'fwin', endAt: r.finishAt }); }
+      }
     }
     maybeFinish(r);
     return true;
@@ -363,11 +369,19 @@ function createRooms(opts) {
   // how long a boat that has not finished has been out of touch: socket gone, or open but no state frame
   function silentMs(r, p, t) { return p.lost ? t - p.lostAt : t - (p.seenAt || r.T0 || t); }
   function isGone(r, p, t) { return silentMs(r, p, t) >= (p.lost ? GONE_LOST_MS : GONE_STALE_MS); }
-  // a short window for the boats that are gone (never longer than the one already running); everybody sees the countdown
+  // a short window for the boats that are gone (never longer than the one already running); everybody sees the countdown.
+  // It is provisional (r.lostWin): a gone boat that comes back and sails on gets the host's window (finWin) or no limit again (lostBack)
   function lostWindow(r) {
     const at = now() + LOST_WINDOW_MS;
     if (r.finishAt && r.finishAt <= at) return;
-    r.finishAt = at; broadcast(r, { t: 'fwin', endAt: r.finishAt });
+    r.finishAt = at; r.lostWin = true; broadcast(r, { t: 'fwin', endAt: r.finishAt });
+  }
+  function lostBack(r) {
+    if (!r.lostWin) return;
+    const t = now();
+    if (r.players.size && [...r.players.values()].every(p => !hasBoat(p) || p.final || isGone(r, p, t))) return;
+    r.lostWin = false; r.finishAt = r.finWin || 0;
+    broadcast(r, { t: 'fwin', endAt: r.finishAt });
   }
   // The race must never wait for a boat that cannot finish. Ends when: every boat is final; every boat still here is final and the
   // gone ones have had LOST_WINDOW_MS (also with "no limit"); nobody finished and everybody still out has been gone LOST_END_MS; or
@@ -382,7 +396,7 @@ function createRooms(opts) {
     if (fins.length) {
       const first = Math.min.apply(null, fins.map(p => p.finMs));
       if (t >= r.T0 + Math.max(first * SAFE_FACTOR, first + SAFE_MIN_EXTRA_MS)) { endRace(r); return; }
-      if (open.every(p => isGone(r, p, t))) lostWindow(r);
+      if (open.every(p => isGone(r, p, t))) lostWindow(r); else lostBack(r);
     } else if (open.every(p => silentMs(r, p, t) >= LOST_END_MS)) endRace(r);
   }
 
@@ -428,7 +442,10 @@ function createRooms(opts) {
       if (t - r.created > HARD_MAX_MS) { broadcast(r, { t: 'err', code: 'closed' }); remove(r); continue; }
       if (r.phase === 'lobby' && t - r.created > LOBBY_MAX_MS) { broadcast(r, { t: 'hostleft' }); remove(r); continue; }
       if (r.sched && r.phase === 'lobby') r.emptyAt = 0; // a scheduled lobby waits for its time even when nobody is in it
-      if (r.emptyAt && t - r.emptyAt >= (r.phase === 'lobby' ? EMPTY_KEEP_MS : EMPTY_RACE_KEEP_MS) && ![...r.players.values()].some(p => !p.lost)) { remove(r); continue; }
+      if (r.emptyAt && t - r.emptyAt >= (r.phase === 'lobby' ? EMPTY_KEEP_MS : EMPTY_RACE_KEEP_MS) && ![...r.players.values()].some(p => !p.lost)) {
+        if (r.phase === 'racing') endRace(r); // the table is kept (archive): a seat that comes back later still gets its result
+        remove(r); continue;
+      }
       if (r.phase === 'lobby' || r.phase === 'countdown') {
         for (const p of [...r.players.values()]) {
           if (!p.lost || p.final || t - p.lostAt < lobbyGrace) continue;

@@ -20,6 +20,10 @@
 //   lobbyseat the lobby seat is gone while the phone is away (dropped, restart): the resume joins the open lobby again, never "Løbet er slut"
 //   rescut   a drop on the podium, the host's rematch meanwhile: the sailor lands in the new lobby
 //   entry    "Til kortet" lands on the hub; the Live entry view offers "Fortsæt live-løbet", and typing the same code resumes the seat
+//   finoff   finishing after 15 s offline: the unofficial result screen comes up by itself, and the finish still reaches the server
+//            once the network is back (review round 2)
+//   abortdrop a 3 s drop while the host aborts: the sailor leaves the dead race screen for the lobby and is in the next race with a session
+//   ghost    a 25 s drop while the host ends the race and starts a rematch: the old race's table (my row marked), then the new lobby
 // Only some: node tools/test-live-reconnect.js matrix,kill. Screenshots of the banner: SHOTS=dir/ node tools/test-live-reconnect.js banner
 const fs = require('fs');
 const os = require('os');
@@ -267,12 +271,21 @@ async function main() {
     ok(b.seatLS && !R.seat().left, 'the seat stays (localStorage and server)');
     // review round 1: one line, inside the screen, under the pause card and dialogs; on a small phone the short text, under the HUD
     const geo = () => R.d.evaluate(() => { const e = document.querySelector('.race-live-banner'), r = e.getBoundingClientRect(), h = document.querySelector('.hud'), hr = h && h.getBoundingClientRect(), sh = e.querySelector('.nb-short');
-      return { h: Math.round(r.height), top: Math.round(r.top), hudB: hr ? Math.round(hr.bottom) : null, z: +getComputedStyle(e).zIndex, short: !!sh && getComputedStyle(sh).display !== 'none', inside: r.left >= 0 && r.right <= innerWidth }; });
+      return { h: Math.round(r.height), top: Math.round(r.top), hudB: hr ? Math.round(hr.bottom) : null, z: +getComputedStyle(e).zIndex, short: !!sh, inside: r.left >= 0 && r.right <= innerWidth }; });
     let g = await geo();
     ok(g.h <= 52 && g.z < 40 && g.inside, 'the banner is one line, inside the screen, below the pause card (' + JSON.stringify(g) + ')');
     await R.d.setViewportSize({ width: 320, height: 568 }); await sleep(500);
     g = await geo();
     ok(g.h <= 52 && g.short && g.inside && (g.hudB === null || g.top >= g.hudB), '320x568: the short text on one line, under the HUD (' + JSON.stringify(g) + ')');
+    // review round 2: the text that shows is complete (never "Ingen forbindelse – prøv…"), and a coach bubble waits while the banner is up
+    const shown = () => R.d.evaluate(() => [...document.querySelectorAll('.race-live-banner span')].filter(e => getComputedStyle(e).display !== 'none').map(e => ({ t: e.textContent, cut: e.scrollWidth > e.clientWidth + 1 })));
+    let sh = await shown();
+    ok(sh.length === 1 && sh[0].t === 'Ingen forbindelse' && !sh[0].cut, '320x568: "Ingen forbindelse" in full next to "Prøv nu" (' + JSON.stringify(sh) + ')');
+    await R.d.setViewportSize({ width: 390, height: 844 }); await sleep(400);
+    sh = await shown();
+    ok(sh.length === 1 && /prøver igen/.test(sh[0].t) && !sh[0].cut, '390x844: the short text in full (' + JSON.stringify(sh) + ')');
+    await R.d.evaluate(() => KOS.UI.coach('Test', { ms: 3000 })); await sleep(300);
+    ok(await R.d.evaluate(() => getComputedStyle(document.querySelector('.coach')).visibility === 'hidden'), 'a coach bubble does not show on top of / under the banner');
     await R.d.setViewportSize({ width: 900, height: 700 });
     await sleep(3000);
     R.px.up();
@@ -521,6 +534,61 @@ async function main() {
     ok(await until(R.d, () => { const L = KOS.Lobby.state; return KOS.App.cur === 'live' && L.view === 'room' && L.sess && L.sess.state === 'ok'; }, null, 15000), 'Dorte lands in the new lobby');
     ok(R.r().phase === 'lobby' && ['Vaert', 'Dorte', 'Erik'].every(n => [...R.r().players.values()].some(p => p.name === n && !p.lost)), 'the server lobby has Dorte (and the host and Erik)');
     ok(await R.d.evaluate(() => !document.querySelector('.seatbar')), 'no stale banner');
+    await R.done();
+  });
+  // ---------------------------------------------------------------- review round 2
+  scen('finoff', 'finishing after 17 s offline: the unofficial result screen, then the network comes back', async (ok) => {
+    const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    R.px.cut();
+    await sleep(17000);
+    await R.d.evaluate(() => KOS.App.run.inst.debug.finishNow());
+    ok(await until(R.d, () => KOS.App.cur === 'results', null, 15000), 'the unofficial result screen comes up by itself');
+    ok(await R.d.evaluate(() => { const s = KOS.Lobby.state.sess; return !!s && s.state !== 'closed' && s.finPending != null; }), 'the session is kept with the finish to send (not detached)');
+    R.px.up();
+    ok(await srvUntil(() => R.seat('Dorte').status === 'fin', 25000), 'the network is back: the server has Dorte as finished (' + JSON.stringify(R.seat('Dorte')) + ')');
+    ok(await until(R.d, () => { const s = KOS.Lobby.state.sess; return !s || s.state === 'closed'; }, null, 8000), 'then the session lets go by itself');
+    await R.h.evaluate(() => KOS.App.run.host.live.hostEnd());
+    ok(await srvUntil(() => R.r() && R.r().phase === 'results' && (R.r().results.find(x => x.name === 'Dorte') || {}).status === 'fin', 8000), 'the official table has Dorte as finished, not lost');
+    ok(R.d.errs.length === 0, 'no page errors (' + R.d.errs.slice(0, 2).join(' | ') + ')');
+    await R.done();
+  });
+  scen('abortdrop', 'a 3 s drop while the host aborts the race; then the host starts again', async (ok) => {
+    const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    R.px.cut();
+    await sleep(500);
+    await R.h.evaluate(() => KOS.App.run.host.live.hostAbort());
+    await sleep(2500);
+    R.px.up();
+    ok(await until(R.d, () => { const L = KOS.Lobby.state; return KOS.App.cur === 'live' && L.view === 'room' && L.sess && L.sess.state === 'ok' && L.sess.phase === 'lobby'; }, null, 15000),
+      'Dorte leaves the aborted race screen for the lobby (' + JSON.stringify(await R.dst()) + ')');
+    await R.h.waitForFunction(() => KOS.App.cur === 'live' && KOS.Lobby.state.view === 'room', null, { timeout: 10000 }).catch(() => {});
+    await act(R.h, 'start');
+    ok(await until(R.d, () => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live, null, 20000), 'the host starts again: Dorte is in the new race');
+    await sleep(3000);
+    ok(await R.d.evaluate(() => { const s = KOS.Lobby.state.sess; return !!s && s.state === 'ok' && (s.phase === 'countdown' || s.phase === 'racing'); }), 'with a live session (the old race screen did not close it)');
+    ok(!R.seat('Dorte').lost && (R.seat('Dorte').phase === 'countdown' || R.seat('Dorte').phase === 'racing'), 'the server seat is live in the new race (' + JSON.stringify(R.seat('Dorte')) + ')');
+    ok(R.d.errs.length === 0, 'no page errors (' + R.d.errs.slice(0, 2).join(' | ') + ')');
+    await R.done();
+  });
+  scen('ghost', 'a 25 s drop while the host ends the race and starts a rematch', async (ok) => {
+    const R = await room(true, { sailors: [{ name: 'Dorte' }, { name: 'Erik' }] });
+    R.px.cut();
+    await sleep(800);
+    await R.h.evaluate(() => KOS.App.run.host.live.hostEnd());
+    await R.h.waitForFunction(() => KOS.App.cur === 'results', null, { timeout: 10000 }).catch(() => {});
+    await sleep(22000); // longer than the lobby grace: the rematch leaves the dropped seat behind
+    await R.h.evaluate(() => KOS.Lobby.rematch());
+    await sleep(1500);
+    R.px.up();
+    ok(await until(R.d, () => { const L = KOS.Lobby.state; return KOS.App.cur === 'live' && L.view === 'results' && document.querySelectorAll('.live-results li').length === 3; }, null, 20000),
+      'Dorte sees the table of the race that ended while she was away (' + JSON.stringify(await R.d.evaluate(() => ({ view: KOS.Lobby.state.view, res: KOS.Lobby.state.results, lr: localStorage.getItem('kos.mp.lastResult'), ph: KOS.Lobby.state.sess && KOS.Lobby.state.sess.phase }))) + ')');
+    ok(await R.d.evaluate(() => { const me = document.querySelector('.live-results li.is-me'); return !!me && /Dorte/.test(me.textContent); }), 'her own row is marked');
+    await act(R.d, 'toroom');
+    ok(await until(R.d, () => { const L = KOS.Lobby.state; return L.view === 'room' && L.sess && L.sess.state === 'ok' && L.sess.phase === 'lobby'; }, null, 8000), 'OK: the new lobby, with a live session');
+    ok([...R.r().players.values()].some(p => p.name === 'Dorte' && !p.lost), 'the server lobby has Dorte');
+    await act(R.h, 'start');
+    ok(await until(R.d, () => KOS.App.cur === 'play' && KOS.App.run.inst && KOS.App.run.inst.live && KOS.Lobby.state.sess && KOS.Lobby.state.sess.state === 'ok', null, 20000), 'and she is in the next race');
+    ok(R.d.errs.length === 0, 'no page errors (' + R.d.errs.slice(0, 2).join(' | ') + ')');
     await R.done();
   });
   scen('entry', '"Til kortet" -> hub; the Live entry view and the same code lead back into the race', async (ok) => {

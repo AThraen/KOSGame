@@ -14,7 +14,7 @@
 //       pen.turning, see penTurning) keeps clear of boats sailing normally. Owing a turn while sailing on is not taking it (RRS 22.2).
 //       For 'C-headon' both boats must turn to starboard: {standOn: null, giveWay: a, both: true}.
 //   KOS.Rules.overlapped(a, b), isWindward(a, b, wind), clearAstern(a, b), tackOf(boat, windDir?)
-//   KOS.Rules.penTurning(pen, dh, dt) -> is the boat taking its penalty turn now (sets pen.turning; call once per step)
+//   KOS.Rules.penTurning(pen, dh, dt, {twa?, zone?, sailing?}) -> is the boat taking its penalty turn now (sets pen.turning; call once per step)
 //   KOS.Rules.explain(result) -> localized reason text;  KOS.Rules.ruleName(rule) -> short localized title
 //   KOS.Rules.monitor({mode, cooldown?, splitContact?, nextMark?, react?}) -> {update(boats, wind, marks, dt) -> [{type:'foul'|'mark',
 //       offender, victim, rule, reasonKey, contact, excused?}], reset()}
@@ -27,7 +27,9 @@
 //       have kept clear by holding the course it had at the gain (it steered into a boat that left room): its base rule stands.
 //       excused: nobody is penalised
 //       (R15: the other boat had only just gained right of way; R16: the right-of-way boat turned so the hulls came closer, at most
-//       REACT after its turn became noticeable (TURN), except a boat entitled to mark-room, sailing within it: RRS 21).
+//       REACT after its turn became noticeable (TURN), or still turning at the contact while it owes a penalty turn; except a boat
+//       entitled to mark-room, sailing within it: RRS 21). A boat entitled to mark-room that turned into the other boat away from the
+//       mark's rounding side before passing it is not sailing within its room: that contact is judged by the base rule (R10/R11/R12).
 // Boats may be physics boats or light scenario objects {x, y, heading, length?, tack?, r13?, isPower?, speed?, name?}.
 (function (root) {
   const KOS = (root.KOS = root.KOS || {});
@@ -258,17 +260,26 @@
   function penOn(p) { return p === true || !!(p && p.turning); }
   function keepsClear(b) { const o = b.rc || b; return !!((o.ocs && o.ret !== false) || penOn(o.pen)); }
   const PEN_RUN = R(120); // turned one way by more than a tack (with overshoot): the turn is under way
+  const PEN_RUN_ZONE = R(220); // a turn that began in the zone of the next mark: more than any rounding
+  const PEN_BEAR = R(45); // a turn that began by bearing away from upwind or a reach (a 360 as the game steers it, penControls)
   /** Is a boat that owes a penalty turn taking it now? p = its penalty record, dh = its heading change this step. Yes while the
    *  game steers the turn for it (p.ctl, set by the steering helper this step: the turn button, the autopilot, an AI helm) or once
    *  it has turned one way by more than PEN_RUN, until it sails straight (under 4 deg/s) for 1.5 s or turns back by 15 deg.
+   *  o (optional): {twa: its signed true wind angle, zone: it is in the zone of its next mark, sailing: false while it is stalled
+   *  (slow or in irons)}. A turn that began by bearing away (from |twa| < 100 deg) counts from PEN_BEAR; a turn that began or ran
+   *  in the zone needs PEN_RUN_ZONE (a mark rounding is not a penalty turn, RRS 22.2); a stalled boat is not sailing straight.
    *  Sets p.turning, clears p.ctl, returns p.turning. */
-  function penTurning(p, dh, dt) {
+  function penTurning(p, dh, dt, o) {
     if (!p) return false;
-    dt = dt || KOS.DT;
-    if (Math.abs(dh) < R(4) * dt) { p.calm = (p.calm || 0) + dt; if (p.calm >= 1.5) p.run = 0; } else p.calm = 0;
-    if (!p.run || Math.sign(dh) === Math.sign(p.run)) { p.run = (p.run || 0) + dh; p.back = 0; }
-    else { p.back = (p.back || 0) + dh; if (Math.abs(p.back) > R(15)) { p.run = p.back; p.back = 0; } }
-    p.turning = !!(p.ctl || Math.abs(p.run) >= PEN_RUN);
+    dt = dt || KOS.DT; o = o || {};
+    if (Math.abs(dh) >= R(4) * dt || o.sailing === false) p.calm = 0; // stuck head to wind half way round: still taking it
+    else { p.calm = (p.calm || 0) + dt; if (p.calm >= 1.5) p.run = 0; }
+    const fresh = () => { p.bear = o.twa !== undefined && Math.abs(o.twa) < R(100) && Math.sign(dh) === -Math.sign(o.twa); p.zone = !!o.zone; };
+    if (!p.run || Math.sign(dh) === Math.sign(p.run)) { if (!p.run && dh) fresh(); p.run = (p.run || 0) + dh; p.back = 0; }
+    else { p.back = (p.back || 0) + dh; if (Math.abs(p.back) > R(15)) { p.run = p.back; p.back = 0; fresh(); } }
+    if (o.zone) p.zone = true;
+    const run = Math.abs(p.run || 0);
+    p.turning = !!(p.ctl || run >= (p.zone ? PEN_RUN_ZONE : PEN_RUN) || (p.bear && !p.zone && run >= PEN_BEAR));
     p.ctl = false;
     return p.turning;
   }
@@ -452,10 +463,15 @@
         // approach (ducking, bearing away from it) takes no room away and excuses nobody.
         // The turn must be a fresh one: it became noticeable (TURN) at most REACT ago. A steady luff that has run for longer gave
         // the give-way boat its time to respond, however fast it still is (RRS 16.1: room to keep clear).
+        // A boat that owes a penalty turn and is still turning at the contact (a hand-steered 360 before it counts as taken,
+        // penTurning) is judged against its heading REACT ago instead: a spin keeps changing course faster than anyone can answer.
+        const owesPen = b => { const p = (b.rc || b).pen; return !!(p && p !== true && !p.turning); };
         const turnedTowards = (i, j) => {
-          const tc = seen[ids[i]].tc, tr = tc.tn !== null ? tc : tc.prev;
+          const tc = seen[ids[i]].tc, so = boats[i], h1 = so.heading || 0, hs = seen[ids[i]].hs;
+          let tr = tc.tn !== null ? tc : tc.prev;
+          if (tc.dir && owesPen(so) && hs.length > 1 && hs[0].t <= t - REACT + 1e-6) tr = { h0: hs[0].h, tn: t };
           if (!tr || tr.tn === null || t - tr.tn > REACT + 1e-6) return false;
-          const so = boats[i], h0 = tr.h0, h1 = so.heading || 0;
+          const h0 = tr.h0;
           if (Math.abs(U.angDiff(h0, h1)) < TURN) return false;
           const was = approach(so, boats[j], h0), now = approach(so, boats[j], h1);
           return now.min < was.min - 0.05 || (now.min <= was.min + 0.05 && now.mean < was.mean - 0.05);
@@ -475,6 +491,16 @@
             if (hullGap(ghost, o) <= 0.2) return false; // a margin: two phones see the tracks a few cm apart (quantised states)
           }
           return true;
+        };
+        // the boat at i, entitled to mark-room, turned towards j within REACT and away from the side the nearest mark it heads for
+        // is to be left on (to starboard at a port-rounding mark), before it has passed that mark (it is less than 120 deg off the bow)
+        const outOfRoom = (i, j) => {
+          const so = boats[i];
+          let m = null;
+          for (const mm of marks) if (headsFor(so, mm, rctx) && (!m || U.dist(so, mm) < U.dist(so, m))) m = mm;
+          if (!m || Math.abs(relBearing(so, m)) >= R(120) || !turnedTowards(i, j)) return false;
+          const tc = seen[ids[i]].tc, tr = tc.tn !== null ? tc : tc.prev, d = U.angDiff(tr ? tr.h0 : so.heading || 0, so.heading || 0);
+          return (m.round || m.side || 'port') === 'starboard' ? d < 0 : d > 0;
         };
         const rctx = { nextMark: opts.nextMark };
         for (let i = 0; i < boats.length; i++) {
@@ -545,21 +571,28 @@
             const key = (a.id || i) + '|' + (b.id || j) + (opts.splitContact && contact ? '|c' : ''); // splitContact: a close-call warning must not swallow the contact a moment later (humans cannot dodge like the AI)
             if (cd[key] > t) continue;
             cd[key] = t + (opts.cooldown || 8);
-            const offender = row.giveWay, victim = row.standOn || (row.giveWay === a ? b : a);
-            const f = { type: 'foul', offender, victim, rule: row.rule, reasonKey: row.reasonKey, reasonVars: row.reasonVars, contact, t };
-            if (si >= 0 && opts.react !== false) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
+            // RRS 21 / 43.1(b) only cover the boat entitled to mark-room while it sails within that room: one that turned into the
+            // other boat away from the rounding side, with the mark still ahead of its beam, is judged by the base rule (R10/R11/R12)
+            let jr = row, sj = si;
+            if (row.rule === 'R18' && si >= 0 && outOfRoom(si, si === i ? j : i)) {
+              jr = rightOfWay(a, b, { wind, mode: opts.mode, nextMark: opts.nextMark });
+              sj = jr.standOn === a ? i : jr.standOn === b ? j : -1;
+            }
+            const offender = jr.giveWay, victim = jr.standOn || (jr.giveWay === a ? b : a);
+            const f = { type: 'foul', offender, victim, rule: jr.rule, reasonKey: jr.reasonKey, reasonVars: jr.reasonVars, contact, t };
+            if (sj === si && si >= 0 && opts.react !== false) { // no time to react (RRS 15 / 16); a gainer that left room (the give-way boat steered into it) is not blamed
               const gi = si === i ? j : i;
               // the give-way boat could have kept clear by holding its course: the gain gave it time, the base rule stands
               const gained = t - P.gainT <= REACT && P.gainer === soId && !heldClear(gi, si, P.gainT);
               if (gained && P.gainOwn) {
                 // the boat that just gained right of way by its own action did not give room to keep clear: it broke RRS 15
-                Object.assign(f, { offender: boats[si], victim: boats[gi], rule: 'R15', baseRule: row.rule, reasonKey: 'rules.reason.R15-gain',
+                Object.assign(f, { offender: boats[si], victim: boats[gi], rule: 'R15', baseRule: jr.rule, reasonKey: 'rules.reason.R15-gain',
                   reasonVars: { give: nameOf(boats[si]), stand: nameOf(boats[gi]) } });
               } else {
                 // gained without its own action (mark-room at the zone), or it turned into the give-way boat: nobody is penalised
                 // R16 never excuses against the boat entitled to mark-room: it is sailing within its room as it rounds (RRS 21)
-                const ex = gained ? 'R15' : row.rule !== 'R18' && turnedTowards(si, gi) && !heldClear(gi, si, t - REACT) ? 'R16' : null;
-                if (ex) Object.assign(f, { rule: ex, baseRule: row.rule, reasonKey: 'rules.reason.' + ex, excused: true });
+                const ex = gained ? 'R15' : jr.rule !== 'R18' && turnedTowards(si, gi) && !heldClear(gi, si, t - REACT) ? 'R16' : null;
+                if (ex) Object.assign(f, { rule: ex, baseRule: jr.rule, reasonKey: 'rules.reason.' + ex, excused: true });
               }
             }
             out.push(f);
