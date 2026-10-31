@@ -1396,7 +1396,7 @@
       S.hudT -= dt; S.ambT -= dt;
       if (S.hudT <= 0) {
         S.hudT = 0.1;
-        hud.update({ wind: { dir: boat.windDir || wind.dir, speed: boat.tws || wind.speed }, speed: U.kn(Math.abs(boat.speed)), pos: boat.pos,
+        hud.update({ wind: { dir: boat.windDir || wind.dir, speed: boat.tws || wind.speed, ref: wind.speed }, speed: U.kn(Math.abs(boat.speed)), pos: boat.pos,
           timer: S.time * 1000, heel: boat.heel, heelMax: L.hike ? hikeFlat / 0.8 : cls.capsizeHeel || 0.8 });
         ctrl.setIdealSheet(controls.autoTrim || boat.inIrons ? null : KOS.Physics.idealSheet(boat), L.manualTrim ? (easy ? 0.11 : pro ? 0.05 : 0.08) : 0.07);
         if (S.pathLine && S.step && S.step.target) { const tg = S.step.target(); if (tg) { S.pathLine.a.x = boat.x; S.pathLine.a.y = boat.y; S.pathLine.b.x = tg.x; S.pathLine.b.y = tg.y; } }

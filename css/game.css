@@ -51,6 +51,10 @@ body.mode-dom .play-chrome { left: auto; right: calc(var(--safe-r) + 10px); }
 .hud-wind-dial { width: 38px; height: 38px; }
 .hud-wind-dial svg { width: 100%; height: 100%; }
 .hud-wind-arrow { transition: transform .4s ease; }
+/* local wind at the boat: a gust (pust) tints the number like the "Pust!" float text, a lull dims it */
+.hud-wind { transition: background-color .4s ease; } .hud-wind .hud-val b { transition: color .4s ease; }
+.hud-wind.is-gust { background: rgba(73,198,242,.14); } .hud-wind.is-gust .hud-val b { color: #9fe7ff; }
+.hud-wind.is-lull .hud-val b { color: rgba(236,241,255,.6); }
 .hud-heel-bar { position: relative; display: block; width: 70px; height: 8px; margin-top: 4px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; }
 .hud-heel-bar::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: rgba(255,255,255,.6); }
 .hud-heel-bar i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; background: var(--good); border-radius: 9px; }

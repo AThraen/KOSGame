@@ -1566,7 +1566,7 @@
       S.hudT -= dt; S.ambT -= dt;
       if (S.hudT <= 0) {
         S.hudT = 0.1;
-        const d = { wind: { dir: wind.dir, speed: wind.speed }, speed: kn(), timer: S.time * 1000 };
+        const d = { wind: { dir: boat.windDir || wind.dir, speed: boat.tws || wind.speed, ref: wind.speed }, speed: kn(), timer: S.time * 1000 };
         if (M.hudData) M.hudData(d);
         hud.update(d);
         paintCard(); paintBadge();

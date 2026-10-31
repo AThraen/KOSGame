@@ -471,7 +471,15 @@
           const deg = (((dir * 180 / Math.PI) % 360) + 360) % 360; // arrow points where the wind blows TO (glyph points down at 0°)
           const key = Math.round(deg);
           if (last.windDeg !== key) { last.windDeg = key; cells.wind.querySelector('.hud-wind-arrow').setAttribute('transform', 'rotate(' + key + ' 20 20)'); }
-          setVal('wind', KOS.U.windVal(d.wind.speed || 0));
+          // d.wind.speed = the wind AT the player's boat (gusts/lulls included); d.wind.ref (optional) = the course-wide
+          // wind without gusts. The number is low-passed (~0.5 s) so it doesn't flicker; the colour marks a gust/lull.
+          const spd = Math.max(0, +d.wind.speed || 0), now = (root.performance && performance.now) ? performance.now() : Date.now();
+          const dtS = last.windT ? Math.min(2, (now - last.windT) / 1000) : 0; last.windT = now;
+          last.windSm = last.windSm == null || !dtS ? spd : last.windSm + (spd - last.windSm) * (1 - Math.exp(-dtS / 0.5));
+          setVal('wind', KOS.U.windVal(last.windSm));
+          const ref = +d.wind.ref || 0, rr = ref > 0.5 ? last.windSm / ref : 1;
+          const g = last.gust || 0, gust = rr >= 1.06 || (g > 0 && rr >= 1.03) ? 1 : rr <= 0.94 || (g < 0 && rr <= 0.97) ? -1 : 0;
+          if (gust !== g) { last.gust = gust; cells.wind.classList.toggle('is-gust', gust > 0); cells.wind.classList.toggle('is-lull', gust < 0); }
           const wu = cells.wind.querySelector('.hud-wind-unit'), wut = ' ' + KOS.U.windUnitLabel();
           if (wu && wu.textContent !== wut) wu.textContent = wut;
         }

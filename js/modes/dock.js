@@ -1103,7 +1103,7 @@
       if (S.hudT > 0) return;
       S.hudT = 0.1;
       const v = sog(), kn = U.kn(v);
-      hud.update({ wind: { dir: boat.windDir || windDir, speed: boat.tws || P.windKn }, speed: kn, timer: S.time * 1000,
+      hud.update({ wind: { dir: boat.windDir || windDir, speed: boat.tws || P.windKn, ref: wind.speed }, speed: kn, timer: S.time * 1000,
         custom: { stage: (Math.min(S.si + 1, stages.length)) + '<small>/' + stages.length + '</small>' } });
       // speed meter: green up to the "ok" limit, yellow to 1.7×, red beyond
       const vmax = vOk * 3;

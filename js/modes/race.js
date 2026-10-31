@@ -1825,7 +1825,7 @@
         S.hudT = 0.1;
         const nb = boats.length;
         hud.update({
-          wind: { dir: me.windDir || wind.dir, speed: me.tws || wind.speed }, speed: U.kn(Math.abs(me.speed)),
+          wind: { dir: me.windDir || wind.dir, speed: me.tws || wind.speed, ref: wind.speed }, speed: U.kn(Math.abs(me.speed)),
           timer: S.phase === 'pre' ? -S.clock * 1000 : (me.rc.finT != null ? me.rc.finT : S.raceT) * 1000,
           place: S.phase === 'pre' || !me.rc.started ? { place: '–', of: nb } : { place: me.rc.place, of: nb },
         });

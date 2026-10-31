@@ -682,7 +682,7 @@
       if (S.hudT <= 0) {
         S.hudT = 0.1;
         opp.tag = opp.short + ' ' + Math.round(opp.wet) + ' %' + (opp.pen ? ' ↻' : ''); // "Træner Anton 12 %", a turn symbol while he pays a penalty
-        hud.update({ wind: { dir: me.windDir || wind.dir, speed: me.tws || wind.speed }, speed: U.kn(Math.abs(me.speed)), timer: (S.phase === 'duel' || S.phase === 'end' ? remaining() : P.durationS) * 1000 });
+        hud.update({ wind: { dir: me.windDir || wind.dir, speed: me.tws || wind.speed, ref: wind.speed }, speed: U.kn(Math.abs(me.speed)), timer: (S.phase === 'duel' || S.phase === 'end' ? remaining() : P.durationS) * 1000 });
         paintPanel();
       }
       if (S.ambT <= 0) { S.ambT = 0.5; ambient(); }

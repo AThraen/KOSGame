@@ -853,7 +853,7 @@
       S.hudT -= dt; S.ambT -= dt;
       if (S.hudT <= 0) {
         S.hudT = 0.1;
-        const d = { wind: { dir: boat.windDir || wind.dir, speed: boat.tws || wind.speed }, speed: U.kn(Math.abs(boat.speed)), pos: boat.pos, heel: boat.heel, heelMax: cls.capsizeHeel || 0.8 };
+        const d = { wind: { dir: boat.windDir || wind.dir, speed: boat.tws || wind.speed, ref: wind.speed }, speed: U.kn(Math.abs(boat.speed)), pos: boat.pos, heel: boat.heel, heelMax: cls.capsizeHeel || 0.8 };
         if (P.kind !== 'free') d.timer = (S.time + S.penalty) * 1000;
         if (P.kind === 'rings' || P.kind === 'cleanup') d.custom = { count: S.collected + '<small>/' + S.items.length + '</small>' };
         if (P.kind === 'timetrial') { const c = S.course[S.leg]; d.custom = { count: !c ? '✓' : c.type === 'mark' ? c.m.label + '<small>/2</small>' : KOS.UI.esc(t(c.finish ? 'sail.hud.finish' : 'sail.hud.start')) }; }
