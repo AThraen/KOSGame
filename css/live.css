@@ -305,3 +305,71 @@
 .live-startinfo .live-hint { margin: 0; font-size: max(13px, .85rem); }
 .live-startbar .btn-big { flex: none; min-height: 48px; padding: 10px 16px; font-size: 1.02rem; }
 @media (max-height: 450px) { .live-startbar { position: static; } }
+
+/* the host and plan forms (round 4): each label above its control, segmented controls instead of wrapping chip clouds, the weather and
+   the rules in cards that open on tap and show their choices as one line while closed */
+.live-form .live-field { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 6px; }
+.live-field > .live-label { min-width: 0; }
+.live-sublabel { font-size: .85rem; font-weight: 800; color: var(--text-dim); }
+.live-seg { display: flex; gap: 0; padding: 3px; border-radius: 999px; background: rgba(0,0,0,.25); border: 1px solid var(--glass-border); width: 100%; min-width: 0; }
+.live-seg .chip { flex: 1 1 0; min-width: 0; justify-content: center; text-align: center; border: 0; background: none; padding: 8px 6px; white-space: normal; line-height: 1.15; }
+.live-seg .chip.on { background: linear-gradient(180deg, var(--primary-hi), var(--primary-2)); }
+.live-boats { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.live-boats .chip { padding: 8px 6px; justify-content: center; text-align: center; white-space: nowrap; }
+.live-courses { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.live-courses .chip { display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 16px; padding: 10px 8px; min-height: 84px; }
+.live-courses .live-cico { width: 40px; height: 40px; margin: 0; }
+.live-laps { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.live-laps .live-seg { max-width: 220px; }
+.live-presets { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--glass-border); }
+.live-grp { border-radius: 16px; background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); }
+.live-grp-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 56px; background: none; border: 0; color: var(--text); text-align: left; font: inherit; cursor: pointer; border-radius: 16px; }
+.live-grp-head > .ico { width: 24px; height: 24px; flex: none; color: var(--primary); }
+.live-grp-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.live-grp-txt b { font-size: 1.02rem; }
+.live-grp-txt small { color: var(--text-dim); font-size: .85rem; line-height: 1.3; }
+.live-grp.is-open .live-grp-txt small { display: none; }
+.live-grp-chev { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); }
+.live-grp-chev .ico { width: 18px; height: 18px; }
+.live-grp-body { display: flex; flex-direction: column; gap: 14px; padding: 0 14px 14px; }
+.live-wind { display: flex; align-items: center; gap: 14px; }
+.live-windval { flex: none; min-width: 4.6em; font-size: 1.35rem; font-weight: 900; color: var(--primary); font-variant-numeric: tabular-nums; }
+.live-range { flex: 1 1 auto; min-width: 0; height: 44px; accent-color: var(--primary); background: none; }
+.live-compass { position: relative; width: 176px; height: 176px; margin: 0 auto; color: var(--text); }
+.live-compass-rose { position: absolute; inset: 22px; width: calc(100% - 44px); height: calc(100% - 44px); }
+.live-compass .live-cdir {
+  position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; justify-content: center; font-size: .82rem;
+  transform: rotate(var(--a)) translateY(-66px) rotate(calc(-1 * var(--a))); margin: -22px 0 0 -22px;
+}
+.live-compass .live-cdir.pressed { transform: rotate(var(--a)) translateY(-66px) rotate(calc(-1 * var(--a))) scale(.94); }
+.live-switches { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.live-switch {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 8px 12px; border-radius: 14px;
+  background: rgba(0,0,0,.2); border: 1px solid var(--glass-border); color: var(--text); font: inherit; font-weight: 800; text-align: left; cursor: pointer;
+}
+.live-switch i { flex: none; position: relative; width: 46px; height: 28px; border-radius: 999px; background: rgba(255,255,255,.18); transition: background .15s; }
+.live-switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.live-switch.on i { background: var(--good); }
+.live-switch.on i::after { transform: translateX(18px); }
+.live-hostbar {
+  position: sticky; bottom: 0; z-index: 2; display: flex; gap: 10px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: rgba(8, 24, 44, .92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid var(--glass-border);
+}
+.live-hostbar .btn-big { min-height: 52px; padding: 10px 16px; font-size: 1.05rem; justify-content: center; }
+.live-hostbar [data-act="create"] { flex: 1 1 auto; }
+.live-hostbar [data-act="planview"] { flex: none; }
+@media (max-height: 450px) { .live-hostbar { position: static; } }
+@media (min-width: 560px) { .live-switches { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .live-form.live-host, .live-form.live-plan { max-width: 720px; width: 100%; margin: 0 auto; } .live-hostbar { max-width: 720px; width: 100%; margin: 0 auto; } }
+@media (prefers-reduced-motion: reduce) { .live-switch i, .live-switch i::after { transition: none; } }
+.live-boats .chip { padding: 8px 4px; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; }
+/* "who can join" in the forms: the same segmented look as the other choices */
+.live-host .live-vis .live-chips, .live-plan .live-vis .live-chips { gap: 0; padding: 3px; border-radius: 999px; background: rgba(0,0,0,.25); border: 1px solid var(--glass-border); }
+.live-host .live-vis .chip, .live-plan .live-vis .chip { border: 0; background: none; padding: 6px 8px; line-height: 1.15; }
+.live-host .live-vis .chip.on, .live-plan .live-vis .chip.on { background: linear-gradient(180deg, var(--primary-hi), var(--primary-2)); }
+.live-courses .live-cico { width: 48px; height: 48px; }
+@media (max-width: 379px) {
+  .live-seg .chip { font-size: .82rem; padding: 8px 2px; }
+  .live-hostbar [data-act="planview"] { width: 52px; min-width: 52px; padding: 0; }
+  .live-hostbar [data-act="planview"] span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

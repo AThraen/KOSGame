@@ -129,7 +129,10 @@ async function main() {
   await waitView(host.page, 'setup');
   ok(await host.page.evaluate(() => document.querySelectorAll('#screen-live [data-act="opt"][data-k="boat"]').length >= 1), 'setup lists the unlocked boats');
   await host.page.click('#screen-live [data-act="opt"][data-k="laps"][data-v="1"]');
+  ok(await host.page.evaluate(() => !document.querySelector('#screen-live [data-k="countdownS"]') && /Start 1 min/.test(document.querySelector('#screen-live [data-act="grp"][data-v="rules"]').textContent)), 'the rules wait in a closed card that shows them as one line');
+  await host.page.click('#screen-live [data-act="grp"][data-v="rules"]');
   await host.page.click('#screen-live [data-act="opt"][data-k="countdownS"][data-v="20"]');
+  ok(await host.page.evaluate(() => KOS.Lobby.state.cfg.countdownS === 20 && !!document.querySelector('#screen-live [data-k="countdownS"][data-v="20"].on')), 'an open card stays open after a choice, and the choice is stored');
   await clickAct(host.page, 'create');
   await waitView(host.page, 'room');
   const code = await host.page.evaluate(() => document.getElementById('live-code-show').textContent);
@@ -291,6 +294,7 @@ async function main() {
     // the host's boat picker offers every boat, not only the unlocked ones; the help level can be locked
     await clickAct(n.page, 'host'); await waitView(n.page, 'setup');
     ok(await n.page.evaluate(() => { const b = [...document.querySelectorAll('#screen-live [data-act="opt"][data-k="boat"]')].map(x => x.getAttribute('data-v')); return ['opti', 'hboat', 'j70', '29er'].every(x => b.indexOf(x) >= 0); }), 'host boat picker: all boats offered with no unlocks (H-boat, J/70, 29er ...)');
+    await n.page.click('#screen-live [data-act="grp"][data-v="rules"]');
     await n.page.click('#screen-live [data-act="opt"][data-k="help"][data-v="locked"]');
     ok(await n.page.evaluate(() => KOS.Lobby.state.cfg.help === 'locked'), 'help level "Låst" can be chosen');
     await n.page.click('#screen-live [data-act="opt"][data-k="boat"][data-v="hboat"]');
@@ -634,10 +638,16 @@ async function main() {
     ok(await pp.page.evaluate(() => /kl\. 17\.30 · Åbner kl\. 17\.15/.test(document.getElementById('live-plan-when').textContent)), 'the form says when it starts and when it opens (' + await pp.page.evaluate(() => document.getElementById('live-plan-when').textContent) + ')');
     await pp.page.click('#screen-live [data-act="ptitle"][data-v="weekend"]');
     await pp.page.click('#screen-live [data-act="pvis"][data-v="private"]');
-    ok(await pp.page.evaluate(() => !document.querySelector('#screen-live [data-k="maxP"]') && !document.querySelector('#screen-live [data-k="windKn"]')), 'wind and the less common options wait behind "Flere valg"');
-    await clickAct(pp.page, 'pmore');
+    ok(await pp.page.evaluate(() => !document.querySelector('#screen-live [data-k="maxP"]') && !document.getElementById('live-wind')), 'the weather and the rules wait in their closed cards');
+    await pp.page.click('#screen-live [data-act="grp"][data-v="rules"]');
     await pp.page.click('#screen-live [data-act="opt"][data-k="maxP"][data-v="4"]');
-    ok(await pp.page.evaluate(() => !!document.querySelector('#screen-live [data-k="windKn"]') && /Færre valg/.test(document.querySelector('#screen-live [data-act="pmore"]').textContent)), '"Flere valg" shows wind, max sailors, penalties and contact');
+    await pp.page.click('#screen-live [data-act="grp"][data-v="wx"]');
+    ok(await pp.page.evaluate(() => !!document.getElementById('live-wind') && document.querySelectorAll('#screen-live [data-k="windDeg"]').length === 8 && !!document.querySelector('#screen-live [data-k="pen"][role="switch"]')), 'the cards hold the wind slider, the compass, max sailors and the switches');
+    await pp.page.evaluate(() => { const w = document.getElementById('live-wind'); w.value = '0'; w.dispatchEvent(new Event('input')); w.dispatchEvent(new Event('change')); });
+    ok(await pp.page.evaluate(() => Math.abs(KOS.Lobby.state.cfg.windKn - KOS.U.kn(3)) < 0.1 && /3 m\/s/.test(document.querySelector('#screen-live [data-act="grp"][data-v="wx"]').textContent)), 'the wind slider stores the wind (3 m/s)');
+    await pp.page.click('#screen-live [data-act="preset"][data-v="race"]');
+    ok(await pp.page.evaluate(() => { const c = KOS.Lobby.state.cfg; return c.countdownS === 180 && c.help === 'locked' && c.gust === 0.8 && c.maxP === 4 && !!document.querySelector('#screen-live [data-act="preset"][data-v="race"].on'); }), 'quick choice "Kapsejlads" sets the weather and the rules, not the number of sailors');
+    await pp.page.click('#screen-live [data-act="preset"][data-v="train"]');
     await clickAct(pp.page, 'plan');
     await waitView(pp.page, 'mine', 10000);
     const st = await pp.page.evaluate(() => JSON.parse(localStorage.getItem('kos.liveSched') || 'null'));

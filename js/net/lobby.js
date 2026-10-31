@@ -158,6 +158,23 @@
   } });
 
   // ------------------------------------------------------------------ state
+  // the host and plan forms: quick choices, the weather and rules cards and their one-line summaries
+  KOS.I18n.add('da', { live: {
+    cfg: { n1: '1', n2: '2', n3: '3', 4: '4', 8: '8', 12: '12', 24: '24' },
+    form: { quick: 'Hurtige valg', peasy: 'Begynder', ptrain: 'Træning', prace: 'Kapsejlads', wx: 'Vejr', rules: 'Regler og tid', planShort: 'Planlæg',
+      from: 'fra {dir}', gs0: 'ingen vindstød', gs1: 'lidt vindstød', gs2: 'mange vindstød', gs3: 'hårde vindstød',
+      ss0: 'ingen vindskift', ss1: 'lidt vindskift', ss2: 'mange vindskift', rs0: 'tørt', rs1: 'let regn', rs2: 'kraftig regn',
+      startS: 'start {t}', finS: 'målvindue {t}', finS0: 'intet målvindue', penOn: 'straffe', penOff: 'ingen straffe', conOn: 'kontakt', conOff: 'ingen kontakt',
+      helpLocked: 'samme hjælp', helpFree: 'fri hjælp', maxS: 'max {n} sejlere' },
+  } });
+  KOS.I18n.add('en', { live: {
+    cfg: { n1: '1', n2: '2', n3: '3', 4: '4', 8: '8', 12: '12', 24: '24' },
+    form: { quick: 'Quick setup', peasy: 'Beginners', ptrain: 'Training', prace: 'Racing', wx: 'Weather', rules: 'Rules and time', planShort: 'Schedule',
+      from: 'from {dir}', gs0: 'no gusts', gs1: 'a few gusts', gs2: 'many gusts', gs3: 'hard gusts',
+      ss0: 'no wind shifts', ss1: 'a few wind shifts', ss2: 'many wind shifts', rs0: 'dry', rs1: 'light rain', rs2: 'heavy rain',
+      startS: 'start {t}', finS: 'finish window {t}', finS0: 'no finish window', penOn: 'penalties', penOff: 'no penalties', conOn: 'contact', conOff: 'no contact',
+      helpLocked: 'same help', helpFree: 'free help', maxS: 'max {n} sailors' },
+  } });
   const DIRS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
   const L = {
     view: 'entry', hostRole: 'sail', cfg: null, sess: null, room: null, code: '', msgKey: null, msgText: '', msgActions: [],
@@ -172,8 +189,33 @@
   function defaultCfg() {
     const boats = boatsList();
     const fav = KOS.Storage && KOS.Storage.get ? KOS.Storage.get('boat', 'opti') : 'opti';
-    return { boat: boats.indexOf(fav) >= 0 ? fav : boats[0] || 'opti', venue: 'sound', course: 'wl', laps: 2, windDeg: 225, windKn: 10,
+    const c = { boat: boats.indexOf(fav) >= 0 ? fav : boats[0] || 'opti', venue: 'sound', course: 'wl', laps: 2, windDeg: 225, windKn: 10,
       gust: 0.4, shift: 0.4, maxP: 8, countdownS: 60, pen: true, contact: true, help: 'free', rain: 0, finishS: 180, vis: 'private' };
+    Object.assign(c, savedCfg(boats));
+    c.windKn = nearWind(c.windKn).kn; // a wind the slider has (m/s or knots)
+    return c;
+  }
+  // the last setup this phone hosted or planned (a trainer who runs the same race every Tuesday just taps "Opret løbet"); each value
+  // is checked against the options on screen, anything else keeps its default
+  const CFG_KEY = 'liveCfg';
+  const CFG_OK = {
+    boat: (v, boats) => boats.indexOf(v) >= 0, venue: v => v === 'sound' || v === 'bay', course: v => v === 'wl' || v === 'tri', laps: v => [1, 2, 3].indexOf(v) >= 0,
+    windDeg: v => DIRS.some(d => d[1] === v), windKn: v => typeof v === 'number' && v >= 5 && v <= 28, gust: v => [0, 0.4, 0.8, 1].indexOf(v) >= 0,
+    shift: v => [0, 0.4, 0.8].indexOf(v) >= 0, rain: v => [0, 1, 2].indexOf(v) >= 0, countdownS: v => [20, 60, 180].indexOf(v) >= 0,
+    finishS: v => [0, 60, 180, 300].indexOf(v) >= 0, pen: v => typeof v === 'boolean', contact: v => typeof v === 'boolean', help: v => v === 'locked' || v === 'free',
+    maxP: v => [4, 8, 12, 24].indexOf(v) >= 0, vis: v => v === 'open' || v === 'private',
+  };
+  function savedCfg(boats) {
+    const raw = KOS.Storage && KOS.Storage.get ? KOS.Storage.get(CFG_KEY, null, v => !!v && typeof v === 'object' && !Array.isArray(v)) : null, out = {};
+    if (raw) Object.keys(CFG_OK).forEach(k => { if (CFG_OK[k](raw[k], boats)) out[k] = raw[k]; });
+    return out;
+  }
+  function saveCfg() {
+    if (!KOS.Storage || !KOS.Storage.set || !L.cfg) return;
+    const out = {};
+    Object.keys(CFG_OK).forEach(k => { out[k] = L.cfg[k]; });
+    KOS.Storage.set(CFG_KEY, out);
+    if (L.hostRole === 'sail' || L.hostRole === 'watch') KOS.Storage.set('liveRole', L.hostRole);
   }
   function boatsList() { try { const l = app().liveBoats(); return l && l.length ? l : ['opti']; } catch (e) { return ['opti']; } }
   function myName() {
@@ -193,7 +235,13 @@
     L.rj = null; clearTimeout(L.rjT);
     stopTick();
   }
-  function paint() { const sec = secEl(); if (sec && app().cur === 'live') { render(sec); if (KOS.I18n) KOS.I18n.apply(sec); } }
+  // a repaint of the same view keeps the scroll position (a tap on an option further down must not jump to the top)
+  function paint() {
+    const sec = secEl(); if (!sec || app().cur !== 'live') return;
+    const sc = sec.querySelector('.scroll'), y = sc && sec.getAttribute('data-live-view') === L.view ? sc.scrollTop : 0;
+    render(sec); if (KOS.I18n) KOS.I18n.apply(sec);
+    const sc2 = y && sec.querySelector('.scroll'); if (sc2) sc2.scrollTop = y;
+  }
   function setView(v) { L.view = v; paint(); if (KOS.Nav) KOS.Nav.sync(); } // KOS.Nav: a lobby sub view is one back step
   // one 1 s ticker for the clocks on screen (list, wait, scheduled room): runs only while one of those views is shown
   const TICK_VIEWS = ['list', 'wait', 'room'];
@@ -336,6 +384,7 @@
     });
   }
   function doCreate() {
+    saveCfg();
     L.busy = t('live.connecting'); L.intent = {}; paint();
     guard().then(ok => {
       if (!ok) return;
@@ -511,38 +560,105 @@
       trynow: '<button type="button" class="btn btn-primary" data-act="trynow">' + kit().ico('retry') + '<span>' + esc(t('live.tryNow')) + '</span></button>' };
     return shell(t('live.title'), trainerHtml(L.msgText) + '<div class="live-actions">' + L.msgActions.map(a => btn[a] || '').join('') + '</div>');
   }
-  function viewSetup() {
-    const c = L.cfg, boats = boatsList(), G = kit().boatGet;
-    const bn = id => (G(id) && G(id).name) || id;
-    const U = KOS.U, winds = windOpts();
+  // ---- the race settings, shared by the host form and the plan form: the few that matter on top (boat, waters, course + laps), the
+  // weather and the rules each in a card that opens on tap and shows its current choices as one line while closed
+  const OPTS = {
+    gust: [['none', 0], ['some', 0.4], ['lots', 0.8], ['hard', 1]], shift: [['none', 0], ['some', 0.4], ['lots', 0.8]],
+    rain: [['rain0', 0], ['rain1', 1], ['rain2', 2]], countdownS: [['s20', 20], ['s60', 60], ['s180', 180]],
+    finishS: [['f60', 60], ['f180', 180], ['f300', 300], ['f0', 0]], help: [['locked', 'locked'], ['free', 'free']], maxP: [['4', 4], ['8', 8], ['12', 12], ['24', 24]],
+  };
+  // quick choices set the weather and the rules in one tap (boat, course and who can join stay as they are); windKn is a target, snapped to a wind option
+  const PRESETS = {
+    easy: { windKn: 8, gust: 0, shift: 0, rain: 0, countdownS: 20, finishS: 0, pen: false, contact: false, help: 'free' },
+    train: { windKn: 10, gust: 0.4, shift: 0.4, rain: 0, countdownS: 60, finishS: 180, pen: true, contact: true, help: 'free' },
+    race: { windKn: 14, gust: 0.8, shift: 0.8, rain: 0, countdownS: 180, finishS: 300, pen: true, contact: true, help: 'locked' },
+  };
+  const nearWind = (kn, winds) => (winds || windOpts()).reduce((a, w) => (Math.abs(w.kn - kn) < Math.abs(a.kn - kn) ? w : a));
+  const presetCfg = id => Object.assign({}, PRESETS[id], { windKn: nearWind(PRESETS[id].windKn).kn });
+  const presetOn = (c, id) => { const p = presetCfg(id); return Object.keys(p).every(k => (k === 'windKn' ? Math.abs(c.windKn - p.windKn) < 0.06 : c[k] === p[k])); };
+  // a segmented control: equal parts on one line (the chips keep data-act="opt" data-k data-v, as before)
+  const seg = (k, opts, cur) => '<div class="live-seg" role="group">' + opts.map(o => chip('opt', k, o[1], t('live.cfg.' + o[0]), cur === o[1])).join('') + '</div>';
+  const field = (label, body, cls) => '<div class="live-row live-field' + (cls ? ' ' + cls : '') + '"><div class="live-label">' + esc(label) + '</div>' + body + '</div>';
+  const sw = (k, on) => '<button type="button" class="live-switch' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" data-act="opt" data-k="' + k + '" data-v="' + !on + '">' +
+    '<span>' + esc(t('live.cfg.' + k)) + '</span><i aria-hidden="true"></i></button>';
+  function boatField(c) {
+    const G = kit().boatGet, bn = id => (G(id) && G(id).name) || id;
+    return field(t('live.cfg.boat'), '<div class="live-boats">' + boatsList().map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('') + '</div>');
+  }
+  // the course: two cards with the course drawing, the laps right under them (one row, so "who can join" still follows the course)
+  function courseField(c) {
+    return field(t('live.cfg.course'), '<div class="live-courses">' + ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('') + '</div>' +
+      '<div class="live-laps"><span class="live-sublabel">' + esc(t('live.cfg.laps')) + '</span>' + seg('laps', [1, 2, 3].map(v => ['n' + v, v]), c.laps) + '</div>');
+  }
+  function windNote(c) {
+    const G = kit().boatGet, U = KOS.U;
     const wMs = U && U.ms ? U.ms(c.windKn) : c.windKn * 0.5144;
-    const keelB = id => { const B = G(id); return !!(B && B.canCapsize === false); };
-    const note = wMs > 8.6 && !keelB(c.boat) ? t('live.dinghyNote') : wMs > 9 && keelB(c.boat) ? t('live.strongNote') : '';
+    const keel = !!(G(c.boat) && G(c.boat).canCapsize === false);
+    return wMs > 8.6 && !keel ? t('live.dinghyNote') : wMs > 9 && keel ? t('live.strongNote') : '';
+  }
+  // the wind direction: the eight points round a small compass, the arrow in the middle shows where the wind blows to
+  function compass(c) {
+    return '<div class="live-compass" role="group" aria-label="' + esc(t('live.cfg.windDir')) + '">' +
+      '<svg class="live-compass-rose" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/>' +
+      '<g transform="rotate(' + c.windDeg + ' 50 50)"><path d="M50 26V70" stroke="#49c6f2" stroke-width="4" stroke-linecap="round"/><path d="M40 62L50 74L60 62" fill="none" stroke="#49c6f2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g></svg>' +
+      DIRS.map(d => '<button type="button" class="chip live-cdir' + (c.windDeg === d[1] ? ' on' : '') + '" style="--a:' + d[1] + 'deg" data-act="opt" data-k="windDeg" data-v="' + d[1] + '" aria-pressed="' + (c.windDeg === d[1]) + '">' + esc(t('live.dir.' + d[0])) + '</button>').join('') + '</div>';
+  }
+  function wxSum(c) {
+    const gi = OPTS.gust.findIndex(x => x[1] === c.gust), si = OPTS.shift.findIndex(x => x[1] === c.shift);
+    const dir = (DIRS.find(d => d[1] === c.windDeg) || DIRS[5])[0];
+    return [nearWind(c.windKn).label + ' ' + t('live.form.from', { dir: t('live.dir.' + dir) }), t('live.form.gs' + Math.max(0, gi)), t('live.form.ss' + Math.max(0, si)), t('live.form.rs' + (c.rain || 0))].join(' · ');
+  }
+  function rulesSum(c) {
+    const lbl = (k, v) => { const f = OPTS[k].find(x => x[1] === v); return f ? t('live.cfg.' + f[0]) : ''; };
+    return [t('live.form.startS', { t: lbl('countdownS', c.countdownS) }), c.finishS ? t('live.form.finS', { t: lbl('finishS', c.finishS) }) : t('live.form.finS0'),
+      t(c.pen ? 'live.form.penOn' : 'live.form.penOff'), t(c.contact ? 'live.form.conOn' : 'live.form.conOff'), t('live.form.help' + (c.help === 'locked' ? 'Locked' : 'Free')),
+      t('live.form.maxS', { n: c.maxP })].join(' · ').replace(/^./, x => x.toUpperCase());
+  }
+  function group(id, icon, body, sum) {
+    const open = !!(L.grp && L.grp[id]);
+    return '<div class="live-grp' + (open ? ' is-open' : '') + '"><button type="button" class="live-grp-head" data-act="grp" data-v="' + id + '" aria-expanded="' + open + '">' +
+      kit().ico(icon) + '<span class="live-grp-txt"><b>' + esc(t('live.form.' + id)) + '</b><small>' + esc(sum) + '</small></span><span class="live-grp-chev" aria-hidden="true">' + kit().ico(open ? 'minus' : 'plus') + '</span></button>' +
+      (open ? '<div class="live-grp-body">' + body + '</div>' : '') + '</div>';
+  }
+  function wxGroup(c) {
+    const winds = windOpts(), i = winds.indexOf(nearWind(c.windKn, winds)), note = windNote(c);
+    return group('wx', 'wind',
+      field(t('live.cfg.wind'), '<div class="live-wind"><output class="live-windval" id="live-windval">' + esc(winds[i].label) + '</output>' +
+        '<input type="range" class="live-range" id="live-wind" min="0" max="' + (winds.length - 1) + '" step="1" value="' + i + '" aria-label="' + esc(t('live.cfg.wind')) + '" aria-valuetext="' + esc(winds[i].label) + '"></div>') +
+      (note ? '<div class="live-hint live-windnote" role="note">' + esc(note) + '</div>' : '') +
+      field(t('live.cfg.windDir'), compass(c)) +
+      field(t('live.cfg.gust'), seg('gust', OPTS.gust, c.gust)) +
+      field(t('live.cfg.shift'), seg('shift', OPTS.shift, c.shift)) +
+      field(t('live.cfg.rain'), seg('rain', OPTS.rain, c.rain)), wxSum(c));
+  }
+  function rulesGroup(c) {
+    return group('rules', 'rules',
+      field(t('live.cfg.start'), seg('countdownS', OPTS.countdownS, c.countdownS)) +
+      field(t('live.cfg.finish'), seg('finishS', OPTS.finishS, c.finishS)) +
+      '<div class="live-switches">' + sw('pen', c.pen) + sw('contact', c.contact) + '</div>' +
+      field(t('live.cfg.help'), seg('help', OPTS.help, c.help)) +
+      field(t('live.cfg.maxP'), seg('maxP', OPTS.maxP, c.maxP)), rulesSum(c));
+  }
+  function presetRow(c) {
+    return '<div class="live-presets"><span class="live-sublabel">' + esc(t('live.form.quick')) + '</span><div class="live-seg">' +
+      Object.keys(PRESETS).map(id => '<button type="button" class="chip' + (presetOn(c, id) ? ' on' : '') + '" data-act="preset" data-v="' + id + '" aria-pressed="' + presetOn(c, id) + '">' + esc(t('live.form.p' + id)) + '</button>').join('') + '</div></div>';
+  }
+  function viewSetup() {
+    const c = L.cfg;
     return shell(t('live.host'),
       '<p class="live-intro">' + esc(t('live.hostIntro')) + '</p>' +
-      '<div class="live-form glass">' +
-      row(t('live.cfg.role'), ['sail', 'watch'].map(r => chip('role', 'role', r, t('live.role.' + r), L.hostRole === r)).join('')) +
-      '<div class="live-hint">' + esc(t('live.role.' + L.hostRole + 'Hint')) + '</div>' +
-      row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
-      row(t('live.cfg.venue'), ['sound', 'bay'].map(v => chip('opt', 'venue', v, t('live.cfg.' + v), c.venue === v)).join('')) +
-      row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
-      visRow(c.vis, 'vis', true) + // who can see the race (and the host's nickname): high up, not below a dozen other settings
-      row(t('live.cfg.laps'), [1, 2, 3].map(v => chip('opt', 'laps', v, String(v), c.laps === v)).join('')) +
-      windRow(c, winds) +
-      (note ? '<div class="live-hint live-windnote" role="note">' + esc(note) + '</div>' : '') +
-      row(t('live.cfg.windDir'), DIRS.map(d => chip('opt', 'windDeg', d[1], t('live.dir.' + d[0]), c.windDeg === d[1])).join('')) +
-      row(t('live.cfg.gust'), [['none', 0], ['some', 0.4], ['lots', 0.8], ['hard', 1]].map(g => chip('opt', 'gust', g[1], t('live.cfg.' + g[0]), c.gust === g[1])).join('')) +
-      row(t('live.cfg.rain'), [0, 1, 2].map(v => chip('opt', 'rain', v, t('live.cfg.rain' + v), c.rain === v)).join('')) +
-      row(t('live.cfg.shift'), [['none', 0], ['some', 0.4], ['lots', 0.8]].map(g => chip('opt', 'shift', g[1], t('live.cfg.' + g[0]), c.shift === g[1])).join('')) +
-      row(t('live.cfg.start'), [['s20', 20], ['s60', 60], ['s180', 180]].map(g => chip('opt', 'countdownS', g[1], t('live.cfg.' + g[0]), c.countdownS === g[1])).join('')) +
-      row(t('live.cfg.finish'), [60, 180, 300, 0].map(v => chip('opt', 'finishS', v, t('live.cfg.f' + v), c.finishS === v)).join('')) +
-      row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
-      row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) +
-      row(t('live.cfg.help'), ['locked', 'free'].map(v => chip('opt', 'help', v, t('live.cfg.' + v), c.help === v)).join('')) +
-      row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
+      '<div class="live-form live-host glass">' +
+      field(t('live.cfg.role'), '<div class="live-seg" role="group">' + ['sail', 'watch'].map(r => chip('role', 'role', r, t('live.role.' + r), L.hostRole === r)).join('') + '</div>' +
+        '<div class="live-hint">' + esc(t('live.role.' + L.hostRole + 'Hint')) + '</div>') +
+      boatField(c) +
+      field(t('live.cfg.venue'), seg('venue', [['sound', 'sound'], ['bay', 'bay']], c.venue)) +
+      courseField(c) +
+      visRow(c.vis, 'vis', true) + // who can see the race (and the host's nickname): high up, right under the course
+      presetRow(c) + wxGroup(c) + rulesGroup(c) +
       '</div>' +
-      '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="create"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('play') + '<span>' + esc(L.busy || t('live.cfg.create')) + '</span></button>' +
-      (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="planview"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(t('live.plan.btn')) + '</span></button>' : '') + '</div>');
+      // the buttons stick to the bottom of the screen while the form scrolls
+      '<div class="live-hostbar"><button type="button" class="btn btn-primary btn-big" data-act="create"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('play') + '<span>' + esc(L.busy || t('live.cfg.create')) + '</span></button>' +
+      (canPlan() ? '<button type="button" class="btn btn-glass btn-big" data-act="planview" aria-label="' + esc(t('live.plan.btn')) + '"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(t('live.form.planShort')) + '</span></button>' : '') + '</div>');
   }
   function viewJoin() {
     const p = KOS.Storage && KOS.Storage.profile ? KOS.Storage.profile() : null;
@@ -633,7 +749,6 @@
     const U = KOS.U, ms = U && U.windUnit && U.windUnit() !== 'kn';
     return ms ? [3, 4, 5, 6, 7, 8, 9, 10, 12, 14].map(v => ({ kn: Math.round(U.kn(v) * 10) / 10, label: v + ' m/s' })) : [6, 8, 10, 12, 14, 16, 18, 20, 24, 27].map(v => ({ kn: v, label: v + ' kn' }));
   }
-  const windRow = (c, winds) => row(t('live.cfg.wind'), (winds || windOpts()).map(w => chip('opt', 'windKn', w.kn, w.label, Math.abs(c.windKn - w.kn) < 0.06)).join(''));
   // stacked: the label above two equal chips (the room's narrow side card; the chips share the row instead of pushing it wider)
   function visRow(v, act, stacked) {
     v = v === 'open' ? 'open' : 'private';
@@ -805,8 +920,7 @@
   const cap = x => (x ? x.charAt(0).toUpperCase() + x.slice(1) : x);
   const planWhen = p => { const at = planStart(p); return isFinite(at) && !planCheck(p) ? cap(whenTxt(at)) + ' · ' + t('live.plan.opens', { time: clock(at - OPEN_BEFORE) }) : ''; };
   function viewPlan() {
-    const p = L.plan, c = L.cfg, boats = boatsList(), G = kit().boatGet, now = new Date();
-    const bn = id => (G(id) && G(id).name) || id;
+    const p = L.plan, c = L.cfg, now = new Date();
     return shell(t('live.plan.title'),
       '<p class="live-intro">' + esc(t('live.plan.intro')) + '</p>' +
       '<div class="live-form live-plan glass">' +
@@ -817,21 +931,26 @@
       '<input id="live-plan-time" class="live-input" type="time" step="300" value="' + esc(p.time) + '" required></div></div>' +
       '<div class="live-plan-when live-plan-when2" aria-hidden="true">' + esc(planWhen(p)) + '</div>' + // a narrow phone: the summary under the pickers, the bar holds the button only
       '<div id="live-plan-err" class="live-err" role="alert">' + esc(p.err || '') + '</div>' +
-      row(t('live.plan.name'), TITLES.map(id => chip('ptitle', 'title', id, titleTxt(id), p.title === id)).join('')) +
-      row(t('live.cfg.boat'), boats.map(b => chip('opt', 'boat', b, bn(b), c.boat === b)).join('')) +
-      row(t('live.cfg.course'), ['wl', 'tri'].map(v => chip('opt', 'course', v, t('live.cfg.' + v), c.course === v, COURSE_ICO[v])).join('')) +
+      field(t('live.plan.name'), '<div class="live-chips">' + TITLES.map(id => chip('ptitle', 'title', id, titleTxt(id), p.title === id)).join('') + '</div>') +
+      boatField(c) +
+      field(t('live.cfg.venue'), seg('venue', [['sound', 'sound'], ['bay', 'bay']], c.venue)) +
+      courseField(c) +
       visRow(p.vis, 'pvis', true) +
-      // wind and the less common settings wait behind "Flere valg" (the defaults are fine for a club race)
-      '<button type="button" class="btn btn-glass btn-sm live-pmore" data-act="pmore" aria-expanded="' + (L.planMore ? 'true' : 'false') + '">' + kit().ico(L.planMore ? 'minus' : 'plus') + '<span>' + esc(t(L.planMore ? 'live.plan.less' : 'live.plan.more')) + '</span></button>' +
-      (L.planMore ? windRow(c) +
-        row(t('live.cfg.maxP'), [4, 8, 12, 24].map(v => chip('opt', 'maxP', v, String(v), c.maxP === v)).join('')) +
-        row(t('live.cfg.pen'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'pen', g[0], t('live.cfg.' + g[1]), c.pen === g[0])).join('')) +
-        row(t('live.cfg.contact'), [[true, 'on'], [false, 'off']].map(g => chip('opt', 'contact', g[0], t('live.cfg.' + g[1]), c.contact === g[0])).join('')) : '') +
+      // the weather and the rules wait in their cards (the defaults are fine for a club race)
+      presetRow(c) + wxGroup(c) + rulesGroup(c) +
       '</div>' +
       // the summary, any error and the button stay at the bottom of the screen while the form scrolls
       '<div class="live-plan-bar"><div class="live-plan-foot"><div class="live-plan-when" id="live-plan-when">' + esc(planWhen(p)) + '</div>' +
       '<div id="live-plan-err2" class="live-err" aria-hidden="true">' + esc(p.err || '') + '</div></div>' +
       '<div class="live-actions"><button type="button" class="btn btn-primary btn-big" data-act="plan"' + (L.busy ? ' disabled' : '') + '>' + kit().ico('calendar') + '<span>' + esc(L.busy || t('live.plan.go')) + '</span></button></div></div>');
+  }
+  // the wind slider: the number follows the finger without a repaint; letting go repaints (the summary and the small-boat note)
+  function bindWind(sec) {
+    const el = sec.querySelector('#live-wind'), out = sec.querySelector('#live-windval');
+    if (!el || !L.cfg) return;
+    const set = () => { const w = windOpts()[+el.value]; if (!w) return; L.cfg.windKn = w.kn; if (out) out.textContent = w.label; el.setAttribute('aria-valuetext', w.label); };
+    el.addEventListener('input', set);
+    el.addEventListener('change', () => { set(); paint(); });
   }
   // the pickers write into L.plan as they change (no repaint: the native picker keeps its focus)
   function bindPlanInputs(sec) {
@@ -849,6 +968,7 @@
     const p = L.plan, bad = planCheck(p);
     if (bad) { p.err = t('live.plan.' + bad); paint(); return; } // shown at the pickers and right above the button
     const at = planStart(p), cfg = Object.assign({}, L.cfg, { vis: p.vis });
+    saveCfg();
     L.busy = t('live.connecting'); p.err = ''; paint();
     guard().then(ok => {
       if (!ok) { L.busy = ''; return; }
@@ -995,7 +1115,7 @@
         if ((L.view === 'wait' || L.view === 'join') && L.waitFrom === 'mine') { L.waitFrom = ''; L.joinErr = ''; setView('mine'); return; }
         if (L.view === 'room' || L.view === 'starting') leaveRoom(); else toEntry();
       },
-      host: () => { L.hostRole = L.hostRole || 'sail'; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => setView('setup')); },
+      host: () => { L.hostRole = L.hostRole || (KOS.Storage && KOS.Storage.get && KOS.Storage.get('liveRole', '') === 'watch' ? 'watch' : 'sail'); if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => setView('setup')); },
       joinview: () => recheckThen(() => { L.joinErr = ''; L.via = 'code'; setView('join'); }),
       resumeseat: b => { const c = b.getAttribute('data-code'); lt('rejoin', 'entry'); L.rejoin = true; autoRejoin(c); },
       recheck: () => recheckThen(() => setView('entry')),
@@ -1027,7 +1147,8 @@
       planview: () => { const from = L.view; if (!L.cfg) L.cfg = defaultCfg(); recheckThen(() => openPlan(from)); },
       ptitle: b => { L.plan.title = b.getAttribute('data-v'); paint(); },
       pvis: b => { L.plan.vis = b.getAttribute('data-v') === 'private' ? 'private' : 'open'; paint(); },
-      pmore: () => { L.planMore = !L.planMore; paint(); },
+      grp: b => { const id = b.getAttribute('data-v'); L.grp = Object.assign({}, L.grp, { [id]: !(L.grp && L.grp[id]) }); paint(); },
+      preset: b => { Object.assign(L.cfg, presetCfg(b.getAttribute('data-v'))); paint(); },
       plan: () => { if (!L.busy) doPlan(); },
       mineview: () => { L.mineQr = ''; setView('mine'); },
       mqr: b => { const c = b.getAttribute('data-code'); L.mineQr = L.mineQr === c ? '' : c; paint(); },
@@ -1040,6 +1161,7 @@
       trynow: () => { kit().sfx('click'); if (L.sess && L.sess.retryNow) L.sess.retryNow(); else if (L.rj) rejoinNow(); },
     });
     if (v === 'plan') bindPlanInputs(sec);
+    bindWind(sec);
     if (v === 'list' || v === 'wait' || v === 'room' && sec.querySelector('[data-until]')) { onTick(); ensureTick(); }
     const inp = sec.querySelector('#live-code');
     if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = sec.querySelector('[data-act="join"]'); if (b) b.click(); } });
