@@ -338,7 +338,7 @@
     // Live races follow the Dansk Sejlunion standard courses (dansksejlunion.dk, "Kapsejladsbanen"). u = upwind, r = to the right (so r < 0 is to port).
     //  op/ned: 1 on top, 1a just to port of it and a little below, gate 2s/2b above the line; start-1-1a-[2s/2b-1-1a]-finish, the finish is the start line (blue flags)
     //  trekant: 1 on top, 2 the wing mark to port, gate 3s/3b; start-1-2-3-[1-3]-finish, the finish is its own line ABOVE mark 1, crossed upwind
-    const DSU = !!LIVE;
+    const DSU = !!LIVE || P.course === 'tri'; // single-player triangles sail the DSU trekant too (gate 3s/3b, own finish line); single-player W-L keeps its own layout
     const dsuLay = B => {
       const gw = Math.max(10 * L, 28), gu = Math.max(0.12 * B, 8 * L + 10), d1a = U.clamp(6 * L, 14, Math.max(14, 0.12 * B));
       // trekant in the DSU drawing's proportions (B = the beat to 1): 2 at 68 % up / 55 % to port, the gate centred 22 % up and 17 % wide,

@@ -283,6 +283,27 @@ test('Physics: R13 flag during tack until close-hauled', () => {
   }
   ok(sawR13 && !b.r13);
 });
+test('Physics: a tack forced by a boat contact is not R13 (RRS 64.1(a))', () => {
+  const wind = KOS.Wind.steady(0, 10);
+  const b = settle('opti', 50, 10, { secs: 20 });
+  let sawR13 = false, tacked = false;
+  for (let i = 0; i < 60 * 6; i++) {
+    b.bumpAt = b.t; // still being pushed by the other hull
+    P.step(b, Object.assign(P.controls(), { rudder: U.clamp(U.angDiff(b.heading, R(50)) * 3, -1, 1) }), { wind }, KOS.DT);
+    if (b.r13) sawR13 = true;
+    if (b.tack === 'port') tacked = true;
+  }
+  ok(tacked && !sawR13, 'the hull went through the wind (' + tacked + ') without the R13 flag (' + sawR13 + ')');
+  // a real tack 1.5 s after the last contact counts again
+  const c = settle('opti', 50, 10, { secs: 20 });
+  c.bumpAt = c.t - 2;
+  let saw = false;
+  for (let i = 0; i < 60 * 6; i++) {
+    P.step(c, Object.assign(P.controls(), { rudder: U.clamp(U.angDiff(c.heading, R(50)) * 3, -1, 1) }), { wind }, KOS.DT);
+    if (c.r13) saw = true;
+  }
+  ok(saw, 'an own tack after the contact is R13 again');
+});
 test('Physics: gybing counts, emits boat:gybe with power, boom crosses', () => {
   const wind = KOS.Wind.steady(0, 12);
   const b = settle('ilca', 160, 12, { secs: 15 });

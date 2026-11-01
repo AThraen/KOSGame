@@ -180,7 +180,8 @@
         if (aTwa < Math.PI / 2) {
           boat.tacks++;
           boat.maneuverT = cls.tackTime;
-          boat.r13 = true;
+          // a hull pushed through head to wind by another boat has not tacked (RRS 64.1(a): compelled by the other's breach), so no R13
+          if (!(boat.bumpAt != null && boat.t - boat.bumpAt < 1.5)) boat.r13 = true;
           emit('boat:tack', { boat, from, to: boat.tack });
         } else {
           boat.gybes++;
@@ -582,6 +583,7 @@
           b.vx -= jimp * imb * nx; b.vy -= jimp * imb * ny;
           syncLocal(a); syncLocal(b);
         }
+        a.bumpAt = a.t; b.bumpAt = b.t; // step() reads it: a tack forced by the contact is not a tack for R13
         const ev = { type: 'boat', a, b, speed: impact, x: (res.ax + res.bx) / 2, y: (res.ay + res.by) / 2 };
         out.push(ev);
         const key = a.id + '|' + b.id;
