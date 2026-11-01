@@ -341,7 +341,9 @@
     const DSU = !!LIVE;
     const dsuLay = B => {
       const gw = Math.max(10 * L, 28), gu = Math.max(0.12 * B, 8 * L + 10), d1a = U.clamp(6 * L, 14, Math.max(14, 0.12 * B));
-      if (P.course === 'tri') { const gr = 0.15 * B; return { m1: [B, -0.05 * B], m2: [0.5 * B, -0.6 * B], gs: [gu, gr - gw / 2], gb: [gu, gr + gw / 2], gm: [gu, gr], fin: [B + Math.max(0.22 * B, 8 * L + 15), gr] }; }
+      // trekant in the DSU drawing's proportions (B = the beat to 1): 2 at 68 % up / 55 % to port, the gate centred 22 % up and 17 % wide,
+      // the finish centred at 120 %. The floors are in boat lengths only, so a short course keeps its shape (fixed metres squashed it).
+      if (P.course === 'tri') { const tw = Math.max(0.17 * B, 5 * L), tu = Math.max(0.22 * B, 4 * L + 6); return { m1: [B, 0], m2: [0.68 * B, -0.55 * B], gs: [tu, -tw / 2], gb: [tu, tw / 2], gm: [tu, 0], fin: [B + Math.max(0.2 * B, 4 * L + 8), 0] }; }
       return { m1: [B, 0], m1a: [B - 0.5 * d1a, -d1a], gs: [gu, -gw / 2], gb: [gu, gw / 2], gm: [gu, 0] };
     };
     function coursePts(B, O) {
